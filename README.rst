@@ -11,13 +11,13 @@ Requirements: Python 3.5+
 Installation:
 Download the Python wheel file from the releases page and install using pip or pip3.
 
-pip3 install iosimopt.wheel
+pip3 install iosimopt-0.0.6-py3-none-any.whl
 
 Installation from source:
 In the source directory, build the wheel using
 
 python3 setup.py bdist_wheel
 
-and install using pip as above or
+and install using pip as above (it will be in dist directory) or
 
 python3 setup.py install
