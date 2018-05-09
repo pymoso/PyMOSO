@@ -4,6 +4,7 @@ import pathlib
 import time
 import collections
 from datetime import date
+from math import ceil
 from .. import mprun
 from .. import solvers
 from .. import orclib

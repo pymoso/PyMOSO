@@ -14,8 +14,6 @@ Options:
   --trials=t                Number of instances to solve. [default: 1]
   --name=n                  A name to assign to the output. [default: testrun]
   --incr=i                  Granularity of plotting data. [default: 10000]
-  --alg                     Specifies to compare different algorithms.
-  --param                   Specifies to compare varying parameters of one algorithm.
   -h --help                 Show this screen.
   --version                 Show version.
 
@@ -30,6 +28,9 @@ Help:
   Use solve to generate a solution to <problem> using algorithm <solver>. Test
   solve is similar but the solution is known in advance so options are available
   to measure and visualize the performanceself.
+
+  Use algcomp to compare distinct algorithms and parcomp to compare parameter
+  variations of the same algorithm.
 
   The budget --budget indicate how many simulations of <problem> the algorithm
   <solver> is allowed to run. Trials --trials is the number of times to solve
