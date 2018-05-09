@@ -6,12 +6,11 @@ from math import pow, ceil, floor
 
 class RPERLE(SimOptSolver):
     def __init__(self, orc, sprn=None, x0=None, algparms=None):
+        self.betaeps = 0.4
+        self.betadel = 0.9
         if algparms:
-            self.betaeps = algparms[0]
-            self.betadel = algparms[1]
-        else:
-            self.betaeps = 0.4
-            self.betadel = 0.9
+            for a in algparms:
+                setattr(self, a[0], a[1])
         super().__init__(orc, sprn, x0)
 
     def __str__(self):

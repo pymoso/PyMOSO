@@ -45,12 +45,12 @@ def get_x0(orc, xprn):
     return x0
 
 
-def gen_humanfile(name, probn, solvn, budget, runtime, trials):
+def gen_humanfile(name, probn, solvn, budget, runtime, trials, param, vals):
     today = date.today()
     tstr = today.strftime("%A %d. %B %Y")
     timestr = time.strftime('%X')
-    dnames = ('Name', 'Problem', 'Algorithm', 'Budget', 'Trials', 'Run time', 'Day', 'Time')
-    ddate = (name, probn, solvn, budget, trials, runtime, tstr, timestr)
+    dnames = ('Name', 'Problem', 'Algorithm', 'Budget', 'Trials', 'Run time', 'Day', 'Time', 'Params', 'Param Values')
+    ddate = (name, probn, solvn, budget, trials, runtime, tstr, timestr, param, vals)
     ddict = collections.OrderedDict(zip(dnames, ddate))
     return ddict
 

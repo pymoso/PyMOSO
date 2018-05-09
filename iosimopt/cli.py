@@ -2,25 +2,29 @@
 iosimopt
 
 Usage:
-  iosimopt solve <problem> <solver> [--budget=b] [--trials=t] [--name=n]
-  iosimopt testsolve <tester> <solver> [--budget=b] [--trials=t] [--name=n] [--incr=i]
-  iosimopt compare <tester> <solver> <solver>... [--budget=b] [--trials=t] [--name=n] [--incr=i]
+  iosimopt solve <problem> <solver> [--budget=b] [--trials=t] [--name=n] [<param> <val>]...
+  iosimopt testsolve <tester> <solver> [--budget=b] [--trials=t] [--name=n] [--incr=i] [<param> <val>]...
+  iosimopt algcomp <tester> <solver> <solver>... [--budget=b] [--trials=t] [--name=n] [--incr=i]
+  iosimopt parcomp <tester> <solver> <param> <val> <val>... [--budget=b] [--trials=t] [--name=n] [--incr=i]
   iosimopt -h | --help
   iosimopt --version
 
 Options:
-  --budget=b                    Simulation budget [default: 50000]
-  --trials=t                    Number of instances to solve. [default: 1]
-  --name=n                      A name to assign to the output. [default: testrun]
-  --incr=i                      Granularity of plotting data. [default: 10000]
-  -h --help                     Show this screen.
-  --version                     Show version.
+  --budget=b                Simulation budget [default: 50000]
+  --trials=t                Number of instances to solve. [default: 1]
+  --name=n                  A name to assign to the output. [default: testrun]
+  --incr=i                  Granularity of plotting data. [default: 10000]
+  --alg                     Specifies to compare different algorithms.
+  --param                   Specifies to compare varying parameters of one algorithm.
+  -h --help                 Show this screen.
+  --version                 Show version.
 
 Examples:
   iosimopt solve TP1a RPERLE
   iosimopt solve TP1b RRLE --budget=100000 --trials=20 --name=tp1bexperiment
   iosimopt testsolve TP3Tester RPE --budget=10000 --incr=100
-  iosimopt compare TP1aTester RPERLE MOCOMPASS --budget=1000000
+  iosimopt algcomp TP1aTester RPERLE MOCOMPASS --budget=1000000
+  iosimopt parcomp TP1aTester RPERLE betadel 0.2 0.4 0.6 0.8 --trials=40
 
 Help:
   Use solve to generate a solution to <problem> using algorithm <solver>. Test

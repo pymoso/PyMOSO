@@ -4,10 +4,13 @@ from math import sqrt
 
 
 class SimOptSolver(object):
-    def __init__(self, orc, sprn=None, x0=None):
+    def __init__(self, orc, sprn=None, x0=None, paramargs=None):
         self.orc = orc
         self.x0 = x0
         self.sprn = sprn
+        if paramargs:
+            for p in paramargs:
+                setattr(self, p[0], p[1])
         self.num_calls = 0
         self.num_obj = self.orc.num_obj
         self.dim = self.orc.dim
