@@ -5,7 +5,7 @@ from inspect import getmembers, isclass
 from ioboso.simplotting import plot_testproblem
 
 
-class Solve(BaseComm):
+class PlotTP(BaseComm):
     """Save the plot and exit"""
     def run(self):
         testarg = self.options['<tester>']

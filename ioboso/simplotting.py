@@ -1,3 +1,4 @@
+import pickle
 import matplotlib.pyplot as pyp
 import matplotlib.animation as animation
 #import brewer2mpl
@@ -70,18 +71,18 @@ def gen_paramplot(fnlst, paramlst, pref, suff, probname):
     pyp.show()
 
 
-def show_hdquantplot(fnlst, lblst, pref, suff, budget):
+def plot_hdquantplot(fnlst, lblst, pref, suff, budget, savename, should_show):
     """plot the hausdorf distances per simulation effort for a set of runs"""
     title = r'Quantiles of Hausdorf distance'
     dhlab = r'$d_H(g(\hat{\mathcal{P}}), \mathcal{E})$'
     xlab = r'Total simulation effort ($w_\nu$) x $10^6$'
+    labmul = 1000000
     datakey = 'hd'
     num_xticks = 5
     dat = dict()
     for fn in fnlst:
         with open(pref+fn+suff, 'rb') as h:
             dat[fn] = pickle.load(h)
-    pyp.rc('text', usetex=True)
     fig1 = pyp.figure(1)
     ax1 = fig1.add_subplot(111)
     col = ['black', 'gray', 'blue', 'darkgray', 'red', 'yellow', 'limegreen', 'orange']
@@ -91,21 +92,19 @@ def show_hdquantplot(fnlst, lblst, pref, suff, budget):
     s0 = 1
     sx = budget + 1
     sn = 1
-    md = dict()
     X = dict()
     ctr = 0
     for find, fn in enumerate(fnlst):
-        md[fn] = dat[fn][datakey]
-        X = md[fn]['X'][s0:sx:sn]
-        Y05 = md[fn]['Y105'][s0:sx:sn]
-        Y25 = md[fn]['Y12'][s0:sx:sn]
-        Y50 = md[fn]['Y15'][s0:sx:sn]
-        Y75 = md[fn]['Y18'][s0:sx:sn]
-        Y95 = md[fn]['Y195'][s0:sx:sn]
+        X = dat[fn][datakey]['X'][s0:sx:sn]
+        Y05 = dat[fn][datakey]['Y105'][s0:sx:sn]
+        Y25 = dat[fn][datakey]['Y12'][s0:sx:sn]
+        Y50 = dat[fn][datakey]['Y15'][s0:sx:sn]
+        Y75 = dat[fn][datakey]['Y18'][s0:sx:sn]
+        Y95 = dat[fn][datakey]['Y195'][s0:sx:sn]
         #line05 = ax1.plot(X, Y05, linewidth=1.5, color=col[ctr], linestyle=sty[ctr])
-        #line25 = ax1.plot(X, Y25, linewidth=1.5, color=col[find], linestyle=sty[find])
-        line50 = ax1.plot(X, Y50, linewidth=1.5, color=col[find%8], linestyle=sty[find%5], label=lblst[fn])
-        #line75 = ax1.plot(X, Y75, linewidth=1.5, color=col[find], linestyle=sty[find])
+        line25 = ax1.plot(X, Y25, linewidth=1.5, color=col[find], linestyle=sty[find])
+        line50 = ax1.plot(X, Y50, linewidth=1.5, color=col[find], linestyle=sty[find], label=lblst[fn])
+        line75 = ax1.plot(X, Y75, linewidth=1.5, color=col[find], linestyle=sty[find])
         #line95 = ax1.plot(X, Y95, linewidth=1.5, color=col[ctr], linestyle=sty[ctr])
         ctr += 1
     ax1.set_title(title, y=1.05)
@@ -122,17 +121,18 @@ def show_hdquantplot(fnlst, lblst, pref, suff, budget):
     ax1.set_yticklabels(['$'+str(tic)+'$' for tic in ytix])
     tixlst = [(i/num_xticks)*budget for i in range(num_xticks + 1)]
     ax1.set_xticks(tixlst, False)
-    ax1.set_xticklabels(['$'+str(int(j/mydiv))+'$' for j in tixlst])
+    ax1.set_xticklabels(['$'+str(j/labmul)+'$' for j in tixlst])
     ax1.spines['top'].set_visible(False)
     ax1.spines['right'].set_visible(False)
     # modify legend styling
-    legend = ax1.legend(loc=4, fontsize=10, scatterpoints=1, handletextpad=0.00, ncol=4)
+    legend = ax1.legend(loc=1, fontsize=10, scatterpoints=1, handletextpad=0.00, ncol=1)
     lframe = legend.get_frame()
     lframe.set_facecolor('1')
     lframe.set_edgecolor('1')
     #ax1.grid()
-    pyp.savefig('../ScenData/quantplt.pdf', transparent=True, bbox_inches='tight', pad_inches=0)
-    pyp.show()
+    pyp.savefig(savename, transparent=True, bbox_inches='tight', pad_inches=0)
+    if should_show:
+        pyp.show()
 
 
 def show_rleplot(rundat):

@@ -14,6 +14,17 @@ import json
 import pickle
 
 
+def check_expname(name):
+    if not os.path.isdir(name):
+        return False
+    fn = name + '/' + name + '.txt'
+    fpath = pathlib.Path(fn)
+    if not fpath.is_file():
+        return False
+    with open(fn, 'r') as f1:
+        datstr = json.load(f1)
+    return datstr
+
 def get_seeds():
     package_dir = os.path.dirname(os.path.abspath(__file__))
     orcseedfile = os.path.join(package_dir, '../../', 'prnseeds/orcseeds.pkl')

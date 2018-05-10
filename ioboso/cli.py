@@ -7,6 +7,7 @@ Usage:
   ioboso algcomp <tester> <solver> <solver>... [--budget=b] [--trials=t] [--name=n] [--incr=i]
   ioboso parcomp <tester> <solver> <param> <val> <val>... [--budget=b] [--trials=t] [--name=n] [--incr=i]
   ioboso plottp <tester> [--show]
+  ioboso plotq <expname> [--show]
   ioboso -h | --help
   ioboso --version
 
