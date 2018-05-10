@@ -1,14 +1,18 @@
-from math import floor, ceil
 import matplotlib.pyplot as pyp
 import matplotlib.animation as animation
-from mpl_toolkits.axes_grid1.anchored_artists import AnchoredDrawingArea
-from itertools import product
-import brewer2mpl
-import pickle
-from iosimopt.simoptutils import *
-from iosimopt.testcases import TP1aTester
-from iosimopt.mrg32k3a import MRG32k3a
-
+#import brewer2mpl
+import matplotlib
+matplotlib.rcParams['font.family'] = 'serif'
+matplotlib.rcParams['font.serif'] = 'Times New Roman'
+matplotlib.rcParams['font.size'] = 14
+matplotlib.rcParams['mathtext.fontset'] = 'custom'
+matplotlib.rcParams['mathtext.rm'] = 'Times New Roman'
+matplotlib.rcParams['mathtext.it'] = 'Times New Roman'
+matplotlib.rcParams['mathtext.bf'] = 'Times New Roman:bold'
+matplotlib.rcParams['mathtext.default'] = 'regular'
+matplotlib.rcParams['text.usetex'] = 'True'
+matplotlib.rcParams['text.latex.preamble']=[r'\usepackage{amsmath}']
+labelfontProperties = {'family':'Times New Roman', 'weight': 'normal', 'size': 18}
 
 def gen_paramplot(fnlst, paramlst, pref, suff, probname):
     title = r'Set distance by parameter value\\Simulation budget = 1M, ' + probname
@@ -63,128 +67,6 @@ def gen_paramplot(fnlst, paramlst, pref, suff, probname):
     #ax1.set_xticks(paramlst)
     #ax1.set_xticklabels(['$'+str(int(j/mydiv))+'$' for j in tixlst])
     fig1.savefig('../ScenData/paramplt.pdf', transparent=True, bbox_inches='tight', pad_inches=0)
-    pyp.show()
-
-
-def gen_counterplot():
-    """generate the counter-example plot"""
-    # initialize data (all are LEPs)
-    x1 = (3, 3)
-    x2 = (2, 3)
-    x3 = (3, 2)
-    x4 = (2, 2)
-    x5 = (5, 3)
-    x6 = (3, 4)
-    x7 = (4, 4)
-    x8 = (4 ,3)
-    x9 = (5, 4)
-    xpts = [x1, x2, x3, x4, x5, x6, x7, x8, x9]
-    xges = [x1, x2, x3, x4, x5]
-    # set objectives values from left to right
-    y1 = (0.75, 5.20)
-    y2 = (0.96, 3.80)
-    y3 = (1.55, 2.23)
-    y6 = (1.80, 5.20)
-    y7 = (2.35, 4.75)
-    y4 = (2.50, 1.35)
-    y8 = (3.05, 3.60)
-    y5 = (3.35, 0.95)
-    y9 = (4.05, 0.95)
-    ypts = [y1, y2, y3, y4, y5, y6, y7, y8, y9]
-    ygps = [y1, y2, y3, y4, y5]
-    # initialize plot for feasible domain
-    pyp.rc('text', usetex=True)
-    pyp.rcParams['text.latex.preamble']=[r'\usepackage{amsmath}']
-    fig1 = pyp.figure(1, figsize=(13, 5))
-    ax1 = fig1.add_subplot(121)
-    ax1.set_xlim(1.5, 5.5)
-    ax1.set_ylim(1.5, 4.5)
-    # remove top and right enclosing lines
-    ax1.spines['top'].set_visible(False)
-    ax1.spines['right'].set_visible(False)
-    # remove tick marks
-    ax1.set_xticks([])
-    ax1.set_xticklabels([])
-    ax1.set_yticks([])
-    ax1.set_yticklabels([])
-    # axes labels x_1, x_2
-    f1xlab = r'$x_1$'
-    f1ylab = r'$x_2$'
-    ax1.set_xlabel(f1xlab)
-    ax1.set_ylabel(f1ylab)
-    # draw dashed outline around feasible space
-    vx = [1.65, 2.65, 3.65, 5.35]
-    vs = [1.75, 3.45, 1.75, 2.55]
-    vy = [3.45, 4.40, 2.55, 4.40]
-    hy = [3.45, 4.40, 1.75, 2.55]
-    hs = [1.65, 2.65, 1.65, 3.65]
-    hx = [2.65, 5.35, 3.65, 5.35]
-    ax1.vlines(vx, vs, vy, linestyle='dashed')
-    ax1.hlines(hy, hs, hx, linestyle='dashed')
-    xzip = list(zip(*xpts))
-    xxdata = xzip[0]
-    xydata = xzip[1]
-    ax1.scatter(xxdata, xydata, marker='.', edgecolor='black', facecolors='black', alpha=1.0, s=30)
-    ada = AnchoredDrawingArea(20, 20, 0, 0, loc=1, pad=0., frameon=False)
-    xcirclelst = [pyp.Circle(x, 10, color='grey', alpha=0.5, edgecolor=None) for x in xges]
-    for c in xcirclelst:
-        ada.drawing_area.add_artist(c)
-    ax1.add_artist(ada)
-    ax1.annotate(r'\boldmath{$x_1^{\mbox{min}}$}', xy=x1, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax1.annotate(r'\boldmath{$x_2^*$}', xy=x2, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax1.annotate(r'\boldmath{$x_3^*$}', xy=x3, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax1.annotate(r'\boldmath{$x_4^{\mbox{min}}$}', xy=x4, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax1.annotate(r'\boldmath{$x_5^{\mbox{min}}$}', xy=x5, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax1.annotate(r'\boldmath{$x_6^{\mbox{w}}$}', xy=x6, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax1.annotate(r'\boldmath{$x_7^{\mbox{min}}$}', xy=x7, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax1.annotate(r'\boldmath{$x_8^*$}', xy=x8, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax1.annotate(r'\boldmath{$x_9^{\mbox{min}}$}', xy=x9, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax1.annotate(r'$\mathcal{X}$', xy=(2.0, 4.0), xytext=(0, 0), textcoords='offset points', fontsize=20)
-    #initialize plot for objective space
-    ax2 = fig1.add_subplot(122)
-    # set axes labels g_1, g_2
-    f2xlab = r'$g_1$'
-    f2ylab = r'$g_2$'
-    ax2.set_xlim(0.25, 4.5)
-    ax2.set_ylim(0.25, 6.0)
-    ax2.set_xlabel(f2xlab)
-    ax2.set_ylabel(f2ylab)
-    # remove top and right enclosing lines
-    ax2.spines['top'].set_visible(False)
-    ax2.spines['right'].set_visible(False)
-    # remove tick marks
-    ax2.set_xticks([])
-    ax2.set_xticklabels([])
-    ax2.set_yticks([])
-    ax2.set_yticklabels([])
-    yzip = list(zip(*ypts))
-    yxdata = yzip[0]
-    yydata = yzip[1]
-    ax2.scatter(yxdata, yydata, marker='.', edgecolor='black', facecolors='black', alpha=1.0, s=30, label=r'LWEP local min')
-    ycirclelst = [pyp.Circle(x, 0.55, color='grey', alpha=0.5, edgecolor=None) for x in ygps]
-    for c in ycirclelst:
-        ax2.add_artist(c)
-    # connect equal dimensions
-    yhy = [0.95, 5.20]
-    yhs = [0, 0]
-    yhx = [10, 10]
-    ax2.hlines(yhy, yhs, yhx, linestyle='dashed', color='gray', alpha=0.5)
-    # # modify legend styling
-    # legend = ax2.legend(loc=1, fontsize=10, scatterpoints=1, handletextpad=0.00)
-    # lframe = legend.get_frame()
-    # lframe.set_facecolor('1')
-    # lframe.set_edgecolor('1')
-    # lframe.set_alpha(0.0)
-    ax2.annotate(r'\boldmath{$g(x_1^{\mbox{min}})$}', xy=y1, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax2.annotate(r'\boldmath{$g(x_2^*)$}', xy=y2, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax2.annotate(r'\boldmath{$g(x_3^*)$}', xy=y3, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax2.annotate(r'\boldmath{$g(x_4^{\mbox{min}})$}', xy=y4, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax2.annotate(r'\boldmath{$g(x_5^{\mbox{min}})$}', xy=y5, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax2.annotate(r'\boldmath{$g(x_6^{\mbox{w}})$}', xy=y6, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax2.annotate(r'\boldmath{$g(x_7^{\mbox{min}})$}', xy=y7, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax2.annotate(r'\boldmath{$g(x_8^*)$}', xy=y8, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    ax2.annotate(r'\boldmath{$g(x_9^{\mbox{min}})$}', xy=y9, xytext=(-10, 5), textcoords='offset points', fontsize=12)
-    fig1.savefig('../ScenData/ctrexample.pdf', transparent=True, bbox_inches='tight', pad_inches=0)
     pyp.show()
 
 
@@ -276,93 +158,10 @@ def show_rleplot(rundat):
         pyp.clf()
 
 
-def plot_leps(test):
-    from simoptutils import is_lep, feas2set
-    xdic = test.detorc.get_feasspace()
-    dim = test.detorc.dim
-    nobj = test.detorc.num_obj
-    mcX = set(feas2set(xdic))
-    gdict = {x: test.detorc.g(x) for x in mcX}
-    xlep = {d: [] for d in range(dim)}
-    ylep = {o: [] for o in range(nobj)}
-    xfea = {d: [] for d in range(dim)}
-    yfea = {o: [] for o in range(nobj)}
-    lwepset = set()
-    print('.....finding LEPs.....')
-    for x in gdict:
-        if is_lep(x, gdict):
-            lwepset |= {x}
-    print('.....found ', len(lwepset), ' LEPs!.....')
-    for x in lwepset:
-        for d in range(dim):
-            xlep[d].append(x[d])
-        for o in range(nobj):
-            ylep[o].append(gdict[x][o])
-    for x in mcX - lwepset:
-        for d in range(dim):
-            xfea[d].append(x[d])
-        for o in range(nobj):
-            yfea[o].append(gdict[x][o])
-
-    fig1 = pyp.figure(1)
-    # plot 3d if needed
-    if dim < 3:
-        ax1 = fig1.add_subplot(111)
-        # dominated points
-        Xdomplt = ax1.scatter(xfea[0], xfea[1], color='lightgray', alpha=0.2, s=1, label='Feasible domain point')
-        # lweps
-        Xparplt = ax1.scatter(xlep[0], xlep[1], color='black', s=20, label='LEP')
-        ax1.set_title(test.tname + ' LEP\'s')
-    else:
-        from mpl_toolkits.mplot3d import Axes3D
-        ax1 = fig1.add_subplot(111, projection='3d')
-        # lweps
-        Xparplt = ax1.scatter(xlep[0], xlep[1], xlep[2], color='black', s=20, label='LEP')
-        ax1.set_title(test.tname + ' LEP\'s', y=1.08)
-    # set up labels, plot edges, and title
-    ax1.set_xlabel(r'$x_1$', fontsize=24)
-    xmin = min(mcX, key=lambda x: x[0])
-    xmax = max(mcX, key=lambda x: x[0])
-    ax1.set_xlim(xmin[0], xmax[0])
-    ax1.set_ylabel(r'$x_2$', fontsize=24)
-    ymin = min(mcX, key=lambda x: x[1])
-    ymax = max(mcX, key=lambda x: x[1])
-    ax1.set_ylim(ymin[1],ymax[1])
-    # add z axis if needed
-    if dim == 3:
-        ax1.set_zlabel(r'$x_3$', fontsize=24)
-        zmin = min(mcX, key=lambda x: x[2])
-        zmax = max(mcX, key=lambda x: x[2])
-        ax1.set_zlim(zmin[2], zmax[2])
-    ax1.legend()
-    pyp.savefig('../../ScenData/' + test.tname + '_objlep' + '.pdf')
-
-    fig2 = pyp.figure(2)
-    ax2 = fig2.add_subplot(111)
-    if dim < 3:
-        #dominated
-        Ydomplt = ax2.scatter(yfea[0], yfea[1], color='lightgray', alpha=0.2, s=1, label='Feasible domain point')
-    #lwep
-    Yparplt = ax2.scatter(ylep[0], ylep[1], color='black', s=20, label='LEP')
-    #set up labels, plot edges, and title
-    ax2.set_title(test.tname + ' objective values')
-    ax2.set_xlabel(r'$g_1$', fontsize=24)
-    xmin = min(mcX, key=lambda x: gdict[x][0])
-    xmax = max(mcX, key=lambda x: gdict[x][0])
-    ax2.set_xlim(gdict[xmin][0] - 0.2, gdict[xmax][0] + 0.2)
-    ax2.set_ylabel(r'$g_2$', fontsize=24)
-    ymin = min(mcX, key=lambda x: gdict[x][1])
-    ymax = max(mcX, key=lambda x: gdict[x][1])
-    ax2.set_ylim(gdict[ymin][1] - 0.2, gdict[ymax][1] + 0.2)
-    ax2.legend()
-    pyp.savefig('../../ScenData/' + test.tname + '_feaslep' + '.pdf', transparent=True, bbox_inches='tight', pad_inches=0)
-    pyp.show()
-    pyp.clf()
-
-
-def plot_testproblem(test, pts=None, spc=None):
+def plot_testproblem(test, should_show=False):
     """plot the feasible space, function space, and Pareto set of a problem"""
-    from simoptutils import feas2set, get_biparetos, get_les, get_lwes
+    from ioboso.simoptutils import feas2set, get_biparetos, get_les
+    fn = test.tname
     xdic = test.detorc.get_feasspace()
     dim = test.detorc.dim
     nobj = test.detorc.num_obj
@@ -371,21 +170,14 @@ def plot_testproblem(test, pts=None, spc=None):
     paretos = get_biparetos(gdict)
     leslst = get_les(gdict)
     unloc = set()
-    #unlst = []
     for les in leslst:
         unloc |= les
-        #unlst.append(set([gdict[x] for x in les]))
-    #print(unlst)
     xdom = {d: [] for d in range(dim)}
     xpar = {d: [] for d in range(dim)}
     xloc = {d: [] for d in range(dim)}
     ydom = {o: [] for o in range(nobj)}
     ypar = {o: [] for o in range(nobj)}
     yloc = {o: [] for o in range(nobj)}
-    xpts = {d: [] for d in range(dim)}
-    ypts = {o: [] for o in range(nobj)}
-    xspc = {d: [] for d in range(dim)}
-    yspc = {o: [] for o in range(nobj)}
     for x in mcX - unloc - paretos:
         for d in range(dim):
             xdom[d].append(x[d])
@@ -401,70 +193,58 @@ def plot_testproblem(test, pts=None, spc=None):
             xpar[d].append(x[d])
         for o in range(nobj):
             ypar[o].append(gdict[x][o])
-    if pts:
-        pts -= unloc
-        pts -= paretos
-        for x in pts:
-            for d in range(dim):
-                xpts[d].append(x[d])
-            for o in range(nobj):
-                ypts[o].append(gdict[x][o])
-    if spc:
-        for x in spc:
-            for d in range(dim):
-                xspc[d].append(x[d])
-            for o in range(nobj):
-                yspc[o].append(gdict[x][o])
-
-    fig1 = pyp.figure(1)
+    print('..... drawing plot objects in feasible space .....')
+    fig1 = pyp.figure(1, figsize=(11, 5))
     # plot 3d if needed
     if dim < 3:
-        ax1 = fig1.add_subplot(111)
+        ax1 = fig1.add_subplot(121)
         # dominated points
         Xdomplt = ax1.scatter(xdom[0], xdom[1], color='lightgray', alpha=0.2, s=1, label='Dominated points')
         # LES
         Xlocplt = ax1.scatter(xloc[0], xloc[1], color='black', alpha=0.6, s=18, label='LES members')
         # nondominated
         Xparplt = ax1.scatter(xpar[0], xpar[1], color='black', s=20, label='Non-dominated points')
-        if pts:
-            Xptsplt = ax1.scatter(xpts[0], xpts[1], color='blue', s=16, label='Test points`')
-        if spc:
-            Xspcplt = ax1.scatter(xspc[0], xspc[1], color='purple', s=23, label='Special points')
         ax1.set_title(test.tname + ' feasible points')
     else:
         from mpl_toolkits.mplot3d import Axes3D
-        ax1 = fig1.add_subplot(111, projection='3d')
+        ax1 = fig1.add_subplot(121, projection='3d')
         # dominated points
         #Xdomplt = ax1.scatter(xdom[0], xdom[1], xdom[2], color='gray', alpha=0.1, s=10, label='Dominated points')
         # LES
         Xlocplt = ax1.scatter(xloc[0], xloc[1], xloc[2], color='darkgray', alpha=0.7, s=13, label='LES members')
         # nondominated
         Xparplt = ax1.scatter(xpar[0], xpar[1], xpar[2], color='black', s=20, label='Non-dominated points')
-        if pts:
-            Xptsplt = ax1.scatter(xpts[0], xpts[1], xpts[2], color='blue', s=16, label='Test points')
-        if spc:
-            Xspcplt = ax1.scatter(xspc[0], xspc[1], xspc[2], color='purple', s=23, label='Special points')
         ax1.set_title(test.tname + ' feasible points', y=1.08)
     # set up labels, plot edges, and title
-    ax1.set_xlabel(r'$x_1$', fontsize=24)
+    ax1.set_xlabel(r'$x_1$', labelfontProperties)
     xmin = min(mcX, key=lambda x: x[0])
     xmax = max(mcX, key=lambda x: x[0])
     ax1.set_xlim(xmin[0], xmax[0])
-    ax1.set_ylabel(r'$x_2$', fontsize=24)
+    ax1.set_ylabel(r'$x_2$', labelfontProperties)
     ymin = min(mcX, key=lambda x: x[1])
     ymax = max(mcX, key=lambda x: x[1])
     ax1.set_ylim(ymin[1],ymax[1])
     # add z axis if needed
     if dim == 3:
-        ax1.set_zlabel(r'$x_3$', fontsize=24)
+        ax1.set_zlabel(r'$x_3$')
         zmin = min(mcX, key=lambda x: x[2])
         zmax = max(mcX, key=lambda x: x[2])
         ax1.set_zlim(zmin[2], zmax[2])
-    ax1.legend()
-    pyp.savefig('../../ScenData/' + test.tname + 'feas' + '.pdf', transparent=True, bbox_inches='tight', pad_inches=0)
+    # modify legend styling
+    legend = ax1.legend(loc=1, fontsize=10, scatterpoints=1, handletextpad=0.00, ncol=1)
+    lframe = legend.get_frame()
+    lframe.set_facecolor('1')
+    lframe.set_edgecolor('1')
+    # remove top and right enclosing lines
+    ax1.spines['top'].set_visible(False)
+    ax1.spines['right'].set_visible(False)
+    # ax1.set_xticks([])
+    ax1.set_xticklabels([r'$'+ str(int(t)) + '$' for t in ax1.get_xticks()])
+    # ax1.set_yticks([])
+    ax1.set_yticklabels([r'$'+ str(int(t)) + '$' for t in ax1.get_yticks()])
 
-    fig2 = pyp.figure(2)
-    ax2 = fig2.add_subplot(111)
+    print('..... drawing plot objects in objective space .....')
+    ax2 = fig1.add_subplot(122)
     if dim < 3:
         #dominated
         Ydomplt = ax2.scatter(ydom[0], ydom[1], color='lightgray', alpha=0.2, s=1, label='Dominated points')
@@ -472,24 +252,26 @@ def plot_testproblem(test, pts=None, spc=None):
     Ylocplt = ax2.scatter(yloc[0], yloc[1], color='black', alpha=0.6, s=18, label='LES members')
     #non Dominated
     Yparplt = ax2.scatter(ypar[0], ypar[1], color='black', s=20, label='Non-dominated points')
-    if pts:
-        Yptsplt = ax2.scatter(ypts[0], ypts[1], color='blue', s=16, label='Test Points')
-    if spc:
-        Yspcplt = ax2.scatter(yspc[0], yspc[1], color='purple', s=23, label='Special Points')
     #set up labels, plot edges, and title
     ax2.set_title(test.tname + ' objective values')
-    ax2.set_xlabel(r'$g_1$', fontsize=24)
+    ax2.set_xlabel(r'$g_1$', labelfontProperties)
     xmin = min(mcX, key=lambda x: gdict[x][0])
     xmax = max(mcX, key=lambda x: gdict[x][0])
     ax2.set_xlim(gdict[xmin][0] - 0.2, gdict[xmax][0] + 0.2)
-    ax2.set_ylabel(r'$g_2$', fontsize=24)
+    ax2.set_ylabel(r'$g_2$', labelfontProperties)
     ymin = min(mcX, key=lambda x: gdict[x][1])
     ymax = max(mcX, key=lambda x: gdict[x][1])
     ax2.set_ylim(gdict[ymin][1] - 0.2, gdict[ymax][1] + 0.2)
-    ax2.legend()
-    pyp.savefig('../../ScenData/' + test.tname + 'obj' + '.pdf', transparent=True, bbox_inches='tight', pad_inches=0)
-    pyp.show()
-    pyp.clf()
+    # remove top and right enclosing lines
+    ax2.spines['top'].set_visible(False)
+    ax2.spines['right'].set_visible(False)
+    ax2.set_xticklabels([r'$' + str(t) + '$' for t in ax2.get_xticks()])
+    ax2.set_yticklabels([r'$' + str(t) + '$' for t in ax2.get_yticks()])
+    print('..... saving plot to ' + fn + '.pdf .....')
+    fig1.savefig(fn + '.pdf', transparent=True, bbox_inches='tight', pad_inches=0)
+    if should_show:
+        pyp.show()
+
 
 
 def show_crawlcomp(fn1, fn2):

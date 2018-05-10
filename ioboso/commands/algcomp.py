@@ -25,7 +25,6 @@ class AlgComp(BaseComm):
             solvclasses = getmembers(solvers, isclass)
             solvclass = [solvc[1] for solvc in solvclasses if solvc[0] == s][0]
             sclslist[s] = solvclass
-        print(sclslist)
         param = self.options['<param>']
         vals = self.options['<val>']
         orcseeds, solvseeds, xorseeds = get_seeds()

@@ -75,14 +75,14 @@ def get_les(edict):
     lepset = set()
     feasset = set(edict.keys())
     # first get all leps
-    print('.....finding LEPs.....')
+    print('..... finding LEPs .....')
     for x in edict:
         if is_lep(x, edict):
             lepset |= {x}
-    print('.....found ', len(lepset), ' LEPs!.....')
+    print('..... found ', len(lepset), ' LEPs! .....')
     # crawl from each to form the les
     pts_vis = set()
-    print('.....constructing LESs.....')
+    print('..... constructing LESs .....')
     while lepset - pts_vis:
         leplst = list(lepset - pts_vis)
         #print('remaining LEPs: ', len(leplst))
@@ -108,8 +108,7 @@ def get_les(edict):
         tmp = {x: edict[x] for x in les}
         les = get_biparetos(tmp)
         lessets.add(frozenset(les))
-    print('.....found ', len(lessets), ' disjoint LESs!.....')
-    print('.....Done!.....')
+    print('..... found ', len(lessets), ' disjoint LESs! .....')
     return lessets
 
 

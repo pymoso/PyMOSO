@@ -1,4 +1,4 @@
-# iosimopt
+# ioboso
 
 This project implements integer-ordered multi-objective simulation-optimization algorithms and a small problem testbed with integrated mrg32k3a pseudo-random number generation for comparison. Features include a full CLI based on docopt, a limited object-oriented API, and plotting via matplotlib.
 
@@ -11,7 +11,7 @@ Requirements: Python 3.5+
 Installation:
 Download the Python wheel file from the releases page and install using pip or pip3.
 
-pip3 install iosimopt-0.0.6-py3-none-any.whl
+pip3 install xxxsomethingxxx.whl
 
 Installation from source:
 In the source directory, build the wheel using

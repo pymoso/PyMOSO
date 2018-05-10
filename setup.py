@@ -5,7 +5,7 @@ from codecs import open
 from os.path import abspath, dirname, join
 from subprocess import call
 from setuptools import setup, Command
-from iosimopt import __version__
+from ioboso import __version__
 
 
 this_dir = abspath(dirname(__file__))
@@ -25,23 +25,23 @@ class CleanCommand(Command):
 
 
 setup(
-    name = 'iosimopt',
+    name = 'ioboso',
     version = __version__,
     description = 'An integer-ordered simulation-optimization package in Python.',
     long_description = long_description,
     author = 'Kyle Cooper',
     author_email = 'coope149@purdue.edu',
-    packages = ['iosimopt', 'iosimopt.solvers', 'iosimopt.commands'],
+    packages = ['ioboso', 'ioboso.solvers', 'ioboso.commands'],
     install_requires = ['docopt'],
     entry_points = {
         'console_scripts': [
-            'iosimopt = iosimopt.cli:main',
+            'ioboso = ioboso.cli:main',
         ],
     },
     cmdclass={
         'clean': CleanCommand,
     },
     package_data = {
-        'iosimopt': ['../prnseeds/orcseeds.pkl', '../prnseeds/solseeds.pkl', '../prnseeds/xorseeds.pkl'],
+        'ioboso': ['../prnseeds/orcseeds.pkl', '../prnseeds/solseeds.pkl', '../prnseeds/xorseeds.pkl'],
     },
 )
