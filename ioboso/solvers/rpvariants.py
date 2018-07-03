@@ -3,6 +3,15 @@ from .rperle import RPERLE
 from math import ceil, pow
 
 
+class RP_NORE(RPERLE):
+    def __str__(self):
+        return 'rp-nore'
+
+    def calc_delta(self, se):
+        """return RLE relaxation for an iteration nu"""
+        return 0
+
+
 class RMINRLE(RPERLE):
     def __str__(self):
         return 'rmin'
@@ -52,15 +61,6 @@ class RPE(RPERLE):
         return anew, self.gbar, self.sehat
 
 
-class RP_NORE(RPERLE):
-    def __str__(self):
-        return 'rp-nore'
-
-    def calc_delta(self, se):
-        """return RLE relaxation for an iteration nu"""
-        return 0
-
-
 class RP_FULLRE(RPERLE):
     def __str__(self):
         return 'rp-fullre'
@@ -77,11 +77,3 @@ class RPE_NORE(RPE):
     def fse(self, se):
         """return diminishing standard error function for an iteration nu"""
         return 0
-
-
-def main():
-    pass
-
-
-if __name__ == '__main__':
-    main()

@@ -9,6 +9,7 @@ class PlotQ(BaseComm):
     """Save the plot and exit"""
     def run(self):
         expname = self.options['<expname>']
+        ymax = float(self.options['--ymax'])
         show = False
         if self.options['--show']:
             show = True
@@ -23,4 +24,4 @@ class PlotQ(BaseComm):
         names = (expname, )
         labels = {expname: algoname}
         savename = pref + expname + '_quant.pdf'
-        plot_hdquantplot(names, labels, pref, suff, budget, savename, show)
+        plot_hdquantplot(names, labels, pref, suff, budget, savename, ymax, show)

@@ -71,7 +71,7 @@ def gen_paramplot(fnlst, paramlst, pref, suff, probname):
     pyp.show()
 
 
-def plot_hdquantplot(fnlst, lblst, pref, suff, budget, savename, should_show):
+def plot_hdquantplot(fnlst, lblst, pref, suff, budget, savename, ymax, should_show=False):
     """plot the hausdorf distances per simulation effort for a set of runs"""
     title = r'Quantiles of Hausdorf distance'
     dhlab = r'$d_H(g(\hat{\mathcal{P}}), \mathcal{E})$'
@@ -114,7 +114,6 @@ def plot_hdquantplot(fnlst, lblst, pref, suff, budget, savename, should_show):
     ax1.set_axisbelow(True)
     ax1.tick_params(length=0)
     ax1.set_xlim(0, budget)
-    ymax = 10
     ax1.set_ylim(0, ymax)
     ytix = [(i/num_xticks)*ymax for i in range(num_xticks + 1)]
     ax1.set_yticks(ytix, False)

@@ -5,12 +5,9 @@ from math import pow, ceil, floor
 
 
 class RPERLE(SimOptSolver):
-    def __init__(self, orc, sprn=None, x0=None, algparms=None):
-        self.betaeps = 0.4
-        self.betadel = 0.9
-        if algparms:
-            for a in algparms:
-                setattr(self, a[0], a[1])
+    def __init__(self, orc, sprn=None, x0=None, betaeps=0.4, betadel=0.9):
+        self.betaeps = betaeps
+        self.betadel = betadel
         super().__init__(orc, sprn, x0)
 
     def __str__(self):
@@ -66,7 +63,6 @@ class RPERLE(SimOptSolver):
             aold = phatnu[self.nu - 1]
             phatnu[self.nu], _, _ = self.perle(aold)
             simcalls[self.nu] = self.num_calls
-            #print(self.nu, self.orc.prn._current_seed)
             self.orc.crn_advance()
 
     def perle(self, aold):
@@ -113,7 +109,6 @@ class RPERLE(SimOptSolver):
                 domset |= dompts
         return lwepset, domset
 
-
     def pe(self, aold):
         """return the solutions to a sequence of epsilon-constraint problems"""
         aold = self.upsample(aold | {self.x0})
@@ -122,6 +117,9 @@ class RPERLE(SimOptSolver):
         a0new = mnumin | aold
         tmp = {x: self.gbar[x] for x in mnumin | a0new}
         a1new = get_biparetos(tmp) | mnumin
+        # print(' ------ iteration ', self.nu, ' -------')
+        # for x in a1new:
+        #     print(x, self.gbar[x])
         c0 = len(a1new)
         epslst = dict()
         ck = dict()
@@ -238,7 +236,7 @@ class RPERLE(SimOptSolver):
             n += self.num_calls - old_calls
         if not mcXw:
             #print('**binding b**')
-            mcXw |= mcXd
+            mcXw |= xnew
         #print('New LWEPs: ', mcXw)
         return mcXw
 
@@ -246,13 +244,15 @@ class RPERLE(SimOptSolver):
         """return diminishing standard error function for an iteration nu"""
         m = self.m
         beta = self.betaeps
-        return se/pow(m, beta)
+        relax = se/pow(m, beta)
+        return relax
 
     def calc_delta(self, se):
         """return RLE relaxation for an iteration nu"""
         m = self.m
         gamma = self.betadel
-        return se/pow(m, gamma)
+        relax = se/pow(m, gamma)
+        return relax
 
     def calc_m(self, nu):
         """return the sample size for an iteration nu, as in rspline"""
@@ -267,12 +267,13 @@ class RPERLE(SimOptSolver):
         return ceil(m_init*pow(mmul, nu))
 
     def get_ncn(self, mcS):
+        # initialize the non-conforming neighborhood
         ncn = set()
         d = self.num_obj
         dr = range(d)
         delN = get_setnbors(mcS)
         delzero = tuple(0 for i in dr)
-        # defintion 9 (a) -- check for strict domination
+        # defintion 9 (a) -- check for strict domination in the deleted nbors
         for s in mcS:
             fs = self.gbar[s]
             ses = self.sehat[s]
@@ -284,15 +285,15 @@ class RPERLE(SimOptSolver):
                     delx = tuple(self.calc_delta(sex[i]) for i in dr)
                     if does_strict_dominate(fx, fs, delzero, delzero):
                         ncn |= {x}
-        # definition 9 (b) -- its complicated
+        # definition 9 (b) initialization
         for x in delN - ncn:
             isfeas, fx, sex = self.estimate(x)
             if isfeas:
-                # definition 9 (b) (i)
+                # definition 9 (b) (i) initialization
                 notweakdom = True
-                # definition 9 (b) (ii)
+                # definition 9 (b) (ii) initialization
                 notrelaxdom = True
-                # definition 9 (b) (iii)
+                # definition 9 (b) (iii) initialization
                 wouldnotchange = True
                 doesweakdom = False
                 delx = tuple(self.calc_delta(sex[i]) for i in dr)
@@ -300,14 +301,18 @@ class RPERLE(SimOptSolver):
                     fs = self.gbar[s]
                     ses = self.sehat[s]
                     dels = tuple(self.calc_delta(ses[i]) for i in dr)
+                    # definition 9 (b) (i)
                     if does_weak_dominate(fs, fx, delzero, delzero):
                         notweakdom = False
+                    # definition 9 (b) (ii)
                     if does_dominate(fx, fs, delzero, delzero) and does_dominate(fs, fx, dels, delx):
                         notrelaxdom = False
+                    # definition 9 (b) (iii)
                     if does_weak_dominate(fx, fs, delzero, delzero):
                         doesweakdom = True
                     if does_weak_dominate(fs, fx, dels, delx) or does_weak_dominate(fx, fs, delx, dels):
                         wouldnotchange = False
+                # definition 9 (b)
                 if notweakdom and notrelaxdom and (wouldnotchange or doesweakdom):
                     ncn |= {x}
         return ncn
@@ -547,11 +552,3 @@ class RPERLE(SimOptSolver):
             if fx[nobj] > con:
                 isfeas = False
         return isfeas, fx, vx
-
-
-def main():
-    pass
-
-
-if __name__ == '__main__':
-    main()

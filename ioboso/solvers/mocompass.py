@@ -4,7 +4,7 @@ from ..simoptutils import *
 from ..simbase import SimOptSolver
 
 class MOCOMPASS(SimOptSolver):
-    def __init__(self, orc, sprn=None, x0=None, algparms=None):
+    def __init__(self, orc, sprn=None, x0=None, betaeps=None, betadel=None):
         super().__init__(orc, sprn, x0)
 
     def __str__(self):
