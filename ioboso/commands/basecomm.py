@@ -7,9 +7,9 @@ from datetime import date
 from math import ceil
 from .. import mprun
 from .. import solvers
-from .. import orclib
-from .. import mrg32k3a as mrg
-from .. import testcases
+from .. import problems
+from .. import prng
+from .. import testproblems
 import json
 import pickle
 

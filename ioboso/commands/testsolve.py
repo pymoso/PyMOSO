@@ -28,7 +28,7 @@ class TestSolve(BaseComm):
             ptup = (p, float(vals[i]))
             paramtups.append(ptup)
         orcseeds, solvseeds, xorseeds = get_seeds()
-        xprn = mrg.MRG32k3a(xorseeds[0])
+        xprn = prng.mrg32k3a.MRG32k3a(xorseeds[0])
         print('*********** Beginning Optimization Trials ***********')
         start_opt_time = time.time()
         joblst = []

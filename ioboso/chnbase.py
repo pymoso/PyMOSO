@@ -4,13 +4,10 @@ from math import sqrt
 
 
 class SimOptSolver(object):
-    def __init__(self, orc, sprn=None, x0=None, paramargs=None):
+    def __init__(self, orc, **kwargs):
         self.orc = orc
-        self.x0 = x0
-        self.sprn = sprn
-        if paramargs:
-            for p in paramargs:
-                setattr(self, p[0], p[1])
+        for p in kwargs:
+                setattr(self, p, kwargs[p])
         self.num_calls = 0
         self.num_obj = self.orc.num_obj
         self.dim = self.orc.dim
@@ -113,7 +110,7 @@ class Oracle(OrcBase):
 
 
 class DeterministicOrc(OrcBase):
-    def hit(self, x, m):
+    def hit(self, x, m=None):
         """return the deterministic objective value g(x)"""
         is_feas = self.check_xfeas(x)
         d = self.num_obj

@@ -1,14 +1,21 @@
 #!/usr/bin/env python
-from ..simbase import SimOptSolver
-from ..simoptutils import *
+from ..chnbase import SimOptSolver
+from ..chnutils import *
 from math import pow, ceil, floor
 
 
 class RPERLE(SimOptSolver):
-    def __init__(self, orc, sprn=None, x0=None, betaeps=0.4, betadel=0.9):
-        self.betaeps = betaeps
-        self.betadel = betadel
-        super().__init__(orc, sprn, x0)
+    def __init__(self, orc, **kwargs):
+        if 'betaeps' not in kwargs:
+            self.betaeps = 0.5
+        if 'betadel' not in kwargs:
+            self.betadel = 0.5
+        sprn = kwargs.get('sprn', None)
+        x0 = kwargs.get('x0', None)
+        if not sprn or not x0:
+            # fail gracefully -- todo
+            pass
+        super().__init__(orc, **kwargs)
 
     def __str__(self):
         return 'rp'
@@ -243,15 +250,13 @@ class RPERLE(SimOptSolver):
     def fse(self, se):
         """return diminishing standard error function for an iteration nu"""
         m = self.m
-        beta = self.betaeps
-        relax = se/pow(m, beta)
+        relax = se/pow(m, self.betaeps)
         return relax
 
     def calc_delta(self, se):
         """return RLE relaxation for an iteration nu"""
         m = self.m
-        gamma = self.betadel
-        relax = se/pow(m, gamma)
+        relax = se/pow(m, self.betadel)
         return relax
 
     def calc_m(self, nu):

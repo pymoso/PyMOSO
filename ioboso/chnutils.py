@@ -16,23 +16,6 @@ def feas2set(feasdict):
     return mcX
 
 
-def txtseeds2pkl(seedfilename):
-    """convert .txt file containing mrg32k3a seeds to a pickle file"""
-    seedsdict = dict()
-    with open(seedfilename, 'r') as txthandle:
-        for i, line in enumerate(txthandle):
-            #read next line
-            strspseed = " ".join(txthandle.readline().split())
-            #remove spaces
-            strseed = tuple(strspseed.split())
-            #convert to tuple(int, int, ...)
-            seedi = tuple(int(s) for s in strseed)
-            seedsdict[i] = seedi
-    pklname = seedfilename + '.pkl'
-    with open(pklname, 'wb') as pklhandle:
-        pickle.dump(seedsdict, pklhandle)
-
-
 def does_weak_dominate(g1, g2, delta1, delta2):
     """returns true if g1 weakly dominates g2 with the given relaxation"""
     dim = len(g1)

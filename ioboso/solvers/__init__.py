@@ -1,3 +1,4 @@
-from .mocompass import *
+from .rminrle import *
 from .rperle import *
-from .rpvariants import *
+from .rrrperle import *
+from .solvertemplate import *
