@@ -5,11 +5,11 @@ from codecs import open
 from os.path import abspath, dirname, join
 from subprocess import call
 from setuptools import setup, Command
-from ioboso import __version__
+from pychn import __version__
 
 
 this_dir = abspath(dirname(__file__))
-with open(join(this_dir, 'README.rst'), encoding='utf-8') as file:
+with open(join(this_dir, 'README.md'), encoding='utf-8') as file:
     long_description = file.read()
 
 
@@ -25,23 +25,23 @@ class CleanCommand(Command):
 
 
 setup(
-    name = 'ioboso',
+    name = 'pychn',
     version = __version__,
     description = 'An integer-ordered simulation-optimization package in Python.',
     long_description = long_description,
     author = 'Kyle Cooper',
     author_email = 'coope149@purdue.edu',
-    packages = ['ioboso', 'ioboso.solvers', 'ioboso.commands'],
-    install_requires = ['docopt'],
+    packages = ['pychn', 'pychn.solvers', 'pychn.commands', 'pychn.prng', 'pychn.problems', 'pychn.testproblems'],
+    install_requires = ['docopt', 'numpy'],
     entry_points = {
         'console_scripts': [
-            'ioboso = ioboso.cli:main',
+            'pychn = pychn.cli:main',
         ],
     },
     cmdclass={
         'clean': CleanCommand,
     },
     package_data = {
-        'ioboso': ['../prnseeds/orcseeds.pkl', '../prnseeds/solseeds.pkl', '../prnseeds/xorseeds.pkl'],
+        'pychn': ['testproblems/exples.pkl'],
     },
 )
