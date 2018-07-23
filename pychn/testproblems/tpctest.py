@@ -12,8 +12,8 @@ class TPCTester(object):
         self.soln = soln
 
 
-tpcfn = 'prnseeds/exples.pkl'
+tpcfn = 'exples.pkl'
 package_dir = os.path.dirname(os.path.abspath(__file__))
-orcseedfile = os.path.join(package_dir, '../../', tpcfn)
-with open(tpcfn, 'rb') as h:
+abs_path = os.path.join(package_dir, tpcfn)
+with open(abs_path, 'rb') as h:
     tpcsoln = pickle.load(h)
