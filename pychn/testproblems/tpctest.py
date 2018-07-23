@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from ioboso.problems import probtpc, probtruetpc
+from ..problems import probtpc, probtruetpc
 import pickle
 import os
 

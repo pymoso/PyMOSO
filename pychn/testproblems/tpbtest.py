@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from ioboso.problems import probtpb, probtruetpb
+from ..problems import probtpb, probtruetpb
 
 
 class TPBTester(object):

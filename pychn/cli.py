@@ -40,14 +40,14 @@ from . import __version__ as VERSION
 
 def main():
     """Main CLI entrypoint."""
-    import ioboso.commands
+    import pychn.commands
     options = docopt(__doc__, version=VERSION)
 
     # Here we'll try to dynamically match the command the user is trying to run
     # with a pre-defined command class we've already created.
     for (k, v) in options.items():
-        if hasattr(ioboso.commands, k) and v:
-            commod = getattr(ioboso.commands, k)
+        if hasattr(pychn.commands, k) and v:
+            commod = getattr(pychn.commands, k)
             comclasses = getmembers(commod, isclass)
             comclass = [cmcls[1] for cmcls in comclasses if cmcls[0] != 'BaseComm'][0]
             cominst = comclass(options)

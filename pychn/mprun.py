@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from ioboso.testproblems import *
-from ioboso.solvers import *
+from pychn.testproblems import *
+from pychn.solvers import *
 from math import floor
 import multiprocessing as mp
 from .chnutils import dh

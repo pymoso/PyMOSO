@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from ioboso.chnbase import DeterministicOrc
+from ..chnbase import DeterministicOrc
 import math
 
 
