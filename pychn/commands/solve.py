@@ -7,41 +7,42 @@ from inspect import getmembers, isclass
 class Solve(BaseComm):
     """Solve a bi-objective simulation optimization problem using cli params"""
     def run(self):
+        ## get the options with default values
         trials = int(self.options['--trials'])
+        budget = int(self.options['--budget'])
         name = self.options['--name']
-        budgarg = self.options['--budget']
-        budget = int(budgarg)
-        prntype = prng.mrg32k3a.MRG32k3a
+        ## determine the solver and problem
         probarg = self.options['<problem>']
         probclasses = getmembers(problems, isclass)
         probclass = [prob[1] for prob in probclasses if prob[0] == probarg][0]
         solvarg = self.options['<solver>']
         solvclasses = getmembers(solvers, isclass)
         solvclass = [solvc[1] for solvc in solvclasses if solvc[0] == solvarg][0]
+        ## get the optional parameter names and values if specified
         params = self.options['<param>']
         vals = self.options['<val>']
         paramtups = []
         for i, p in enumerate(params):
             ptup = (p, float(vals[i]))
             paramtups.append(ptup)
-        orcseeds, solvseeds, xorseeds = get_seeds()
-        xprn = prng.mrg32k3a.MRG32k3a(xorseeds[0])
+        ## generate all prn streams
+        orcstreams, solvstreams, xprn = get_prnstreams(trials)
+        ## generate the experiment list
         print('*********** Beginning Optimization ***********')
         start_opt_time = time.time()
         joblst = []
         for t in range(trials):
             print('-- Starting Trial ', t + 1, ' of ', trials)
-            orcseed = orcseeds[t]
-            solvseed = solvseeds[t]
-            solvseedtup = ('solvseed', solvseed)
-            solvprntup = ('solvprn', prntype)
+            orcprn = orcstreams[t]
+            solprn = solvstreams[t]
             x0 = get_x0(probclass, xprn)
-            x0tup = ('x0', x0)
-            paramlst = [solvseedtup, solvprntup, x0tup]
+            paramlst = [('x0', x0), ('solvprn', solprn)]
+            orc = probclass(orcprn)
+            ## create arguments for (unknown) optional named parameters
             if paramtups:
                 paramlst.extend(paramtups)
             paramargs = dict(paramlst)
-            tup = (solvclass, budget, probclass, prntype, orcseed)
+            tup = (solvclass, budget, orc)
             joblst.append((tup, paramargs))
         res = mprun.par_runs(joblst)
         end_opt_time = time.time()

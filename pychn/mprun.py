@@ -17,13 +17,6 @@ def do_work(func, args, kwargs):
     return result
 
 
-def get_seedstreams(seedfilename):
-    """return prn streams dictionary from pickle file"""
-    with open(seedfilename, 'rb') as pklhandle:
-        seeddict = pickle.load(pklhandle)
-    return seeddict
-
-
 def combine_runs(rundicts):
     """combines the output results of many runs into a single dictionary"""
     rundatdict = dict()
@@ -35,17 +28,13 @@ def combine_runs(rundicts):
     return rundatdict
 
 
-def run(boovsolver, budget, orc, orcprn, orcseed, **kwargs):
-    orcprn_ob = orcprn(orcseed)
-    solvseed = kwargs.get('solvseed', None)
-    if solvseed:
+def run(boovsolver, budget, orc, **kwargs):
+    exists_solvprn = kwargs.get('solvprn', False)
+    if exists_solvprn:
         solvprn = kwargs.get('solvprn', None)
-        solvprn_ob = solvprn(solvseed)
-        kwargs['sprn'] = solvprn_ob
-        del kwargs['solvseed']
+        kwargs['sprn'] = solvprn
         del kwargs['solvprn']
-    orc_ob = orc(orcprn_ob)
-    solver = boovsolver(orc_ob, **kwargs)
+    solver = boovsolver(orc, **kwargs)
     mydat = solver.solve(budget)
     return mydat
 
