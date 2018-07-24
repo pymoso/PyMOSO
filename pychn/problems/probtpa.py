@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from ..chnbase import Oracle
-import math
+from pychn.chnbase import Oracle
+import numpy as np
 
 
 class ProbTPA(Oracle):
@@ -18,15 +18,16 @@ class ProbTPA(Oracle):
         return mcD
 
     def get_xi(self, prn):
+        """Realize 3 chi square random variables with 1 df."""
         z1 = prn.normalvariate(0, 1)
         z2 = prn.normalvariate(0, 1)
         z3 = prn.normalvariate(0, 1)
-        xi0 = math.pow(z1, 2)
-        xi1 = math.pow(z2, 2)
-        xi2 = math.pow(z3, 2)
-        return xi0, xi1, xi2
+        z = np.array([z1, z2, z3])
+        xi = np.power(z, 2)
+        return xi
 
     def g(self, x, xi):
-        obj2 = math.pow(x[0], 2)/100.0 + math.pow(x[1]/10.0 - 2.0*xi[2], 2)
-        obj1 = math.pow(x[0]/10.0 - 2.0*xi[0], 2) + math.pow(x[1]/10.0 - xi[1], 2)
+        """Estimate g(x) given randomness xi."""
+        obj1 = (x[0]/10.0 - 2.0*xi[0])**2 + (x[1]/10.0 - xi[1])**2
+        obj2 = (x[0]**2)/100.0 + (x[1]/10.0 - 2.0*xi[2])**2
         return obj1, obj2

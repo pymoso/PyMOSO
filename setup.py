@@ -38,6 +38,7 @@ setup(
             'pychn = pychn.cli:main',
         ],
     },
+    python_requires='>3.7.0',
     cmdclass={
         'clean': CleanCommand,
     },
