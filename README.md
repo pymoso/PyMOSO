@@ -16,7 +16,7 @@ Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on in
 1. Navigate to the project folder you downloaded previosly and build the binary wheel.
 `python setup.py bdist_wheel`
 1. Install the wheel.
-`pip install dist/pychn-0.0.7-py3-none-any.whl`
+`pip install dist/pychn-0.1.0-py3-none-any.whl`
 
 ### Install using pip
 *not yet available*
