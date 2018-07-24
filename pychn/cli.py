@@ -19,11 +19,15 @@ Examples:
   pychn solve ProbTPA RPERLE
   pychn solve ProbTPB RRLE --budget=100000 --trials=20 --name=tp1bexperiment
   pychn testsolve TPCTester RMINRLE --budget=10000 --incr=100
+  pychn testsolve TPBTester RPERLE --trials=100 betaeps 0.3 betadel 0.7
+  pychn listitems
 
 Help:
   Use solve to generate a solution to <problem> using algorithm <solver>. Test
   solve is similar but the solution is known in advance so peformance data
-  is generated.
+  is generated. Use listitems to see all available arguments for <problem>,
+  <tester>, and <solver>. Data will be saved in a new directory corresponding to
+  --name.
 
   The budget --budget indicate how many simulations of <problem> the algorithm
   <solver> is allowed to run. Trials --trials is the number of times to solve
