@@ -16,4 +16,4 @@ tpcfn = 'exples.pkl'
 package_dir = os.path.dirname(os.path.abspath(__file__))
 abs_path = os.path.join(package_dir, tpcfn)
 with open(abs_path, 'rb') as h:
-    tpcsoln = pickle.load(h)
+    soln = pickle.load(h)

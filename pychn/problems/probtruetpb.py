@@ -4,6 +4,7 @@ import math
 
 
 class ProbTrueTPB(DeterministicOrc):
+    """Deterministic Test Problem B"""
     def __init__(self):
         self.num_obj = 2
         self.dim = 2

@@ -3,6 +3,7 @@ from ..chnbase import DeterministicOrc
 
 
 class ProbTrueTPA(DeterministicOrc):
+    """Deterministic Test Problem A"""
     def __init__(self):
         self.num_obj = 2
         self.dim = 2

@@ -3,9 +3,9 @@ from .. import chnutils as su
 from .. import chnbase
 
 class SomeSolver(chnbase.SimOptSolver):
+    """A dumb solver. Look at the source to implement your own solver in pychn"""
     def __str__(self):
         return 'some-solver'
-
     def solve(self, budget):
         # implement this function to solve a problem! Here is a silly example
         # see chnbase.py for defaults, parameters, and initialized objects

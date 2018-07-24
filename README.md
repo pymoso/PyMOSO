@@ -16,4 +16,4 @@ Finally, install the wheel using `pip3 install dist/pychn-0.0.7-py3-none-any.whl
 ### Getting started
 For a help file containing all the commands and options, type `pychn --h`.
 
-More coming soon. 
+More coming soon.

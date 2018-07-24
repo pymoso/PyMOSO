@@ -1,11 +1,12 @@
 """
-ioboso
+pychn
 
 Usage:
-  ioboso solve <problem> <solver> [--budget=b] [--trials=t] [--name=n] [<param> <val>]...
-  ioboso testsolve <tester> <solver> [--budget=b] [--trials=t] [--name=n] [--incr=i] [<param> <val>]...
-  ioboso -h | --help
-  ioboso --version
+  pychn solve <problem> <solver> [--budget=b] [--trials=t] [--name=n] [<param> <val>]...
+  pychn testsolve <tester> <solver> [--budget=b] [--trials=t] [--name=n] [--incr=i] [<param> <val>]...
+  pychn listitems
+  pychn -h | --help
+  pychn --version
 
 Options:
   --budget=b                Simulation budget [default: 50000]
@@ -15,9 +16,9 @@ Options:
   --version                 Show version.
 
 Examples:
-  ioboso solve ProbTPA RPERLE
-  ioboso solve ProbTPB RRLE --budget=100000 --trials=20 --name=tp1bexperiment
-  ioboso testsolve TPCTester RMINRLE --budget=10000 --incr=100
+  pychn solve ProbTPA RPERLE
+  pychn solve ProbTPB RRLE --budget=100000 --trials=20 --name=tp1bexperiment
+  pychn testsolve TPCTester RMINRLE --budget=10000 --incr=100
 
 Help:
   Use solve to generate a solution to <problem> using algorithm <solver>. Test

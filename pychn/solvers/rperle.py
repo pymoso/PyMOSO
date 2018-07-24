@@ -5,6 +5,7 @@ from math import pow, ceil, floor
 
 
 class RPERLE(SimOptSolver):
+    """For bi-objective simulation optimization on integer lattices"""
     def __init__(self, orc, **kwargs):
         if 'betaeps' not in kwargs:
             self.betaeps = 0.5

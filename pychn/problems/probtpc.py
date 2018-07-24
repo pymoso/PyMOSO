@@ -4,6 +4,7 @@ import math
 
 
 class ProbTPC(Oracle):
+    """Test Problem C"""
     def __init__(self, prn):
         self.num_obj = 2
         self.dim = 3

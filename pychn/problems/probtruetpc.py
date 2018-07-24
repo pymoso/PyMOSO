@@ -4,6 +4,7 @@ import math
 
 
 class ProbTrueTPC(DeterministicOrc):
+    """Deterministic Test Problem C"""
     def __init__(self):
         self.num_obj = 2
         self.dim = 3
