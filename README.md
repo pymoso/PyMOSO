@@ -12,7 +12,7 @@ Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on in
 1. Download the project either from https://github.rcac.purdue.edu/HunterGroup/pychn/releases or using
  `git clone git@github.rcac.purdue.edu:HunterGroup/pychn.git`.
 1. Install wheel, numpy, and docopt.
-`pip install wheel, numpy, docopt`
+`pip install wheel numpy docopt`
 1. Navigate to the project folder you downloaded previosly and build the binary wheel.
 `python setup.py bdist_wheel`
 1. Install the wheel.
