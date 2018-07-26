@@ -13,6 +13,7 @@ Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on in
  `git clone git@github.rcac.purdue.edu:HunterGroup/pychn.git`.
 1. Navigate to the project folder you to and build the binary wheel. The packages docopt, numpy should be installed automatically, but we will install them explicitly.
 `pip install wheel numpy docopt`
+1. Build the binary wheel. 
 `python setup.py bdist_wheel`
 1. Install the wheel.
 `pip install dist/pychn-0.1.0-py3-none-any.whl`
