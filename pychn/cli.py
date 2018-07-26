@@ -2,7 +2,7 @@
 pychn
 
 Usage:
-  pychn solve <problem> <solver> [--budget=b] [--trials=t] [--name=n] [<param> <val>]...
+  pychn solve <problem> <solver> [--budget=b] [--trials=t] [--seed <s> <s> <s> <s> <s> <s>] [--name=n] [<param> <val>]...
   pychn testsolve <tester> <solver> [--budget=b] [--trials=t] [--name=n] [--incr=i] [<param> <val>]...
   pychn listitems
   pychn -h | --help
@@ -12,6 +12,7 @@ Options:
   --budget=b                Simulation budget [default: 50000]
   --trials=t                Number of instances to solve. [default: 1]
   --name=n                  A name to assign to the output. [default: testrun]
+  --seed                    Specify a seed by entering 6 spaced integers
   -h --help                 Show this screen.
   --version                 Show version.
 
@@ -21,6 +22,7 @@ Examples:
   pychn testsolve TPCTester RMINRLE --budget=10000 --incr=100
   pychn testsolve TPBTester RPERLE --trials=100 betaeps 0.3 betadel 0.7
   pychn listitems
+  pychn solve ProbTPA RPERLE --seed 12345 32123 5322 2 9543 666666666
 
 Help:
   Use solve to generate a solution to <problem> using algorithm <solver>. Test

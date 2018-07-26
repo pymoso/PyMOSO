@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from pychn.chnbase import Oracle
+from ..chnbase import Oracle
 import numpy as np
 
 

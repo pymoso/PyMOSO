@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from ..chnbase import Oracle
+from pychn.chnbase import Oracle
 import numpy as np
 
 class SomeProblem(Oracle):
@@ -54,7 +54,8 @@ def main():
     orc.set_crnflag(False)
     x0 = (20, 20)
     for i in range(10):
-        print(orc.hit(x0, 3))
-
+        gx = orc.hit(x0, 3)
+        print(gx)
+        
 if __name__ == '__main__':
     main()

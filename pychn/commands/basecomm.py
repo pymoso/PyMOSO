@@ -26,8 +26,7 @@ def check_expname(name):
     return datstr
 
 
-def get_prnstreams(num_trials):
-    iseed = (12345, 12345, 12345, 12345, 12345, 12345)
+def get_prnstreams(num_trials, iseed):
     xprn = prng.mrg32k3a.MRG32k3a(iseed)
     orcprn_lst = []
     solprn_lst = []

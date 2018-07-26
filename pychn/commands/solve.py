@@ -11,6 +11,11 @@ class Solve(BaseComm):
         trials = int(self.options['--trials'])
         budget = int(self.options['--budget'])
         name = self.options['--name']
+        seed = self.options['--seed']
+        if seed:
+            seed = tuple(int(i) for i in self.options['<s>'])
+        else:
+            seed = (12345, 12345, 12345, 12345, 12345, 12345)
         ## determine the solver and problem
         probarg = self.options['<problem>']
         probclasses = getmembers(problems, isclass)
@@ -26,7 +31,7 @@ class Solve(BaseComm):
             ptup = (p, float(vals[i]))
             paramtups.append(ptup)
         ## generate all prn streams
-        orcstreams, solvstreams, xprn = get_prnstreams(trials)
+        orcstreams, solvstreams, xprn = get_prnstreams(trials, seed)
         ## generate the experiment list
         print('*********** Beginning Optimization ***********')
         start_opt_time = time.time()

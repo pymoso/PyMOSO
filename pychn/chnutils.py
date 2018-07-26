@@ -1,7 +1,10 @@
 #!/usr/bin/env python
-from math import sqrt, pow
-from itertools import product
-import pickle
+
+import numpy as np
+from scipy.spatial.distance import directed_hausdorff, cdist
+from itertools import product, filterfalse
+from functools import reduce
+from math import ceil, floor
 
 
 def feas2set(feasdict):
@@ -37,7 +40,7 @@ def does_dominate(g1, g2, delta1, delta2):
         if g2[i] + delta2[i] < g1[i] - delta1[i]:
             is_dom = False
         i = i + 1
-    if g2 == g1:
+    if g2[0] == g1[0] and g2[1] == g1[1]:
         is_dom = False
     return is_dom
 
@@ -174,8 +177,8 @@ def is_lwep(x, gdict):
 def get_biparetos(edict):
     """returns the non-dominated keys of a dictionary {x: (g1, g2)}"""
     pts = list(edict.keys())
-    vals = list(edict.values())
-    sind = argsort(vals)
+    vals = np.array([i for i in edict.values()])
+    sind = np.argsort(vals, axis=0)[:,0]
     g2 = 1
     dlen = len(pts)
     plist = set()
@@ -216,69 +219,69 @@ def remove_strict_dom(edict):
     return weaklies
 
 
-def get_nbors(x):
-    """return the neighborhood of a point x"""
+def get_nbors(x, r=1):
+    """Find all neighbors of point x within radius r."""
+    # define a filter function for points too far away
+    def edist_filter(x1):
+        # also filter the input point
+        if edist(x, x1) > r or x == x1:
+            return True
     q = len(x)
-    qr = range(q)
-    mcn = set()
-    for i in qr:
-        xp1 = tuple(x[j] + 1 if i == j else x[j] for j in qr)
-        xm1 = tuple(x[j] - 1 if i == j else x[j] for j in qr)
-        mcn = mcn | {xp1, xm1}
-    return mcn
+    # generate all points in a box with sides length 2r around x
+    bounds = []
+    for i in range(q):
+        a = int(ceil(x[i] - r))
+        b = int(floor(x[i] + r))
+        bounds.append(range(a, b+1))
+    boxpts = product(*bounds)
+    # remove those farther than r from x and return the list of neighbors
+    nbors = filterfalse(edist_filter, boxpts)
+    return set(nbors)
 
 
-def get_setnbors(mcs):
-    """return the neighborhood of a set"""
-    mcn = set()
+def get_setnbors(mcs, r=1):
+    """Generate the exclusive neighborhood of a set within radius r."""
+    set_nbors = set()
     for x in mcs:
-        mcn |= get_nbors(x)
-    return mcn - mcs
-
-
-def argsort(seq):
-    return sorted(range(len(seq)), key=seq.__getitem__)
+        set_nbors |= get_nbors(x, r)
+    return set_nbors
 
 
 def enorm(x):
-    """compute the norm of a vector x"""
-    q = len(x)
-    return sqrt(sum([pow(x[i], 2) for i in range(q)]))
+    """Compute the norm of a vector x."""
+    return np.linalg.norm(x)
 
 
 def perturb(x, prn):
-    """ randomly perturb x, as in the R-SPLINE paper. See Wang et. al 2013"""
+    """Perturb x randomly."""
     q = len(x)
-    u = prn.random()
-    return tuple(x[i] + 0.3*(u - 0.5) for i in range(q))
+    u = np.array([prn.random() for i in range(q)])
+    um = np.multiply(np.add(u, -0.5), 0.3)
+    pert_x = np.add(x, um)
+    return pert_x
 
 
-def edist(x1,x2):
-    """return Euclidean distance between 2 vectors"""
-    q = len(x1)
-    return sqrt(sum([pow(x1[i] - x2[i], 2) for i in range(q)]))
+def edist(x1, x2):
+    """Compute Euclidean distance between 2 vectors."""
+    return np.linalg.norm(np.subtract(x1, x2), axis=0)
 
 
 def dxB(x, B):
-    """return distance from a point to a set"""
-    dmin = float('inf')
-    for b in B:
-        dxb = edist(x, b)
-        if dxb < dmin:
-            dmin = dxb
-    return dmin
-
-
-def dAB(A, B):
-    """return distance from set A to set B"""
-    dmax = float('-inf')
-    for a in A:
-        daB = dxB(a, B)
-        if daB > dmax:
-            dmax = daB
-    return dmax
+    """Compute distance from a point to a set."""
+    return min(cdist([x], np.array(B))[0])
 
 
 def dh(A, B):
     """return the Hausdorf distance between sets A and B"""
-    return max(dAB(A, B), dAB(B, A))
+    return max(directed_hausdorff(A, B)[0], directed_hausdorff(B, A)[0])
+
+
+def main():
+    A = [(1, 2, 3), (2, 4, 1), (6, 7, 2), (6, 6, 9), (2, 3, 4)]
+    B = [(1, 0, -4), (5, -1, 3), (4, 4, 4), (2, -3, 9), (11, 3, 5), (1, 2, 3)]
+    x0 = (2, 11, 13)
+    r = 1
+    print(get_setnbors(set(A), r))
+
+if __name__ == '__main__':
+    main()

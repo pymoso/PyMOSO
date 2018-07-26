@@ -89,69 +89,41 @@ class Oracle(OrcBase):
         if self.crnflag:
             self.crn_reset()
 
-    def old_stuf(self, x, m):
-        """Generate the mean of spending m simulation effort at point x."""
+    def hit(self, x, m):
+        """Generate the mean of spending m simulation effort at point x.
+
+        Positional Arguments:
+        x -- point to generate estimates
+        m -- number of estimates to generate at x
+
+        Return Values:
+        isfeas -- boolean indicating feasibility of x
+        omean -- mean of m estimates of each objective at x (tuple)
+        ose -- mean of m estimates of the standard error of each objective
+            at x (tuple)
+        """
         is_feas = self.check_xfeas(x)
         d = self.num_obj
-        res = {j: [] for j in range(d)}
         if is_feas and m > 0:
-            omean = []
-            ovar = []
-            ose = []
-            for i in range(m):
+            if m == 1:
                 xi = self.get_xi(self.prn)
                 objd = self.g(x, xi)
-                for j in range(d):
-                    res[j].append(objd[j])
-            if m > 1:
-                for j in range(d):
-                    omean.append(mean(res[j]))
-                    ovar.append(variance(res[j], omean[j]))
-                    ose.append(sqrt(ovar[j])/sqrt(m))
-            if m == 1:
-                for j in range(d):
-                    omean.append(res[j][0])
-                    ose.append(0)
-            self.crn_check(m)
-        else:
-            omean = []
-            ose = []
-        return is_feas, tuple(omean), tuple(ose)
-
-        def hit(self, x, m):
-            """Generate the mean of spending m simulation effort at point x.
-
-            Positional Arguments:
-            x -- point to generate estimates
-            m -- number of estimates to generate at x
-
-            Return Values:
-            isfeas -- boolean indicating feasibility of x
-            omean -- mean of m estimates of each objective at x (tuple)
-            ose -- mean of m estimates of the standard error of each objective
-                at x (tuple)
-            """
-            is_feas = self.check_xfeas(x)
-            d = self.num_obj
-            if is_feas and m > 0:
-                if m == 1:
+                omean = objd
+                ose = [0 for o in objd]
+            else:
+                objm = []
+                for i in range(m):
                     xi = self.get_xi(self.prn)
                     objd = self.g(x, xi)
-                    omean = objd
-                    ose = [0 for o in objd]
-                else:
-                    objm = []
-                    for i in range(m):
-                        xi = self.get_xi(self.prn)
-                        objd = self.g(x, xi)
-                        objm.append(objd)
-                    objv = np.array(objm)
-                    print(objm)
-                self.crn_check(m)
-            else:
-                omean = []
-                ose = []
-            return is_feas, tuple(omean), tuple(ose)
+                    objm.append(objd)
+                objv = np.array(objm)
+                obmean = np.mean(objv, axis=0)
+                obvar = np.var(objv, axis=0, ddof=1)
+                obse = np.sqrt(np.divide(obvar, m))
+            self.crn_check(m)
+        else:
+            return is_feas, None, None
+        return is_feas, obmean, obse
 
 
 class DeterministicOrc(OrcBase):
@@ -174,16 +146,8 @@ class DeterministicOrc(OrcBase):
         d = self.num_obj
         res = {j: [] for j in range(d)}
         if is_feas and m > 0:
-            omean = []
-            ovar = []
-            ose = []
             objd = self.g(x)
-            for j in range(d):
-                res[j].append(objd[j])
-            for j in range(d):
-                omean.append(res[j][0])
-                ose.append(0)
+            ose = tuple([0 for o in objd])
         else:
-            omean = []
-            ose = []
-        return is_feas, tuple(omean), tuple(ose)
+            return is_feas, None, None
+        return is_feas, objd, ose

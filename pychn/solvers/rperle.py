@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from ..chnbase import SimOptSolver
 from ..chnutils import *
+import numpy as np
 from math import pow, ceil, floor
 
 
@@ -106,7 +107,7 @@ class RPERLE(SimOptSolver):
         lwepset = set()
         domset = set()
         delz = [0]*self.num_obj
-        nbors = get_setnbors(mcS)
+        nbors = get_setnbors(mcS, 1)
         nbors = self.upsample(nbors)
         tmpd = {x: self.gbar[x] for x in mcS | nbors}
         for s in mcS:
@@ -428,8 +429,7 @@ class RPERLE(SimOptSolver):
         simp = [x0]
         zi = [x[i] - x0[i] for i in range(q)]
         zi.extend((0, 1))
-        p = argsort(zi)
-        p.reverse()
+        p = np.flip(np.argsort(zi))
         z = sorted(zi, reverse=True)
         w = tuple(z[p[i]] - z[p[i + 1]] for i in range(q + 1))
         prevx = x0
