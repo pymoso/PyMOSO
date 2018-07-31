@@ -1,10 +1,26 @@
 #!/usr/bin/env python
-
-import numpy as np
-from scipy.spatial.distance import directed_hausdorff, cdist
 from itertools import product, filterfalse
-from functools import reduce
-from math import ceil, floor
+from math import ceil, floor, sqrt
+
+
+def get_x0(orc0, xprn):
+    feas = orc0.get_feasspace()
+    startd = dict()
+    endd = dict()
+    for dim in feas:
+        sta = []
+        end = []
+        for interval in feas[dim]:
+            sta.append(interval[0])
+            end.append(interval[1])
+        startd[dim] = min(sta)
+        endd[dim] = max(end)
+    x0 = []
+    for dim in range(orc0.dim):
+        xq = xprn.sample(range(startd[dim], endd[dim]), 1)[0]
+        x0.append(xq)
+    x0 = tuple(x0)
+    return x0
 
 
 def feas2set(feasdict):
@@ -142,10 +158,10 @@ def get_lwes(edict):
     return lessets
 
 
-def is_lep(x, gdict):
+def is_lep(x, r, gdict):
     """return true if x is a LEP"""
     dim = len(x)
-    nbors = get_nbors(x)
+    nbors = get_nbors(x, r)
     dominated = False
     delz = [0]*dim
     fx = gdict[x]
@@ -157,10 +173,10 @@ def is_lep(x, gdict):
     return not dominated
 
 
-def is_lwep(x, gdict):
+def is_lwep(x, r, gdict):
     """return true if x is an LWEP"""
     dim = len(gdict[x])
-    nbors = get_nbors(x)
+    nbors = get_nbors(x, r)
     dominated = False
     delz = [0]*dim
     fx = gdict[x]
@@ -177,8 +193,8 @@ def is_lwep(x, gdict):
 def get_biparetos(edict):
     """returns the non-dominated keys of a dictionary {x: (g1, g2)}"""
     pts = list(edict.keys())
-    vals = np.array([i for i in edict.values()])
-    sind = np.argsort(vals, axis=0)[:,0]
+    vals = list(edict.values())
+    sind = argsort(vals)
     g2 = 1
     dlen = len(pts)
     plist = set()
@@ -239,7 +255,11 @@ def get_nbors(x, r=1):
     return set(nbors)
 
 
-def get_setnbors(mcs, r=1):
+def argsort(seq):
+    return sorted(range(len(seq)), key=seq.__getitem__)
+
+
+def get_setnbors(mcs, r):
     """Generate the exclusive neighborhood of a set within radius r."""
     set_nbors = set()
     for x in mcs:
@@ -248,40 +268,44 @@ def get_setnbors(mcs, r=1):
 
 
 def enorm(x):
-    """Compute the norm of a vector x."""
-    return np.linalg.norm(x)
+    """compute the norm of a vector x"""
+    q = len(x)
+    return sqrt(sum([pow(x[i], 2) for i in range(q)]))
 
 
 def perturb(x, prn):
-    """Perturb x randomly."""
+    """ randomly perturb x, as in the R-SPLINE paper. See Wang et. al 2013"""
     q = len(x)
-    u = np.array([prn.random() for i in range(q)])
-    um = np.multiply(np.add(u, -0.5), 0.3)
-    pert_x = np.add(x, um)
-    return pert_x
+    u = prn.random()
+    return tuple(x[i] + 0.3*(u - 0.5) for i in range(q))
 
 
-def edist(x1, x2):
-    """Compute Euclidean distance between 2 vectors."""
-    return np.linalg.norm(np.subtract(x1, x2), axis=0)
+def edist(x1,x2):
+    """return Euclidean distance between 2 vectors"""
+    q = len(x1)
+    return sqrt(sum([pow(x1[i] - x2[i], 2) for i in range(q)]))
 
 
 def dxB(x, B):
-    """Compute distance from a point to a set."""
-    return min(cdist([x], np.array(B))[0])
+    """return distance from a point to a set"""
+    dmin = float('inf')
+    for b in B:
+        dxb = edist(x, b)
+        if dxb < dmin:
+            dmin = dxb
+    return dmin
+
+
+def dAB(A, B):
+    """return distance from set A to set B"""
+    dmax = float('-inf')
+    for a in A:
+        daB = dxB(a, B)
+        if daB > dmax:
+            dmax = daB
+    return dmax
 
 
 def dh(A, B):
     """return the Hausdorf distance between sets A and B"""
-    return max(directed_hausdorff(A, B)[0], directed_hausdorff(B, A)[0])
-
-
-def main():
-    A = [(1, 2, 3), (2, 4, 1), (6, 7, 2), (6, 6, 9), (2, 3, 4)]
-    B = [(1, 0, -4), (5, -1, 3), (4, 4, 4), (2, -3, 9), (11, 3, 5), (1, 2, 3)]
-    x0 = (2, 11, 13)
-    r = 1
-    print(get_setnbors(set(A), r))
-
-if __name__ == '__main__':
-    main()
+    return max(dAB(A, B), dAB(B, A))

@@ -4,8 +4,6 @@ from .rperle import RPERLE
 
 class RMINRLE(RPERLE):
     """A benchmark for multi-objective simulation optimization on integer lattices"""
-    def __str__(self):
-        return 'rmin'
     def perle(self, aold):
         """return an LWEP at a particular sample size m """
         aold1 = self.get_min(aold) | aold

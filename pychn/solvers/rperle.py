@@ -1,26 +1,25 @@
 #!/usr/bin/env python
 from ..chnbase import SimOptSolver
 from ..chnutils import *
-import numpy as np
 from math import pow, ceil, floor
 
 
 class RPERLE(SimOptSolver):
     """For bi-objective simulation optimization on integer lattices"""
+
     def __init__(self, orc, **kwargs):
         if 'betaeps' not in kwargs:
             self.betaeps = 0.5
         if 'betadel' not in kwargs:
             self.betadel = 0.5
+        if 'nbor_rad' not in kwargs:
+            self.nbor_rad = 1
         sprn = kwargs.get('sprn', None)
         x0 = kwargs.get('x0', None)
         if not sprn or not x0:
-            # fail gracefully -- todo
+            # we need both. Fail ungracefully for now.
             pass
         super().__init__(orc, **kwargs)
-
-    def __str__(self):
-        return 'rp'
 
     def solve(self, budget):
         """initialize and invoke the rperle algorithm"""
@@ -104,14 +103,15 @@ class RPERLE(SimOptSolver):
 
     def remove_nlwep(self, mcS):
         """return subset of mcS which are LWEP"""
+        r = self.nbor_rad
         lwepset = set()
         domset = set()
         delz = [0]*self.num_obj
-        nbors = get_setnbors(mcS, 1)
+        nbors = get_setnbors(mcS, r)
         nbors = self.upsample(nbors)
         tmpd = {x: self.gbar[x] for x in mcS | nbors}
         for s in mcS:
-            islwep, dompts = is_lwep(s, tmpd)
+            islwep, dompts = is_lwep(s, r, tmpd)
             if islwep:
                 lwepset |= {s}
             else:
@@ -277,15 +277,16 @@ class RPERLE(SimOptSolver):
         # initialize the non-conforming neighborhood
         ncn = set()
         d = self.num_obj
+        r = self.nbor_rad
         dr = range(d)
-        delN = get_setnbors(mcS)
+        delN = get_setnbors(mcS, r)
         delzero = tuple(0 for i in dr)
         # defintion 9 (a) -- check for strict domination in the deleted nbors
         for s in mcS:
             fs = self.gbar[s]
             ses = self.sehat[s]
             dels = tuple(self.calc_delta(ses[i]) for i in dr)
-            snb = get_nbors(s) - mcS
+            snb = get_nbors(s, r) - mcS
             for x in snb:
                 isfeas, fx, sex = self.estimate(x)
                 if isfeas:
@@ -391,23 +392,44 @@ class RPERLE(SimOptSolver):
         xs = x
         fxs = fx
         vxs = sex
-        for i in range(q):
-            xp1 = tuple(x[j] + 1 if i == j else x[j] for j in range(q))
-            xm1 = tuple(x[j] - 1 if i == j else x[j] for j in range(q))
-            isfeas1, fxp1, vxp1 = self.estimate(xp1, e, kcon)
-            isfeas2, fxm1, vxm1 = self.estimate(xm1, e, kcon)
-            if isfeas1:
-                n += m
-                if fxp1[nobj] < fxs[nobj]:
-                    xs = xp1
-                    fxs = fxp1
-                    vxs = vxp1
-            if isfeas2:
-                n += m
-                if fxm1[nobj] < fxs[nobj]:
-                    xs = xm1
-                    fxs = fxm1
-                    vxs = vxm1
+        nbor_rad = self.nbor_rad
+        # optimize the case for neighborhood radius of 1
+        if nbor_rad == 1:
+            for i in range(q):
+                xp1 = tuple(x[j] + 1 if i == j else x[j] for j in range(q))
+                xm1 = tuple(x[j] - 1 if i == j else x[j] for j in range(q))
+                isfeas1, fxp1, vxp1 = self.estimate(xp1, e, kcon)
+                if isfeas1:
+                    n += m
+                    if fxp1[nobj] < fxs[nobj]:
+                        xs = xp1
+                        fxs = fxp1
+                        vxs = vxp1
+                        return xs, fxs, vxs, n
+                isfeas2, fxm1, vxm1 = self.estimate(xm1, e, kcon)
+                if isfeas2:
+                    n += m
+                    if fxm1[nobj] < fxs[nobj]:
+                        xs = xm1
+                        fxs = fxm1
+                        vxs = vxm1
+                        return xs, fxs, vxs, n
+        else:
+            # for neighborhoods not 1, generate the list of neighbors
+            nbors = get_nbors(x, nbor_rad)
+            # and check each neighbor until we find a better one
+            i = 0
+            while i < len(nbors):
+                n = nbors[i]
+                isfeas, fn, sen = self.estimate(n, e, kcon)
+                if isfeas:
+                    n += m
+                    if fn[nobj] < fxs[nobj]:
+                        xs = n
+                        fxs = fn
+                        vxs = sen
+                        break
+                i += 1
         return xs, fxs, vxs, n
 
     def pli(self, x, nobj):
@@ -429,7 +451,8 @@ class RPERLE(SimOptSolver):
         simp = [x0]
         zi = [x[i] - x0[i] for i in range(q)]
         zi.extend((0, 1))
-        p = np.flip(np.argsort(zi))
+        p = argsort(zi)
+        p.reverse()
         z = sorted(zi, reverse=True)
         w = tuple(z[p[i]] - z[p[i + 1]] for i in range(q + 1))
         prevx = x0

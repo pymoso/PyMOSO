@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Provide base classes for problem and solver implementations."""
-
-import numpy as np
+from statistics import mean, variance
+from math import sqrt
 
 
 class SimOptSolver(object):
@@ -102,28 +102,27 @@ class Oracle(OrcBase):
         ose -- mean of m estimates of the standard error of each objective
             at x (tuple)
         """
-        is_feas = self.check_xfeas(x)
         d = self.num_obj
-        if is_feas and m > 0:
+        dr = range(d)
+        obmean = []
+        obse = []
+        if m > 0:
             if m == 1:
-                xi = self.get_xi(self.prn)
-                objd = self.g(x, xi)
-                omean = objd
-                ose = [0 for o in objd]
+                isfeas, objd = self.g(x, self.prn)
+                ombean = objd
+                obse = [0 for o in objd]
             else:
+                mr = range(m)
                 objm = []
-                for i in range(m):
-                    xi = self.get_xi(self.prn)
-                    objd = self.g(x, xi)
+                for i in mr:
+                    isfeas, objd = self.g(x, self.prn)
                     objm.append(objd)
-                objv = np.array(objm)
-                obmean = np.mean(objv, axis=0)
-                obvar = np.var(objv, axis=0, ddof=1)
-                obse = np.sqrt(np.divide(obvar, m))
+                if isfeas:
+                    obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
+                    obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
+                    obse = tuple([sqrt(obvar[i]/m) for i in dr])
             self.crn_check(m)
-        else:
-            return is_feas, None, None
-        return is_feas, obmean, obse
+        return isfeas, obmean, obse
 
 
 class DeterministicOrc(OrcBase):
@@ -142,12 +141,11 @@ class DeterministicOrc(OrcBase):
         omean -- g(x) (tuple of lenth self.num_obj)
         ose -- 0 (tuple of lenth self.num_obj)
         """
-        is_feas = self.check_xfeas(x)
         d = self.num_obj
-        res = {j: [] for j in range(d)}
-        if is_feas and m > 0:
-            objd = self.g(x)
+        isfeas = False
+        objd = []
+        ose = []
+        if m > 0:
+            isfeas, objd = self.g(x)
             ose = tuple([0 for o in objd])
-        else:
-            return is_feas, None, None
-        return is_feas, objd, ose
+        return isfeas, objd, ose
