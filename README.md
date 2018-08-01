@@ -15,7 +15,7 @@ https://github.rcac.purdue.edu/HunterGroup/pychn/releases
 or using  
 `git clone git@github.rcac.purdue.edu:HunterGroup/pychn.git`.  
 From the link, you may download the .whl file and skip to the last step.  
-1.The packages docopt, numpy should be installed automatically in step 4, but we will install them explicitly.   
+1. The packages docopt, numpy should be installed automatically in step 4, but we will install them explicitly.   
 `pip install wheel numpy docopt`  
 1. Navigate to the newly downloaded project directory containing setup.py and build the binary wheel.  
 `python setup.py bdist_wheel`
