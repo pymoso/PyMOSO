@@ -32,7 +32,7 @@ For a help file containing all the commands and options, type `pychn --h`.
 
 ### Command help
 ```
-  pychn usage:
+Usage:
   pychn solve <problem> <solver> [options] [<param> <val>]...
   pychn testsolve <tester> <solver> [options] [<param> <val>]...
   pychn listitems
