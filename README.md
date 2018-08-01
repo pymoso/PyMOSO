@@ -34,6 +34,33 @@ For a help file containing all the commands and options, type `pychn --h`.
 
 **This section is under construction**  
 
+`pychn usage:
+  pychn solve <problem> <solver> [options] [<param> <val>]...
+  pychn testsolve <tester> <solver> [options] [<param> <val>]...
+  pychn listitems
+  pychn -h | --help
+  pychn --version
+
+Options:
+  --budget=b                Simulation budget [default: 50000]
+  --trials=t                Number of independent instances to solve in
+                                parallel. [default: 1]
+  --name=n                  A name to assign to the output. [default: testrun]
+  --seed                    Specify a seed by entering 6 spaced integers.
+  --nr=r                    Specify a neighborhood radius. [default: 1]
+  --mp=p                    Use p processes to run simulations. [default: 1]
+  -h --help                 Show this screen.
+  --version                 Show version.
+
+Examples:
+  pychn solve ProbTPA RPERLE
+  pychn solve ProbTPB RMINRLE --budget=100000  --name=test1 --nr=3
+  pychn testsolve TPCTester RMINRLE --budget=10000 --incr=100
+  pychn testsolve TPBTester RPERLE --trials=100 betaeps 0.3 betadel 0.7
+  pychn listitems
+  pychn solve ProbTPA RPERLE --seed 12345 32123 5322 2 9543 666666666 \
+    --mp=4 betaeps 0.7`
+
 Use the listitems command to view a list of available solvers, problems, and
 test problems.
 
