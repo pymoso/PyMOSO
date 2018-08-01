@@ -5,20 +5,23 @@ This project implements the R-PERLE algorithm for solving bi-objective simulatio
 ### Reference
 If you use this software for work leading to publications, please cite the article in which R-PERLE and R-MinRLE were proposed:
 
-Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework.
+Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework http://www.optimization-online.org/DB_HTML/2018/06/6649.html.
 
 ### Install from source
-1. Install Python 3.7+ from https://www.python.org/. You should be able to type `python` and `pip` into the terminal. Depending on your system it may be `python3` and `pip3` instead.
+1. Install Python 3.7+ from https://www.python.org/. You should be able to type `python` and `pip` into the terminal. Depending on your system it may be `python3` and `pip3` instead.  If you are using the `python3` command, the command to upgrade pip is  
+`pip3 intall --upgrade pip`  
 1. Download the project either from  
 https://github.rcac.purdue.edu/HunterGroup/pychn/releases   
 or using  
-`git clone git@github.rcac.purdue.edu:HunterGroup/pychn.git`.
-1. Navigate to the project folder you to and build the binary wheel. The packages docopt, numpy should be installed automatically, but we will install them explicitly.  
-`pip install wheel numpy docopt`
-1. Build the binary wheel.  
+`git clone git@github.rcac.purdue.edu:HunterGroup/pychn.git`.  
+From the first link, you may download the .whl file and skip to the last step.  
+1.The packages docopt, numpy should be installed automatically in step 4, but we will install them explicitly.   
+`pip install wheel numpy docopt`  
+1. Navigate to the newly downloaded project directory containing setup.py and build the binary wheel.  
 `python setup.py bdist_wheel`
 1. Install the wheel.  
-`pip install dist/pychn-0.1.0-py3-none-any.whl`
+`pip install dist/pychn-0.1.0-py3-none-any.whl`  
+The exact name of the file may be different. Modify the command to select the particular wheel you've built or downloaded.
 
 ### Install from PyPI
 *not yet available*  
@@ -28,6 +31,8 @@ or using
 For a help file containing all the commands and options, type `pychn --h`.
 
 ### Command help
+
+**This section is under construction**  
 
 Use the listitems command to view a list of available solvers, problems, and
 test problems.
