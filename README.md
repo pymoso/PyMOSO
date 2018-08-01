@@ -31,7 +31,8 @@ The exact name of the file may be different. Modify the command to select the pa
 For a help file containing all the commands and options, type `pychn --h`.
 
 ### Command help
-```pychn usage:
+```
+  pychn usage:
   pychn solve <problem> <solver> [options] [<param> <val>]...
   pychn testsolve <tester> <solver> [options] [<param> <val>]...
   pychn listitems
@@ -56,7 +57,7 @@ Examples:
   pychn testsolve TPBTester RPERLE --trials=100 betaeps 0.3 betadel 0.7
   pychn listitems
   pychn solve ProbTPA RPERLE --seed 12345 32123 5322 2 9543 666666666 \
-    --mp=4 betaeps 0.7```
+    --mp=4 betaeps 0.7
 
 Use the listitems command to view a list of available solvers, problems, and
 test problems.
@@ -90,3 +91,4 @@ less than 1 are trivial. Finally, simulation replications can be taken in
 parallel for simulations with non-trival run times using --mp. When using
 --trials and --mp, (or both) choose values appropriate for the machine, as
 pychn will not adjust them.
+```
