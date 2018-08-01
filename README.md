@@ -5,7 +5,7 @@ This project implements the R-PERLE algorithm for solving bi-objective simulatio
 ### Reference
 If you use this software for work leading to publications, please cite the article in which R-PERLE and R-MinRLE were proposed:
 
-Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework http://www.optimization-online.org/DB_HTML/2018/06/6649.html.
+Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework. http://www.optimization-online.org/DB_HTML/2018/06/6649.html.
 
 ### Install from source
 1. Install Python 3.7+ from https://www.python.org/. You should be able to type `python` and `pip` into the terminal. Depending on your system it may be `python3` and `pip3` instead.  If you are using the `python3` command, the command to upgrade pip is  
@@ -14,7 +14,7 @@ Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on in
 https://github.rcac.purdue.edu/HunterGroup/pychn/releases   
 or using  
 `git clone git@github.rcac.purdue.edu:HunterGroup/pychn.git`.  
-From the first link, you may download the .whl file and skip to the last step.  
+From the link, you may download the .whl file and skip to the last step.  
 1.The packages docopt, numpy should be installed automatically in step 4, but we will install them explicitly.   
 `pip install wheel numpy docopt`  
 1. Navigate to the newly downloaded project directory containing setup.py and build the binary wheel.  
