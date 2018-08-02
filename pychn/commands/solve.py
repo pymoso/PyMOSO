@@ -11,7 +11,7 @@ class Solve(BaseComm):
         trials = int(self.options['--trials'])
         budget = int(self.options['--budget'])
         name = self.options['--name']
-        seed = self.options['--seed']
+        seed = self.options['-seed']
         if seed:
             seed = tuple(int(i) for i in self.options['<s>'])
         else:

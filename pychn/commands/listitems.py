@@ -21,7 +21,8 @@ class ListItems(BaseComm):
         print(f'{sstrund:30} {sstrund:30}')
         for s0, s1 in solvclasses:
             print(f'{s0:30} {s1.__doc__:30}')
-        ## print the problems, their docstrings, and determine if they have
+        ## print the problems, their docstrings, and determine if they have a
+        ##      tester
         pstr = 'Problems'
         tstr = 'Test Name (if available)'
         print(f'\n{pstr:30} {descstr:30} {tstr:30}')

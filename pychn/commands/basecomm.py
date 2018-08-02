@@ -10,8 +10,27 @@ from .. import solvers
 from .. import problems
 from .. import prng
 from .. import testproblems
-import json
+from json import dumps, loads, JSONEncoder, JSONDecoder, dump
 import pickle
+
+#
+# class PythonObjectEncoder(JSONEncoder):
+#     def default(self, obj):
+#         if isinstance(obj, (list, dict, str, int, float, bool, type(None))):
+#             return JSONEncoder.default(self, obj)
+#         return {'_python_object': pickle.dumps(obj)}
+#
+#
+# def as_python_object(dct):
+#     if '_python_object' in dct:
+#         return pickle.loads(str(dct['_python_object']))
+#     return dct
+
+
+def jsonset(o):
+    if isinstance(o, set):
+        return list(o)
+    return o.__dict__
 
 
 def check_expname(name):
@@ -78,18 +97,20 @@ def save_files(name, humantxt, rundat, pltd=None, alg=None):
     pref = ''
     if alg:
         pref = alg + '_'
-    rundatn = pref + name + '.pkl'
+    rundatn = pref + name + '.txt'
     humpth = os.path.join(name, humfilen)
     with open(humpth, 'w') as f1:
-        json.dump(humantxt, f1, indent=4, separators=(',', ': '))
+        dump(humantxt, f1, indent=4, separators=(',', ': '))
     rundpth = os.path.join(name, rundatn)
-    with open(rundpth, 'wb') as f2:
-        pickle.dump(rundat, f2)
+    j = dumps(rundat, default=jsonset)
+    with open(rundpth, 'w') as f2:
+        dump(j, f2, indent=4, separators=(',', ': '))
     if pltd:
-        pltn = pref + name + '_plt.pkl'
+        pltn = pref + name + '_plt.txt'
         pltpth = os.path.join(name, pltn)
-        with open(pltpth, 'wb') as f3:
-            pickle.dump(pltd, f3)
+        j = dumps(pltdat, default=jsonset)
+        with open(pltpth, 'w') as f3:
+            dump(j, f3, indent=4, separators=(',', ': '))
 
 
 def gen_pltdat(dat, trials, incr, budget, tp):

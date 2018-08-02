@@ -2,7 +2,7 @@
 pychn
 
 Usage:
-  pychn solve <problem> <solver> [options] [<param> <val>]...
+  pychn solve <problem> <solver> [options] [-seed <s> ...][<param> <val>]...
   pychn testsolve <tester> <solver> [options] [<param> <val>]...
   pychn listitems
   pychn -h | --help
@@ -10,10 +10,9 @@ Usage:
 
 Options:
   --budget=b                Simulation budget [default: 50000]
-  --trials=t                Number of independent instances to solve in
-                                parallel. [default: 1]
+  --trials=t                Number of independent instances to solve in parallel. [default: 1]
   --name=n                  A name to assign to the output. [default: testrun]
-  --seed                    Specify a seed by entering 6 spaced integers.
+  -seed                     Specify a seed by entering 6 spaced integers.
   --nr=r                    Specify a neighborhood radius. [default: 1]
   --mp=p                    Use p processes to run simulations. [default: 1]
   -h --help                 Show this screen.
@@ -25,7 +24,7 @@ Examples:
   pychn testsolve TPCTester RMINRLE --budget=10000 --incr=100
   pychn testsolve TPBTester RPERLE --trials=100 betaeps 0.3 betadel 0.7
   pychn listitems
-  pychn solve ProbTPA RPERLE --seed 12345 32123 5322 2 9543 666666666 --mp=4 betaeps 0.7
+  pychn solve ProbTPA RPERLE -seed 12345 32123 5322 2 9543 666666666 --mp=4 betaeps 0.7
 
 Help:
   Use the listitems command to view a list of available solvers, problems, and
@@ -74,13 +73,12 @@ def main():
     """Main CLI entrypoint."""
     import pychn.commands
     options = docopt(__doc__, version=VERSION)
-
     # Here we'll try to dynamically match the command the user is trying to run
     # with a pre-defined command class we've already created.
     for (k, v) in options.items():
         if hasattr(pychn.commands, k) and v:
             commod = getattr(pychn.commands, k)
             comclasses = getmembers(commod, isclass)
-            comclass = [cmcls[1] for cmcls in comclasses if cmcls[0] != 'BaseComm'][0]
+            comclass = [cmcls[1] for cmcls in comclasses if cmcls[0] != 'BaseComm' and issubclass(cmcls[1], pychn.commands.basecomm.BaseComm)][0]
             cominst = comclass(options)
             cominst.run()
