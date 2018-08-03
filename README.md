@@ -23,9 +23,8 @@ From the link, you may download the .whl file and skip to the last step.
 `pip install dist/pychn-0.1.0-py3-none-any.whl`  
 The exact name of the file may be different. Modify the command to select the particular wheel you've built or downloaded.
 
-### Install from PyPI
-*not yet available*  
-`pip install pychn`
+### Install experimental version from git
+`pip install git+https://github.rcac.purdue.edu/HunterGroup/pychn.git`  
 
 ### Getting started
 For a help file containing all the commands and options, type `pychn --h`.
