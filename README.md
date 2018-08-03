@@ -43,7 +43,6 @@ Usage:
 
 Options:
   --budget=B                Simulation budget [default: 50000]
-  --x0                      Specify a feasible point as spaced integers.
   --isp=T                   Number of independent sample paths of the algorithm to solve. [default: 1]
   --name=N                  A name to assign to the output. [default: testrun]
   --seed                    Specify a seed by entering 6 spaced integers > 0.
@@ -68,7 +67,8 @@ Help:
   Use solve to generate a solution to <problem> using algorithm <solver>.
   After specifying any desired options, optionally specify algorithm-specific
   parameters and their values. For complex, long-running simulations, specify
-  the --mp option to take replications in parallel.
+  the --mp option to take replications in parallel. Specify the starting
+  feasible point <x> as a sequence of spaced integers.
 
   Use testsolve to generate a solution to a <tester> test problem using
   algorithm <solver>. The listitems command shows which problems have an
