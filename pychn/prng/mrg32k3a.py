@@ -167,6 +167,6 @@ def get_next_prnstream(seed):
     ns1 = mat311mod(ns1m, mrgm1)
     ns2 = mat311mod(ns2m, mrgm2)
     # random.Random objects need a hashable seed
-    sseed = ns1.extend(ns2)
+    sseed = tuple(ns1 + ns2)
     prn = MRG32k3a(sseed)
     return prn

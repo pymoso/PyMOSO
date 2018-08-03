@@ -50,8 +50,8 @@ class RPERLE(SimOptSolver):
         # invoke R-PERLE
         self.rperle(phatnu, simcalls, budget)
         # name the data keys and return the results
-        datanames = ('phat', 'simcalls', 'crpts', 'tb_pts', 'crwl_cnt', 'num_spli_bind', 'num_splines', 'num_grad', 'num_rle_bind', 'epsilons', 'runseed', 'kstar')
-        datad = (phatnu, simcalls, self.crawl_ptsnu, self.tb_ptsnu, self.crwl_cnt, self.spli_bind, self.num_splines, self.num_grad, self.rle_bind, self.epsilons, seed1, self.kstar)
+        datanames = ('phat', 'simcalls', 'crpts', 'tb_pts', 'crwl_cnt', 'num_spli_bind', 'num_splines', 'num_grad', 'num_rle_bind', 'epsilons', 'runseed', 'kstar', 'endseed')
+        datad = (phatnu, simcalls, self.crawl_ptsnu, self.tb_ptsnu, self.crwl_cnt, self.spli_bind, self.num_splines, self.num_grad, self.rle_bind, self.epsilons, seed1, self.kstar, self.sprn.get_seed())
         zipdata = zip(datanames, datad)
         outdata = dict(zipdata)
         return outdata
@@ -418,18 +418,15 @@ class RPERLE(SimOptSolver):
             # for neighborhoods not 1, generate the list of neighbors
             nbors = get_nbors(x, nbor_rad)
             # and check each neighbor until we find a better one
-            i = 0
-            while i < len(nbors):
-                n = nbors[i]
-                isfeas, fn, sen = self.estimate(n, e, kcon)
+            for nb in nbors:
+                isfeas, fn, sen = self.estimate(nb, e, kcon)
                 if isfeas:
                     n += m
                     if fn[nobj] < fxs[nobj]:
-                        xs = n
+                        xs = nb
                         fxs = fn
                         vxs = sen
                         break
-                i += 1
         return xs, fxs, vxs, n
 
     def pli(self, x, nobj):

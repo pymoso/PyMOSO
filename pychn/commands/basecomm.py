@@ -45,6 +45,12 @@ def check_expname(name):
     return datstr
 
 
+def get_solv_prnstreams(iseed):
+    orcstream = prng.mrg32k3a.MRG32k3a(iseed)
+    solvstream = prng.mrg32k3a.get_next_prnstream(iseed)
+    return orcstream, solvstream
+
+
 def get_prnstreams(num_trials, iseed):
     xprn = prng.mrg32k3a.MRG32k3a(iseed)
     orcprn_lst = []
@@ -80,12 +86,12 @@ def get_x0(orc, xprn):
     return x0
 
 
-def gen_humanfile(name, probn, solvn, budget, runtime, trials, param, vals):
+def gen_humanfile(name, probn, solvn, budget, runtime, param, vals):
     today = date.today()
     tstr = today.strftime("%A %d. %B %Y")
     timestr = time.strftime('%X')
-    dnames = ('Name', 'Problem', 'Algorithm', 'Budget', 'Trials', 'Run time', 'Day', 'Time', 'Params', 'Param Values')
-    ddate = (name, probn, solvn, budget, trials, runtime, tstr, timestr, param, vals)
+    dnames = ('Name', 'Problem', 'Algorithm', 'Budget', 'Run time', 'Day', 'Time', 'Params', 'Param Values')
+    ddate = (name, probn, solvn, budget, runtime, tstr, timestr, param, vals)
     ddict = collections.OrderedDict(zip(dnames, ddate))
     return ddict
 
