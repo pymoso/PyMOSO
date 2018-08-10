@@ -15,9 +15,7 @@ class Solve(BaseComm):
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
             seed = (12345, 12345, 12345, 12345, 12345, 12345)
-        proc = int(self.options['--proc'])
         radius = float(self.options['--radius'])
-        parsim = int(self.options['--parsim'])
         x0 = tuple(int(i) for i in self.options['<x>'])
         ## determine the solver and problem
         probarg = self.options['<problem>']

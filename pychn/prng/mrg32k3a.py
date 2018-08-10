@@ -62,19 +62,19 @@ def mrg32k3a(seed):
 
 # as in beasly-springer-moro
 def bsm(u):
-    a = (2.50662823884, -18.61500062529, 41.39119773534, -25.44106049637)
-    b = (-8.47351093090, 23.08336743743, -21.06224101826, 3.13082909833)
-    c = (0.3374754822726147, 0.9761690190917186, 0.1607979714918209, 0.0276438810333863, 0.0038405729373609,0.0003951896411919, 0.0000321767881768, 0.0000002888167364, 0.0000003960315187)
+    """Approximate the uth quantile of the standard normal distribution."""
     y = u - 0.5
     if abs(y) < 0.42:
+        ## approximate from the center (Beasly Springer 1973)
         r = pow(y, 2)
         r2 = pow(r, 2)
         r3 = pow(r, 3)
         r4 = pow(r, 4)
-        asum = sum([a[0], a[1]*r, a[2]*r2, a[3]*r3])
-        bsum = sum([1, b[0]*r, b[1]*r2, b[2]*r3, b[3]*r4])
+        asum = sum([bsma[0], bsma[1]*r, bsma[2]*r2, bsma[3]*r3])
+        bsum = sum([1, bsmb[0]*r, bsmb[1]*r2, bsmb[2]*r3, bsmb[3]*r4])
         z = y*(asum/bsum)
     else:
+        ## approximate from the tails (Moro 1995)
         if y < 0.0:
             signum = -1
             r = u
@@ -89,14 +89,14 @@ def bsm(u):
         s4 = pow(s, 6)
         s5 = pow(s, 7)
         s6 = pow(s, 8)
-        clst = [c[0], c[1]*s, c[2]*s0, c[3]*s1, c[4]*s2, c[5]*s3, c[6]*s4, c[7]*s5, c[8]*s6]
+        clst = [bsmc[0], bsmc[1]*s, bsmc[2]*s0, bsmc[3]*s1, bsmc[4]*s2, bsmc[5]*s3, bsmc[6]*s4, bsmc[7]*s5, bsmc[8]*s6]
         t = sum(clst)
         z = signum*t
     return z
 
 
 class MRG32k3a(random.Random):
-    """Subclass of the default random.Random using mrg32k3a as the generator."""
+    """Subclass the default random.Random using mrg32k3a as the generator."""
 
     def __init__(self, x=None):
         """Initialize the generator with an optional mrg32k3a seed (tuple of length 6)."""
@@ -140,6 +140,7 @@ class MRG32k3a(random.Random):
 
 
 def mat333mult(a, b):
+    """Multiply a 3x3 matrix with a 3x1 matrix."""
     res = [0, 0, 0]
     r3 = range(3)
     for i in r3:
@@ -148,6 +149,7 @@ def mat333mult(a, b):
 
 
 def mat311mod(a, b):
+    """Compute mod(a, b) where a is 3x1 matrix."""
     res = [0, 0, 0]
     r3 = range(3)
     for i in r3:
@@ -156,17 +158,17 @@ def mat311mod(a, b):
 
 
 def get_next_prnstream(seed):
-    """Create a generator seeded 2^127 steps from the input seed."""
+    """Instantiate a generator seeded 2^127 steps from the input seed."""
     assert(len(seed) == 6)
     # split the seed into 2 components of length 3
     s1 = seed[0:3]
     s2 = seed[3:6]
-    # A*s % m
+    # A*s % m for both seed parts
     ns1m = mat333mult(a1p127, s1)
     ns2m = mat333mult(a2p127, s2)
     ns1 = mat311mod(ns1m, mrgm1)
     ns2 = mat311mod(ns2m, mrgm2)
-    # random.Random objects need a hashable seed
+    # random.Random objects need a hashable seed e.g. a tuple
     sseed = tuple(ns1 + ns2)
     prn = MRG32k3a(sseed)
     return prn

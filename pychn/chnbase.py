@@ -2,6 +2,7 @@
 """Provide base classes for problem and solver implementations."""
 from statistics import mean, variance
 from math import sqrt
+import multiprocess as mp
 
 
 class SimOptSolver(object):
@@ -52,6 +53,8 @@ class Oracle(OrcBase):
         self.prn = prn
         self.num_calls = 0
         self.set_crnflag(True)
+        self.parsim = 0
+        self.num_rand = 0
         super().__init__()
 
     def set_crnflag(self, crnflag):

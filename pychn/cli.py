@@ -3,7 +3,10 @@ pychn
 
 Usage:
   pychn listitems
-  pychn solve [--budget=B] [--name=N] [--radius=R] [(--parsim --proc=Q)]
+  pychn solve [--budget=B] [--name=N] [--radius=R]
+            [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
+            <problem> <solver> <x>...
+  pychn testsolve [--budget=B] [--name=N] [--radius=R] [--gran=G]
             [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
             <problem> <solver> <x>...
   pychn -h | --help
@@ -15,9 +18,9 @@ Options:
   --name=N                  A name to assign to the output. [default: testrun]
   --seed                    Specify a seed by entering 6 spaced integers > 0.
   --radius=R                Specify a neighborhood radius. [default: 1]
-  --parsim                  Run simulations in parallel if proc is specified. [default: 1]
   --proc=Q                  Total number of processes to make available to pychn. [default: 1]
-  --params                  Allows specifying param val pairs.
+  --params                  Allows specifying a <param> <val> pair.
+  --gran=G                  Number of points at which to compare to the true solution. [default: 5]
   -h --help                 Show this screen.
   -v --version              Show version.
 
@@ -36,7 +39,7 @@ Help:
   After specifying any desired options, optionally specify algorithm-specific
   parameters and their values. For complex, long-running simulations, specify
   the --mp option to take replications in parallel. Specify the starting
-  feasible point <x> as a sequence of spaced integers. 
+  feasible point <x> as a sequence of spaced integers.
 
   Use testsolve to generate a solution to a <tester> test problem using
   algorithm <solver>. The listitems command shows which problems have an
@@ -44,24 +47,25 @@ Help:
   which a solution is known and implemented. In addition to the regular run
   data, testsolve will generate solution quality metrics against the known
   solution. Testsolve can run independent instances of the chosen algorithm
-  by setting the --isp option. The user may specify both --trails and --mp
-  but should choose values carefully if doing so.
+  by setting the --isp option and run them in parallel by specifying the --proc
+  option. The granularity of comparison points is specified using the --gran
+  option. For example, if the budget is 10,000 and the granularity is 10, then
+  the estimated solution will be compared to the real solution at 1000, 2000,
+  ..., and 10,000 simulations. Assuming an appropriate metric, we expect a
+  convergent algorithm's estimated solutions to get closer to the known solution
+  as the number of simulations increases. Available metrics and their
+  suitability are described in the user manual. 
 
-  An experiment is any single invocation of solve or testsolve. Experiments can
-  be instances of an algorithm run in parallel using independent random numbers
-  by setting the --isp option. The simulation budget determines how many
-  simulation replications an algorithm instance uses to generate a solution, and
-  can be set using --budget. Use --name to assign a name to the experiment. A
-  directory will be generated with the given name in the working directory. Make
-  sure the user invoking pychn has write access to the working directory. The
-  -seed option specifies 6 positive integers used to generate random number
-  streams used in the experiment. The neighborhood radius specifies the maximum
+  The simulation budget determines how many simulation replications an algorithm
+  instance uses to generate a solution, and can be set using --budget. Use
+  --name to assign a name to the experiment. A directory will be generated with
+  the given name in the working directory. Make sure the user invoking pychn has
+  write access to the working directory. The --seed option requires 6 positive
+  integers used as a seed to the mrg32k3a random generator and seeds the
+  streams used by pychn. The neighborhood radius specifies the maximum
   distance between feasible points such that an compliant algorithm considers
-  them neighbors. Since algorithms in pychn are integer-ordered, --nr values
-  less than 1 are trivial. Finally, simulation replications can be taken in
-  parallel for simulations with non-trival run times using --mp. When using
-  --isp and --mp, (or both) choose values appropriate for the machine, as
-  pychn will not adjust them.
+  them neighbors. Since algorithms in pychn are integer-ordered, --radius values
+  less than 1 are trivial.
 """
 
 
