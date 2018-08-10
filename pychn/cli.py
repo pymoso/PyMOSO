@@ -3,19 +3,15 @@ pychn
 
 Usage:
   pychn listitems
-  pychn solve [--budget=B] [--name=N] [--radius=R]
-            [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
-            <problem> <solver> <x>...
-  pychn testsolve [--budget=B] [--name=N] [--radius=R] [--gran=G]
-            [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
-            <problem> <solver> <x>...
+  pychn solve [--budget=B] [--odir=D] [--radius=R][(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]... <problem> <solver> <x>...
+  pychn testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q] [--gran=G] [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]... <tester> <solver> <x>...
   pychn -h | --help
   pychn -v | --version
 
 Options:
   --budget=B                Simulation budget [default: 50000]
   --isp=T                   Number of independent sample paths of the algorithm to solve. [default: 1]
-  --name=N                  A name to assign to the output. [default: testrun]
+  --odir=D                  A name to assign to the output. [default: testrun]
   --seed                    Specify a seed by entering 6 spaced integers > 0.
   --radius=R                Specify a neighborhood radius. [default: 1]
   --proc=Q                  Total number of processes to make available to pychn. [default: 1]
@@ -26,7 +22,7 @@ Options:
 
 Examples:
   pychn solve ProbTPA RPERLE 4 14
-  pychn solve --budget=100000 --name=test1 --radius=3 ProbTPB RMINRLE 3 12
+  pychn solve --budget=100000 --odir=test1 --radius=3 ProbTPB RMINRLE 3 12
   pychn solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 31 21 11
   pychn solve --parsim --proc=4 --params betaeps 0.4 ProbTPA RPERLE 30 30
   pychn solve --params betaeps 0.7 --params betadel 0.5 ProbTPA RPERLE 45 45
@@ -54,11 +50,11 @@ Help:
   ..., and 10,000 simulations. Assuming an appropriate metric, we expect a
   convergent algorithm's estimated solutions to get closer to the known solution
   as the number of simulations increases. Available metrics and their
-  suitability are described in the user manual. 
+  suitability are described in the user manual.
 
   The simulation budget determines how many simulation replications an algorithm
   instance uses to generate a solution, and can be set using --budget. Use
-  --name to assign a name to the experiment. A directory will be generated with
+  odir to assign a name to the experiment. A directory will be generated with
   the given name in the working directory. Make sure the user invoking pychn has
   write access to the working directory. The --seed option requires 6 positive
   integers used as a seed to the mrg32k3a random generator and seeds the

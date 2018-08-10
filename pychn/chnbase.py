@@ -2,7 +2,6 @@
 """Provide base classes for problem and solver implementations."""
 from statistics import mean, variance
 from math import sqrt
-import multiprocess as mp
 
 
 class SimOptSolver(object):

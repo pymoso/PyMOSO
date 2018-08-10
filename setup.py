@@ -32,7 +32,7 @@ setup(
     author = 'Kyle Cooper',
     author_email = 'coope149@purdue.edu',
     packages = ['pychn', 'pychn.solvers', 'pychn.commands', 'pychn.prng', 'pychn.problems', 'pychn.testproblems'],
-    install_requires = ['docopt', 'numpy'],
+    install_requires = ['docopt'],
     entry_points = {
         'console_scripts': [
             'pychn = pychn.cli:main',

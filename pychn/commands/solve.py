@@ -9,7 +9,7 @@ class Solve(BaseComm):
     def run(self):
         ## get the options with default values
         budget = int(self.options['--budget'])
-        name = self.options['--name']
+        name = self.options['--odir']
         hasseed = self.options['--seed']
         if hasseed:
             seed = tuple(int(i) for i in self.options['<s>'])
