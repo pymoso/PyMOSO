@@ -3,8 +3,12 @@ pychn
 
 Usage:
   pychn listitems
-  pychn solve [--budget=B] [--odir=D] [--radius=R][(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]... <problem> <solver> <x>...
-  pychn testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q] [--gran=G] [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]... <tester> <solver> <x>...
+  pychn solve [--budget=B] [--odir=D] [--radius=R] [--simpar=P]
+    [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
+    <problem> <solver> <x>...
+  pychn testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q]
+    [--gran=G] [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
+    <tester> <solver> <x>...
   pychn -h | --help
   pychn -v | --version
 
@@ -12,6 +16,7 @@ Options:
   --budget=B                Simulation budget [default: 50000]
   --isp=T                   Number of independent sample paths of the algorithm to solve. [default: 1]
   --odir=D                  A name to assign to the output. [default: testrun]
+  --simpar=P                Number of processes available for simulation replications. [default: 1]
   --seed                    Specify a seed by entering 6 spaced integers > 0.
   --radius=R                Specify a neighborhood radius. [default: 1]
   --proc=Q                  Total number of processes to make available to pychn. [default: 1]
@@ -21,6 +26,7 @@ Options:
   -v --version              Show version.
 
 Examples:
+  pychn listitems
   pychn solve ProbTPA RPERLE 4 14
   pychn solve --budget=100000 --odir=test1 --radius=3 ProbTPB RMINRLE 3 12
   pychn solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 31 21 11

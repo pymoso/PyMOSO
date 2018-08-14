@@ -73,14 +73,37 @@ def get_x0(orc, xprn):
     return x0
 
 
-def gen_humanfile(name, probn, solvn, budget, runtime, param, vals):
+def gen_humanfile(name, probn, solvn, budget, runtime, param, vals, startseed, endseed):
     today = date.today()
     tstr = today.strftime("%A %d. %B %Y")
     timestr = time.strftime('%X')
-    dnames = ('Name', 'Problem', 'Algorithm', 'Budget', 'Run time', 'Day', 'Time', 'Params', 'Param Values')
-    ddate = (name, probn, solvn, budget, runtime, tstr, timestr, param, vals)
+    dnames = ('Name', 'Problem', 'Algorithm', 'Budget', 'Run time', 'Day', 'Time', 'Params', 'Param Values', 'start seed', 'end seed')
+    ddate = (name, probn, solvn, budget, runtime, tstr, timestr, param, vals, startseed, endseed)
     ddict = collections.OrderedDict(zip(dnames, ddate))
     return ddict
+
+
+# def save_files(name, humantxt, rundat, pltd=None, alg=None):
+#     mydir = name
+#     pathlib.Path(name).mkdir(exist_ok=True)
+#     humfilen = name + '.txt'
+#     pref = ''
+#     if alg:
+#         pref = alg + '_'
+#     rundatn = pref + name + '.txt'
+#     humpth = os.path.join(name, humfilen)
+#     with open(humpth, 'w') as f1:
+#         dump(humantxt, f1, indent=4, separators=(',', ': '))
+#     rundpth = os.path.join(name, rundatn)
+#     j = dumps(rundat, default=jsonset)
+#     with open(rundpth, 'w') as f2:
+#         dump(j, f2, indent=4, separators=(',', ': '))
+#     if pltd:
+#         pltn = pref + name + '_plt.txt'
+#         pltpth = os.path.join(name, pltn)
+#         j = dumps(pltdat, default=jsonset)
+#         with open(pltpth, 'w') as f3:
+#             dump(j, f3, indent=4, separators=(',', ': '))
 
 
 def save_files(name, humantxt, rundat, pltd=None, alg=None):
@@ -90,29 +113,18 @@ def save_files(name, humantxt, rundat, pltd=None, alg=None):
     pref = ''
     if alg:
         pref = alg + '_'
-    rundatn = pref + name + '.txt'
+    rundatn = pref + name + '.pkl'
     humpth = os.path.join(name, humfilen)
     with open(humpth, 'w') as f1:
         dump(humantxt, f1, indent=4, separators=(',', ': '))
     rundpth = os.path.join(name, rundatn)
-    j = dumps(rundat, default=jsonset)
-    with open(rundpth, 'w') as f2:
-        dump(j, f2, indent=4, separators=(',', ': '))
+    with open(rundpth, 'wb') as f2:
+        pickle.dump(rundat, f2)
     if pltd:
-        pltn = pref + name + '_plt.txt'
+        pltn = pref + name + '_plt.pkl'
         pltpth = os.path.join(name, pltn)
-        j = dumps(pltdat, default=jsonset)
-        with open(pltpth, 'w') as f3:
-            dump(j, f3, indent=4, separators=(',', ': '))
-
-
-def gen_pltdat(dat, trials, incr, budget, tp):
-    joblst = []
-    for t in range(trials):
-        tup = (dat[t], incr, budget, tp)
-        joblst.append(tup)
-    pltdat = mprun.par_pltdat(joblst, budget, incr)
-    return pltdat
+        with open(pltpth, 'wb') as f3:
+            pickle.dump(pltd, f3)
 
 
 class BaseComm(object):

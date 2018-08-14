@@ -31,10 +31,9 @@ class TestSolve(BaseComm):
             solvclass = [solvc[1] for solvc in solvclasses if solvc[0] == solvarg][0]
         except:
             print('-- Error: Tester or Solver is not valid.')
-            print('-- Use pychn listitems to see a valid list. ')
+            print('-- Use pychn listitems to see valid items. ')
             print('-- Exiting... ')
             sys.exit()
-
         ## get the optional parameter names and values if specified
         params = self.options['<param>']
         vals = self.options['<val>']
@@ -49,6 +48,7 @@ class TestSolve(BaseComm):
         print('** Testing ', testarg, ' using ', solvarg, ' **')
         stsstr = '-- using starting seed:'
         print(f'{stsstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
+        joblist = []
         for i in range(isp):
             paramlst = [('solvprn', solvstreams[i]), ('x0', x0), ('nbor_rad', radius), ]
             orc = testclass().ranorc(orcstreams[i])
@@ -56,15 +56,27 @@ class TestSolve(BaseComm):
             if paramtups:
                 paramlst.extend(paramtups)
             paramargs = dict(paramlst)
-            res = mprun.run(solvclass, budget, orc, **paramargs)
+            mainparms = (solvclass, budget, orc)
+            joblist.append((mainparms, paramargs))
+        res = mprun.par_runs(joblist, proc)
         end_opt_time = time.time()
         opt_durr = end_opt_time - start_opt_time
-        humtxt = gen_humanfile(name, testarg, solvarg, budget, opt_durr, params, vals)
-        end_seed = res['endseed']
+        end_seed = solvstreams[isp - 1].get_seed()
+        humtxt = gen_humanfile(name, testarg, solvarg, budget, opt_durr, params, vals, seed, end_seed)
         seed = tuple([int(i) for i in end_seed])
         endstr = '-- ending seed:'
         print(f'{endstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
-        print('-- Run time: {0:.2f} seconds'.format(opt_durr))
+        print('-- Optimization run time: {0:.2f} seconds'.format(opt_durr))
+        hdlist = []
+        print('-- Generating quantiles of Hausdorf distance to known solution...')
+        start_time = time.time()
+        for i in range(isp):
+            hdlist.append((res[i], incr, budget, testclass()))
+        hddict = mprun.par_diff(hdlist, proc)
+        qdat = mprun.gen_qdata(len(hddict), incr, budget, hddict)
+        end_time = time.time()
+        met_durr = end_time - start_time
+        print('-- Metric computation run time: {0:.2f} seconds'.format(met_durr))
         print('-- Saving data in folder ', name, ' ...')
-        save_files(name, humtxt, res)
+        save_files(name, humtxt, res, qdat)
         print('-- Done!')

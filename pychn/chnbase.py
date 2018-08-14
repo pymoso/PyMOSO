@@ -2,6 +2,9 @@
 """Provide base classes for problem and solver implementations."""
 from statistics import mean, variance
 from math import sqrt
+from .prng.mrg32k3a import get_next_prnstream
+import multiprocessing as mp
+from copy import deepcopy
 
 
 class SimOptSolver(object):
@@ -52,7 +55,7 @@ class Oracle(OrcBase):
         self.prn = prn
         self.num_calls = 0
         self.set_crnflag(True)
-        self.parsim = 0
+        self.simpar = 1
         self.num_rand = 0
         super().__init__()
 
@@ -83,7 +86,7 @@ class Oracle(OrcBase):
         self.prn.setstate(crn_state)
 
     def crn_check(self, num_calls):
-        """Rewind the crn if crnflag is True and set latest CRN flag."""
+        """Rewind the prn if crnflag is True and set farthest CRN point."""
         if num_calls > self.num_calls:
             self.num_calls = num_calls
             prnstate = self.prn.getstate()
@@ -106,23 +109,82 @@ class Oracle(OrcBase):
         """
         d = self.num_obj
         dr = range(d)
+        isfeas = False
         obmean = []
         obse = []
+        mr = range(m)
         if m > 0:
             if m == 1:
                 isfeas, objd = self.g(x, self.prn)
-                ombean = objd
+                obmean = objd
                 obse = [0 for o in objd]
             else:
-                mr = range(m)
-                objm = []
-                for i in mr:
-                    isfeas, objd = self.g(x, self.prn)
-                    objm.append(objd)
-                if isfeas:
-                    obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
-                    obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
-                    obse = tuple([sqrt(obvar[i]/m) for i in dr])
+                if self.simpar == 1:
+                    ## do not parallelize replications
+                    feas = []
+                    objm = []
+                    for i in mr:
+                        isfeas, objd = self.g(x, self.prn)
+                        feas.append(isfeas)
+                        objm.append(objd)
+                    if all(feas):
+                        isfeas = True
+                        obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
+                        obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
+                        obse = tuple([sqrt(obvar[i]/m) for i in dr])
+                else:
+                    sim_old = self.simpar
+                    ## obtain replications in parallel
+                    ## divide m into chunks for the processors
+                    nproc = self.simpar
+                    if self.simpar > m:
+                        nproc = m
+                    pr = range(nproc)
+                    num_rands = [int(m/nproc) for i in pr]
+                    for i in range(m % nproc):
+                        num_rands[i] += 1
+                    ## create prn for each process by jumping ahead 2^127 spots
+                    ## and a hit function for each using an oracle object
+                    start_seed = self.prn.get_seed()
+                    ## turn off simpar during parallelization
+                    self.simpar = 1
+                    orclst = [self]
+                    for i in range(len(num_rands) - 1):
+                        nextprn = get_next_prnstream(start_seed)
+                        start_seed = nextprn.get_seed()
+                        myorc = deepcopy(self)
+                        myorc.prn = nextprn
+                        orclst.append(myorc)
+                    ## take the replications in parallel
+                    pres = []
+                    feas = []
+                    means = []
+                    ses = []
+                    with mp.Pool(nproc) as p:
+                        for i, r in enumerate(num_rands):
+                            pres.append(p.apply_async(orclst[i].hit, args=(x, r)))
+                        for i in pr:
+                            ## 0 = feas, 1 = mean, 2 = se
+                            res = pres[i].get()
+                            feas.append(res[0])
+                            means.append(res[1])
+                            ses.append(res[2])
+                    ## turn simpar back on before returning
+                    self.simpar = sim_old
+                    if all(feas):
+                        isfeas = True
+                        ## weighted average of replications
+                        obmean = tuple([sum([means[i][k]*num_rands[i]/m for i in pr]) for k in dr])
+                        ### convert se output back to variance
+                        obvar = [[num_rands[i]*ses[i][k]**2 for k in dr] for i in pr]
+                        ### compute pooled variance
+                        ##### special case 1 :(
+                        if m == nproc:
+                            pvar = [variance([means[i][k] for i in pr], obmean[k]) for k in dr]
+                        else:
+                            pvar = [sum([obvar[i][k]*(num_rands[i] - 1) for i in pr])/(m - nproc) for k in dr]
+                        ### compute standard error
+                        obse = tuple([sqrt(pvar[k]/m) for k in dr])
             self.crn_check(m)
         return isfeas, obmean, obse
 

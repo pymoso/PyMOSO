@@ -11,6 +11,7 @@ class Solve(BaseComm):
         budget = int(self.options['--budget'])
         name = self.options['--odir']
         hasseed = self.options['--seed']
+        simpar = int(self.options['--simpar'])
         if hasseed:
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
@@ -40,6 +41,7 @@ class Solve(BaseComm):
         print(f'{stsstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
         paramlst = [('solvprn', solvstream), ('x0', x0), ('nbor_rad', radius), ]
         orc = probclass(orcstream)
+        orc.simpar = simpar
         ## create arguments for (unknown) optional named parameters
         if paramtups:
             paramlst.extend(paramtups)
@@ -47,11 +49,11 @@ class Solve(BaseComm):
         res = mprun.run(solvclass, budget, orc, **paramargs)
         end_opt_time = time.time()
         opt_durr = end_opt_time - start_opt_time
-        humtxt = gen_humanfile(name, probarg, solvarg, budget, opt_durr, params, vals)
         end_seed = res['endseed']
+        humtxt = gen_humanfile(name, probarg, solvarg, budget, opt_durr, params, vals, seed, end_seed)
         seed = tuple([int(i) for i in end_seed])
-        endstr = '-- ending seed:'
-        print(f'{endstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
+        #endstr = '-- ending seed:'
+        #print(f'{endstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
         print('-- Run time: {0:.2f} seconds'.format(opt_durr))
         print('-- Saving data and details in folder ', name, ' ...')
         save_files(name, humtxt, res)
