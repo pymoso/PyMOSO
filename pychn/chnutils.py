@@ -34,7 +34,53 @@ def solve(problem, solver, x0, **kwargs):
 
 
 def testsolve(tester, solver, x0, **kwargs):
-    pass
+    budget = kwargs.get('budget', 50000)
+    default_seed = (12345, 12345, 12345, 12345, 12345, 12345)
+    seed = kwargs.get('seed', default_seed)
+    radius = kwargs.get('radius', 1)
+    simpar = kwargs.get('gran', 10000)
+    isp = kwargs.get('isp', 1)
+    proc = kwargs.get('proc', 1)
+    del kwargs['budget']
+    del kwargs['seed']
+    del kwargs['radius']
+    del kwargs['gran']
+    del kwargs['isp']
+    del kwargs['proc']
+    paramtups = []
+    for i, p in enumerate(kwargs):
+        ptup = (p, float(vals[i]))
+        paramtups.append(ptup)
+    orcstreams, solvstreams, x0stream = get_testsolve_prnstreams(isp, seed)
+    joblist = []
+    for i in range(isp):
+        paramlst = [('solvprn', solvstreams[i]), ('x0', x0), ('nbor_rad', radius), ]
+        orc = tester().ranorc(orcstreams[i])
+        ## create arguments for (unknown) optional named parameters
+        if paramtups:
+            paramlst.extend(paramtups)
+        paramargs = dict(paramlst)
+        mainparms = (solver, budget, orc)
+        joblist.append((mainparms, paramargs))
+    res = par_runs(joblist, proc)
+    end_seed = solvstreams[isp - 1].get_seed()
+    res['endseed'] = end_seed
+    return res
+
+
+def get_testsolve_prnstreams(num_trials, iseed):
+    from .prng.mrg32k3a import MRG32k3a, get_next_prnstream
+    xprn = MRG32k3a(iseed)
+    orcprn_lst = []
+    solprn_lst = []
+    for t in range(num_trials):
+        orcprn = get_next_prnstream(iseed)
+        orcprn_lst.append(orcprn)
+        iseed = orcprn._current_seed
+        solprn = get_next_prnstream(iseed)
+        solprn_lst.append(solprn)
+        iseed = solprn._current_seed
+    return orcprn_lst, solprn_lst, xprn
 
 
 def get_solv_prnstreams(iseed):
@@ -86,7 +132,7 @@ def par_runs(joblst, num_proc=None):
         NUM_PROCESSES = num_proc
     rundict = []
     with mp.Pool(NUM_PROCESSES) as p:
-        worklist = [(run, (e[0]), (e[1])) for e in joblst]
+        worklist = [(isp_run, (e[0]), (e[1])) for e in joblst]
         app_rd = [p.apply_async(do_work, job) for job in worklist]
         for r in app_rd:
             myitem = r.get()

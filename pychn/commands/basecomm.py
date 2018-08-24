@@ -32,20 +32,6 @@ def check_expname(name):
     return datstr
 
 
-def get_prnstreams(num_trials, iseed):
-    xprn = prng.mrg32k3a.MRG32k3a(iseed)
-    orcprn_lst = []
-    solprn_lst = []
-    for t in range(num_trials):
-        orcprn = prng.mrg32k3a.get_next_prnstream(iseed)
-        orcprn_lst.append(orcprn)
-        iseed = orcprn._current_seed
-        solprn = prng.mrg32k3a.get_next_prnstream(iseed)
-        solprn_lst.append(solprn)
-        iseed = solprn._current_seed
-    return orcprn_lst, solprn_lst, xprn
-
-
 def get_x0(orc, xprn):
     orc0 = orc(xprn)
     feas = orc0.get_feasspace()

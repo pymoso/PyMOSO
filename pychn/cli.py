@@ -7,8 +7,8 @@ Usage:
     [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
     <problem> <solver> <x>...
   pychn testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q]
-    [--gran=G] [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
-    <tester> <solver> <x>...
+    [--haus] [--gran=G] [(--seed <s> <s> <s> <s> <s> <s>)]
+    [(--params <param> <val>)]... <tester> <solver> <x>...
   pychn -h | --help
   pychn -v | --version
 
@@ -22,6 +22,7 @@ Options:
   --proc=Q                  Total number of processes to make available to pychn. [default: 1]
   --params                  Allows specifying a <param> <val> pair.
   --gran=G                  Number of points at which to compare to the true solution. [default: 5]
+  --haus                    Indicates whether to compute Hausdorf distance metrics [default: True]
   -h --help                 Show this screen.
   -v --version              Show version.
 
