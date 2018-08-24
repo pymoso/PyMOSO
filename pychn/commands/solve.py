@@ -21,8 +21,15 @@ class Solve(BaseComm):
         x0 = tuple(int(i) for i in self.options['<x>'])
         ## determine the solver and problem
         probarg = self.options['<problem>']
-        probclasses = getmembers(problems, isclass)
-        probclass = [prob[1] for prob in probclasses if prob[0] == probarg][0]
+        if probarg.endswith('.py'):
+            from importlib import import_module
+            mod_name = probarg.replace('.py', '')
+            module = import_module(mod_name)
+            probclasses = getmembers(module, isclass)
+            probclass = [prob[1] for prob in probclasses if prob[0].lower() == mod_name][0]
+        else:
+            probclasses = getmembers(problems, isclass)
+            probclass = [prob[1] for prob in probclasses if prob[0] == probarg][0]
         solvarg = self.options['<solver>']
         solvclasses = getmembers(solvers, isclass)
         solvclass = [solvc[1] for solvc in solvclasses if solvc[0] == solvarg][0]

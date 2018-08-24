@@ -26,15 +26,17 @@ class TestSolve(BaseComm):
         ## determine the solver and problem
         solvarg = self.options['<solver>']
         solvclasses = getmembers(solvers, isclass)
+        solvclass = [solvc[1] for solvc in solvclasses if solvc[0] == solvarg][0]
         testarg = self.options['<tester>']
-        testclasses = getmembers(testers, isclass)
-        try:
-            testclass = [tc[1] for tc in testclasses if tc[0] == testarg][0]
-            solvclass = [solvc[1] for solvc in solvclasses if solvc[0] == solvarg][0]
-        except:
-            print('-- Error: Tester not found or not valid.')
-            print('-- Exiting... ')
-            sys.exit()
+        if testarg.endswith('.py'):
+            from importlib import import_module
+            mod_name = testarg.replace('.py', '')
+            module = import_module(mod_name)
+            testclasses = getmembers(module, isclass)
+            testclass = [prob[1] for prob in testclasses if prob[0].lower() == mod_name][0]
+        else:
+            testclasses = getmembers(problems, isclass)
+            testclass = [prob[1] for prob in probclasses if prob[0] == probarg][0]
         ## get the optional parameter names and values if specified
         params = self.options['<param>']
         vals = self.options['<val>']

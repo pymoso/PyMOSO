@@ -160,7 +160,7 @@ def gen_hdd(rdata, increment, budget, tc):
         phat1 = rdata['phat'][nu1]
         ehat1 = []
         for p1 in phat1:
-            ehat1.append(tc.detorc.g(p1))
+            ehat1.append(tc.true_g(p1))
         hdminlst = []
         ABminlst = []
         BAminlst = []
