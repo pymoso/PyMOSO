@@ -6,18 +6,14 @@ from statistics import mean, variance
 
 
 def solve(problem, solver, x0, **kwargs):
-    budget = kwargs.get('budget', 50000)
+    budget = kwargs.pop('budget', 50000)
     default_seed = (12345, 12345, 12345, 12345, 12345, 12345)
-    seed = kwargs.get('seed', default_seed)
-    radius = kwargs.get('radius', 1)
-    simpar = kwargs.get('simpar', 1)
-    del kwargs['budget']
-    del kwargs['seed']
-    del kwargs['radius']
-    del kwargs['simpar']
+    seed = kwargs.pop('seed', default_seed)
+    radius = kwargs.pop('radius', 1)
+    simpar = kwargs.pop('simpar', 1)
     paramtups = []
     for i, p in enumerate(kwargs):
-        ptup = (p, float(vals[i]))
+        ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
     ## generate all prn streams
     orcstream, solvstream = get_solv_prnstreams(seed)
@@ -34,22 +30,16 @@ def solve(problem, solver, x0, **kwargs):
 
 
 def testsolve(tester, solver, x0, **kwargs):
-    budget = kwargs.get('budget', 50000)
+    budget = kwargs.pop('budget', 50000)
     default_seed = (12345, 12345, 12345, 12345, 12345, 12345)
-    seed = kwargs.get('seed', default_seed)
-    radius = kwargs.get('radius', 1)
-    simpar = kwargs.get('gran', 10000)
-    isp = kwargs.get('isp', 1)
-    proc = kwargs.get('proc', 1)
-    del kwargs['budget']
-    del kwargs['seed']
-    del kwargs['radius']
-    del kwargs['gran']
-    del kwargs['isp']
-    del kwargs['proc']
+    seed = kwargs.pop('seed', default_seed)
+    radius = kwargs.pop('radius', 1)
+    simpar = kwargs.pop('gran', 10000)
+    isp = kwargs.pop('isp', 1)
+    proc = kwargs.pop('proc', 1)
     paramtups = []
     for i, p in enumerate(kwargs):
-        ptup = (p, float(vals[i]))
+        ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
     orcstreams, solvstreams, x0stream = get_testsolve_prnstreams(isp, seed)
     joblist = []

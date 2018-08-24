@@ -31,14 +31,14 @@ setup(
     long_description = long_description,
     author = 'Kyle Cooper',
     author_email = 'coope149@purdue.edu',
-    packages = ['pychn', 'pychn.solvers', 'pychn.commands', 'pychn.prng', 'pychn.problems', 'pychn.testproblems'],
+    packages = ['pychn', 'pychn.solvers', 'pychn.commands', 'pychn.prng', 'pychn.problems', 'pychn.testers'],
     install_requires = ['docopt'],
     entry_points = {
         'console_scripts': [
             'pychn = pychn.cli:main',
         ],
     },
-    python_requires='>=3.5.0',
+    python_requires='>=3.4.0',
     cmdclass={
         'clean': CleanCommand,
     },
