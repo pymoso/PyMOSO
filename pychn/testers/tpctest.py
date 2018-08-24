@@ -7,7 +7,7 @@ import os
 class TPCTester(object):
     def __init__(self):
         self.ranorc = probtpc.ProbTPC
-        self.detorc = probtruetpc.ProbTrueTPC()
+        self.true_g = probtruetpc.ProbTrueTPC().g
         self.tname = 'TPC'
         self.soln = soln
 

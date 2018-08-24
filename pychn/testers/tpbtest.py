@@ -5,7 +5,7 @@ from ..problems import probtpb, probtruetpb
 class TPBTester(object):
     def __init__(self):
         self.ranorc = probtpb.ProbTPB
-        self.detorc = probtruetpb.ProbTrueTPB()
+        self.true_g = probtruetpb.ProbTrueTPB().g
         self.tname = 'TPB'
         self.soln = soln
 

@@ -35,8 +35,8 @@ class TestSolve(BaseComm):
             testclasses = getmembers(module, isclass)
             testclass = [prob[1] for prob in testclasses if prob[0].lower() == mod_name][0]
         else:
-            testclasses = getmembers(problems, isclass)
-            testclass = [prob[1] for prob in probclasses if prob[0] == probarg][0]
+            testclasses = getmembers(testers, isclass)
+            testclass = [prob[1] for prob in testclasses if prob[0] == testarg][0]
         ## get the optional parameter names and values if specified
         params = self.options['<param>']
         vals = self.options['<val>']

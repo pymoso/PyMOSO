@@ -5,7 +5,7 @@ from ..problems import probtpa, probtruetpa
 class TPATester(object):
     def __init__(self):
         self.ranorc = probtpa.ProbTPA
-        self.detorc = probtruetpa.ProbTrueTPA()
+        self.true_g = probtruetpa.ProbTrueTPA().g
         self.tname = 'TPA'
         self.soln = soln
 
