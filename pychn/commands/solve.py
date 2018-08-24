@@ -2,6 +2,7 @@
 
 from .basecomm import *
 from inspect import getmembers, isclass
+from ..chnutils import solve
 
 
 class Solve(BaseComm):
@@ -28,32 +29,25 @@ class Solve(BaseComm):
         ## get the optional parameter names and values if specified
         params = self.options['<param>']
         vals = self.options['<val>']
-        paramtups = []
+        solve_kwargs = dict()
+        solve_kwargs['budget'] = budget
+        solve_kwargs['seed'] = seed
+        solve_kwargs['simpar'] = simpar
+        solve_kwargs['radius'] = radius
         for i, p in enumerate(params):
-            ptup = (p, float(vals[i]))
-            paramtups.append(ptup)
-        ## generate all prn streams
-        orcstream, solvstream = get_solv_prnstreams(seed)
-        ## generate the experiment list
+            solve_kwargs[p] = float(vals[i])
         start_opt_time = time.time()
         print('** Solving ', probarg, ' using ', solvarg, ' **')
         stsstr = '-- using starting seed:'
         print(f'{stsstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
-        paramlst = [('solvprn', solvstream), ('x0', x0), ('nbor_rad', radius), ]
-        orc = probclass(orcstream)
-        orc.simpar = simpar
-        ## create arguments for (unknown) optional named parameters
-        if paramtups:
-            paramlst.extend(paramtups)
-        paramargs = dict(paramlst)
-        res = mprun.run(solvclass, budget, orc, **paramargs)
+        res = solve(probclass, solvclass, x0, **solve_kwargs)
         end_opt_time = time.time()
         opt_durr = end_opt_time - start_opt_time
         end_seed = res['endseed']
         humtxt = gen_humanfile(name, probarg, solvarg, budget, opt_durr, params, vals, seed, end_seed)
         seed = tuple([int(i) for i in end_seed])
-        #endstr = '-- ending seed:'
-        #print(f'{endstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
+        endstr = '-- ending seed:'
+        print(f'{endstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
         print('-- Run time: {0:.2f} seconds'.format(opt_durr))
         print('-- Saving data and details in folder ', name, ' ...')
         save_files(name, humtxt, res)

@@ -5,11 +5,11 @@ import time
 import collections
 from datetime import date
 from math import ceil
-from .. import mprun
+from .. import chnutils as mprun
 from .. import solvers
 from .. import problems
 from .. import prng
-from .. import testproblems
+from .. import testers
 from json import dumps, loads, JSONEncoder, JSONDecoder, dump
 import pickle
 
@@ -30,12 +30,6 @@ def check_expname(name):
     with open(fn, 'r') as f1:
         datstr = json.load(f1)
     return datstr
-
-
-def get_solv_prnstreams(iseed):
-    orcstream = prng.mrg32k3a.MRG32k3a(iseed)
-    solvstream = prng.mrg32k3a.get_next_prnstream(iseed)
-    return orcstream, solvstream
 
 
 def get_prnstreams(num_trials, iseed):

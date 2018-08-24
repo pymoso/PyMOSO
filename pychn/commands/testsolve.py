@@ -30,8 +30,7 @@ class TestSolve(BaseComm):
             testclass = [tc[1] for tc in testclasses if tc[0] == testarg][0]
             solvclass = [solvc[1] for solvc in solvclasses if solvc[0] == solvarg][0]
         except:
-            print('-- Error: Tester or Solver is not valid.')
-            print('-- Use pychn listitems to see valid items. ')
+            print('-- Error: Tester not found or not valid.')
             print('-- Exiting... ')
             sys.exit()
         ## get the optional parameter names and values if specified
