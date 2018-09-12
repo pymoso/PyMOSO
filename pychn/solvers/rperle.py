@@ -207,7 +207,7 @@ class RPERLE(SimOptSolver):
         b = self.b
         n = 0
         tmp = {s: self.gbar[s] for s in mcS | mcXw}
-        mcS = get_biparetos(tmp)
+        mcS = get_nondom(tmp)
         self.crawl_ptsnu[self.nu] = set()
         mcNnc = self.get_ncn(mcS)
         self.crwl_cnt[self.nu] = 0
@@ -222,7 +222,7 @@ class RPERLE(SimOptSolver):
                 mcXw = self.seek_lwep(mcNd, mcS)
                 mcS |= mcXw
             tmp = {s: self.gbar[s] for s in mcS | {self.x0}}
-            mcS = get_biparetos(tmp)
+            mcS = get_nondom(tmp)
             old_calls = self.num_calls
             mcNnc = self.get_ncn(mcS)
             self.crawl_ptsnu[self.nu] |= mcNw | mcXw

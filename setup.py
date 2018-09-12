@@ -42,7 +42,4 @@ setup(
     cmdclass={
         'clean': CleanCommand,
     },
-    package_data = {
-        'pychn': ['testproblems/exples.pkl'],
-    },
 )
