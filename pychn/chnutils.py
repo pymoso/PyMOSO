@@ -457,6 +457,42 @@ def get_biparetos(edict):
     return plist
 
 
+def front(points, objs):
+    """Compute the non-dominated set via Kung et. al 1975."""
+    cardP = len(points)
+    if cardP == 1:
+        return points, objs
+    elif cardP > 1:
+        nondom = set()
+        halfind = int(cardP/2)
+        Tpts, Tobjs = front(points[0:halfind], objs[0:halfind])
+        Bpts, Bobjs = front(points[halfind:cardP], objs[halfind:cardP])
+        brange = range(len(Bpts))
+        for i in brange:
+            pt = Bpts[i]
+            gvals = Bobjs[i]
+            delz = [0]*len(gvals)
+            pt_nondom = True
+            j = 0
+            while j < len(Tpts) and pt_nondom:
+                if does_dominate(Tobjs[j], gvals, delz, delz):
+                    pt_nondom = False
+                j += 1
+            if pt_nondom:
+                Tpts.append(pt)
+                Tobjs.append(gvals)
+        return Tpts, Tobjs
+
+
+def get_nondom(edict):
+    """Return the set of non-dominated feasible points."""
+    pts = list(edict.keys())
+    vals = list(edict.values())
+    sind = argsort(vals)
+    Mpts, Mobjs = front(pts, vals)
+    return set(Mpts)
+
+
 def remove_strict_dom(edict):
     """returns the non-strictly-dominated keys of a dictionary {x: (g1, g2)}"""
     g1 = 0
@@ -547,3 +583,14 @@ def dAB(A, B):
 def dh(A, B):
     """return the Hausdorf distance between sets A and B"""
     return max(dAB(A, B), dAB(B, A))
+
+
+def main():
+    pts = [(1, 2, 3), (3, 2, 1), (1, 1, 1), (1, 2, 1), (2, 1, 2), (2, 1, 1), (2, 2, 1), (2, 2, 2), (1, 1, 2), (3, 3, 3)]
+    objs = [(1, 2, 3), (3, 2, 1), (1, 1, 1), (1, 2, 1), (2, 1, 2), (2, 1, 1), (2, 2, 1), (2, 2, 2), (1, 1, 2), (3, 3, 3)]
+    gdict = {pts[i]: objs[i] for i in range(len(pts))}
+    nondom = get_nondom(gdict)
+    print(nondom)
+
+if __name__=='__main__':
+    main()

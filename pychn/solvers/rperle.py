@@ -97,7 +97,7 @@ class RPERLE(SimOptSolver):
         krange = range(self.num_obj)
         for k in krange:
             kmin = min(mcS, key=lambda t: self.gbar[t][k])
-            _, xmink, _, _ = self.spline(kmin, self.gbar[kmin], self.sehat[kmin], unconst, k, kcon)
+            _, xmink, _, _ = self.spline(kmin, unconst, k, kcon)
             xmin |= {xmink}
         return xmin
 
@@ -187,7 +187,7 @@ class RPERLE(SimOptSolver):
                     fxtb0 = self.gbar[tbx0]
                     #print('found: ', tbx0, fxtb0[k_con])
                     setbx0 = self.sehat[tbx0]
-                    mcTp, xst, fxst, sexst = self.spline(tbx0, fxtb0, setbx0, epnew, k_opt, k_con)
+                    mcTp, xst, fxst, sexst = self.spline(tbx0, epnew, k_opt, k_con)
                     mcA |= {xst}
                     mcT |= mcTp
                     back_dist = self.fse(sexst[k_con])
@@ -325,7 +325,7 @@ class RPERLE(SimOptSolver):
                     ncn |= {x}
         return ncn
 
-    def spline(self, x0, fx0, sex0, e, nobj, kcon):
+    def spline(self, x0, e, nobj, kcon):
         """
         return an estimated local minimizer using pseudo-gradients
 
@@ -347,6 +347,8 @@ class RPERLE(SimOptSolver):
         See Wang et. al 2013, R-SPLINE.
         """
         self.num_splines[self.nu] += 1
+        fx0 = self.gbar[x0]
+        sex0 = self.sehat[sex0]
         b = self.b
         bp = 0
         xn = x0
