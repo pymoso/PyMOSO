@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from ..chnbase import RLESolver
-from ..chnutils import *
-from math import floor
+from ..chnutils import get_biparetos
 
 
 class RPERLE(RLESolver):
@@ -57,9 +56,7 @@ class RPERLE(RLESolver):
         k_opt = min(ck, key=lambda k: ck[k])
         k_con = 1 - k_opt % 2
         L = Lk[k_opt]
-        self.kstar[self.nu] = k_con
         eps = sorted(epslst[k_opt])
-        self.epsilons[self.nu] = set(eps)
         c = len(eps)
         mcAeps = set()
         if c > 0:
@@ -91,7 +88,6 @@ class RPERLE(RLESolver):
                         back_dist = 0.000001
                     epnew = fxst[k_con] - back_dist
                 mcAeps |= mcA
-        self.tb_ptsnu[self.nu] = mcAeps
         tmp = {x: self.gbar[x] for x in mcAeps | a1new}
         phatp = get_biparetos(tmp)
         return phatp

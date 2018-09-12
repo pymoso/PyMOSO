@@ -12,7 +12,7 @@ class ListItems(BaseComm):
         ## list of solver classes
         solvclasses = getmembers(solvers, isclass)
         ## list of classes with test problems
-        testclasses = getmembers(testproblems, isclass)
+        testclasses = getmembers(testers, isclass)
         ## print the solvers and their docstrings
         sstr = 'Solver'
         sstrund = '************************'

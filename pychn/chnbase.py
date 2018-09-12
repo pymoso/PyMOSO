@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 """Provide base classes for problem and solver implementations."""
 from statistics import mean, variance
-from math import sqrt
+from math import sqrt, ceil, floor
 from .prng.mrg32k3a import get_next_prnstream
 import multiprocessing as mp
 from copy import deepcopy
+from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate
 
 
 class MOSOSolver(object):
@@ -34,7 +35,7 @@ class RASolver(MOSOSolver):
         """Initialize and solve a MOSO problem."""
         self.orc.set_crnflag(True)
         seed1 = self.orc.prn._current_seed
-        phatnu = dict()
+        lesnu = dict()
         simcalls = dict()
         lesnu[0] = set() | {self.x0}
         simcalls[0] = 0
@@ -319,7 +320,7 @@ class RASolver(MOSOSolver):
             self.gbar = dict()
             self.sehat = dict()
             aold = phatnu[self.nu - 1]
-            phatnu[self.nu], _, _ = self.spsolve(aold)
+            phatnu[self.nu] = self.spsolve(aold)
             simcalls[self.nu] = self.num_calls
             self.orc.crn_advance()
 
@@ -352,7 +353,7 @@ class RASolver(MOSOSolver):
 class RLESolver(RASolver):
     def __init__(self, orc, **kwargs):
         self.betadel = kwargs.pop('betadel', 0.5)
-        super.__init__(orc, **kwargs)
+        super().__init__(orc, **kwargs)
 
     def spsolve(self, warm_start):
         """Search and then certify an ALES."""
@@ -461,6 +462,23 @@ class RLESolver(RASolver):
             mcXw |= xnew
         return mcXw
 
+    def remove_nlwep(self, mcS):
+        """Compute the subset of mcS that are not LWEPs."""
+        r = self.nbor_rad
+        lwepset = set()
+        domset = set()
+        delz = [0]*self.num_obj
+        nbors = get_setnbors(mcS, r)
+        nbors = self.upsample(nbors)
+        tmpd = {x: self.gbar[x] for x in mcS | nbors}
+        for s in mcS:
+            islwep, dompts = is_lwep(s, r, tmpd)
+            if islwep:
+                lwepset |= {s}
+            else:
+                domset |= dompts
+        return lwepset, domset
+
     def calc_delta(self, se):
         """Compute RLE relaxation for an iteration nu."""
         m = self.m
@@ -468,7 +486,32 @@ class RLESolver(RASolver):
         return relax
 
 
-class Oracle(object):
+class OrcBase(object):
+    """Base class for problem implementations."""
+
+    def check_xfeas(self, x):
+        """Check if x is in the feasible domain."""
+        is_feas = True
+        qx = len(x)
+        qo = self.dim
+        if not qx == qo:
+            return False
+        mcD = self.get_feasspace()
+        i = 0
+        while i < len(mcD) and is_feas == True:
+            comp_feas = False
+            j = 0
+            while j < len(mcD[i]) and comp_feas == False:
+                if x[i] >= mcD[i][j][0] and x[i] < mcD[i][j][1]:
+                    comp_feas = True
+                j += 1
+            if not comp_feas:
+                is_feas = False
+            i += 1
+        return is_feas
+
+
+class Oracle(OrcBase):
     """Base class for implementing problems with noise."""
 
     def __init__(self, prn):

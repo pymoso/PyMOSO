@@ -6,5 +6,11 @@ class RSPLINE(RASolver):
     """A solver using R-SPLINE for single objective SO."""
 
     def spsolve(self, warm_start):
-        _, xmin, _, _ = self.spline(warm_start)
-        return xmin
+        ws = warm_start.pop()
+        isfeas, _, _ = self.estimate(ws)
+        if isfeas:
+            _, xmin, _, _ = self.spline(ws)
+        else:
+            # ¯\_(ツ)_/¯
+            xmin = ws
+        return {xmin}

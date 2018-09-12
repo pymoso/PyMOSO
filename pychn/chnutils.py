@@ -26,7 +26,7 @@ def solve(problem, solver, x0, **kwargs):
         paramlst.extend(paramtups)
     paramargs = dict(paramlst)
     res = isp_run(solver, budget, orc, **paramargs)
-    return res
+    return res, orcstream.get_seed()
 
 
 def testsolve(tester, solver, x0, **kwargs):

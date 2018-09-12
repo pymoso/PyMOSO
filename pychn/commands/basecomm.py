@@ -10,8 +10,7 @@ from .. import solvers
 from .. import problems
 from .. import prng
 from .. import testers
-from json import dumps, loads, JSONEncoder, JSONDecoder, dump
-import pickle
+from json import dump
 
 
 def jsonset(o):
@@ -63,48 +62,18 @@ def gen_humanfile(name, probn, solvn, budget, runtime, param, vals, startseed, e
     return ddict
 
 
-# def save_files(name, humantxt, rundat, pltd=None, alg=None):
-#     mydir = name
-#     pathlib.Path(name).mkdir(exist_ok=True)
-#     humfilen = name + '.txt'
-#     pref = ''
-#     if alg:
-#         pref = alg + '_'
-#     rundatn = pref + name + '.txt'
-#     humpth = os.path.join(name, humfilen)
-#     with open(humpth, 'w') as f1:
-#         dump(humantxt, f1, indent=4, separators=(',', ': '))
-#     rundpth = os.path.join(name, rundatn)
-#     j = dumps(rundat, default=jsonset)
-#     with open(rundpth, 'w') as f2:
-#         dump(j, f2, indent=4, separators=(',', ': '))
-#     if pltd:
-#         pltn = pref + name + '_plt.txt'
-#         pltpth = os.path.join(name, pltn)
-#         j = dumps(pltdat, default=jsonset)
-#         with open(pltpth, 'w') as f3:
-#             dump(j, f3, indent=4, separators=(',', ': '))
-
-
-def save_files(name, humantxt, rundat, pltd=None, alg=None):
+def save_files(name, humantxt, rundat):
     mydir = name
     pathlib.Path(name).mkdir(exist_ok=True)
     humfilen = name + '.txt'
-    pref = ''
-    if alg:
-        pref = alg + '_'
-    rundatn = pref + name + '.pkl'
+    pref = 'rundata_'
+    rundatn = pref + name + '.txt'
     humpth = os.path.join(name, humfilen)
     with open(humpth, 'w') as f1:
         dump(humantxt, f1, indent=4, separators=(',', ': '))
     rundpth = os.path.join(name, rundatn)
-    with open(rundpth, 'wb') as f2:
-        pickle.dump(rundat, f2)
-    if pltd:
-        pltn = pref + name + '_plt.pkl'
-        pltpth = os.path.join(name, pltn)
-        with open(pltpth, 'wb') as f3:
-            pickle.dump(pltd, f3)
+    with open(rundpth, 'w') as f2:
+        f2.write(rundat)
 
 
 class BaseComm(object):
