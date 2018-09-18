@@ -27,7 +27,7 @@ class CleanCommand(Command):
 setup(
     name = 'pydovs',
     version = __version__,
-    description = 'An integer-ordered simulation-optimization package in Python.',
+    description = 'Python Discrete Optimization Via Simulation: An integer-ordered simulation-optimization package.',
     long_description = long_description,
     author = 'Kyle Cooper',
     author_email = 'coope149@purdue.edu',
