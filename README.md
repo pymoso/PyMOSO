@@ -1,6 +1,6 @@
 # pydovs
 
-This project implements the R-PERLE algorithm for solving bi-objective simulation optimization problems on integer lattices and the R-MinRLE algorithm, a benchmark algorithm for solving multi-objective simulation optimization problems on integer lattices.
+This project implements the R-PERLE algorithm for solving bi-objective simulation optimization problems on integer lattices and the R-MinRLE algorithm, a benchmark algorithm for solving multi-objective simulation optimization problems on integer lattices. THIS PROJECT IS IN ALPHA! Please email the authors with any issues.
 
 ### Reference
 If you use this software for work leading to publications, please cite the article in which R-PERLE and R-MinRLE were proposed:
@@ -20,10 +20,10 @@ From the link, you may download the .whl file and skip to the last step.
 1. Navigate to the newly downloaded project directory containing setup.py and build the binary wheel.  
 `python setup.py bdist_wheel`
 1. Install the wheel.  
-`pip install dist/pydovs-0.1.8-py3-none-any.whl`  
-The exact name of the file may be different. Modify the command to select the particular wheel you've built or downloaded.
+`pip install dist/pydovs-x.x.x-py3-none-any.whl`  
+Replace the x.x.x with the correct file name corresponding to the code version. Modify the command to select the particular wheel you've built or downloaded.
 
-### Install experimental version from git
+### Install latest trunk version from git
 `pip install git+https://github.rcac.purdue.edu/HunterGroup/pydovs.git`  
 
 ### Getting started
