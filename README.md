@@ -30,7 +30,7 @@ The exact name of the file may be different. Modify the command to select the pa
 For a help file containing all the commands and options, type `pydovs --h`.
 
 ### Command help
-'''
+```
 pydovs
 
 Usage:
@@ -53,8 +53,6 @@ Options:
   --radius=R                Specify a neighborhood radius. [default: 1]
   --proc=Q                  Total number of processes to make available to pydovs. [default: 1]
   --params                  Allows specifying a <param> <val> pair.
-  --gran=G                  Number of points at which to compare to the true solution. [default: 5]
-  --haus                    Indicates whether to compute Hausdorf distance metrics [default: True]
   -h --help                 Show this screen.
   -v --version              Show version.
 
@@ -69,5 +67,4 @@ Examples:
 Help:
   Use the listitems command to view a list of available solvers, problems, and
   test problems.
-
-'''
+```
