@@ -54,8 +54,7 @@ def testsolve(tester, solver, x0, **kwargs):
         joblist.append((mainparms, paramargs))
     res = par_runs(joblist, proc)
     end_seed = solvstreams[isp - 1].get_seed()
-    res['endseed'] = end_seed
-    return res
+    return res, end_seed
 
 
 def get_testsolve_prnstreams(num_trials, iseed):
@@ -91,15 +90,22 @@ def do_work(func, args, kwargs=None):
     return result
 
 
-def combine_runs(rundicts):
+def combine_runs(runsets):
     """Combine the output results of many runs into a single dictionary."""
     rundatdict = dict()
-    for i, st in enumerate(rundicts):
-        keys = list(st.keys())
-        rundatdict[i] = dict()
-        for k in keys:
-            rundatdict[i][k] = st[k]
+    for i, st in enumerate(runsets):
+        rundatdict[i] = st
     return rundatdict
+
+# def combine_runs(rundicts):
+#     """Combine the output results of many runs into a single dictionary."""
+#     rundatdict = dict()
+#     for i, st in enumerate(rundicts):
+#         keys = list(st.keys())
+#         rundatdict[i] = dict()
+#         for k in keys:
+#             rundatdict[i][k] = st[k]
+#     return rundatdict
 
 
 def isp_run(boovsolver, budget, orc, **kwargs):

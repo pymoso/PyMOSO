@@ -5,7 +5,7 @@ from codecs import open
 from os.path import abspath, dirname, join
 from subprocess import call
 from setuptools import setup, Command
-from pychn import __version__
+from pydovs import __version__
 
 
 this_dir = abspath(dirname(__file__))
@@ -25,17 +25,17 @@ class CleanCommand(Command):
 
 
 setup(
-    name = 'pychn',
+    name = 'pydovs',
     version = __version__,
     description = 'An integer-ordered simulation-optimization package in Python.',
     long_description = long_description,
     author = 'Kyle Cooper',
     author_email = 'coope149@purdue.edu',
-    packages = ['pychn', 'pychn.solvers', 'pychn.commands', 'pychn.prng', 'pychn.problems', 'pychn.testers'],
+    packages = ['pydovs', 'pydovs.solvers', 'pydovs.commands', 'pydovs.prng', 'pydovs.problems', 'pydovs.testers'],
     install_requires = ['docopt'],
     entry_points = {
         'console_scripts': [
-            'pychn = pychn.cli:main',
+            'pydovs = pychn.cli:main',
         ],
     },
     python_requires='>=3.4.0',

@@ -99,7 +99,7 @@ class RPERLE(RLESolver):
         return relax
 
     def get_min(self, mcS):
-        """return a minimum for every objective using spline"""
+        """Return a minimum for every objective using spline."""
         self.upsample(mcS)
         unconst = float('inf')
         kcon = 0

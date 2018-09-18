@@ -14,7 +14,6 @@ class TestSolve(BaseComm):
         name = self.options['--odir']
         hasseed = self.options['--seed']
         incr = int(self.options['--gran'])
-        haus = self.options['--haus']
         if hasseed:
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
@@ -53,28 +52,31 @@ class TestSolve(BaseComm):
         print('** Testing ', testarg, ' using ', solvarg, ' **')
         stsstr = '-- using starting seed:'
         print(f'{stsstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
-        res = testsolve(testclass, solvclass, x0, **solve_kwargs)
+        res, end_seed = testsolve(testclass, solvclass, x0, **solve_kwargs)
         end_opt_time = time.time()
         opt_durr = end_opt_time - start_opt_time
-        end_seed = res['endseed']
         humtxt = gen_humanfile(name, testarg, solvarg, budget, opt_durr, params, vals, seed, end_seed)
         seed = tuple([int(i) for i in end_seed])
         endstr = '-- ending seed:'
         print(f'{endstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
         print('-- Optimization run time: {0:.2f} seconds'.format(opt_durr))
-        if not haus:
-            hdlist = []
-            print('-- Generating quantiles of Hausdorf distance to known solution...')
-            start_time = time.time()
-            for i in range(isp):
-                hdlist.append((res[i], incr, budget, testclass()))
-            hddict = par_diff(hdlist, proc)
-            qdat = gen_qdata(len(hddict), incr, budget, hddict)
-            end_time = time.time()
-            met_durr = end_time - start_time
-            print('-- Metric computation run time: {0:.2f} seconds'.format(met_durr))
-            print('-- Saving data in folder ', name, ' ...')
-            save_files(name, humtxt, res, qdat)
-        else:
-            save_files(name, humtxt, res)
+        reslst = []
+        for r in res:
+            reslst.append(str(res[r]))
+        resstr = '\n'.join(reslst)
+        # if not haus:
+        #     hdlist = []
+        #     print('-- Generating quantiles of Hausdorf distance to known solution...')
+        #     start_time = time.time()
+        #     for i in range(isp):
+        #         hdlist.append((res[i], incr, budget, testclass()))
+        #     hddict = par_diff(hdlist, proc)
+        #     qdat = gen_qdata(len(hddict), incr, budget, hddict)
+        #     end_time = time.time()
+        #     met_durr = end_time - start_time
+        #     print('-- Metric computation run time: {0:.2f} seconds'.format(met_durr))
+        #     print('-- Saving data in folder ', name, ' ...')
+        #     save_files(name, humtxt, res)
+        #else:
+        save_files(name, humtxt, resstr)
         print('-- Done!')
