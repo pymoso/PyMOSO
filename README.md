@@ -7,6 +7,9 @@ If you use this software for work leading to publications, please cite the artic
 
 Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework. http://www.optimization-online.org/DB_HTML/2018/06/6649.html.
 
+### Install from PyPI
+`pip install pydovs`
+
 ### Install from source
 1. Install Python 3.4+ from https://www.python.org/. You should be able to type `python` and `pip` into the terminal. Depending on your system it may be `python3` and `pip3` instead.  If you are using the `python3` command, the command to upgrade pip is  
 `pip3 intall --upgrade pip`  

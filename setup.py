@@ -31,6 +31,7 @@ setup(
     long_description = long_description,
     author = 'Kyle Cooper',
     author_email = 'coope149@purdue.edu',
+    url = 'https://github.rcac.purdue.edu/HunterGroup/pydovs',
     packages = ['pydovs', 'pydovs.solvers', 'pydovs.commands', 'pydovs.prng', 'pydovs.problems', 'pydovs.testers'],
     install_requires = ['docopt'],
     entry_points = {
