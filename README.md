@@ -11,6 +11,9 @@ We also include an implementation of R-SPLINE, which can be cited as follows:
 
 Wang, Honggang, et al. “Integer-Ordered Simulation Optimization Using R-SPLINE: Retrospective Search with Piecewise-Linear Interpolation and Neighborhood Enumeration.” ACM Transactions on Modeling and Computer Simulation (TOMACS), vol. 23, no. 3, 2013, pp. 1–24.
 
+### Install Python 3.6+
+This software requires Python 3.6 or higher. Python can be downloaded from `https://www.python.org/downloads/`.
+
 ### Install from PyPI
 `pip install pydovs`
 
@@ -18,15 +21,13 @@ Wang, Honggang, et al. “Integer-Ordered Simulation Optimization Using R-SPLINE
 `pip install git+https://github.rcac.purdue.edu/HunterGroup/pydovs.git`
 
 ### Install from source
-1. Install Python 3.6+ from https://www.python.org/. You should be able to type `python` and `pip` into the terminal. Depending on your system it may be `python3` and `pip3` instead.  If you are using the `python3` command, the command to upgrade pip is  
-`pip3 intall --upgrade pip`  
-1. Download the project either from  
+1. Install prerequisite packages.   
+`pip install wheel docopt`
+1. Download the project code either from  
 https://github.rcac.purdue.edu/HunterGroup/pydovs/releases   
-or using  
+for the official releases or from
 `git clone git@github.rcac.purdue.edu:HunterGroup/pydovs.git`
 for the latest version.  
-1. The packages docopt should be installed automatically in step 4, but we will install them explicitly.   
-`pip install wheel docopt`  
 1. Navigate to the newly downloaded project directory containing setup.py and build the binary wheel.  
 `python setup.py bdist_wheel`
 1. Install the wheel.  
