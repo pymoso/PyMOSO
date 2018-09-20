@@ -36,10 +36,10 @@ setup(
     install_requires = ['docopt'],
     entry_points = {
         'console_scripts': [
-            'pydovs = pychn.cli:main',
+            'pydovs = pydovs.cli:main',
         ],
     },
-    python_requires='>=3.4.0',
+    python_requires='>=3.6.0',
     cmdclass={
         'clean': CleanCommand,
     },

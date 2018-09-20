@@ -11,12 +11,12 @@ Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on in
 `pip install pydovs`
 
 ### Install from source
-1. Install Python 3.4+ from https://www.python.org/. You should be able to type `python` and `pip` into the terminal. Depending on your system it may be `python3` and `pip3` instead.  If you are using the `python3` command, the command to upgrade pip is  
+1. Install Python 3.6+ from https://www.python.org/. You should be able to type `python` and `pip` into the terminal. Depending on your system it may be `python3` and `pip3` instead.  If you are using the `python3` command, the command to upgrade pip is  
 `pip3 intall --upgrade pip`  
 1. Download the project either from  
 https://github.rcac.purdue.edu/HunterGroup/pydovs/releases   
 or using  
-`git clone git@github.rcac.purdue.edu:HunterGroup/pychn.git`.  
+`git clone git@github.rcac.purdue.edu:HunterGroup/pydovs.git`.  
 From the link, you may download the .whl file and skip to the last step.  
 1. The packages docopt, numpy should be installed automatically in step 4, but we will install them explicitly.   
 `pip install wheel numpy docopt`  
