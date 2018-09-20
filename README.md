@@ -25,7 +25,7 @@ This software requires Python 3.6 or higher. Python can be downloaded from https
 `pip install wheel docopt`
 1. Download the project code either from  
 https://github.rcac.purdue.edu/HunterGroup/pydovs/releases   
-for the official releases or from
+for the official releases or from  
 `git clone git@github.rcac.purdue.edu:HunterGroup/pydovs.git`
 for the latest version.  
 1. Navigate to the newly downloaded project directory containing setup.py and build the binary wheel.  
