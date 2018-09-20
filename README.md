@@ -7,8 +7,15 @@ If you use this software for work leading to publications, please cite the artic
 
 Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework. http://www.optimization-online.org/DB_HTML/2018/06/6649.html.
 
+We also include an implementation of R-SPLINE, which can be cited as follows:
+
+Wang, Honggang, et al. “Integer-Ordered Simulation Optimization Using R-SPLINE: Retrospective Search with Piecewise-Linear Interpolation and Neighborhood Enumeration.” ACM Transactions on Modeling and Computer Simulation (TOMACS), vol. 23, no. 3, 2013, pp. 1–24.
+
 ### Install from PyPI
 `pip install pydovs`
+
+### Install latest trunk version from git
+`pip install git+https://github.rcac.purdue.edu/HunterGroup/pydovs.git`
 
 ### Install from source
 1. Install Python 3.6+ from https://www.python.org/. You should be able to type `python` and `pip` into the terminal. Depending on your system it may be `python3` and `pip3` instead.  If you are using the `python3` command, the command to upgrade pip is  
@@ -16,18 +23,15 @@ Cooper K, Hunter SR, Nagaraj K (2018) Bi-objective simulation optimization on in
 1. Download the project either from  
 https://github.rcac.purdue.edu/HunterGroup/pydovs/releases   
 or using  
-`git clone git@github.rcac.purdue.edu:HunterGroup/pydovs.git`.  
-From the link, you may download the .whl file and skip to the last step.  
-1. The packages docopt, numpy should be installed automatically in step 4, but we will install them explicitly.   
-`pip install wheel numpy docopt`  
+`git clone git@github.rcac.purdue.edu:HunterGroup/pydovs.git`
+for the latest version.  
+1. The packages docopt should be installed automatically in step 4, but we will install them explicitly.   
+`pip install wheel docopt`  
 1. Navigate to the newly downloaded project directory containing setup.py and build the binary wheel.  
 `python setup.py bdist_wheel`
 1. Install the wheel.  
 `pip install dist/pydovs-x.x.x-py3-none-any.whl`  
 Replace the x.x.x with the correct file name corresponding to the code version. Modify the command to select the particular wheel you've built or downloaded.
-
-### Install latest trunk version from git
-`pip install git+https://github.rcac.purdue.edu/HunterGroup/pydovs.git`  
 
 ### Getting started
 For a help file containing all the commands and options, type `pydovs --h`.
@@ -66,6 +70,7 @@ Examples:
   pydovs solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 31 21 11
   pydovs solve --parsim --proc=4 --params betaeps 0.4 ProbTPA RPERLE 30 30
   pydovs solve --params betaeps 0.7 --params betadel 0.5 ProbTPA RPERLE 45 45
+  pydovs solve ProbSimpleSO RSPLINE 97
 
 Help:
   Use the listitems command to view a list of available solvers, problems, and
