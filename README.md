@@ -73,18 +73,128 @@ Examples:
 ```
 
 ## Programming guide
-### Solve
+### Example problem
+```
+# import the Oracle base class
+from pydovs.chnbase import Oracle
+
+class MyProblem(Oracle):
+    '''Example implementation of a user-defined MOSO problem.'''
+    def __init__(self, rng):
+        '''Specify the number of objectives and dimensionality of points.'''
+        self.num_obj = 2
+        self.dim = 1
+        super().__init__(prn)
+
+    def g(self, x, rng):
+        '''Check feasibility and simulate objective values.'''
+        # feasible values for x in this example
+        feas_range = range(-100, 101)
+        # initialize obj to empty and is_feas to False
+        obj = []
+        is_feas = False
+        # check that dimensions of x match self.dim
+        if len(x) == self.dim:
+            is_feas = True
+            # then check that each component of x is in the range above
+            for i in x:
+                if not i in feas_range:
+                    is_feas = False
+        # if x is feasible, simulate the objectives
+        if is_feas:
+            #use rng to generate random numbers
+            z0 = rng.normalvariate(0, 1)
+            z1 = rng.normalvariate(0, 1)
+            obj1 = x[0]**2 + z0
+            obj2 = (x[0] - 2)**2 + z1
+            obj = (obj1, obj2)
+        return is_feas, obj
+
+```
+### Example tester
+```
+# import an the MyProblem oracle
+from myproblem import MyProblem
+
+# implement a function that generates the expected value of g(x) in myproblem.py
+def true_g(x):
+    '''Compute the objective values.'''
+    obj1 = x[0]**2
+    obj2 = (x[0] - 2)**2
+    return obj1, obj2
+
+# the solution is the image of all local efficient sets, a list of sets
+soln = [{(0, 4), (4, 0), (1, 1)}]
+
+class MyTester(object):
+    '''Example tester implementation for MyProblem.'''
+    def __init__(self):
+        self.ranorc = MyProblem
+        self.true_g = true_g
+        self.soln = soln
+
+```
+### Example accelerator
+```
+# import the R-MinRLE class - required
+from pydovs.solvers.rminrle import RMINRLE
+
+# create a subclass of RMINRLE
+class MyAccel(RMINRLE):
+    '''Example implementation of an R-MinRLE accelerator.'''
+
+    def accel(self, aold):
+        '''Return a collection of points to send to RLE.'''
+        # bring up the sample sizes of the "warm start" aold
+        self.upsample(aold)
+        # determine the number of objectives returned by the oracle
+        dr = range(self.num_obj)
+        # initialize an empty set
+        new_mins = set()
+        # set a value to run spline unconstrained
+        unconst = float('inf')
+        for i in dr:
+            for a in aold:
+                # use spline to acquire a sample path minimizer
+                _, spmin, _, _  = self.spline(a, unconst, i, i)
+                # keep the union of the set of minimizers
+                new_mins |= spmin
+        return new_mins
+
+```
+### Solve example
 ```
 # import the solve function
-from pychn.chnutils import solve
+from pydovs.chnutils import solve
 # import the module containing the RPERLE implementation
-import pychn.solvers.rperle as rp
+import pydovs.solvers.rperle as rp
 # import MyProblem - myproblem.py should usually be in the script directory
 import myproblem as mp
 
 # specify an x0. In MyProblem, it is a tuple of length 1
-x0 = (-97,)
+x0 = (97,)
 soln = solve(mp.MyProblem, rp.RPERLE, x0)
 print(soln)
 
 ```
+
+The `solve` function can take keyword arguments. The keyword values correspond to options in the command line help.
+Here is a listing: `radius`, `budget`, `simpar`, `seed`.
+
+### TestSolve example
+```
+# import the testsolve functions
+from pydovs.chnutils import testsolve
+# import the module containing RPERLE
+import pydovs.solvers.rperle as rp
+# import the MyTester class
+from mytester import MyTester
+
+# choose a feasible starting point of MyProblem
+x0 = (97,)
+run_data = testsolve(MyTester, rp.RPERLE, x0)
+print(run_data)
+```
+
+The `testsolve` function can take keyword arguments. The keyword values correspond to options in the command line help.
+Here is a listing: `radius`, `budget`, `seed`, `isp`, `proc`.
