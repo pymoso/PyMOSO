@@ -70,6 +70,7 @@ Examples:
   pydovs solve --parsim --proc=4 --params betaeps 0.4 ProbTPA RPERLE 30 30
   pydovs solve --params betaeps 0.7 --params betadel 0.5 ProbTPA RPERLE 45 45
   pydovs solve ProbSimpleSO RSPLINE 97
+  pydovs testsolve --isp=10 --proc=10 ProbTPA RMINRLE 32 32
 ```
 
 ## Programming guide
