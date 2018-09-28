@@ -2,7 +2,7 @@
 
 This project implements the R-PERLE algorithm for solving bi-objective simulation optimization problems on integer lattices and the R-MinRLE algorithm, a benchmark algorithm for solving multi-objective simulation optimization problems on integer lattices. THIS PROJECT IS IN ALPHA! Please email the authors with any issues.
 
-### Reference
+## Reference
 If you use this software for work leading to publications, please cite the article in which R-PERLE and R-MinRLE were proposed:
 
 Cooper, K., Hunter, S. R., and Nagaraj, K. 2018. Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework. Optimization Online, http://www.optimization-online.org/DB_HTML/2018/06/6649.html.
@@ -11,6 +11,7 @@ We also include an implementation of R-SPLINE, which can be cited as follows:
 
 Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation optimization using R-SPLINE: Retrospective Search with Piecewise-Linear Interpolation and Neighborhood Enumeration. ACM Transactions on Modeling and Computer Simulation, Vol. 23, No. 3, Article 17 (July 2013), 24 pages. DOI:http://dx.doi.org/10.1145/2499913.2499916
 
+## Installation
 ### Install Python 3.6+
 This software requires Python 3.6 or higher. Python can be downloaded from https://www.python.org/downloads/.
 
@@ -34,10 +35,7 @@ for the latest version.
 `pip install dist/pydovs-x.x.x-py3-none-any.whl`  
 Replace the x.x.x with the correct file name corresponding to the code version. Modify the command to select the particular wheel you've built or downloaded.
 
-### Getting started
-For a help file containing all the commands and options, type `pydovs --h`.
-
-### Command help
+## Command line help
 ```
 pydovs
 
@@ -72,8 +70,21 @@ Examples:
   pydovs solve --parsim --proc=4 --params betaeps 0.4 ProbTPA RPERLE 30 30
   pydovs solve --params betaeps 0.7 --params betadel 0.5 ProbTPA RPERLE 45 45
   pydovs solve ProbSimpleSO RSPLINE 97
+```
 
-Help:
-  Use the listitems command to view a list of available solvers, problems, and
-  test problems.
+## Programming guide
+### Solve
+```
+# import the solve function
+from pychn.chnutils import solve
+# import the module containing the RPERLE implementation
+import pychn.solvers.rperle as rp
+# import MyProblem - myproblem.py should usually be in the script directory
+import myproblem as mp
+
+# specify an x0. In MyProblem, it is a tuple of length 1
+x0 = (-97,)
+soln = solve(mp.MyProblem, rp.RPERLE, x0)
+print(soln)
+
 ```
