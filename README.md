@@ -208,6 +208,15 @@ The base class `MOSOSolver` implements basic members required to solve MOSO prob
 
 | pydovs object | Example | Description |
 | ------------- | ------- | ----------- |
+|`pydovs.prng.mrg32k3a.MRG32k3a`| `rng = MRG32k3a()` | Subclass of `random.Random()` for generating random numbers. |
+|`pydovs.prng.mrg32k3a.get_next_prnstream`| `prn = get_next_prnstream(seed)` | Returns a stream 2^127 places from the given `seed` |
+|`pydovs.chnbase.Oracle`| `orc = Oracle(rng)` | Implements the `Oracle` class. |
+|`pydovs.chnbase.MOSOSolver` | `ms = MOSOSolver(orc)` | Implements the `MOSOSolver` class. |
+|`pydovs.chnbase.RASolver` | `ras = RASolver(orc)` | Implements the `RASolver` class. |
+|`pydovs.chnbase.RLESolver` | `res = RLESolver(orc)`| Implements the `RLESolver` class. |
+|`pydovs.chnutils.solve` | `soln = solve(prob, alg, x0)` | The solve command used in the examples. |
+|`pydovs.chnutils.testsolve` | `solns = testsolve(tester, alg, x0)`| The testsolve command used in the examples. |
+|`pydovs.chnutils` | Not applicable. | The module contains a number of functions useful in algorithm implementation. See the next table. |
 | `Oracle.hit` | `isfeas, gx, se = Oracle.hit(x, 4)` | Call the simulation 4 times and compute the mean value and standard error of each objective at `x`. For RA algorithms, don't call this directly but use `RASolver.estimate`. |
 | `Oracle.set_crnflag` | `Oracle.set_crnflag(False)` | Turn common random numbers on or off. Default is true (on). |
 | `Oracle.crn_advance` | `Oracle.crn_advance()` | Wind the rng forward. pydovs handles this automatically for RA algorithms. |
@@ -230,6 +239,17 @@ The base class `MOSOSolver` implements basic members required to solve MOSO prob
 |`RASolver.spline` | `T, xmin, gxmin, sexmin = RASolver.spline(x, const, objmin, objcon)` | Find a sample path local minimizer such that `gxmin[objmin]` is a local min and `gxmin[objcon] < const`. |
 |`RLESolver.betadel` | `bd = RLESolver.betadel` | The relaxation parameter used by `RLE`. |
 |`RLESolver.calc_delta` | `d = RLESolver.calc_delta(nu)` | Compute the relaxation for iteration `nu`. |
+
+
+| chnutils function | Example | Description |
+| ------------- | ------- | ----------- |
+|`does_weak_dominate` | `dwd = does_weak_dominate(g1, g2, rel1, rel2)` | Returns true if `g1[i] - rel1[i] <= g2[i] + rel2[i]` for every `i`.
+|`does_dominate` | `dd = does_dominate(g1, g2, rel1, rel2)` | Returns true if `g1[i] - rel1[i] <= g2[i] + rel2[i]` for every `i` and `g1[i] - rel1[i] < g2[i] + rel2[i]` for at least one `i`. |
+|`does_strict_dominate` | `dsd = does_strict_dominate(g1, g2, rel1, rel2)` | Returns true if `g1[i] - rel1[i] < g2[i] + rel2[i]` for every `i`. |
+|`get_biparetos` | `pars = get_biparetos(mcS)` | `mcS` is a dictionary where each key is a tuple and each value is a tuple of length 2. Returns the set of keys with non-dominated values. |
+|`get_nondom` | `nd = get_nondom(mcS)` | Like `get_biparetos` but the values are tuples of any length. |
+|`get_nbors` | `nbors = get_nbors(x, r)` | Return the set of points no farther than `r` from `x` and exclude `x`. |
+|`get_setnbors` | `nbors = get_setnbors(S, r)` | Excluding points in the set `S`, return `get_nbors(s, r)` for every `s` in `S`. |
 
 
 ### Solve example
