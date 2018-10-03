@@ -72,9 +72,10 @@ Examples:
   pydovs solve ProbSimpleSO RSPLINE 97
   pydovs testsolve --isp=10 --proc=10 ProbTPA RMINRLE 32 32
 ```
+The `<x>` argument cannot take negative numbers from the command line. Use the commands in a Python program if a negative starting point is required (see examples below).
 
 ## Programming guide
-### Example problem
+### Example problem (myproblem.py)
 ```
 # import the Oracle base class
 from pydovs.chnbase import Oracle
@@ -85,7 +86,7 @@ class MyProblem(Oracle):
         '''Specify the number of objectives and dimensionality of points.'''
         self.num_obj = 2
         self.dim = 1
-        super().__init__(prn)
+        super().__init__(rng)
 
     def g(self, x, rng):
         '''Check feasibility and simulate objective values.'''
@@ -112,8 +113,19 @@ class MyProblem(Oracle):
         return is_feas, obj
 
 ```
-### Example tester
+To set up a problem to solve, typically a Monte Carlo simulation oracle, follow the example above which can be used with the `solve` command. Subclass the Oracle class shipped with pydovs. Implement `__init__` and `g` with the signatures `__init__(self, rng)` and `g(self, x, rng)`. For `__init__`, it's enough to set the desired values for the number of objectives, `self.num_obj`, and the dimensionality of the feasible domain, `self.dim`.  
+
+The function `g` must run one simulation at the feasible point `x`. The return values must be ordered correctly. The first value is a boolean (`True` or `False`) indicating whether `x` is feasible. It is up to the programmer to implement the feasibility check. The second value is a tuple of length `self.num_obj` where each element is a number indicating one of the objective values. The simulation doesn't necessarily have to be implemented in Python, but of course the implementation of `g` must be valid Python code. For example, `g` may wrap a function call to a C library which runs the simulation and returns the objectives.  
+
+The `rng` parameter is a subclass of Python's built-in `random.Random()` class and implements the same methods. Thus, its used in the same way as a `random.Random()` object for programmers implementing their simulations in Python. For example, `rng.random()`, `rng.normalvariate()`, `rng.normalvariate(4, 7)`, and `rng.getState()` are valid. The generator uses mrg32k3a as it's backbone and uses Beasley-Springer-Moro to generate normal random variates.  
+
+Once implemented, the problem can be solved with, say, R-PERLE using the following command. For your problem, choose an appropriate starting point.  
+`pydovs solve myproblem.py RPERLE 97`
+
+### Example tester (mytester.py)
 ```
+import sys, os
+sys.path.insert(0,os.path.dirname(__file__))
 # import an the MyProblem oracle
 from myproblem import MyProblem
 
@@ -135,6 +147,9 @@ class MyTester(object):
         self.soln = soln
 
 ```
+To test a problem using the `testsolve` command, implement a `Tester` object as above. The only strict pydovs requirement is that a tester is a class with a member called `ranorc` which is an Oracle class. To generate useful test metrics, programmers may find it convenient to include a solution and a function which can generate the expected values of the objectives of the oracle.  Once implemented, the tester can be solved as follows.  
+`pydovs testsolve mytester.py RPERLE 97`
+
 ### Example accelerator
 ```
 # import the R-MinRLE class - required
@@ -144,25 +159,19 @@ from pydovs.solvers.rminrle import RMINRLE
 class MyAccel(RMINRLE):
     '''Example implementation of an R-MinRLE accelerator.'''
 
-    def accel(self, aold):
+    def accel(self, warm_start):
         '''Return a collection of points to send to RLE.'''
-        # bring up the sample sizes of the "warm start" aold
-        self.upsample(aold)
-        # determine the number of objectives returned by the oracle
-        dr = range(self.num_obj)
-        # initialize an empty set
-        new_mins = set()
-        # set a value to run spline unconstrained
-        unconst = float('inf')
-        for i in dr:
-            for a in aold:
-                # use spline to acquire a sample path minimizer
-                _, spmin, _, _  = self.spline(a, unconst, i, i)
-                # keep the union of the set of minimizers
-                new_mins |= spmin
-        return new_mins
-
+        # bring up the sample sizes of the "warm start"
+        self.upsample(warm_start)
+        return warm_start
 ```
+Programmers can use pydovs to create new algorithms that use RLE for convergence. The novel part of these algorithms will be the `accel` function, which should efficiently collect points to send to RLE for certification. The function `accel` must have the signature `accel(self, warm_start)` where `warm_start` is a set of tuples. The tuples are feasible points. The pydovs method, shown above, allows programmers to easily implement and test these accelerators. These accelerators are to be used in a retrospective approximation framework.  Every retrospective iterations, pydovs will first call `accel(self, warm_start)` and send the returned set to `RLE`. The return value must be a set of tuples, where each tuple is a feasible point. The implementer does not need to implement or call `RLE`.
+
+The RMINRLE class implements a number functions useful to algorithm implementers.  They are detailed here.
+| Function | | Example | | Description |
+| -------- | | ------- | | ----------- |
+|
+
 ### Solve example
 ```
 # import the solve function
