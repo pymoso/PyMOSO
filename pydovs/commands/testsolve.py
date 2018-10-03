@@ -3,6 +3,9 @@
 from .basecomm import *
 from inspect import getmembers, isclass
 import sys
+import os
+import importlib.util
+import importlib
 from ..chnutils import testsolve, par_diff, gen_qdata, par_runs
 
 
@@ -13,7 +16,6 @@ class TestSolve(BaseComm):
         budget = int(self.options['--budget'])
         name = self.options['--odir']
         hasseed = self.options['--seed']
-        incr = int(self.options['--gran'])
         if hasseed:
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
@@ -25,28 +27,33 @@ class TestSolve(BaseComm):
         ## determine the solver and problem
         solvarg = self.options['<solver>']
         if solvarg.endswith('.py'):
-            from importlib import import_module
-            mod_name = solvarg.replace('.py', '')
-            module = import_module(mod_name)
-            solvclasses = getmembers(module, isclass)
-            solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == mod_name][0]
+            base_mod_name = os.path.basename(solvarg).replace('.py', '')
+            mod_name = '.'.join(['pydovs', 'solvers', base_mod_name])
+            spec = importlib.util.spec_from_file_location(mod_name, solvarg)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            sys.modules[mod_name] = module
+            smodule = importlib.import_module(mod_name)
+            solvclasses = getmembers(smodule, isclass)
+            solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == base_mod_name][0]
         else:
             solvclasses = getmembers(solvers, isclass)
-            try:
-                solvclass = [sol[1] for sol in solvclasses if sol[0] == solvarg][0]
-            except IndexError:
-                print(' -- -- Error: Solver name is not valid.')
-                sys.exit()
+            solvclass = [sol[1] for sol in solvclasses if sol[0] == solvarg][0]
         testarg = self.options['<tester>']
         if testarg.endswith('.py'):
-            from importlib import import_module
-            mod_name = testarg.replace('.py', '')
-            module = import_module(mod_name)
-            testclasses = getmembers(module, isclass)
-            testclass = [prob[1] for prob in testclasses if prob[0].lower() == mod_name][0]
+            mod_name = os.path.basename(testarg).replace('.py', '')
+            spec = importlib.util.spec_from_file_location(mod_name, testarg)
+            tmodule = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(tmodule)
+            sys.modules[mod_name] = tmodule
+            tmodule = importlib.import_module(mod_name)
+            testclasses = getmembers(tmodule, isclass)
+            testclass = [tc[1] for tc in testclasses if tc[0].lower() == mod_name][0]
         else:
             testclasses = getmembers(testers, isclass)
-            testclass = [prob[1] for prob in testclasses if prob[0] == testarg][0]
+            testclass = [tc[1] for tc in testclasses if tc[0] == testarg][0]
+        # from smodule import solvclass.__name__
+        # from tmodule import testclass.__name__
         ## get the optional parameter names and values if specified
         params = self.options['<param>']
         vals = self.options['<val>']
@@ -54,13 +61,12 @@ class TestSolve(BaseComm):
         solve_kwargs['budget'] = budget
         solve_kwargs['seed'] = seed
         solve_kwargs['radius'] = radius
-        solve_kwargs['gran'] = incr
         solve_kwargs['isp'] = isp
         solve_kwargs['proc'] = proc
         for i, p in enumerate(params):
             solve_kwargs[p] = float(vals[i])
         start_opt_time = time.time()
-        print('** Testing ', testarg, ' using ', solvarg, ' **')
+        print('** Testing ', solvarg, ' using ', testarg, ' **')
         stsstr = '-- using starting seed:'
         print(f'{stsstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
         res, end_seed = testsolve(testclass, solvclass, x0, **solve_kwargs)
@@ -75,19 +81,5 @@ class TestSolve(BaseComm):
         for r in res:
             reslst.append(str(res[r]))
         resstr = '\n'.join(reslst)
-        # if not haus:
-        #     hdlist = []
-        #     print('-- Generating quantiles of Hausdorf distance to known solution...')
-        #     start_time = time.time()
-        #     for i in range(isp):
-        #         hdlist.append((res[i], incr, budget, testclass()))
-        #     hddict = par_diff(hdlist, proc)
-        #     qdat = gen_qdata(len(hddict), incr, budget, hddict)
-        #     end_time = time.time()
-        #     met_durr = end_time - start_time
-        #     print('-- Metric computation run time: {0:.2f} seconds'.format(met_durr))
-        #     print('-- Saving data in folder ', name, ' ...')
-        #     save_files(name, humtxt, res)
-        #else:
         save_files(name, humtxt, resstr)
         print('-- Done!')

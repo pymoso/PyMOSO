@@ -3,6 +3,8 @@
 from .basecomm import *
 from inspect import getmembers, isclass
 import sys
+import os
+import importlib.util
 from ..chnutils import solve
 
 
@@ -23,9 +25,10 @@ class Solve(BaseComm):
         ## determine the solver and problem
         probarg = self.options['<problem>']
         if probarg.endswith('.py'):
-            from importlib import import_module
-            mod_name = probarg.replace('.py', '')
-            module = import_module(mod_name)
+            mod_name = os.path.basename(probarg).replace('.py', '')
+            spec = importlib.util.spec_from_file_location(mod_name, probarg)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
             probclasses = getmembers(module, isclass)
             probclass = [prob[1] for prob in probclasses if prob[0].lower() == mod_name][0]
         else:
@@ -37,9 +40,10 @@ class Solve(BaseComm):
                 sys.exit()
         solvarg = self.options['<solver>']
         if solvarg.endswith('.py'):
-            from importlib import import_module
-            mod_name = solvarg.replace('.py', '')
-            module = import_module(mod_name)
+            mod_name = os.path.basename(solvarg).replace('.py', '')
+            spec = importlib.util.spec_from_file_location(mod_name, solvarg)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
             solvclasses = getmembers(module, isclass)
             solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == mod_name][0]
         else:
