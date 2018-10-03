@@ -15,5 +15,5 @@ class MyTester(object):
     '''Example tester implementation for MyProblem.'''
     def __init__(self):
         self.ranorc = MyProblem
-        self.true_g = true_g
         self.soln = soln
+        self.true_g = true_gs

@@ -1,15 +1,15 @@
 # import the Oracle base class
-from pychn.chnbase import Oracle
+from pydovs.chnbase import Oracle
 
 class MyProblem(Oracle):
     '''Example implementation of a user-defined MOSO problem.'''
-    def __init__(self, prn):
+    def __init__(self, rng):
         '''Specify the number of objectives and dimensionality of points.'''
         self.num_obj = 2
         self.dim = 1
         super().__init__(prn)
 
-    def g(self, x, prn):
+    def g(self, x, rng):
         '''Check feasibility and simulate objective values.'''
         # feasible values for x in this example
         feas_range = range(-100, 101)
@@ -25,9 +25,9 @@ class MyProblem(Oracle):
                     is_feas = False
         # if x is feasible, simulate the objectives
         if is_feas:
-            #use prn to generate random numbers
-            z0 = prn.normalvariate(0, 1)
-            z1 = prn.normalvariate(0, 1)
+            #use rng to generate random numbers
+            z0 = rng.normalvariate(0, 1)
+            z1 = rng.normalvariate(0, 1)
             obj1 = x[0]**2 + z0
             obj2 = (x[0] - 2)**2 + z1
             obj = (obj1, obj2)
