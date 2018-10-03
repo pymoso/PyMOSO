@@ -269,6 +269,7 @@ class RASolver(MOSOSolver):
                         sexs = sex1
                 if not x1 == xs:
                     should_stop = True
+                x0 = xs
             if i <= 2:
                 stop_loop = True
         return xs, fxs, sexs, n

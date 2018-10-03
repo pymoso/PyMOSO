@@ -266,7 +266,6 @@ import myproblem as mp
 x0 = (97,)
 soln = solve(mp.MyProblem, rp.RPERLE, x0)
 print(soln)
-
 ```
 
 The `solve` function can take keyword arguments. The keyword values correspond to options in the command line help.
