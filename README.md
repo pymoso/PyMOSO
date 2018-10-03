@@ -150,13 +150,13 @@ class MyTester(object):
 To test a problem using the `testsolve` command, implement a `Tester` object as above. The only strict pydovs requirement is that a tester is a class with a member called `ranorc` which is an Oracle class. To generate useful test metrics, programmers may find it convenient to include a solution and a function which can generate the expected values of the objectives of the oracle.  Once implemented, the tester can be solved as follows.  
 `pydovs testsolve mytester.py RPERLE 97`
 
-### Example accelerator
+### Example of a (bad) RLE accelerator algorithm (myaccel.py)
 ```
 from pydovs.chnbase import RLESolver
 
 # create a subclass of RLESolver
 class MyAccel(RLESolver):
-    '''Example implementation of an R-MinRLE accelerator.'''
+    '''Example implementation of an RLE accelerator.'''
 
     def accel(self, warm_start):
         '''Return a collection of points to send to RLE.'''
@@ -165,6 +165,39 @@ class MyAccel(RLESolver):
         return warm_start
 ```
 Programmers can use pydovs to create new algorithms that use RLE for convergence. The novel part of these algorithms will be the `accel` function, which should efficiently collect points to send to RLE for certification. The function `accel` must have the signature `accel(self, warm_start)` where `warm_start` is a set of tuples. The tuples are feasible points. The pydovs method, shown above, allows programmers to easily implement and test these accelerators. These accelerators are to be used in a retrospective approximation framework.  Every retrospective iterations, pydovs will first call `accel(self, warm_start)` and send the returned set to `RLE`. The return value must be a set of tuples, where each tuple is a feasible point. The implementer does not need to implement or call `RLE`.
+
+Once implmented, solve a problem using the accelerator as follows.  
+`pydovs solve myproblem.py myaccel.py 97`  
+
+### Example of a (bad) RA algorithm (myraalg.py)
+```
+from pydovs.chnbase import RASolver
+
+# create a subclass of RASolver
+class MyRAAlg(RASolver):
+    '''Example implementation of an RA algorithm.'''
+
+    def spsolve(self, warm_start):
+        '''Compute a solution to the sample path problem.'''
+        # bring up the sample sizes of the "warm start"
+        self.upsample(warm_start)
+        return warm_start
+```
+More generally, algorithm designers can quickly implement a retrospective approximation algorithm by subclassing `RASolver` and implementing the `spsolve` function as shown. For convergence, the output of `spsolve` should be a certified sample path solution.   
+
+### Example of a (bad) MOSO algorithm (mymoso.py)
+```
+from pydovs.chnbase import MOSOSolver
+
+# create a subclass of MOSOSolver
+class MyMOSO(MOSOSolver):
+    '''Example implementation of a MOSO algorithm.'''
+
+    def solve(self, budget):
+        '''Compute a solution using fewer than budget simulations.'''
+        # implement your genius algorithm here
+```
+Arbitrary algorithms can used in pydovs by implementing the `solve` function of a `MOSOSolver` class as shown. 
 
 ### Class Structure and internal functions
 The base class `MOSOSolver` implements basic members required to solve MOSO problems. To implement a general (i.e. non-RA) MOSO algorithm in pydovs, one must subclass `MOSOSolver` and implement the `MOSOSolver.solve` function with signature `solve(self, budget)` and it must return a set, even if the set contains a single point. `RASolver` is a subclass of `MOSOSolver` which provides the machinery needed to quickly implement a retrospective approximation algorithm. To implement an RA algorithm, one must subclass `RASolver` and implement its `spsolve` method with signature `spsolve(self, warm_start)` which returns a set of points.`RLESolver`, subclass of `RASolver`, allows quick implementation of MOSO solvers that use `RLE` to ensure convergence, as shown in the example accelerator above. One only needs to implement the `accel` method. Oracles are the problems that pydovs can solve. Here, we provide a listing of the important objects available to pydovs programmers who are implementing MOSO algorithms.
