@@ -152,11 +152,10 @@ To test a problem using the `testsolve` command, implement a `Tester` object as 
 
 ### Example accelerator
 ```
-# import the R-MinRLE class - required
-from pydovs.solvers.rminrle import RMINRLE
+from pydovs.chnbase import RLESolver
 
-# create a subclass of RMINRLE
-class MyAccel(RMINRLE):
+# create a subclass of RLESolver
+class MyAccel(RLESolver):
     '''Example implementation of an R-MinRLE accelerator.'''
 
     def accel(self, warm_start):
@@ -167,11 +166,17 @@ class MyAccel(RMINRLE):
 ```
 Programmers can use pydovs to create new algorithms that use RLE for convergence. The novel part of these algorithms will be the `accel` function, which should efficiently collect points to send to RLE for certification. The function `accel` must have the signature `accel(self, warm_start)` where `warm_start` is a set of tuples. The tuples are feasible points. The pydovs method, shown above, allows programmers to easily implement and test these accelerators. These accelerators are to be used in a retrospective approximation framework.  Every retrospective iterations, pydovs will first call `accel(self, warm_start)` and send the returned set to `RLE`. The return value must be a set of tuples, where each tuple is a feasible point. The implementer does not need to implement or call `RLE`.
 
-The RMINRLE class implements a number functions and data objects useful to algorithm implementers.  They are detailed here.  
+### Class Structure and internal functions
+The base class `MOSOSolver` implements basic members required to solve MOSO problems. Its subclass `RASolver` provides the machinery needed to quickly implement a retrospective approximation algorithm. It's child class, `RLESolver`, allows quick implementation of MOSO solvers that use `RLE` to ensure convergence, as shown in the example accelerator. Oracles are the problems that pydovs can solve. Here, we provide a listing of the important objects available to pydovs programmers who are implementing MOSO algorithms.
 
-| Function | Example | Description |
+| pydovs object | Example | Description |
 | -------- | ------- | ----------- |
-| `gbar`   | `objs = self.gbar[x]` | A dictionary that stores the estimated values for visited points in the current retrospective iteration. |
+| `Oracle.hit(x, m)` | 'isfeas, gx, se = Oracle.hit(x, 4)' | Call the simulation 4 times and compute the mean value and standard error of each objective at `x`. |
+| `MOSOSolver.orc` |  | The simulation oracle object which can be called. |
+
+| `RASolver.gbar`   | `objs = self.gbar[x]` | A dictionary of the estimated values for visited points in the current retrospective iteration. |
+| `RASolver.sehat` | `seobjs = self.sehat[x]`| A dictionary of the estimated standard errors for visited points in the current retrospective iteration. |
+| `RASolver.estimate(x, )` | 'gx, se = self.estimate(x, )'
 
 ### Solve example
 ```
