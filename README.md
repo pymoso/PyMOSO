@@ -171,7 +171,7 @@ The base class `MOSOSolver` implements basic members required to solve MOSO prob
 
 | pydovs object | Example | Description |
 | ------------- | ------- | ----------- |
-| `Oracle.hit(x, m)` | 'isfeas, gx, se = Oracle.hit(x, 4)' | Call the simulation 4 times and compute the mean value and standard error of each objective at `x`. |
+| `Oracle.hit(x, m)` | `isfeas, gx, se = Oracle.hit(x, 4)` | Call the simulation 4 times and compute the mean value and standard error of each objective at `x`. |
 | `MOSOSolver.orc` |  | The simulation oracle object which can be called. |
 
 | `RASolver.gbar`   | `objs = self.gbar[x]` | A dictionary of the estimated values for visited points in the current retrospective iteration. |
