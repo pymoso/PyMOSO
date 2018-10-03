@@ -167,8 +167,8 @@ class MyAccel(RMINRLE):
 ```
 Programmers can use pydovs to create new algorithms that use RLE for convergence. The novel part of these algorithms will be the `accel` function, which should efficiently collect points to send to RLE for certification. The function `accel` must have the signature `accel(self, warm_start)` where `warm_start` is a set of tuples. The tuples are feasible points. The pydovs method, shown above, allows programmers to easily implement and test these accelerators. These accelerators are to be used in a retrospective approximation framework.  Every retrospective iterations, pydovs will first call `accel(self, warm_start)` and send the returned set to `RLE`. The return value must be a set of tuples, where each tuple is a feasible point. The implementer does not need to implement or call `RLE`.
 
-The RMINRLE class implements a number functions useful to algorithm implementers.  They are detailed here.
-
+The RMINRLE class implements a number functions useful to algorithm implementers.  They are detailed here.  
+  
 | Function | | Example | | Description |  
 | -------- | | ------- | | ----------- |  
 |
