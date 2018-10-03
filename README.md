@@ -183,7 +183,9 @@ class MyRAAlg(RASolver):
         self.upsample(warm_start)
         return warm_start
 ```
-More generally, algorithm designers can quickly implement a retrospective approximation algorithm by subclassing `RASolver` and implementing the `spsolve` function as shown. For convergence, the output of `spsolve` should be a certified sample path solution.   
+More generally, algorithm designers can quickly implement a retrospective approximation algorithm by subclassing `RASolver` and implementing the `spsolve` function as shown. For convergence, the output of `spsolve` should be a certified sample path solution. The algorithm can be a single-objective algorithm even though its class is a child of `MOSOSolver`.  
+
+`pydovs solve myproblem.py myraalg.py 97`
 
 ### Example of a (bad) MOSO algorithm (mymoso.py)
 ```
@@ -197,7 +199,9 @@ class MyMOSO(MOSOSolver):
         '''Compute a solution using fewer than budget simulations.'''
         # implement your genius algorithm here
 ```
-Arbitrary algorithms can used in pydovs by implementing the `solve` function of a `MOSOSolver` class as shown. 
+Arbitrary algorithms can used in pydovs by implementing the `solve` function of a `MOSOSolver` class as shown. It does not have to be a multi-objective algorithm.  
+
+`pydovs solve myproblem.py mymoso.py 97`
 
 ### Class Structure and internal functions
 The base class `MOSOSolver` implements basic members required to solve MOSO problems. To implement a general (i.e. non-RA) MOSO algorithm in pydovs, one must subclass `MOSOSolver` and implement the `MOSOSolver.solve` function with signature `solve(self, budget)` and it must return a set, even if the set contains a single point. `RASolver` is a subclass of `MOSOSolver` which provides the machinery needed to quickly implement a retrospective approximation algorithm. To implement an RA algorithm, one must subclass `RASolver` and implement its `spsolve` method with signature `spsolve(self, warm_start)` which returns a set of points.`RLESolver`, subclass of `RASolver`, allows quick implementation of MOSO solvers that use `RLE` to ensure convergence, as shown in the example accelerator above. One only needs to implement the `accel` method. Oracles are the problems that pydovs can solve. Here, we provide a listing of the important objects available to pydovs programmers who are implementing MOSO algorithms.
