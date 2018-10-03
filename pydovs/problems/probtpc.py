@@ -5,11 +5,11 @@ from math import exp, sqrt, sin
 
 class ProbTPC(Oracle):
     """Test Problem C"""
-    def __init__(self, prn):
+    def __init__(self, rng):
         self.num_obj = 2
         self.dim = 3
         self.density_factor = 2
-        super().__init__(prn)
+        super().__init__(rng)
 
     def get_feasspace(self):
         dim = self.dim
@@ -19,14 +19,14 @@ class ProbTPC(Oracle):
             mcD[i] = [(-5*df, 5*df + 1)]
         return mcD
 
-    def g(self, x, prn):
+    def g(self, x, rng):
         obj1 = []
         obj2 = []
         isfeas = self.check_xfeas(x)
         if isfeas:
-            z1 = prn.normalvariate(0, 1)
-            z2 = prn.normalvariate(0, 1)
-            z3 = prn.normalvariate(0, 1)
+            z1 = rng.normalvariate(0, 1)
+            z2 = rng.normalvariate(0, 1)
+            z3 = rng.normalvariate(0, 1)
             xi = (z1**2, z2**2, z3**2)
             df = self.density_factor
             x = tuple(i/df for i in x)

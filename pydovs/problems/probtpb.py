@@ -5,10 +5,10 @@ from math import exp
 
 class ProbTPB(Oracle):
     """Test Problem B"""
-    def __init__(self, prn):
+    def __init__(self, rng):
         self.num_obj = 2
         self.dim = 2
-        super().__init__(prn)
+        super().__init__(rng)
 
     def get_feasspace(self):
         dim = self.dim
@@ -17,14 +17,14 @@ class ProbTPB(Oracle):
             mcD[i] = [(0, 101)]
         return mcD
 
-    def g(self, x, prn):
+    def g(self, x, rng):
         """Estimate g(x)."""
         obj1 = []
         obj2 = []
         isfeas = self.check_xfeas(x)
         if isfeas:
-            z1 = prn.normalvariate(0, 1)
-            z2 = prn.normalvariate(0, 1)
+            z1 = rng.normalvariate(0, 1)
+            z2 = rng.normalvariate(0, 1)
             xi = (z1**2, z2**2)
             g1 = 4*x[0]/100
             if x[1] >= 0 and x[1] <= 40:

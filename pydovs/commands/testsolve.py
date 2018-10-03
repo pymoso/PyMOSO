@@ -24,8 +24,19 @@ class TestSolve(BaseComm):
         x0 = tuple(int(i) for i in self.options['<x>'])
         ## determine the solver and problem
         solvarg = self.options['<solver>']
-        solvclasses = getmembers(solvers, isclass)
-        solvclass = [solvc[1] for solvc in solvclasses if solvc[0] == solvarg][0]
+        if solvarg.endswith('.py'):
+            from importlib import import_module
+            mod_name = solvarg.replace('.py', '')
+            module = import_module(mod_name)
+            solvclasses = getmembers(module, isclass)
+            solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == mod_name][0]
+        else:
+            solvclasses = getmembers(solvers, isclass)
+            try:
+                solvclass = [sol[1] for sol in solvclasses if sol[0] == solvarg][0]
+            except IndexError:
+                print(' -- -- Error: Solver name is not valid.')
+                sys.exit()
         testarg = self.options['<tester>']
         if testarg.endswith('.py'):
             from importlib import import_module

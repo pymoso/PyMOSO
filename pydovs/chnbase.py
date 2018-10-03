@@ -34,7 +34,7 @@ class RASolver(MOSOSolver):
     def solve(self, budget):
         """Initialize and solve a MOSO problem."""
         self.orc.set_crnflag(True)
-        seed1 = self.orc.prn._current_seed
+        seed1 = self.orc.rng._current_seed
         lesnu = dict()
         simcalls = dict()
         lesnu[0] = set() | {self.x0}
@@ -514,9 +514,9 @@ class OrcBase(object):
 class Oracle(OrcBase):
     """Base class for implementing problems with noise."""
 
-    def __init__(self, prn):
+    def __init__(self, rng):
         """Initialize a problem with noise with a pseudo-random generator."""
-        self.prn = prn
+        self.rng = rng
         self.num_calls = 0
         self.set_crnflag(True)
         self.simpar = 1
@@ -526,8 +526,8 @@ class Oracle(OrcBase):
     def set_crnflag(self, crnflag):
         """Set the common random number (crn) flag and intialize the crn states."""
         self.crnflag = crnflag
-        self.crnold_state = self.prn.getstate()
-        self.crnnew_state = self.prn.getstate()
+        self.crnold_state = self.rng.getstate()
+        self.crnnew_state = self.rng.getstate()
 
     def set_crnold(self, old_state):
         """Set the current crn rewind state."""
@@ -540,20 +540,20 @@ class Oracle(OrcBase):
     def crn_reset(self):
         """Rewind to the first crn."""
         crn_state = self.crnold_state
-        self.prn.setstate(crn_state)
+        self.rng.setstate(crn_state)
 
     def crn_advance(self):
         """Jump ahead to the new crn, and set the new rewind point."""
         self.num_calls = 0
         crn_state = self.crnnew_state
         self.crnold_state = self.crnnew_state
-        self.prn.setstate(crn_state)
+        self.rng.setstate(crn_state)
 
     def crn_check(self, num_calls):
-        """Rewind the prn if crnflag is True and set farthest CRN point."""
+        """Rewind the rng if crnflag is True and set farthest CRN point."""
         if num_calls > self.num_calls:
             self.num_calls = num_calls
-            prnstate = self.prn.getstate()
+            prnstate = self.rng.getstate()
             self.set_crnnew(prnstate)
         if self.crnflag:
             self.crn_reset()
@@ -579,7 +579,7 @@ class Oracle(OrcBase):
         mr = range(m)
         if m > 0:
             if m == 1:
-                isfeas, objd = self.g(x, self.prn)
+                isfeas, objd = self.g(x, self.rng)
                 obmean = objd
                 obse = [0 for o in objd]
             else:
@@ -588,7 +588,7 @@ class Oracle(OrcBase):
                     feas = []
                     objm = []
                     for i in mr:
-                        isfeas, objd = self.g(x, self.prn)
+                        isfeas, objd = self.g(x, self.rng)
                         feas.append(isfeas)
                         objm.append(objd)
                     if all(feas):
@@ -609,7 +609,7 @@ class Oracle(OrcBase):
                         num_rands[i] += 1
                     ## create prn for each process by jumping ahead 2^127 spots
                     ## and a hit function for each using an oracle object
-                    start_seed = self.prn.get_seed()
+                    start_seed = self.rng.get_seed()
                     ## turn off simpar during parallelization
                     self.simpar = 1
                     orclst = [self]
@@ -617,7 +617,7 @@ class Oracle(OrcBase):
                         nextprn = get_next_prnstream(start_seed)
                         start_seed = nextprn.get_seed()
                         myorc = deepcopy(self)
-                        myorc.prn = nextprn
+                        myorc.rng = nextprn
                         orclst.append(myorc)
                     ## take the replications in parallel
                     pres = []
