@@ -170,7 +170,7 @@ Programmers can use pydovs to create new algorithms that use RLE for convergence
 The base class `MOSOSolver` implements basic members required to solve MOSO problems. Its subclass `RASolver` provides the machinery needed to quickly implement a retrospective approximation algorithm. It's child class, `RLESolver`, allows quick implementation of MOSO solvers that use `RLE` to ensure convergence, as shown in the example accelerator. Oracles are the problems that pydovs can solve. Here, we provide a listing of the important objects available to pydovs programmers who are implementing MOSO algorithms.
 
 | pydovs object | Example | Description |
-| -------- | ------- | ----------- |
+| ------------- | ------- | ----------- |
 | `Oracle.hit(x, m)` | 'isfeas, gx, se = Oracle.hit(x, 4)' | Call the simulation 4 times and compute the mean value and standard error of each objective at `x`. |
 | `MOSOSolver.orc` |  | The simulation oracle object which can be called. |
 
