@@ -224,7 +224,6 @@ The base class `MOSOSolver` implements basic members required to solve MOSO prob
 | `RASolver.sprn` | `RASolver.sprn.random()` | The random generator used by the solver. |
 | `RASolver.x0` | `x0 = RASolver.x0` | The initial feasible point. |
 | `RASolver.estimate` | `isfeas, gx, se = RASolver.estimate(x, 4, const, obj)` | Performs simulations and updates `gbar` and `sehat`. `const` and `obj` are optional. If provided, `isfeas` will only be `True` when `gx[obj] < const`. |
-| `RASolver.spsolve` | `spsoln = `RASolver.spsolve(warm_start)` | Users must implement this function to create an RA algorithm. Returns a set of points. |
 |`RASolver.upsample`| `RASolver.upsample(mcS)` | Sample a set of points at the current iteration's sample size. |
 |`RASolver.calc_m` | `m = RASolver.calc_m(nu)` | Compute the sample size for iteration `nu`. Overwrite this function if desired. |
 |`RASolver.calc_b` | `b = RASolver.calc_b(nu)` | Compute the searching sample limit for iteration `nu`. Overwrite this function if desired. |
