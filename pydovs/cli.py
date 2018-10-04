@@ -8,7 +8,7 @@ Usage:
     <problem> <solver> <x>...
   pydovs testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q]
     [--haus] [--gran=G] [(--seed <s> <s> <s> <s> <s> <s>)]
-    [(--params <param> <val>)]... <tester> <solver> <x>...
+    [(--params <param> <val>)]... <tester> <solver> [<x>...]
   pydovs -h | --help
   pydovs -v | --version
 

@@ -4,6 +4,7 @@ from statistics import mean, variance
 from math import sqrt, ceil, floor
 from .prng.mrg32k3a import get_next_prnstream
 import multiprocessing as mp
+import sys
 from copy import deepcopy
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate
 
@@ -372,7 +373,11 @@ class RLESolver(RASolver):
         mcS = self.upsample(mcS | mcXw)
         b = self.b
         n = 0
-        tmp = {s: self.gbar[s] for s in mcS | mcXw}
+        try:
+            tmp = {s: self.gbar[s] for s in mcS | mcXw}
+        except KeyError:
+            print('-- RLE Error: No nondominated points! Is x0 feasible?')
+            sys.exit()
         mcS = get_nondom(tmp)
         mcNnc = self.get_ncn(mcS)
         while n <= b and mcNnc:

@@ -4,6 +4,7 @@ from .basecomm import *
 from inspect import getmembers, isclass
 import sys
 import os
+from random import Random
 import importlib.util
 from ..chnutils import solve
 
@@ -24,35 +25,42 @@ class Solve(BaseComm):
         x0 = tuple(int(i) for i in self.options['<x>'])
         ## determine the solver and problem
         probarg = self.options['<problem>']
+        mod_name = probarg
         if probarg.endswith('.py'):
             mod_name = os.path.basename(probarg).replace('.py', '')
             spec = importlib.util.spec_from_file_location(mod_name, probarg)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             probclasses = getmembers(module, isclass)
-            probclass = [prob[1] for prob in probclasses if prob[0].lower() == mod_name][0]
+            #probclass = [prob[1] for prob in probclasses if prob[0].lower() == mod_name][0]
         else:
             probclasses = getmembers(problems, isclass)
-            try:
-                probclass = [prob[1] for prob in probclasses if prob[0] == probarg][0]
-            except IndexError:
-                print(' -- -- Error: Problem name is not valid.')
-                sys.exit()
+        try:
+            probclass = [prob[1] for prob in probclasses if prob[0].lower() == mod_name.lower()][0]
+        except IndexError:
+            print('Error: Problem name is not valid.')
+            sys.exit()
         solvarg = self.options['<solver>']
+        mod_name = solvarg
         if solvarg.endswith('.py'):
             mod_name = os.path.basename(solvarg).replace('.py', '')
             spec = importlib.util.spec_from_file_location(mod_name, solvarg)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             solvclasses = getmembers(module, isclass)
-            solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == mod_name][0]
+            #solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == mod_name][0]
         else:
             solvclasses = getmembers(solvers, isclass)
-            try:
-                solvclass = [sol[1] for sol in solvclasses if sol[0] == solvarg][0]
-            except IndexError:
-                print(' -- -- Error: Solver name is not valid.')
-                sys.exit()
+        try:
+            solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == mod_name.lower()][0]
+        except IndexError:
+            print('Error: Solver name is not valid.')
+            sys.exit()
+        fakeprn = Random()
+        dim = probclass(fakeprn).dim
+        if not len(x0) == dim:
+            print('Error: x0 must have ', dim, ' component(s). ')
+            sys.exit()
         ## get the optional parameter names and values if specified
         params = self.options['<param>']
         vals = self.options['<val>']

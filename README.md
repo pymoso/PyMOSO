@@ -145,7 +145,6 @@ class MyTester(object):
         self.ranorc = MyProblem
         self.true_g = true_g
         self.soln = soln
-
 ```
 To test a problem using the `testsolve` command, implement a `Tester` object as above. The only strict pydovs requirement is that a tester is a class with a member called `ranorc` which is an Oracle class. To generate useful test metrics, programmers may find it convenient to include a solution and a function which can generate the expected values of the objectives of the oracle.  Once implemented, the tester can be solved as follows.  
 `pydovs testsolve mytester.py RPERLE 97`

@@ -37,15 +37,19 @@ def testsolve(tester, solver, x0, **kwargs):
     simpar = kwargs.pop('gran', 10000)
     isp = kwargs.pop('isp', 1)
     proc = kwargs.pop('proc', 1)
+    ranx0 = kwargs.pop('ranx0')
     paramtups = []
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
     orcstreams, solvstreams, x0stream = get_testsolve_prnstreams(isp, seed)
     joblist = []
+    currtest = tester()
     for i in range(isp):
+        if ranx0:
+            x0 = currtest.get_ranx0(x0stream)
         paramlst = [('solvprn', solvstreams[i]), ('x0', x0), ('nbor_rad', radius), ]
-        orc = tester().ranorc(orcstreams[i])
+        orc = currtest.ranorc(orcstreams[i])
         ## create arguments for (unknown) optional named parameters
         if paramtups:
             paramlst.extend(paramtups)

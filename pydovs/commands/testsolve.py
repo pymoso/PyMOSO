@@ -4,6 +4,7 @@ from .basecomm import *
 from inspect import getmembers, isclass
 import sys
 import os
+from random import Random
 import importlib.util
 import importlib
 from ..chnutils import testsolve, par_diff, gen_qdata, par_runs
@@ -23,9 +24,15 @@ class TestSolve(BaseComm):
         isp = int(self.options['--isp'])
         proc = int(self.options['--proc'])
         radius = float(self.options['--radius'])
-        x0 = tuple(int(i) for i in self.options['<x>'])
+        ranx0 = False
+        if self.options['<x>']:
+            x0 = tuple(int(i) for i in self.options['<x>'])
+        else:
+            ranx0 = True
+            x0 = (0,)
         ## determine the solver and problem
         solvarg = self.options['<solver>']
+        base_mod_name = solvarg
         if solvarg.endswith('.py'):
             base_mod_name = os.path.basename(solvarg).replace('.py', '')
             mod_name = '.'.join(['pydovs', 'solvers', base_mod_name])
@@ -35,11 +42,17 @@ class TestSolve(BaseComm):
             sys.modules[mod_name] = module
             smodule = importlib.import_module(mod_name)
             solvclasses = getmembers(smodule, isclass)
-            solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == base_mod_name][0]
+            #solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == base_mod_name][0]
         else:
             solvclasses = getmembers(solvers, isclass)
-            solvclass = [sol[1] for sol in solvclasses if sol[0] == solvarg][0]
+            #solvclass = [sol[1] for sol in solvclasses if sol[0] == solvarg][0]
+        try:
+            solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == base_mod_name.lower()][0]
+        except IndexError:
+            print('Error: Solver not found or invalid. ')
+            sys.exit()
         testarg = self.options['<tester>']
+        mod_name = testarg
         if testarg.endswith('.py'):
             mod_name = os.path.basename(testarg).replace('.py', '')
             spec = importlib.util.spec_from_file_location(mod_name, testarg)
@@ -48,13 +61,25 @@ class TestSolve(BaseComm):
             sys.modules[mod_name] = tmodule
             tmodule = importlib.import_module(mod_name)
             testclasses = getmembers(tmodule, isclass)
-            testclass = [tc[1] for tc in testclasses if tc[0].lower() == mod_name][0]
+            #testclass = [tc[1] for tc in testclasses if tc[0].lower() == mod_name][0]
         else:
             testclasses = getmembers(testers, isclass)
-            testclass = [tc[1] for tc in testclasses if tc[0] == testarg][0]
-        # from smodule import solvclass.__name__
-        # from tmodule import testclass.__name__
-        ## get the optional parameter names and values if specified
+            #testclass = [tc[1] for tc in testclasses if tc[0] == testarg][0]
+        try:
+            fakeprn = Random()
+            testclass = [tc[1] for tc in testclasses if tc[0].lower() == mod_name.lower()][0]
+            if ranx0:
+                testclass().get_ranx0(fakeprn)
+            else:
+                dim = testclass().ranorc(fakeprn).dim
+                if not len(x0) == dim:
+                    print('Error: x0 must have ', dim, ' components. ')
+                    sys.exit()
+        except IndexError:
+            print('Error: Tester not found or invalid. ')
+            sys.exit()
+        except AttributeError:
+            print('Error: Please specify x0, your tester cannot generate them randomly. ')
         params = self.options['<param>']
         vals = self.options['<val>']
         solve_kwargs = dict()
@@ -63,6 +88,7 @@ class TestSolve(BaseComm):
         solve_kwargs['radius'] = radius
         solve_kwargs['isp'] = isp
         solve_kwargs['proc'] = proc
+        solve_kwargs['ranx0'] = ranx0
         for i, p in enumerate(params):
             solve_kwargs[p] = float(vals[i])
         start_opt_time = time.time()
