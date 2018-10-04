@@ -7,8 +7,8 @@ Usage:
     [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
     <problem> <solver> <x>...
   pydovs testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q]
-    [--haus] [--gran=G] [(--seed <s> <s> <s> <s> <s> <s>)]
-    [(--params <param> <val>)]... <tester> <solver> [<x>...]
+    [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
+    <tester> <solver> [<x>...]
   pydovs -h | --help
   pydovs -v | --version
 
@@ -31,6 +31,8 @@ Examples:
   pydovs solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 31 21 11
   pydovs solve --parsim --proc=4 --params betaeps 0.4 ProbTPA RPERLE 30 30
   pydovs solve --params betaeps 0.7 --params betadel 0.5 ProbTPA RPERLE 45 45
+  pydovs testsolve --isp=16 --proc=4 TPATester RPERLE
+  pydovs testsolve --isp=20 --proc=10 TPBTester RMINRLE 9 9
 
 Help:
   Use the listitems command to view a list of available solvers, problems, and
