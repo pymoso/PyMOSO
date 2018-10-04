@@ -351,6 +351,23 @@ class RASolver(MOSOSolver):
         m_init = 8*(self.dim - 1)
         return ceil(m_init*pow(mmul, nu))
 
+    def remove_nlwep(self, mcS):
+        """Compute the subset of mcS that are not LWEPs."""
+        r = self.nbor_rad
+        lwepset = set()
+        domset = set()
+        delz = [0]*self.num_obj
+        nbors = get_setnbors(mcS, r)
+        nbors = self.upsample(nbors)
+        tmpd = {x: self.gbar[x] for x in mcS | nbors}
+        for s in mcS:
+            islwep, dompts = is_lwep(s, r, tmpd)
+            if islwep:
+                lwepset |= {s}
+            else:
+                domset |= dompts
+        return lwepset, domset
+
 
 class RLESolver(RASolver):
     def __init__(self, orc, **kwargs):
@@ -467,23 +484,6 @@ class RLESolver(RASolver):
         if not mcXw:
             mcXw |= xnew
         return mcXw
-
-    def remove_nlwep(self, mcS):
-        """Compute the subset of mcS that are not LWEPs."""
-        r = self.nbor_rad
-        lwepset = set()
-        domset = set()
-        delz = [0]*self.num_obj
-        nbors = get_setnbors(mcS, r)
-        nbors = self.upsample(nbors)
-        tmpd = {x: self.gbar[x] for x in mcS | nbors}
-        for s in mcS:
-            islwep, dompts = is_lwep(s, r, tmpd)
-            if islwep:
-                lwepset |= {s}
-            else:
-                domset |= dompts
-        return lwepset, domset
 
     def calc_delta(self, se):
         """Compute RLE relaxation for an iteration nu."""
