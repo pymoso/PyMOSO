@@ -156,7 +156,7 @@ def get_ranx0(self, rng):
     x0 = (val, )
     return x0
 ```
-Then, testsolve can run multiple independent sample paths of an algorithm using different starting points, and no x0 needs to be specified.   
+Then, testsolve can run multiple independent sample paths of an algorithm using different starting points, and no `x0` needs to be specified.   
 
 `pydovs testsolve mytester.py RPERLE`
 
