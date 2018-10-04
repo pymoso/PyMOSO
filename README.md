@@ -147,7 +147,18 @@ class MyTester(object):
         self.soln = soln
 ```
 To test a problem using the `testsolve` command, implement a `Tester` object as above. The only strict pydovs requirement is that a tester is a class with a member called `ranorc` which is an Oracle class. To generate useful test metrics, programmers may find it convenient to include a solution and a function which can generate the expected values of the objectives of the oracle.  Once implemented, the tester can be solved as follows.  
-`pydovs testsolve mytester.py RPERLE 97`
+`pydovs testsolve mytester.py RPERLE 97`  
+
+Implement a `MyTester.get_ranx0(rng)` method if you want a tester that can generate random starting points. For example, using `MyProblem` feasible space.
+```
+def get_ranx0(self, rng):
+    val = rng.choice(range(-100, 101))
+    x0 = (val, )
+    return x0
+```
+Then, testsolve can run multiple independent sample paths of an algorithm using different starting points, and no x0 needs to be specified.   
+
+`pydovs testsolve mytester.py RPERLE`
 
 ### Example of a (bad) RLE accelerator algorithm (myaccel.py)
 ```
