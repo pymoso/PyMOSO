@@ -156,9 +156,9 @@ def get_ranx0(self, rng):
     x0 = (val, )
     return x0
 ```
-Then, testsolve can run multiple independent sample paths of an algorithm using different starting points, and no `x0` needs to be specified.   
+Then, testsolve can run multiple independent sample paths of an algorithm using different starting points, and no `x0` needs to be specified. The following command will run 16 independent sample paths using 4 processes, where each sample path has a random starting points.  
 
-`pydovs testsolve mytester.py RPERLE`
+`pydovs testsolve --isp=16 --proc=4 mytester.py RPERLE`
 
 ### Example of a (bad) RLE accelerator algorithm (myaccel.py)
 ```
