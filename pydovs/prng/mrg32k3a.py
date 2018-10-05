@@ -56,7 +56,7 @@ def mrg32k3a(seed):
         u = (p1 - p2 + mrgm1)*mrgnorm
     else:
         u = (p1 - p2)*mrgnorm
-    newseed = (seed[1], seed[2], p1, seed[4], seed[5], p2)
+    newseed = (seed[1], seed[2], int(p1), seed[4], seed[5], int(p2))
     return newseed, u
 
 
@@ -153,7 +153,7 @@ def mat311mod(a, b):
     res = [0, 0, 0]
     r3 = range(3)
     for i in r3:
-        res[i] = a[i] - int(a[i]/b)*b
+        res[i] = int(a[i] - int(a[i]/b)*b)
     return res
 
 

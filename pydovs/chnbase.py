@@ -5,8 +5,14 @@ from math import sqrt, ceil, floor
 from .prng.mrg32k3a import get_next_prnstream
 import multiprocessing as mp
 import sys
-from copy import deepcopy
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate
+
+
+def mp_objmethod(instance, name, args=(), kwargs=None):
+    "indirect caller for instance methods and multiprocessing"
+    if kwargs is None:
+        kwargs = {}
+    return getattr(instance, name)(*args, **kwargs)
 
 
 class MOSOSolver(object):
@@ -524,9 +530,11 @@ class Oracle(OrcBase):
         """Initialize a problem with noise with a pseudo-random generator."""
         self.rng = rng
         self.num_calls = 0
+        self.crnold_state = rng.getstate()
+        self.crnnew_state = rng.getstate()
+        self.crnflag = True
         self.set_crnflag(True)
         self.simpar = 1
-        self.num_rand = 0
         super().__init__()
 
     def set_crnflag(self, crnflag):
@@ -552,11 +560,11 @@ class Oracle(OrcBase):
         """Jump ahead to the new crn, and set the new rewind point."""
         self.num_calls = 0
         crn_state = self.crnnew_state
-        self.crnold_state = self.crnnew_state
+        self.set_crnold(self.crnnew_state)
         self.rng.setstate(crn_state)
 
     def crn_check(self, num_calls):
-        """Rewind the rng if crnflag is True and set farthest CRN point."""
+        """Rewind the rng if crnflag is True and set farthest CRN."""
         if num_calls > self.num_calls:
             self.num_calls = num_calls
             prnstate = self.rng.getstate()
@@ -588,6 +596,7 @@ class Oracle(OrcBase):
                 isfeas, objd = self.g(x, self.rng)
                 obmean = objd
                 obse = [0 for o in objd]
+                self.crn_check(m)
             else:
                 if self.simpar == 1:
                     ## do not parallelize replications
@@ -602,6 +611,7 @@ class Oracle(OrcBase):
                         obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
                         obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
                         obse = tuple([sqrt(obvar[i]/m) for i in dr])
+                    self.crn_check(m)
                 else:
                     sim_old = self.simpar
                     ## obtain replications in parallel
@@ -619,11 +629,14 @@ class Oracle(OrcBase):
                     ## turn off simpar during parallelization
                     self.simpar = 1
                     orclst = [self]
-                    for i in range(len(num_rands) - 1):
+                    prnrng = range(len(num_rands) - 1)
+                    for i in prnrng:
                         nextprn = get_next_prnstream(start_seed)
                         start_seed = nextprn.get_seed()
-                        myorc = deepcopy(self)
-                        myorc.rng = nextprn
+                        myorc = Oracle(nextprn)
+                        myorc.num_obj = self.num_obj
+                        myorc.dim = self.dim
+                        myorc.g = self.g
                         orclst.append(myorc)
                     ## take the replications in parallel
                     pres = []
@@ -631,8 +644,9 @@ class Oracle(OrcBase):
                     means = []
                     ses = []
                     with mp.Pool(nproc) as p:
+                        #[print('cha1: ', orc.rng.get_seed()) for orc in orclst]
                         for i, r in enumerate(num_rands):
-                            pres.append(p.apply_async(orclst[i].hit, args=(x, r)))
+                            pres.append(p.apply_async(mp_objmethod, (orclst[i], 'hit', (x, r))))
                         for i in pr:
                             ## 0 = feas, 1 = mean, 2 = se
                             res = pres[i].get()
@@ -655,7 +669,10 @@ class Oracle(OrcBase):
                             pvar = [sum([obvar[i][k]*(num_rands[i] - 1) for i in pr])/(m - nproc) for k in dr]
                         ### compute standard error
                         obse = tuple([sqrt(pvar[k]/m) for k in dr])
-            self.crn_check(m)
+                    for i in range(m):
+                        self.rng.random()
+                    #[print('cha2: ', orc.rng.get_seed()) for orc in orclst]
+                    self.crn_check(m)
         return isfeas, obmean, obse
 
 
