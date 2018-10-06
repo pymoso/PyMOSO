@@ -7,7 +7,7 @@ Usage:
     [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
     <problem> <solver> <x>...
   pydovs testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q]
-    [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
+    [(--seed <s> <s> <s> <s> <s> <s>)] [--metric] [(--params <param> <val>)]...
     <tester> <solver> [<x>...]
   pydovs -h | --help
   pydovs -v | --version
@@ -20,6 +20,7 @@ Options:
   --seed                    Specify a seed by entering 6 spaced integers > 0.
   --radius=R                Specify a neighborhood radius. [default: 1]
   --proc=Q                  Total number of processes to make available to pydovs. [default: 1]
+  --metric                  Indicates whether to compute the tester metric.
   --params                  Allows specifying a <param> <val> pair.
   -h --help                 Show this screen.
   -v --version              Show version.
@@ -32,7 +33,7 @@ Examples:
   pydovs solve --parsim --proc=4 --params betaeps 0.4 ProbTPA RPERLE 30 30
   pydovs solve --params betaeps 0.7 --params betadel 0.5 ProbTPA RPERLE 45 45
   pydovs testsolve --isp=16 --proc=4 TPATester RPERLE
-  pydovs testsolve --isp=20 --proc=10 TPBTester RMINRLE 9 9
+  pydovs testsolve --isp=20 --proc=10 --haus TPBTester RMINRLE 9 9
 
 Help:
   Use the listitems command to view a list of available solvers, problems, and

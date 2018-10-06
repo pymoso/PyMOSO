@@ -7,7 +7,7 @@ import os
 from random import Random
 import importlib.util
 import importlib
-from ..chnutils import testsolve, par_diff, gen_qdata, par_runs
+from ..chnutils import testsolve, par_diff, par_runs
 
 
 class TestSolve(BaseComm):
@@ -17,6 +17,7 @@ class TestSolve(BaseComm):
         budget = int(self.options['--budget'])
         name = self.options['--odir']
         hasseed = self.options['--seed']
+        metric = self.options['--metric']
         if hasseed:
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
@@ -79,7 +80,8 @@ class TestSolve(BaseComm):
             print('Error: Tester not found or invalid. ')
             sys.exit()
         except AttributeError:
-            print('Error: Please specify x0, your tester cannot generate them randomly. ')
+            print('Error: Please specify x0 or implement tester.get_ranx0, your tester cannot generate them randomly. ')
+            sys.exit()
         params = self.options['<param>']
         vals = self.options['<val>']
         solve_kwargs = dict()
@@ -103,9 +105,24 @@ class TestSolve(BaseComm):
         endstr = '-- ending seed:'
         print(f'{endstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
         print('-- Optimization run time: {0:.2f} seconds'.format(opt_durr))
-        reslst = []
-        for r in res:
-            reslst.append(str(res[r]))
-        resstr = '\n'.join(reslst)
-        save_files(name, humtxt, resstr)
+        do_metrics = True
+        mytester = testclass()
+        if metric:
+            try:
+                mymet = mytester.metric
+            except AttributeError:
+                do_metrics = False
+                print('-- Error: tester metric is not implemented! Skipping metric computation. ')
+        if metric and do_metrics:
+            print('-- Computing metric data')
+            haus_start_time = time.time()
+            hdd = par_diff(res, mytester, proc)
+            haus_end_time = time.time()
+            haus_durr = haus_end_time - haus_start_time
+            print('-- Metric run time: {0:.2f} seconds'.format(haus_durr))
+            for i in range(isp):
+                save_metrics(name, i, hdd[i])
+        save_metadata(name, humtxt)
+        for i in range(isp):
+            save_isp(name, i, res[i]['les'])
         print('-- Done!')

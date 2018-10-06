@@ -31,25 +31,13 @@ def check_expname(name):
     return datstr
 
 
-def get_x0(orc, xprn):
-    orc0 = orc(xprn)
-    feas = orc0.get_feasspace()
-    startd = dict()
-    endd = dict()
-    for dim in feas:
-        sta = []
-        end = []
-        for interval in feas[dim]:
-            sta.append(interval[0])
-            end.append(interval[1])
-        startd[dim] = min(sta)
-        endd[dim] = max(end)
-    x0 = []
-    for dim in range(orc0.dim):
-        xq = xprn.sample(range(startd[dim], endd[dim]), 1)[0]
-        x0.append(xq)
-    x0 = tuple(x0)
-    return x0
+def save_metadata(name, humantxt):
+    mydir = name
+    pathlib.Path(name).mkdir(exist_ok=True)
+    humfilen = name + '.txt'
+    humpth = os.path.join(name, humfilen)
+    with open(humpth, 'w') as f1:
+        dump(humantxt, f1, indent=4, separators=(',', ': '))
 
 
 def gen_humanfile(name, probn, solvn, budget, runtime, param, vals, startseed, endseed):
@@ -62,18 +50,36 @@ def gen_humanfile(name, probn, solvn, budget, runtime, param, vals, startseed, e
     return ddict
 
 
-def save_files(name, humantxt, rundat):
-    mydir = name
-    pathlib.Path(name).mkdir(exist_ok=True)
-    humfilen = name + '.txt'
+def save_metrics(name, exp, metdata):
+    pref = 'metrics_' + str(exp) + '_'
+    ispdatn = pref + name + '.txt'
+    metdatpth = os.path.join(name, ispdatn)
+    metlst = []
+    for i in metdata:
+        metlst.append(str(metdata[i]))
+    metstr = '\n'.join(metlst)
+    with open(metdatpth, 'w') as f1:
+        f1.write(metstr)
+
+
+def save_isp(name, exp, ispdat):
+    pref = 'ispdata_' + str(exp) + '_'
+    ispdatn = pref + name + '.txt'
+    ispdatpth = os.path.join(name, ispdatn)
+    isplst = []
+    for i in ispdat:
+        isplst.append(str(ispdat[i]))
+    ispstr = '\n'.join(isplst)
+    with open(ispdatpth, 'w') as f1:
+        f1.write(ispstr)
+
+
+def save_les(name, lesstr):
     pref = 'rundata_'
     rundatn = pref + name + '.txt'
-    humpth = os.path.join(name, humfilen)
-    with open(humpth, 'w') as f1:
-        dump(humantxt, f1, indent=4, separators=(',', ': '))
     rundpth = os.path.join(name, rundatn)
     with open(rundpth, 'w') as f2:
-        f2.write(rundat)
+        f2.write(lesstr)
 
 
 class BaseComm(object):

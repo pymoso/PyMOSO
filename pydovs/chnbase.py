@@ -51,9 +51,21 @@ class RASolver(MOSOSolver):
         # invoke the Retrospective approximation algorithm
         self.rasolve(lesnu, simcalls, budget)
         # name the data keys and return the results
-        final_ind = len(lesnu) - 1
-        final_les = lesnu[final_ind]
-        return final_les
+        resdict = {'les': lesnu, 'simcalls': simcalls}
+        return resdict
+
+    def rasolve(self, phatnu, simcalls, budget):
+        """Repeatedly call a deterministic solver at increasing sample size."""
+        while self.num_calls < budget:
+            self.nu += 1
+            self.m = self.calc_m(self.nu)
+            self.b = self.calc_b(self.nu)
+            self.gbar = dict()
+            self.sehat = dict()
+            aold = phatnu[self.nu - 1]
+            phatnu[self.nu] = self.spsolve(aold)
+            simcalls[self.nu] = self.num_calls
+            self.orc.crn_advance()
 
     def spline(self, x0, e=float('inf'), nobj=0, kcon=0):
         """
@@ -318,19 +330,6 @@ class RASolver(MOSOSolver):
             if fx[nobj] > con:
                 isfeas = False
         return isfeas, fx, vx
-
-    def rasolve(self, phatnu, simcalls, budget):
-        """Repeatedly call a deterministic solver at increasing sample size."""
-        while self.num_calls < budget:
-            self.nu += 1
-            self.m = self.calc_m(self.nu)
-            self.b = self.calc_b(self.nu)
-            self.gbar = dict()
-            self.sehat = dict()
-            aold = phatnu[self.nu - 1]
-            phatnu[self.nu] = self.spsolve(aold)
-            simcalls[self.nu] = self.num_calls
-            self.orc.crn_advance()
 
     def spsolve(self, warm_start):
         """Solve a sample path problem. Implement this in the child class."""

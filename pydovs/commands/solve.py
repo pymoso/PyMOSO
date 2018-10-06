@@ -93,5 +93,6 @@ class Solve(BaseComm):
         print('-- Saving data and details in folder ', name, ' ...')
         strlst = [str(lep) for lep in res]
         resstr = '\n'.join(strlst)
-        save_files(name, humtxt, resstr)
+        save_metadata(name, humtxt)
+        save_les(name, resstr)
         print('-- Done!')
