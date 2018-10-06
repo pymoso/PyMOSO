@@ -1,8 +1,7 @@
-# import the R-MinRLE class - required
-from pydovs.solvers.rminrle import RMINRLE
+from pydovs.chnbase import RLESolver
 
-# create a subclass of RMINRLE
-class MyAccel(RMINRLE):
+# create a subclass of RLESolver
+class MyAccel(RLESolver):
     '''Example implementation of an R-MinRLE accelerator.'''
 
     def accel(self, warm_start):

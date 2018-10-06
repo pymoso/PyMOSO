@@ -7,7 +7,7 @@ class MyProblem(Oracle):
         '''Specify the number of objectives and dimensionality of points.'''
         self.num_obj = 2
         self.dim = 1
-        super().__init__(prn)
+        super().__init__(rng)
 
     def g(self, x, rng):
         '''Check feasibility and simulate objective values.'''
