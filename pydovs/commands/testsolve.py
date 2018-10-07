@@ -5,6 +5,7 @@ from inspect import getmembers, isclass
 import sys
 import os
 from random import Random
+import traceback
 import importlib.util
 import importlib
 from ..chnutils import testsolve, par_diff, par_runs
@@ -51,6 +52,8 @@ class TestSolve(BaseComm):
             solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == base_mod_name.lower()][0]
         except IndexError:
             print('--* Error: Solver not found or invalid. ')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
             print('--* Aborting.')
             sys.exit()
         testarg = self.options['<tester>']
@@ -76,14 +79,20 @@ class TestSolve(BaseComm):
                 dim = testclass().ranorc(fakeprn).dim
                 if not len(x0) == dim:
                     print('--* Error: x0 must have ', dim, ' components. ')
+                    tstr = ''.join(traceback.format_exc())
+                    save_errortb(name, tstr)
                     print('--* Aborting.')
                     sys.exit()
         except IndexError:
             print('--* Error: Tester not found or invalid. ')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
             print('--* Aborting.')
             sys.exit()
         except AttributeError:
             print('--* Error: Please specify x0 or implement tester.get_ranx0, your tester cannot generate them randomly. ')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
             print('--* Aborting.')
             sys.exit()
         params = self.options['<param>']
@@ -127,21 +136,33 @@ class TestSolve(BaseComm):
                 print('-- Metric run time: {0:.2f} seconds'.format(haus_durr))
                 for i in range(isp):
                     save_metrics(name, i, hdd[i])
-        except TypeError:
+        except TypeError as te:
             print('--* Error: ', sys.exc_info()[1])
             print('--* Check the implementation of', testclass.__name__, '.metric for bugs.')
+            print('--* Saving error traceback.')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
             print('--* Skipping metrics.')
         except NameError:
             print('--* Error: ', sys.exc_info()[1])
             print('--* Are you missing an import in', testclass.__name__, '?')
+            print('--* Saving error traceback.')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
             print('--* Skipping metrics.')
         except ValueError:
             print('--* Error: ', sys.exc_info()[1])
+            print('--* Saving error traceback.')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
             print('--* Skipping metrics.')
         except:
             print("--* Unexpected error: Skipping metrics. Error noted below. ")
             print('--* ', sys.exc_info()[0])
             print('--* ', sys.exc_info()[1])
+            print('--* Saving error traceback.')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
         save_metadata(name, humtxt)
         for i in range(isp):
             save_isp(name, i, res[i]['les'])

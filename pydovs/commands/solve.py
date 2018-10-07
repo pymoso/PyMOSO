@@ -5,6 +5,7 @@ from inspect import getmembers, isclass
 import sys
 import os
 from random import Random
+import traceback
 import importlib.util
 from ..chnutils import solve
 
@@ -42,6 +43,9 @@ class Solve(BaseComm):
             probclass = [prob[1] for prob in probclasses if prob[0].lower() == base_mod_name.lower()][0]
         except IndexError:
             print('--* Error: Problem name is not valid.')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
+            print('--* Aborting. ')
             sys.exit()
         solvarg = self.options['<solver>']
         base_mod_name = solvarg
@@ -62,11 +66,15 @@ class Solve(BaseComm):
             solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == base_mod_name.lower()][0]
         except IndexError:
             print('--* Error: Solver not found or invalid. ')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
+            print('--* Aborting. ')
             sys.exit()
         fakeprn = Random()
         dim = probclass(fakeprn).dim
         if not len(x0) == dim:
             print('Error: x0 must have ', dim, ' component(s). ')
+            print('--* Aborting. ')
             sys.exit()
         ## get the optional parameter names and values if specified
         params = self.options['<param>']

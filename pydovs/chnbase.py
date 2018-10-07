@@ -29,7 +29,7 @@ class MOSOSolver(object):
 
 class RASolver(MOSOSolver):
     """Implementation of a MOSO solver based on RLE."""
-    
+
     def __init__(self, orc, **kwargs):
         self.nbor_rad = kwargs.pop('nbor_rad', 1)
         self.mconst = kwargs.pop('mconst', 2)
@@ -324,7 +324,44 @@ class RASolver(MOSOSolver):
             vx = self.sehat[x]
         #if not, perform sampling
         else:
-            isfeas, fx, vx = self.orc.hit(x, m)
+            try:
+                isfeas, fx, vx = self.orc.hit(x, m)
+            except TypeError:
+                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
+                print('--* Message: ', sys.exc_info()[1])
+                print('--* Ensure the g signature is g(self, x, rng). ')
+                print('--* Ensure isfeas, (obj1, obj2, ...) is returned. ')
+                print('--* Aborting. ')
+                sys.exit()
+            except ZeroDivisionError:
+                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
+                print('--* Message: ', sys.exc_info()[1])
+                print('--* Aborting. ')
+                sys.exit()
+            except ValueError:
+                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
+                print('--* Message: ', sys.exc_info()[1])
+                print('--* Ensure the g signature is g(self, x, rng). ')
+                print('--* Ensure isfeas, (obj1, obj2, ...) is returned. ')
+                print('--* Aborting. ')
+                sys.exit()
+            except AttributeError:
+                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
+                print('--* Message: ', sys.exc_info()[1])
+                print('--* Are you missing an import?')
+                print('--* Aborting. ')
+                sys.exit()
+            except IndexError:
+                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
+                print('--* Message: ', sys.exc_info()[1])
+                print('--* Ensure len(obj1, obj2, ..) == num_obj')
+                print('--* Aborting. ')
+                sys.exit()
+            except:
+                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
+                print('--* Message: ', sys.exc_info()[1])
+                print('--* Aborting. ')
+                sys.exit()
             if isfeas:
                 self.gbar[x] = fx
                 self.sehat[x] = vx
@@ -386,7 +423,30 @@ class RLESolver(RASolver):
 
     def spsolve(self, warm_start):
         """Search and then certify an ALES."""
-        anew = self.accel(warm_start)
+        try:
+            anew = self.accel(warm_start)
+        except AttributeError:
+            print('--* ', type(self).__name__, 'Error: Unable to run accel(). ')
+            print('--* Message: ', sys.exc_info()[1])
+            print('--* Missing an import?')
+            print('--* Aborting. ')
+            sys.exit()
+        except ZeroDivisionError:
+            print('--* ', type(self).__name__, 'Error: Unable to run accel(). ')
+            print('--* Message: ', sys.exc_info()[1])
+            print('--* Aborting. ')
+            sys.exit()
+        except TypeError:
+            print('--* ', type(self).__name__, 'Error: Unable to run accel(). ')
+            print('--* Message: ', sys.exc_info()[1])
+            print('--* Points must be tuples.')
+            print('--* Aborting. ')
+            sys.exit()
+        except:
+            print('--* ', type(self).__name__, 'Error: Unable to run accel(). ')
+            print('--* Message: ', sys.exc_info()[1])
+            print('--* Aborting. ')
+            sys.exit()
         ales = self.rle(anew)
         return ales
 
@@ -397,13 +457,27 @@ class RLESolver(RASolver):
     def rle(self, mcS):
         """Return a sample path ALES."""
         mcXw = {self.x0}
-        mcS = self.upsample(mcS | mcXw)
+        try:
+            mcS = self.upsample(mcS | mcXw)
+        except TypeError:
+            print('--* RLE Error: Failed to upsample.')
+            print('--* Message: ', sys.exc_info()[1])
+            print('--* Ensure accel function returns a set.')
+            print('--* Aborting. ')
+            sys.exit()
+        except:
+            print('--* RLE Error: Failed to upsample.')
+            print('--* Message: ', sys.exc_info()[1])
+            print('--* Aborting. ')
+            sys.exit()
         b = self.b
         n = 0
         try:
             tmp = {s: self.gbar[s] for s in mcS | mcXw}
         except KeyError:
-            print('--* RLE Error: No feasible warm start! Is x0 feasible?')
+            print('--* RLE Error: No simulated points.')
+            print('--* Message: ', sys.exc_info()[1])
+            print('--* Is x0 feasible?')
             print('--* Aborting. ')
             sys.exit()
         mcS = get_nondom(tmp)

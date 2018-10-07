@@ -4,19 +4,13 @@ import pathlib
 import time
 import collections
 from datetime import date
-from math import ceil
 from .. import chnutils as mprun
 from .. import solvers
 from .. import problems
-from .. import prng
 from .. import testers
+from random import Random
 from json import dump
-
-
-def jsonset(o):
-    if isinstance(o, set):
-        return list(o)
-    return o.__dict__
+import traceback
 
 
 def check_expname(name):
@@ -29,6 +23,15 @@ def check_expname(name):
     with open(fn, 'r') as f1:
         datstr = json.load(f1)
     return datstr
+
+
+def save_errortb(name, errmsg):
+    mydir = name
+    pathlib.Path(name).mkdir(exist_ok=True)
+    humfilen = 'err_' + name + '.txt'
+    humpth = os.path.join(name, humfilen)
+    with open(humpth, 'w') as f1:
+        f1.write(errmsg)
 
 
 def save_metadata(name, humantxt):
