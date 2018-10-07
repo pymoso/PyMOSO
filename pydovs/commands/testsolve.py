@@ -50,7 +50,8 @@ class TestSolve(BaseComm):
         try:
             solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == base_mod_name.lower()][0]
         except IndexError:
-            print('Error: Solver not found or invalid. ')
+            print('--* Error: Solver not found or invalid. ')
+            print('--* Aborting.')
             sys.exit()
         testarg = self.options['<tester>']
         mod_name = testarg
@@ -74,13 +75,16 @@ class TestSolve(BaseComm):
             else:
                 dim = testclass().ranorc(fakeprn).dim
                 if not len(x0) == dim:
-                    print('Error: x0 must have ', dim, ' components. ')
+                    print('--* Error: x0 must have ', dim, ' components. ')
+                    print('--* Aborting.')
                     sys.exit()
         except IndexError:
-            print('Error: Tester not found or invalid. ')
+            print('--* Error: Tester not found or invalid. ')
+            print('--* Aborting.')
             sys.exit()
         except AttributeError:
-            print('Error: Please specify x0 or implement tester.get_ranx0, your tester cannot generate them randomly. ')
+            print('--* Error: Please specify x0 or implement tester.get_ranx0, your tester cannot generate them randomly. ')
+            print('--* Aborting.')
             sys.exit()
         params = self.options['<param>']
         vals = self.options['<val>']
@@ -112,16 +116,32 @@ class TestSolve(BaseComm):
                 mymet = mytester.metric
             except AttributeError:
                 do_metrics = False
-                print('-- Error: tester metric is not implemented! Skipping metric computation. ')
-        if metric and do_metrics:
-            print('-- Computing metric data')
-            haus_start_time = time.time()
-            hdd = par_diff(res, mytester, proc)
-            haus_end_time = time.time()
-            haus_durr = haus_end_time - haus_start_time
-            print('-- Metric run time: {0:.2f} seconds'.format(haus_durr))
-            for i in range(isp):
-                save_metrics(name, i, hdd[i])
+                print('--* Error: tester metric is not implemented! Skipping metric computation. ')
+        try:
+            if metric and do_metrics:
+                print('-- Computing metric data')
+                haus_start_time = time.time()
+                hdd = par_diff(res, mytester, proc)
+                haus_end_time = time.time()
+                haus_durr = haus_end_time - haus_start_time
+                print('-- Metric run time: {0:.2f} seconds'.format(haus_durr))
+                for i in range(isp):
+                    save_metrics(name, i, hdd[i])
+        except TypeError:
+            print('--* Error: ', sys.exc_info()[1])
+            print('--* Check the implementation of', testclass.__name__, '.metric for bugs.')
+            print('--* Skipping metrics.')
+        except NameError:
+            print('--* Error: ', sys.exc_info()[1])
+            print('--* Are you missing an import in', testclass.__name__, '?')
+            print('--* Skipping metrics.')
+        except ValueError:
+            print('--* Error: ', sys.exc_info()[1])
+            print('--* Skipping metrics.')
+        except:
+            print("--* Unexpected error: Skipping metrics. Error noted below. ")
+            print('--* ', sys.exc_info()[0])
+            print('--* ', sys.exc_info()[1])
         save_metadata(name, humtxt)
         for i in range(isp):
             save_isp(name, i, res[i]['les'])

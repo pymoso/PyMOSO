@@ -11,7 +11,8 @@ class RSPLINE(RASolver):
         # warm_start is a singleton set, so extract the item
         warm_start = self.upsample(warm_start)
         if not warm_start:
-            print('-- RSPLINE Error: Empty warm start. Is x0 feasible?')
+            print('--* R-SPLINE Error: Empty warm start. Is x0 feasible?')
+            print('--* Aborting. ')
             sys.exit()
         ws = warm_start.pop()
         _, xmin, _, _ = self.spline(ws)

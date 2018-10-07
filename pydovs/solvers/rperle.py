@@ -20,7 +20,8 @@ class RPERLE(RLESolver):
         try:
             mnumin = self.get_min(aold)
         except ValueError:
-            print('-- RPERLE Error: No feasible warm start. Is x0 feasible?')
+            print('--* RPERLE Error: No feasible warm start. Is x0 feasible?')
+            print('--* Aborting. ')
             sys.exit()
         aold, domset = self.remove_nlwep(aold)
         a0new = mnumin | aold

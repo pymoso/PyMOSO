@@ -11,24 +11,20 @@ class ProbTPC(Oracle):
         self.density_factor = 2
         super().__init__(rng)
 
-    def get_feasspace(self):
-        dim = self.dim
-        df = self.density_factor
-        mcD = dict()
-        for i in range(dim):
-            mcD[i] = [(-5*df, 5*df + 1)]
-        return mcD
-
     def g(self, x, rng):
+        df = self.density_factor
+        xr = range(-5*df, 5*df + 1)
         obj1 = []
         obj2 = []
-        isfeas = self.check_xfeas(x)
+        isfeas = True
+        for xi in x:
+            if not xi in xr:
+                isfeas = False
         if isfeas:
             z1 = rng.normalvariate(0, 1)
             z2 = rng.normalvariate(0, 1)
             z3 = rng.normalvariate(0, 1)
             xi = (z1**2, z2**2, z3**2)
-            df = self.density_factor
             x = tuple(i/df for i in x)
             s = [sin(i) for i in x]
             sum1 = [-10*xi[i]*exp(-0.2*sqrt(x[i]**2 + x[i+1]**2)) for i in [0, 1]]

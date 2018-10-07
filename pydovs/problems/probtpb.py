@@ -10,18 +10,15 @@ class ProbTPB(Oracle):
         self.dim = 2
         super().__init__(rng)
 
-    def get_feasspace(self):
-        dim = self.dim
-        mcD = dict()
-        for i in range(dim):
-            mcD[i] = [(0, 101)]
-        return mcD
-
     def g(self, x, rng):
         """Estimate g(x)."""
         obj1 = []
         obj2 = []
-        isfeas = self.check_xfeas(x)
+        isfeas = True
+        xr = range(0, 101)
+        for xi in x:
+            if not xi in xr:
+                isfeas = False
         if isfeas:
             z1 = rng.normalvariate(0, 1)
             z2 = rng.normalvariate(0, 1)

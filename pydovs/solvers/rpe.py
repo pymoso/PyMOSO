@@ -22,7 +22,8 @@ class RPE(RASolver):
         try:
             mnumin = self.get_min(aold)
         except ValueError:
-            print('-- RPE Error: No feasible warm start. Is x0 feasible?')
+            print('--* RPE Error: No feasible warm start. Is x0 feasible?')
+            print('--* Aborting.')
             sys.exit()
         aold, domset = self.remove_nlwep(aold)
         a0new = mnumin | aold

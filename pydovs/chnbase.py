@@ -398,7 +398,8 @@ class RLESolver(RASolver):
         try:
             tmp = {s: self.gbar[s] for s in mcS | mcXw}
         except KeyError:
-            print('-- RLE Error: No nondominated points! Is x0 feasible?')
+            print('--* RLE Error: No nondominated points! Is x0 feasible?')
+            print('--* Aborting. ')
             sys.exit()
         mcS = get_nondom(tmp)
         mcNnc = self.get_ncn(mcS)
@@ -497,32 +498,7 @@ class RLESolver(RASolver):
         return relax
 
 
-class OrcBase(object):
-    """Base class for problem implementations."""
-
-    def check_xfeas(self, x):
-        """Check if x is in the feasible domain."""
-        is_feas = True
-        qx = len(x)
-        qo = self.dim
-        if not qx == qo:
-            return False
-        mcD = self.get_feasspace()
-        i = 0
-        while i < len(mcD) and is_feas == True:
-            comp_feas = False
-            j = 0
-            while j < len(mcD[i]) and comp_feas == False:
-                if x[i] >= mcD[i][j][0] and x[i] < mcD[i][j][1]:
-                    comp_feas = True
-                j += 1
-            if not comp_feas:
-                is_feas = False
-            i += 1
-        return is_feas
-
-
-class Oracle(OrcBase):
+class Oracle(object):
     """Base class for implementing problems with noise."""
 
     def __init__(self, rng):
@@ -673,29 +649,3 @@ class Oracle(OrcBase):
                     #[print('cha2: ', orc.rng.get_seed()) for orc in orclst]
                     self.crn_check(m)
         return isfeas, obmean, obse
-
-
-class DeterministicOrc(object):
-    """Base class for implementing deterministic problems."""
-
-    def hit(self, x, m=1):
-        """Generate the deterministic objective values g(x).
-
-        Positional Arguments:
-        x -- point to generate estimates
-        m -- number of estimates to generate at x. Anything greater than 0 is
-            identical for deterministic problems
-
-        Return Values:
-        isfeas -- boolean indicating feasibility of x
-        omean -- g(x) (tuple of lenth self.num_obj)
-        ose -- 0 (tuple of lenth self.num_obj)
-        """
-        d = self.num_obj
-        isfeas = False
-        objd = []
-        ose = []
-        if m > 0:
-            isfeas, objd = self.g(x)
-            ose = tuple([0 for o in objd])
-        return isfeas, objd, ose

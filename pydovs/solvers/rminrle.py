@@ -6,6 +6,9 @@ class RMINRLE(RLESolver):
     """A solver using R-MinRLE for integer-ordered MOSO."""
 
     def accel(self, warm_start):
+        if not warm_start:
+            print('--* R-MinRLE Error: No feasible warm start. Is x0 feasible?')
+            print('--* Aborting.')
         return self.get_min(warm_start)
 
     def get_min(self, mcS):

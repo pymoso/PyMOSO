@@ -9,17 +9,13 @@ class ProbTPA(Oracle):
         self.dim = 2
         super().__init__(rng)
 
-    def get_feasspace(self):
-        """Get an iteratable to represent the feasible space."""
-        dim = self.dim
-        mcD = dict()
-        for i in range(dim):
-            mcD[i] = [(0, 51)]
-        return mcD
-
     def g(self, x, rng):
         """Estimate g(x)."""
-        isfeas = self.check_xfeas(x)
+        xr = range(0, 51)
+        isfeas = True
+        for xi in x:
+            if not xi in xr:
+                isfeas = False
         obj1 = []
         obj2 = []
         if isfeas:

@@ -9,20 +9,15 @@ class ProbSimpleSO(Oracle):
         self.dim = 1
         super().__init__(rng)
 
-    def get_feasspace(self):
-        """Get an iteratable to represent the feasible space."""
-        dim = self.dim
-        mcD = dict()
-        for i in range(dim):
-            mcD[i] = [(-100, 101)]
-        return mcD
-
     def g(self, x, rng):
         """Estimate g(x)."""
-        isfeas = self.check_xfeas(x)
+        xr = range(-100, 101)
+        isfeas = True
+        for xi in x:
+            if not xi in xr:
+                isfeas = False
         obj1 = []
-        obj2 = []
         if isfeas:
-            z1 = rng.normalvariate(0, 1)
+            z1 = rng.normalvariate(0, 3)
             obj1 = x[0]**2 + z1
         return isfeas, (obj1, )

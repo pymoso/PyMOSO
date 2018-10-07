@@ -41,7 +41,7 @@ class Solve(BaseComm):
         try:
             probclass = [prob[1] for prob in probclasses if prob[0].lower() == base_mod_name.lower()][0]
         except IndexError:
-            print('Error: Problem name is not valid.')
+            print('--* Error: Problem name is not valid.')
             sys.exit()
         solvarg = self.options['<solver>']
         base_mod_name = solvarg
@@ -61,7 +61,7 @@ class Solve(BaseComm):
         try:
             solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == base_mod_name.lower()][0]
         except IndexError:
-            print('Error: Solver not found or invalid. ')
+            print('--* Error: Solver not found or invalid. ')
             sys.exit()
         fakeprn = Random()
         dim = probclass(fakeprn).dim
