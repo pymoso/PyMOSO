@@ -6,6 +6,12 @@ import sys
 class RSPLINE(RASolver):
     """A solver using R-SPLINE for single objective SO."""
 
+    def __init__(self, orc, **kwargs):
+        if orc.num_obj > 1:
+            print('--* Warning: R-SPLINE operates on single objective problems!')
+            print('--* Continuing: R-SPLINE will optimize only the first objective.')
+        super().__init__(orc, **kwargs)
+
     def spsolve(self, warm_start):
         """Use SPLINE to get a sample path minimizer."""
         # warm_start is a singleton set, so extract the item

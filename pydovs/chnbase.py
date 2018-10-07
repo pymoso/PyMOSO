@@ -31,11 +31,15 @@ class RASolver(MOSOSolver):
     """Implementation of a MOSO solver based on RLE."""
     def __init__(self, orc, **kwargs):
         self.nbor_rad = kwargs.pop('nbor_rad', 1)
+        self.mconst = kwargs.pop('mconst', 2)
+        self.bconst = kwargs.pop('bconst', 8)
         try:
             self.sprn = kwargs.pop('sprn')
             self.x0 = kwargs.pop('x0')
         except KeyError:
-            print(' -- -- KeyError: Please specify an x0 and a random number seed for the solver.')
+            print('--* Error: Please specify an x0 and a random number seed for the solver.')
+            print('--* Aborting. ')
+            sys.exit()
         super().__init__(orc)
 
     def solve(self, budget):
@@ -347,13 +351,13 @@ class RASolver(MOSOSolver):
     def calc_m(self, nu):
         """return the sample size for an iteration nu, as in rspline"""
         mmul = 1.1
-        m_init = 2
+        m_init = self.mconst
         return ceil(m_init*pow(mmul, nu))
 
     def calc_b(self, nu):
         """return the limit on spline calls for an iteration nu"""
         mmul = 1.2
-        m_init = 8*(self.dim - 1)
+        m_init = self.bconst*(self.dim - 1)
         return ceil(m_init*pow(mmul, nu))
 
     def remove_nlwep(self, mcS):
@@ -398,7 +402,7 @@ class RLESolver(RASolver):
         try:
             tmp = {s: self.gbar[s] for s in mcS | mcXw}
         except KeyError:
-            print('--* RLE Error: No nondominated points! Is x0 feasible?')
+            print('--* RLE Error: No feasible warm start! Is x0 feasible?')
             print('--* Aborting. ')
             sys.exit()
         mcS = get_nondom(tmp)

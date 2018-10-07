@@ -41,7 +41,15 @@ class RPE(RASolver):
         krange = range(self.num_obj)
         for k in krange:
             kcon = 1 - k % 2
-            sphat = sorted(a1new, key=lambda t: self.gbar[t][kcon])
+            try:
+                sphat = sorted(a1new, key=lambda t: self.gbar[t][kcon])
+            except IndexError:
+                if not self.num_obj == 2:
+                    print('--* RPERLE Error: RPERLE operates only on bi-objective problems!')
+                else:
+                    print('--* ', sys.exc_info()[1])
+                print('--* Aborting. ')
+                sys.exit()
             Lk[k] = self.gbar[sphat[0]][kcon] + self.fse(self.sehat[sphat[0]][kcon])
             mcJ = []
             for i in range(1, c0):

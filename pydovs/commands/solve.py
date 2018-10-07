@@ -25,7 +25,7 @@ class Solve(BaseComm):
         x0 = tuple(int(i) for i in self.options['<x>'])
         ## determine the solver and problem
         probarg = self.options['<problem>']
-        mod_name = probarg
+        base_mod_name = probarg
         if probarg.endswith('.py'):
             base_mod_name = os.path.basename(probarg).replace('.py', '')
             mod_name = '.'.join(['pydovs', 'problems', base_mod_name])
