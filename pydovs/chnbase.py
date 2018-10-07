@@ -29,6 +29,7 @@ class MOSOSolver(object):
 
 class RASolver(MOSOSolver):
     """Implementation of a MOSO solver based on RLE."""
+    
     def __init__(self, orc, **kwargs):
         self.nbor_rad = kwargs.pop('nbor_rad', 1)
         self.mconst = kwargs.pop('mconst', 2)
