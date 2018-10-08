@@ -48,7 +48,7 @@ class Solve(BaseComm):
             print('--* Aborting. ')
             sys.exit()
         except:
-            print('--* Unknown Error loading ', probclass[0], '.')
+            print('--* Unknown Error loading ', probclass.__name__, '.')
             tstr = ''.join(traceback.format_exc())
             save_errortb(name, tstr)
             print('--* Aborting. ')
@@ -77,7 +77,7 @@ class Solve(BaseComm):
             print('--* Aborting. ')
             sys.exit()
         except:
-            print('--* Unknown Error loading ', solvclass[0], '.')
+            print('--* Unknown Error loading ', solvclass.__name__, '.')
             tstr = ''.join(traceback.format_exc())
             save_errortb(name, tstr)
             print('--* Aborting. ')
