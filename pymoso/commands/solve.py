@@ -47,6 +47,12 @@ class Solve(BaseComm):
             save_errortb(name, tstr)
             print('--* Aborting. ')
             sys.exit()
+        except:
+            print('--* Unknown Error loading ', probclass[0], '.')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
+            print('--* Aborting. ')
+            sys.exit()
         solvarg = self.options['<solver>']
         base_mod_name = solvarg
         if solvarg.endswith('.py'):
@@ -66,6 +72,12 @@ class Solve(BaseComm):
             solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == base_mod_name.lower()][0]
         except IndexError:
             print('--* Error: Solver not found or invalid. ')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
+            print('--* Aborting. ')
+            sys.exit()
+        except:
+            print('--* Unknown Error loading ', solvclass[0], '.')
             tstr = ''.join(traceback.format_exc())
             save_errortb(name, tstr)
             print('--* Aborting. ')

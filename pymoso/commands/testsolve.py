@@ -56,6 +56,12 @@ class TestSolve(BaseComm):
             save_errortb(name, tstr)
             print('--* Aborting.')
             sys.exit()
+        except:
+            print('Unknown error loading ', solvclass[0], '.')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
+            print('--* Aborting.')
+            sys.exit()
         testarg = self.options['<tester>']
         base_mod_name = testarg
         if testarg.endswith('.py'):
@@ -92,6 +98,18 @@ class TestSolve(BaseComm):
             sys.exit()
         except AttributeError:
             print('--* Error: Please specify x0 or implement tester.get_ranx0, your tester cannot generate them randomly. ')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
+            print('--* Aborting.')
+            sys.exit()
+        except NameError:
+            print('--* Error: Invalid tester or get_ranx0. Missing an import?')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
+            print('--* Aborting.')
+            sys.exit()
+        except:
+            print('Unknown error loading ', testclass[0], '.')
             tstr = ''.join(traceback.format_exc())
             save_errortb(name, tstr)
             print('--* Aborting.')
