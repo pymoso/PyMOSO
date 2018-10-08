@@ -12,7 +12,7 @@ We also include an implementation of R-SPLINE, which can be cited as follows:
 Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation optimization using R-SPLINE: Retrospective Search with Piecewise-Linear Interpolation and Neighborhood Enumeration. ACM Transactions on Modeling and Computer Simulation, Vol. 23, No. 3, Article 17 (July 2013), 24 pages. DOI:http://dx.doi.org/10.1145/2499913.2499916
 
 ## Installation
-### Install Python 3.6+
+### Dependency: Python 3.6+
 This software requires Python 3.6 or higher. Python can be downloaded from https://www.python.org/downloads/.
 
 ### Install from PyPI
