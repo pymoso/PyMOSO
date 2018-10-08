@@ -29,7 +29,7 @@ class Solve(BaseComm):
         base_mod_name = probarg
         if probarg.endswith('.py'):
             base_mod_name = os.path.basename(probarg).replace('.py', '')
-            mod_name = '.'.join(['pydovs', 'problems', base_mod_name])
+            mod_name = '.'.join(['pymoso', 'problems', base_mod_name])
             spec = importlib.util.spec_from_file_location(mod_name, probarg)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
@@ -51,7 +51,7 @@ class Solve(BaseComm):
         base_mod_name = solvarg
         if solvarg.endswith('.py'):
             base_mod_name = os.path.basename(solvarg).replace('.py', '')
-            mod_name = '.'.join(['pydovs', 'solvers', base_mod_name])
+            mod_name = '.'.join(['pymoso', 'solvers', base_mod_name])
             spec = importlib.util.spec_from_file_location(mod_name, solvarg)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)

@@ -37,7 +37,7 @@ class TestSolve(BaseComm):
         base_mod_name = solvarg
         if solvarg.endswith('.py'):
             base_mod_name = os.path.basename(solvarg).replace('.py', '')
-            mod_name = '.'.join(['pydovs', 'solvers', base_mod_name])
+            mod_name = '.'.join(['pymoso', 'solvers', base_mod_name])
             spec = importlib.util.spec_from_file_location(mod_name, solvarg)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
@@ -57,9 +57,10 @@ class TestSolve(BaseComm):
             print('--* Aborting.')
             sys.exit()
         testarg = self.options['<tester>']
-        mod_name = testarg
+        base_mod_name = testarg
         if testarg.endswith('.py'):
-            mod_name = os.path.basename(testarg).replace('.py', '')
+            base_mod_name = os.path.basename(testarg).replace('.py', '')
+            mod_name = '.'.join(['pymoso', 'solvers', base_mod_name])
             spec = importlib.util.spec_from_file_location(mod_name, testarg)
             tmodule = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(tmodule)
@@ -72,7 +73,7 @@ class TestSolve(BaseComm):
             #testclass = [tc[1] for tc in testclasses if tc[0] == testarg][0]
         try:
             fakeprn = Random()
-            testclass = [tc[1] for tc in testclasses if tc[0].lower() == mod_name.lower()][0]
+            testclass = [tc[1] for tc in testclasses if tc[0].lower() == base_mod_name.lower()][0]
             if ranx0:
                 testclass().get_ranx0(fakeprn)
             else:
