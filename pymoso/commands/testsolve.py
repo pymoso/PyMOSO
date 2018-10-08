@@ -119,6 +119,7 @@ class TestSolve(BaseComm):
         endstr = '-- ending seed:'
         print(f'{endstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
         print('-- Optimization run time: {0:.2f} seconds'.format(opt_durr))
+        save_metadata(name, humtxt)
         do_metrics = True
         mytester = testclass()
         if metric:
@@ -157,6 +158,13 @@ class TestSolve(BaseComm):
             tstr = ''.join(traceback.format_exc())
             save_errortb(name, tstr)
             print('--* Skipping metrics.')
+        except FileNotFoundError:
+            print('--* Error: ', sys.exc_info()[1])
+            print('--* Saving error traceback.')
+            print('--* This shouldn\'t happen. Create a folder named ', name, '.')
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
+            print('--* Skipping metrics.')
         except:
             print("--* Unexpected error: Skipping metrics. Error noted below. ")
             print('--* ', sys.exc_info()[0])
@@ -164,7 +172,6 @@ class TestSolve(BaseComm):
             print('--* Saving error traceback.')
             tstr = ''.join(traceback.format_exc())
             save_errortb(name, tstr)
-        save_metadata(name, humtxt)
         for i in range(isp):
             save_isp(name, i, res[i]['les'])
         print('-- Done!')
