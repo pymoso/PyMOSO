@@ -1,16 +1,16 @@
 """
-pydovs
+pymoso
 
 Usage:
-  pydovs listitems
-  pydovs solve [--budget=B] [--odir=D] [--radius=R] [--simpar=P]
+  pymoso listitems
+  pymoso solve [--budget=B] [--odir=D] [--radius=R] [--simpar=P]
     [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
     <problem> <solver> <x>...
-  pydovs testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q]
+  pymoso testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q]
     [(--seed <s> <s> <s> <s> <s> <s>)] [--metric] [(--params <param> <val>)]...
     <tester> <solver> [<x>...]
-  pydovs -h | --help
-  pydovs -v | --version
+  pymoso -h | --help
+  pymoso -v | --version
 
 Options:
   --budget=B                Simulation budget [default: 50000]
@@ -19,21 +19,21 @@ Options:
   --simpar=P                Number of processes available for simulation replications. [default: 1]
   --seed                    Specify a seed by entering 6 spaced integers > 0.
   --radius=R                Specify a neighborhood radius. [default: 1]
-  --proc=Q                  Total number of processes to make available to pydovs. [default: 1]
+  --proc=Q                  Total number of processes to make available to pymoso. [default: 1]
   --metric                  Indicates whether to compute the tester metric.
   --params                  Allows specifying a <param> <val> pair.
   -h --help                 Show this screen.
   -v --version              Show version.
 
 Examples:
-  pydovs listitems
-  pydovs solve ProbTPA RPERLE 4 14
-  pydovs solve --budget=100000 --odir=test1 --radius=3 ProbTPB RMINRLE 3 12
-  pydovs solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 31 21 11
-  pydovs solve --parsim --proc=4 --params betaeps 0.4 ProbTPA RPERLE 30 30
-  pydovs solve --params betaeps 0.7 --params betadel 0.5 ProbTPA RPERLE 45 45
-  pydovs testsolve --isp=16 --proc=4 TPATester RPERLE
-  pydovs testsolve --isp=20 --proc=10 --haus TPBTester RMINRLE 9 9
+  pymoso listitems
+  pymoso solve ProbTPA RPERLE 4 14
+  pymoso solve --budget=100000 --odir=test1 --radius=3 ProbTPB RMINRLE 3 12
+  pymoso solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 31 21 11
+  pymoso solve --parsim --proc=4 --params betaeps 0.4 ProbTPA RPERLE 30 30
+  pymoso solve --params betaeps 0.7 --params betadel 0.5 ProbTPA RPERLE 45 45
+  pymoso testsolve --isp=16 --proc=4 TPATester RPERLE
+  pymoso testsolve --isp=20 --proc=10 --haus TPBTester RMINRLE 9 9
 
 Help:
   Use the listitems command to view a list of available solvers, problems, and
