@@ -27,7 +27,7 @@ class CleanCommand(Command):
 setup(
     name = 'pymoso',
     version = __version__,
-    description = 'Python Discrete Optimization Via Simulation: An integer-ordered simulation-optimization package.',
+    description = 'Python Multi-Objective Simulation Optimization: a package for using, implementing, and testing simulation optimization algorithms.',
     long_description = long_description,
     author = 'Kyle Cooper',
     author_email = 'coope149@purdue.edu',
