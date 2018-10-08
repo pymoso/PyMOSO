@@ -1,4 +1,4 @@
-from pydovs.chnbase import RLESolver
+from pymoso.chnbase import RLESolver
 
 # create a subclass of RLESolver
 class MyAccel(RLESolver):

@@ -5,7 +5,7 @@ from codecs import open
 from os.path import abspath, dirname, join
 from subprocess import call
 from setuptools import setup, Command
-from pydovs import __version__
+from pymoso import __version__
 
 
 this_dir = abspath(dirname(__file__))
@@ -25,18 +25,18 @@ class CleanCommand(Command):
 
 
 setup(
-    name = 'pydovs',
+    name = 'pymoso',
     version = __version__,
     description = 'Python Discrete Optimization Via Simulation: An integer-ordered simulation-optimization package.',
     long_description = long_description,
     author = 'Kyle Cooper',
     author_email = 'coope149@purdue.edu',
-    url = 'https://github.rcac.purdue.edu/HunterGroup/pydovs',
-    packages = ['pydovs', 'pydovs.solvers', 'pydovs.commands', 'pydovs.prng', 'pydovs.problems', 'pydovs.testers'],
+    url = 'https://github.rcac.purdue.edu/HunterGroup/pymoso',
+    packages = ['pymoso', 'pymoso.solvers', 'pymoso.commands', 'pymoso.prng', 'pymoso.problems', 'pymoso.testers'],
     install_requires = ['docopt'],
     entry_points = {
         'console_scripts': [
-            'pydovs = pydovs.cli:main',
+            'pymoso = pymoso.cli:main',
         ],
     },
     python_requires='>=3.6.0',

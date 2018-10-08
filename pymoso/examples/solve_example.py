@@ -1,7 +1,7 @@
 # import the solve function
-from pydovs.chnutils import solve
+from pymoso.chnutils import solve
 # import the module containing the RPERLE implementation
-import pydovs.solvers.rperle as rp
+import pymoso.solvers.rperle as rp
 # import MyProblem - myproblem.py should usually be in the script directory
 import myproblem as mp
 

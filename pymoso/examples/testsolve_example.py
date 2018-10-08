@@ -1,7 +1,7 @@
 # import the testsolve functions
-from pydovs.chnutils import testsolve
+from pymoso.chnutils import testsolve
 # import the module containing RPERLE
-import pydovs.solvers.rperle as rp
+import pymoso.solvers.rperle as rp
 # import the MyTester class
 from mytester import MyTester
 

@@ -1,4 +1,4 @@
-# pydovs
+# PyMOSO
 
 This project implements the R-PERLE algorithm for solving bi-objective simulation optimization problems on integer lattices and the R-MinRLE algorithm, a benchmark algorithm for solving multi-objective simulation optimization problems on integer lattices. This project is in beta! Please email the authors with any issues.
 
@@ -16,37 +16,37 @@ Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation o
 This software requires Python 3.6 or higher. Python can be downloaded from https://www.python.org/downloads/.
 
 ### Install from PyPI
-`pip install pydovs`
+`pip install pymoso`
 
 ### Install latest trunk version from git
-`pip install git+https://github.rcac.purdue.edu/HunterGroup/pydovs.git`
+`pip install git+https://github.rcac.purdue.edu/HunterGroup/pymoso.git`
 
 ### Install from source
 1. Install prerequisite packages.   
 `pip install wheel docopt`
 1. Download the project code either from  
-https://github.rcac.purdue.edu/HunterGroup/pydovs/releases   
+https://github.rcac.purdue.edu/HunterGroup/pymoso/releases   
 for the official releases or using  
-`git clone git@github.rcac.purdue.edu:HunterGroup/pydovs.git`  
+`git clone git@github.rcac.purdue.edu:HunterGroup/pymoso.git`  
 for the latest version.  
 1. Navigate to the newly downloaded project directory containing setup.py and build the binary wheel.  
 `python setup.py bdist_wheel`
 1. Install the wheel.  
-`pip install dist/pydovs-x.x.x-py3-none-any.whl`  
+`pip install dist/pymoso-x.x.x-py3-none-any.whl`  
 Replace the x.x.x with the correct file name corresponding to the code version. Modify the command to select the particular wheel you've built or downloaded.
 
 ## Command line help
 ```
 Usage:
-  pydovs listitems
-  pydovs solve [--budget=B] [--odir=D] [--radius=R] [--simpar=P]
+  pymoso listitems
+  pymoso solve [--budget=B] [--odir=D] [--radius=R] [--simpar=P]
     [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
     <problem> <solver> <x>...
-  pydovs testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q]
+  pymoso testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q]
     [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
     <tester> <solver> [<x>...]
-  pydovs -h | --help
-  pydovs -v | --version
+  pymoso -h | --help
+  pymoso -v | --version
 
 Options:
   --budget=B                Simulation budget [default: 50000]
@@ -55,20 +55,20 @@ Options:
   --simpar=P                Number of processes available for simulation replications. [default: 1]
   --seed                    Specify a seed by entering 6 spaced integers > 0.
   --radius=R                Specify a neighborhood radius. [default: 1]
-  --proc=Q                  Total number of processes to make available to pydovs. [default: 1]
+  --proc=Q                  Total number of processes to make available to pymoso. [default: 1]
   --params                  Allows specifying a <param> <val> pair.
   -h --help                 Show this screen.
   -v --version              Show version.
 
 Examples:
-  pydovs listitems
-  pydovs solve ProbTPA RPERLE 4 14
-  pydovs solve --budget=100000 --odir=test1 --radius=3 ProbTPB RMINRLE 3 12
-  pydovs solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 31 21 11
-  pydovs solve --parsim --proc=4 --params betaeps 0.4 ProbTPA RPERLE 30 30
-  pydovs solve --params betaeps 0.7 --params betadel 0.5 ProbTPA RPERLE 45 45
-  pydovs testsolve --isp=16 --proc=4 TPATester RPERLE
-  pydovs testsolve --isp=20 --proc=10 TPBTester RMINRLE 9 9
+  pymoso listitems
+  pymoso solve ProbTPA RPERLE 4 14
+  pymoso solve --budget=100000 --odir=test1 --radius=3 ProbTPB RMINRLE 3 12
+  pymoso solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 31 21 11
+  pymoso solve --parsim --proc=4 --params betaeps 0.4 ProbTPA RPERLE 30 30
+  pymoso solve --params betaeps 0.7 --params betadel 0.5 ProbTPA RPERLE 45 45
+  pymoso testsolve --isp=16 --proc=4 TPATester RPERLE
+  pymoso testsolve --isp=20 --proc=10 TPBTester RMINRLE 9 9
 
 Help:
   Use the listitems command to view a list of available solvers, problems, and
@@ -80,7 +80,7 @@ The `<x>` argument cannot take negative numbers from the command line. Use the c
 ### Example problem (myproblem.py)
 ```
 # import the Oracle base class
-from pydovs.chnbase import Oracle
+from pymoso.chnbase import Oracle
 
 class MyProblem(Oracle):
     '''Example implementation of a user-defined MOSO problem.'''
@@ -115,21 +115,21 @@ class MyProblem(Oracle):
         return is_feas, obj
 
 ```
-To set up a problem to solve, typically a Monte Carlo simulation oracle, follow the example above which can be used with the `solve` command. Subclass the Oracle class shipped with pydovs. Implement `__init__` and `g` with the signatures `__init__(self, rng)` and `g(self, x, rng)`. For `__init__`, it's enough to set the desired values for the number of objectives, `self.num_obj`, and the dimensionality of the feasible domain, `self.dim`.  
+To set up a problem to solve, typically a Monte Carlo simulation oracle, follow the example above which can be used with the `solve` command. Subclass the Oracle class shipped with pymoso. Implement `__init__` and `g` with the signatures `__init__(self, rng)` and `g(self, x, rng)`. For `__init__`, it's enough to set the desired values for the number of objectives, `self.num_obj`, and the dimensionality of the feasible domain, `self.dim`.  
 
 The function `g` must run one simulation at the feasible point `x`. The return values must be ordered correctly. The first value is a boolean (`True` or `False`) indicating whether `x` is feasible. It is up to the programmer to implement the feasibility check. The second value is a tuple of length `self.num_obj` where each element is a number indicating one of the objective values. The simulation doesn't necessarily have to be implemented in Python, but of course the implementation of `g` must be valid Python code. For example, `g` may wrap a function call to a C library which runs the simulation and returns the objectives.  
 
 The `rng` parameter is a subclass of Python's built-in `random.Random()` class and implements the same methods. Thus, its used in the same way as a `random.Random()` object for programmers implementing their simulations in Python. For example, `rng.random()`, `rng.normalvariate()`, `rng.normalvariate(4, 7)`, and `rng.getState()` are valid. The generator uses mrg32k3a as it's backbone and uses Beasley-Springer-Moro to generate normal random variates.  
 
 Once implemented, the problem can be solved with, say, R-PERLE using the following command. For your problem, choose an appropriate starting point.  
-`pydovs solve myproblem.py RPERLE 97`
+`pymoso solve myproblem.py RPERLE 97`
 
 ### Example tester (mytester.py)
 ```
 import sys, os
 sys.path.insert(0,os.path.dirname(__file__))
 # use hausdorff distance (dh) as an example metric
-from pydovs.chnutils import dh
+from pymoso.chnutils import dh
 # import the MyProblem oracle
 from myproblem import MyProblem
 
@@ -167,8 +167,8 @@ class MyTester(object):
         haus = dh(efrontier, self.soln)
         return haus
 ```
-To test a problem using the `testsolve` command, implement a `Tester` object as above. The only strict pydovs requirement is that a tester is a class with a member called `ranorc` which is an Oracle class. To generate useful test metrics, programmers may find it convenient to include a solution and a function which can generate the expected values of the objectives of the oracle.  Once implemented, the tester can be solved as follows.  
-`pydovs testsolve mytester.py RPERLE 97`  
+To test a problem using the `testsolve` command, implement a `Tester` object as above. The only strict pymoso requirement is that a tester is a class with a member called `ranorc` which is an Oracle class. To generate useful test metrics, programmers may find it convenient to include a solution and a function which can generate the expected values of the objectives of the oracle.  Once implemented, the tester can be solved as follows.  
+`pymoso testsolve mytester.py RPERLE 97`  
 
 Implement a `MyTester.get_ranx0(rng)` method if you want a tester that can generate random starting points. For example, using `MyProblem` feasible space.
 ```
@@ -179,11 +179,11 @@ def get_ranx0(self, rng):
 ```
 Then, testsolve can run multiple independent sample paths of an algorithm using different starting points, and no `x0` needs to be specified. The following command will run 16 independent sample paths using 4 processes, where each sample path has a random starting points.  
 
-`pydovs testsolve --isp=16 --proc=4 mytester.py RPERLE`
+`pymoso testsolve --isp=16 --proc=4 mytester.py RPERLE`
 
 ### Example of a (bad) RLE accelerator algorithm (myaccel.py)
 ```
-from pydovs.chnbase import RLESolver
+from pymoso.chnbase import RLESolver
 
 # create a subclass of RLESolver
 class MyAccel(RLESolver):
@@ -195,14 +195,14 @@ class MyAccel(RLESolver):
         self.upsample(warm_start)
         return warm_start
 ```
-Programmers can use pydovs to create new algorithms that use RLE for convergence. The novel part of these algorithms will be the `accel` function, which should efficiently collect points to send to RLE for certification. The function `accel` must have the signature `accel(self, warm_start)` where `warm_start` is a set of tuples. The tuples are feasible points. The pydovs method, shown above, allows programmers to easily implement and test these accelerators. These accelerators are to be used in a retrospective approximation framework.  Every retrospective iterations, pydovs will first call `accel(self, warm_start)` and send the returned set to `RLE`. The return value must be a set of tuples, where each tuple is a feasible point. The implementer does not need to implement or call `RLE`.
+Programmers can use pymoso to create new algorithms that use RLE for convergence. The novel part of these algorithms will be the `accel` function, which should efficiently collect points to send to RLE for certification. The function `accel` must have the signature `accel(self, warm_start)` where `warm_start` is a set of tuples. The tuples are feasible points. The pymoso method, shown above, allows programmers to easily implement and test these accelerators. These accelerators are to be used in a retrospective approximation framework.  Every retrospective iterations, pymoso will first call `accel(self, warm_start)` and send the returned set to `RLE`. The return value must be a set of tuples, where each tuple is a feasible point. The implementer does not need to implement or call `RLE`.
 
 Once implmented, solve a problem using the accelerator as follows.  
-`pydovs solve myproblem.py myaccel.py 97`  
+`pymoso solve myproblem.py myaccel.py 97`  
 
 ### Example of a (bad) RA algorithm (myraalg.py)
 ```
-from pydovs.chnbase import RASolver
+from pymoso.chnbase import RASolver
 
 # create a subclass of RASolver
 class MyRAAlg(RASolver):
@@ -216,11 +216,11 @@ class MyRAAlg(RASolver):
 ```
 More generally, algorithm designers can quickly implement a retrospective approximation algorithm by subclassing `RASolver` and implementing the `spsolve` function as shown. For convergence, the output of `spsolve` should be a certified sample path solution. The algorithm can be a single-objective algorithm even though its class is a child of `MOSOSolver`.  
 
-`pydovs solve myproblem.py myraalg.py 97`
+`pymoso solve myproblem.py myraalg.py 97`
 
 ### Example of a (bad) MOSO algorithm (mymoso.py)
 ```
-from pydovs.chnbase import MOSOSolver
+from pymoso.chnbase import MOSOSolver
 
 # create a subclass of MOSOSolver
 class MyMOSO(MOSOSolver):
@@ -231,27 +231,27 @@ class MyMOSO(MOSOSolver):
         # implement your genius algorithm here
         # return a set of points.
 ```
-Arbitrary algorithms can used in pydovs by implementing the `solve` function of a `MOSOSolver` class as shown. It does not have to be a multi-objective algorithm.  
+Arbitrary algorithms can used in pymoso by implementing the `solve` function of a `MOSOSolver` class as shown. It does not have to be a multi-objective algorithm.  
 
-`pydovs solve myproblem.py mymoso.py 97`
+`pymoso solve myproblem.py mymoso.py 97`
 
 ### Class Structure and internal functions
-The base class `MOSOSolver` implements basic members required to solve MOSO problems. To implement a general (i.e. non-RA) MOSO algorithm in pydovs, one must subclass `MOSOSolver` and implement the `MOSOSolver.solve` function with signature `solve(self, budget)` and it must return a set, even if the set contains a single point. `RASolver` is a subclass of `MOSOSolver` which provides the machinery needed to quickly implement a retrospective approximation algorithm. To implement an RA algorithm, one must subclass `RASolver` and implement its `spsolve` method with signature `spsolve(self, warm_start)` which returns a set of points.`RLESolver`, subclass of `RASolver`, allows quick implementation of MOSO solvers that use `RLE` to ensure convergence, as shown in the example accelerator above. One only needs to implement the `accel` method of `RLESolver`. Oracles are the problems that pydovs can solve. Here, we provide a listing of the important objects available to pydovs programmers who are implementing MOSO algorithms.
+The base class `MOSOSolver` implements basic members required to solve MOSO problems. To implement a general (i.e. non-RA) MOSO algorithm in pymoso, one must subclass `MOSOSolver` and implement the `MOSOSolver.solve` function with signature `solve(self, budget)` and it must return a set, even if the set contains a single point. `RASolver` is a subclass of `MOSOSolver` which provides the machinery needed to quickly implement a retrospective approximation algorithm. To implement an RA algorithm, one must subclass `RASolver` and implement its `spsolve` method with signature `spsolve(self, warm_start)` which returns a set of points.`RLESolver`, subclass of `RASolver`, allows quick implementation of MOSO solvers that use `RLE` to ensure convergence, as shown in the example accelerator above. One only needs to implement the `accel` method of `RLESolver`. Oracles are the problems that pymoso can solve. Here, we provide a listing of the important objects available to pymoso programmers who are implementing MOSO algorithms.
 
-| pydovs object | Example | Description |
+| pymoso object | Example | Description |
 | ------------- | ------- | ----------- |
-|`pydovs.prng.mrg32k3a.MRG32k3a`| `rng = MRG32k3a()` | Subclass of `random.Random()` for generating random numbers. |
-|`pydovs.prng.mrg32k3a.get_next_prnstream`| `prn = get_next_prnstream(seed)` | Returns a stream 2^127 places from the given `seed` |
-|`pydovs.chnbase.Oracle`| `orc = Oracle(rng)` | Implements the `Oracle` class. |
-|`pydovs.chnbase.MOSOSolver` | `ms = MOSOSolver(orc)` | Implements the `MOSOSolver` class. |
-|`pydovs.chnbase.RASolver` | `ras = RASolver(orc)` | Implements the `RASolver` class. |
-|`pydovs.chnbase.RLESolver` | `res = RLESolver(orc)`| Implements the `RLESolver` class. |
-|`pydovs.chnutils.solve` | `soln = solve(prob, alg, x0)` | The solve command used in the examples. |
-|`pydovs.chnutils.testsolve` | `solns = testsolve(tester, alg, x0)`| The testsolve command used in the examples. |
-|`pydovs.chnutils` | Not applicable. | The module contains a number of functions useful in algorithm implementation. See the next table. |
+|`pymoso.prng.mrg32k3a.MRG32k3a`| `rng = MRG32k3a()` | Subclass of `random.Random()` for generating random numbers. |
+|`pymoso.prng.mrg32k3a.get_next_prnstream`| `prn = get_next_prnstream(seed)` | Returns a stream 2^127 places from the given `seed` |
+|`pymoso.chnbase.Oracle`| `orc = Oracle(rng)` | Implements the `Oracle` class. |
+|`pymoso.chnbase.MOSOSolver` | `ms = MOSOSolver(orc)` | Implements the `MOSOSolver` class. |
+|`pymoso.chnbase.RASolver` | `ras = RASolver(orc)` | Implements the `RASolver` class. |
+|`pymoso.chnbase.RLESolver` | `res = RLESolver(orc)`| Implements the `RLESolver` class. |
+|`pymoso.chnutils.solve` | `soln = solve(prob, alg, x0)` | The solve command used in the examples. |
+|`pymoso.chnutils.testsolve` | `solns = testsolve(tester, alg, x0)`| The testsolve command used in the examples. |
+|`pymoso.chnutils` | Not applicable. | The module contains a number of functions useful in algorithm implementation. See the next table. |
 | `Oracle.hit` | `isfeas, gx, se = Oracle.hit(x, 4)` | Call the simulation 4 times and compute the mean value and standard error of each objective at `x`. For RA algorithms, don't call this directly but use `RASolver.estimate`. |
 | `Oracle.set_crnflag` | `Oracle.set_crnflag(False)` | Turn common random numbers on or off. Default is true (on). |
-| `Oracle.crn_advance` | `Oracle.crn_advance()` | Wind the rng forward. pydovs handles this automatically for RA algorithms. |
+| `Oracle.crn_advance` | `Oracle.crn_advance()` | Wind the rng forward. pymoso handles this automatically for RA algorithms. |
 | `Oracle.rng` | `r = Oracle.rng.random()` | A random.Random() object used in `hit`. Usually don't use `rng` directly in algorithms. |
 | `Oracle.num_obj` | `no = Oracle.num_obj` | The number of objectives. |
 | `Oracle.dim` | `dim = Oracle.dim` | The cardinality of the feasible points. |
@@ -287,9 +287,9 @@ The base class `MOSOSolver` implements basic members required to solve MOSO prob
 ### Solve example
 ```
 # import the solve function
-from pydovs.chnutils import solve
+from pymoso.chnutils import solve
 # import the module containing the RPERLE implementation
-import pydovs.solvers.rperle as rp
+import pymoso.solvers.rperle as rp
 # import MyProblem - myproblem.py should usually be in the script directory
 import myproblem as mp
 
@@ -305,9 +305,9 @@ Here is a listing: `radius`, `budget`, `simpar`, `seed`.
 ### TestSolve example
 ```
 # import the testsolve functions
-from pydovs.chnutils import testsolve
+from pymoso.chnutils import testsolve
 # import the module containing RPERLE
-import pydovs.solvers.rperle as rp
+import pymoso.solvers.rperle as rp
 # import the MyTester class
 from mytester import MyTester
 

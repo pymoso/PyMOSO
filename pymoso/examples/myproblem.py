@@ -1,5 +1,5 @@
 # import the Oracle base class
-from pydovs.chnbase import Oracle
+from pymoso.chnbase import Oracle
 
 class MyProblem(Oracle):
     '''Example implementation of a user-defined MOSO problem.'''

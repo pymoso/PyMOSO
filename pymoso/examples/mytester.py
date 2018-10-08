@@ -1,7 +1,7 @@
 import sys, os
 sys.path.insert(0,os.path.dirname(__file__))
 # use hausdorff distance (dh) as an example metric
-from pydovs.chnutils import dh
+from pymoso.chnutils import dh
 # import the MyProblem oracle
 from myproblem import MyProblem
 

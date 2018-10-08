@@ -50,12 +50,12 @@ from . import __version__ as VERSION
 
 def main():
     """Main CLI entrypoint."""
-    import pydovs.commands
+    from . import commands
     options = docopt(__doc__, version=VERSION)
     for (k, v) in options.items():
-        if hasattr(pydovs.commands, k) and v:
-            commod = getattr(pydovs.commands, k)
+        if hasattr(commands, k) and v:
+            commod = getattr(commands, k)
             comclasses = getmembers(commod, isclass)
-            comclass = [cmcls[1] for cmcls in comclasses if cmcls[0] != 'BaseComm' and issubclass(cmcls[1], pydovs.commands.basecomm.BaseComm)][0]
+            comclass = [cmcls[1] for cmcls in comclasses if cmcls[0] != 'BaseComm' and issubclass(cmcls[1], commands.basecomm.BaseComm)][0]
             cominst = comclass(options)
             cominst.run()

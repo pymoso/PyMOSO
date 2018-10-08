@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from ..chnbase import RLESolver
+import sys
 
 
 class RMINRLE(RLESolver):
@@ -9,6 +10,7 @@ class RMINRLE(RLESolver):
         if not warm_start:
             print('--* R-MinRLE Error: No feasible warm start. Is x0 feasible?')
             print('--* Aborting.')
+            sys.exit()
         return self.get_min(warm_start)
 
     def get_min(self, mcS):
