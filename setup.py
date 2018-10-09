@@ -31,7 +31,7 @@ setup(
     long_description = long_description,
     author = 'Kyle Cooper',
     author_email = 'coope149@purdue.edu',
-    url = 'https://github.rcac.purdue.edu/HunterGroup/pymoso',
+    url = 'https://github.com/ksc-1/PyMOSO',
     packages = ['pymoso', 'pymoso.solvers', 'pymoso.commands', 'pymoso.prng', 'pymoso.problems', 'pymoso.testers'],
     install_requires = ['docopt'],
     entry_points = {
