@@ -77,7 +77,7 @@ Help:
 ```
 For now, PyMOSO has three commands: `listitems`, `solve`, and `testsolve`, which we explain below.
 ##### CLI: listitems
-The command `listitems` shows the PyMOSO objects (problems, testers, solvers) included in the default installation. PyMOSO objects implemented by users will not show up when using `listitems`.
+The command `listitems` shows the PyMOSO objects (problems, testers, solvers) included in the default installation. The identifiers can be used as arguments to `solve` and `testsolve`. PyMOSO objects implemented by users will not show up when using `listitems`.
 ##### CLI: solve
 The `solve` command is intended for practitioners seeking to a solve a simulation optimization problem. Three arguments are required: `<problem>`, `<solver>`, and  `<x>...`. For `<problem>`, users may specify an identifier for a built-in problem. A list of such identifiers can be viewed using `listitems`. Alternatively, users may implement their own problem as a PyMOSO oracle (see the code examples below) and specify the file name.
 For example,  
