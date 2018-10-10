@@ -18,11 +18,11 @@ class Solve(BaseComm):
         name = self.options['--odir']
         hasseed = self.options['--seed']
         simpar = int(self.options['--simpar'])
+        crn = self.options['--crn']
         if hasseed:
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
             seed = (12345, 12345, 12345, 12345, 12345, 12345)
-        radius = float(self.options['--radius'])
         x0 = tuple(int(i) for i in self.options['<x>'])
         ## determine the solver and problem
         probarg = self.options['<problem>']
@@ -95,7 +95,7 @@ class Solve(BaseComm):
         solve_kwargs['budget'] = budget
         solve_kwargs['seed'] = seed
         solve_kwargs['simpar'] = simpar
-        solve_kwargs['radius'] = radius
+        solve_kwargs['crn'] = crn
         for i, p in enumerate(params):
             solve_kwargs[p] = float(vals[i])
         start_opt_time = time.time()

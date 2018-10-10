@@ -9,8 +9,8 @@ def solve(problem, solver, x0, **kwargs):
     budget = kwargs.pop('budget', 50000)
     default_seed = (12345, 12345, 12345, 12345, 12345, 12345)
     seed = kwargs.pop('seed', default_seed)
-    radius = kwargs.pop('radius', 1)
     simpar = kwargs.pop('simpar', 1)
+    crn = kwargs.pop('crn', False)
     paramtups = []
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
@@ -18,8 +18,9 @@ def solve(problem, solver, x0, **kwargs):
     ## generate all prn streams
     orcstream, solvstream = get_solv_prnstreams(seed)
     ## generate the experiment list
-    paramlst = [('solvprn', solvstream), ('x0', x0), ('nbor_rad', radius), ]
+    paramlst = [('solvprn', solvstream), ('x0', x0), ]
     orc = problem(orcstream)
+    orc.set_crnflag(crn)
     orc.simpar = simpar
     ## create arguments for (unknown) optional named parameters
     if paramtups:
@@ -34,11 +35,10 @@ def testsolve(tester, solver, x0, **kwargs):
     budget = kwargs.pop('budget', 50000)
     default_seed = (12345, 12345, 12345, 12345, 12345, 12345)
     seed = kwargs.pop('seed', default_seed)
-    radius = kwargs.pop('radius', 1)
-    simpar = kwargs.pop('gran', 10000)
     isp = kwargs.pop('isp', 1)
     proc = kwargs.pop('proc', 1)
     ranx0 = kwargs.pop('ranx0')
+    crn = kwargs.pop('crn', False)
     paramtups = []
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
@@ -49,8 +49,9 @@ def testsolve(tester, solver, x0, **kwargs):
     for i in range(isp):
         if ranx0:
             x0 = currtest.get_ranx0(x0stream)
-        paramlst = [('solvprn', solvstreams[i]), ('x0', x0), ('nbor_rad', radius), ]
+        paramlst = [('solvprn', solvstreams[i]), ('x0', x0), ]
         orc = currtest.ranorc(orcstreams[i])
+        orc.set_crnflag(crn)
         ## create arguments for (unknown) optional named parameters
         if paramtups:
             paramlst.extend(paramtups)

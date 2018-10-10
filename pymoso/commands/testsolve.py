@@ -25,7 +25,7 @@ class TestSolve(BaseComm):
             seed = (12345, 12345, 12345, 12345, 12345, 12345)
         isp = int(self.options['--isp'])
         proc = int(self.options['--proc'])
-        radius = float(self.options['--radius'])
+        crn = self.options['--crn']
         ranx0 = False
         if self.options['<x>']:
             x0 = tuple(int(i) for i in self.options['<x>'])
@@ -119,10 +119,10 @@ class TestSolve(BaseComm):
         solve_kwargs = dict()
         solve_kwargs['budget'] = budget
         solve_kwargs['seed'] = seed
-        solve_kwargs['radius'] = radius
         solve_kwargs['isp'] = isp
         solve_kwargs['proc'] = proc
         solve_kwargs['ranx0'] = ranx0
+        solve_kwargs['crn'] = crn
         for i, p in enumerate(params):
             solve_kwargs[p] = float(vals[i])
         start_opt_time = time.time()

@@ -31,7 +31,7 @@ class RASolver(MOSOSolver):
     """Implementation of a MOSO solver based on RLE."""
 
     def __init__(self, orc, **kwargs):
-        self.nbor_rad = kwargs.pop('nbor_rad', 1)
+        self.nbor_rad = kwargs.pop('radius', 1)
         self.mconst = kwargs.pop('mconst', 2)
         self.bconst = kwargs.pop('bconst', 8)
         try:
@@ -587,7 +587,6 @@ class Oracle(object):
         self.crnold_state = rng.getstate()
         self.crnnew_state = rng.getstate()
         self.crnflag = True
-        self.set_crnflag(True)
         self.simpar = 1
         super().__init__()
 
@@ -612,19 +611,21 @@ class Oracle(object):
 
     def crn_advance(self):
         """Jump ahead to the new crn, and set the new rewind point."""
-        self.num_calls = 0
-        crn_state = self.crnnew_state
-        self.set_crnold(self.crnnew_state)
-        self.rng.setstate(crn_state)
+        if self.crnflag:
+            self.num_calls = 0
+            crn_state = self.crnnew_state
+            self.set_crnold(self.crnnew_state)
+            self.rng.setstate(crn_state)
 
     def crn_check(self, num_calls):
         """Rewind the rng if crnflag is True and set farthest CRN."""
-        if num_calls > self.num_calls:
-            self.num_calls = num_calls
-            prnstate = self.rng.getstate()
-            self.set_crnnew(prnstate)
         if self.crnflag:
-            self.crn_reset()
+            if num_calls > self.num_calls:
+                self.num_calls = num_calls
+                prnstate = self.rng.getstate()
+                self.set_crnnew(prnstate)
+            if self.crnflag:
+                self.crn_reset()
 
     def hit(self, x, m):
         """Generate the mean of spending m simulation effort at point x.
