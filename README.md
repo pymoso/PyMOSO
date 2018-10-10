@@ -1,6 +1,6 @@
 # PyMOSO
 
-This project implements the R-PERLE algorithm for solving bi-objective simulation optimization problems on integer lattices and the R-MinRLE algorithm, a benchmark algorithm for solving multi-objective simulation optimization problems on integer lattices. This project is in beta! Please email the authors with any issues.
+This project implements the R-PERLE algorithm for solving bi-objective simulation optimization problems on integer lattices and the R-MinRLE algorithm, a benchmark algorithm for solving multi-objective simulation optimization problems on integer lattices. This project is in beta! Please contact us here regarding issues.
 
 ## Reference
 If you use this software for work leading to publications, please cite the article in which R-PERLE and R-MinRLE were proposed:
@@ -39,42 +39,54 @@ Replace the x.x.x with the correct file name corresponding to the code version. 
 ```
 Usage:
   pymoso listitems
-  pymoso solve [--budget=B] [--odir=D] [--radius=R] [--simpar=P]
-    [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
+  pymoso solve [--budget=B] [--odir=D] [--crn] [--simpar=P]
+    [(--seed <s> <s> <s> <s> <s> <s>)] [(--param <param> <val>)]...
     <problem> <solver> <x>...
-  pymoso testsolve [--budget=B] [--odir=D] [--radius=R] [--isp=T] [--proc=Q]
-    [(--seed <s> <s> <s> <s> <s> <s>)] [(--params <param> <val>)]...
+  pymoso testsolve [--budget=B] [--odir=D] [--crn] [--isp=T] [--proc=Q]
+    [--metric] [(--seed <s> <s> <s> <s> <s> <s>)] [(--param <param> <val>)]...
     <tester> <solver> [<x>...]
   pymoso -h | --help
   pymoso -v | --version
 
 Options:
-  --budget=B                Simulation budget [default: 50000]
-  --isp=T                   Number of independent sample paths of the algorithm to solve. [default: 1]
-  --odir=D                  A name to assign to the output. [default: testrun]
-  --simpar=P                Number of processes available for simulation replications. [default: 1]
-  --seed                    Specify a seed by entering 6 spaced integers > 0.
-  --radius=R                Specify a neighborhood radius. [default: 1]
-  --proc=Q                  Total number of processes to make available to pymoso. [default: 1]
-  --params                  Allows specifying a <param> <val> pair.
+  --budget=B                Set the simulation budget [default: 200]
+  --odir=D                  Set the output file directory name. [default: testrun]
+  --crn                     Set if common random numbers are desired.
+  --simpar=P                Set number of parallel processes for simulation replications. [default: 1]
+  --isp=T                   Set number of algorithm instances to solve. [default: 1]
+  --proc=Q                  Set number of parallel processes for the algorithm instances. [default: 1]
+  --metric                  Set if metric computation is desired.
+  --seed                    Set the random number seed with 6 spaced integers.
+  --param                   Specify a solver-specific parameter <param> <val>.
   -h --help                 Show this screen.
   -v --version              Show version.
 
 Examples:
   pymoso listitems
   pymoso solve ProbTPA RPERLE 4 14
-  pymoso solve --budget=100000 --odir=test1 --radius=3 ProbTPB RMINRLE 3 12
+  pymoso solve --budget=100000 --odir=test1  ProbTPB RMINRLE 3 12
   pymoso solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 31 21 11
-  pymoso solve --parsim --proc=4 --params betaeps 0.4 ProbTPA RPERLE 30 30
-  pymoso solve --params betaeps 0.7 --params betadel 0.5 ProbTPA RPERLE 45 45
+  pymoso solve --simpar=4 --param betaeps 0.4 ProbTPA RPERLE 30 30
+  pymoso solve --param radius 3 ProbTPA RPERLE 45 45
   pymoso testsolve --isp=16 --proc=4 TPATester RPERLE
-  pymoso testsolve --isp=20 --proc=10 TPBTester RMINRLE 9 9
+  pymoso testsolve --isp=20 --proc=10 --metric --crn TPBTester RMINRLE 9 9
 
 Help:
   Use the listitems command to view a list of available solvers, problems, and
   test problems.
 ```
-The `<x>` argument cannot take negative numbers from the command line. Use the commands in a Python program if a negative starting point is required (see examples below).
+For now, PyMOSO has three commands: `listitems`, `solve`, and `testsolve`, which we explain below.
+The command `listitems` shows the PyMOSO objects (problems, testers, solvers) included in the default installation. PyMOSO objects implemented by users will not show up when using `listitems`.
+The `solve` command is intended for practitioners seeking to a solve a simulation optimization problem. Three arguments are required: `<problem>`, `<solver>`, and  `<x>...`. For `<problem>`, users may specify an identifier for a built-in problem. A list of such identifiers can be viewed using `listitems`. Alternatively, users may implement their own problem as a PyMOSO oracle (see the code examples below) and specify the file name.
+For example,  
+`pymoso solve myproblem.py RPERLE 40 40`  
+The `<solver>` argument again either an identifier to a built-in algorithm, or a file name for a user-implemented algorithm. The `<x>...` is a feasible starting point for the algorithm, with each component of the starting point separated by a space. Any number of the options listed above can also be specified before the arguments. At the end of this section, we list the options and provide more detailed explanations. The `<x>` argument cannot take negative numbers from the command line. Use PyMOSO in a Python program if a negative starting point is required (see examples below).   
+The `testsolve` command is intended for researchers creating new simulation optimization algorithms.  Two arguments are required: `<tester>` and `<solver>`. Similar to `solve`, `<tester>` and `<solver>` may be specified as identifiers to built-in testers or as Python files containing user-implemented objects. Specifying `<x>...` is optional: testers may implement a method to generate feasible starting points. If not, then `<x>...` can be provided.   
+Both `solve` and `testsolve` create a subdirectory within the working directory in which the generated results are saved. In the case of `solve`, the directory typically contains two files: a file containing metadata such as the arguments and options specified, date, run time, and more. The second file contains the solution generated by the chosen solver. If applicable, an error file may be generated. If an error is generated, users may send the metadata file, the error file, and any user-implemented PyMOSO objects to us for assistance. In the case of `testsolve`, the file containing the solution will instead contain multiple solutions, with the last row containing the end solution returned by the algorithm. The intermediate solutions are provided to give a researchers a sense of how the algorithm progresses. If the `--isp` option is specified to generate multiple independent sample path solutions, there will a solution file for every independent sample path. If the `--metric` options is specified, the metric defined in the `<tester>` will be computed on the solutions and saved in a separate file. 
+
+
+
+
 
 ## Programming guide
 ### Example problem (myproblem.py)
