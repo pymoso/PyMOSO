@@ -111,7 +111,12 @@ Both `solve` and `testsolve` create a subdirectory within the working directory 
 | `RPERLE` and `RPE` | `betaeps` | `0.5`   | Roughly, affects how likely PE will perform a search from a point. See http://www.optimization-online.org/DB_HTML/2018/06/6649.html. |
 
 ## Programming guide
-### Example problem (myproblem.py)
+#### Implementing a problem in PyMOSO
+Users can implement their own problems in PyMOSO using `myproblem.py` below as the template. The function signatures of `__init__` and `g` must remain the same as shown. Furthermore, in `__init__`, the only changes will be to set `self.num_obj` and `self.dim` as appropriate. The `g` function needs to implement a single simulation observation. It can be a wrapper to external simulation or other programs, but must return two values:
+1. `True` or `False` depending on if `x` is feasible to the problem.
+1. A tuple of length `self.num_obj` containing the value of each objective. 
+
+##### Example problem (myproblem.py)
 ```
 # import the Oracle base class
 from pymoso.chnbase import Oracle
@@ -126,29 +131,41 @@ class MyProblem(Oracle):
 
     def g(self, x, rng):
         '''Check feasibility and simulate objective values.'''
-        # feasible values for x in this example
-        feas_range = range(-100, 101)
-        # initialize obj to empty and is_feas to False
-        obj = []
-        is_feas = False
-        # check that dimensions of x match self.dim
-        if len(x) == self.dim:
-            is_feas = True
-            # then check that each component of x is in the range above
-            for i in x:
-                if not i in feas_range:
-                    is_feas = False
-        # if x is feasible, simulate the objectives
-        if is_feas:
-            #use rng to generate random numbers
-            z0 = rng.normalvariate(0, 1)
-            z1 = rng.normalvariate(0, 1)
-            obj1 = x[0]**2 + z0
-            obj2 = (x[0] - 2)**2 + z1
-            obj = (obj1, obj2)
-        return is_feas, obj
+        # set is_feas = True or False, if x is feasible or not
+        # if feasible, compute the objectives such that
+        ## obj is a tuple of length self.num_obj
+        # if not feasible, set each objective to None
+        # this function can be a wrapper to, e.g. a C simulation or
+        ## other simulation software
+        return is_feas, (obj1, obj2)
+```
 
 ```
+def g(self, x, rng):
+    '''Check feasibility and simulate objective values.'''
+    # feasible values for x in this example
+    feas_range = range(-100, 101)
+    # initialize obj to empty and is_feas to False
+    obj = []
+    is_feas = False
+    # check that dimensions of x match self.dim
+    if len(x) == self.dim:
+        is_feas = True
+        # then check that each component of x is in the range above
+        for i in x:
+            if not i in feas_range:
+                is_feas = False
+    # if x is feasible, simulate the objectives
+    if is_feas:
+        #use rng to generate random numbers
+        z0 = rng.normalvariate(0, 1)
+        z1 = rng.normalvariate(0, 1)
+        obj1 = x[0]**2 + z0
+        obj2 = (x[0] - 2)**2 + z1
+        obj = (obj1, obj2)
+    return is_feas, obj
+```
+
 To set up a problem to solve, typically a Monte Carlo simulation oracle, follow the example above which can be used with the `solve` command. Subclass the Oracle class shipped with pymoso. Implement `__init__` and `g` with the signatures `__init__(self, rng)` and `g(self, x, rng)`. For `__init__`, it's enough to set the desired values for the number of objectives, `self.num_obj`, and the dimensionality of the feasible domain, `self.dim`.  
 
 The function `g` must run one simulation at the feasible point `x`. The return values must be ordered correctly. The first value is a boolean (`True` or `False`) indicating whether `x` is feasible. It is up to the programmer to implement the feasibility check. The second value is a tuple of length `self.num_obj` where each element is a number indicating one of the objective values. The simulation doesn't necessarily have to be implemented in Python, but of course the implementation of `g` must be valid Python code. For example, `g` may wrap a function call to a C library which runs the simulation and returns the objectives.  
