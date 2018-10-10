@@ -111,12 +111,12 @@ Both `solve` and `testsolve` create a subdirectory within the working directory 
 | `RPERLE` and `RPE` | `betaeps` | `0.5`   | Roughly, affects how likely PE will perform a search from a point. See http://www.optimization-online.org/DB_HTML/2018/06/6649.html. |
 
 ## Programming guide
-#### Implementing a problem in PyMOSO
+### Implementing a problem in PyMOSO
 Users can implement their own problems in PyMOSO using `myproblem.py` below as the template. The function signatures of `__init__` and `g` must remain the same as shown. Furthermore, in `__init__`, the only changes will be to set `self.num_obj` and `self.dim` as appropriate. The `g` function needs to implement a single simulation observation. It can be a wrapper to external simulation or other programs, but must return two values:
 1. `True` or `False` depending on if `x` is feasible to the problem.
-1. A tuple of length `self.num_obj` containing the value of each objective. 
+1. A tuple of length `self.num_obj` containing the value of each objective.
 
-##### Example problem (myproblem.py)
+##### Template for implementing problems (myproblem.py)
 ```
 # import the Oracle base class
 from pymoso.chnbase import Oracle
@@ -140,6 +140,11 @@ class MyProblem(Oracle):
         return is_feas, (obj1, obj2)
 ```
 
+Though not required, users may use the `rng` random number generator object. Doing so allows algorithms to take advantage of common random numbers. The implementation of the `rng` object is a subclass of Python's `random.Random()` where the underlying generator is `mrg32k3a`. Thus, Python's own `random` documentation applies to `rng` and can be found at https://docs.python.org/3/library/random.html.
+
+To be compatible with common random numbers, users can simply use the generator. See the below code listing for a simple example problem. If `g` is a wrapper to an external simulation, users can still remain compatible with common random numbers by generating the random numbers using `rng` and passing them to the simulation or by using `rng.get_seed()` and sending the seed to the generator used by the simulation. It is up to the user to ensure the seed obtained from `rng.get_seed()`, an `mrg32k3a` seed, is compatible with the generator used in their simulation.
+
+##### Simple example problem
 ```
 def g(self, x, rng):
     '''Check feasibility and simulate objective values.'''
@@ -165,17 +170,10 @@ def g(self, x, rng):
         obj = (obj1, obj2)
     return is_feas, obj
 ```
-
-To set up a problem to solve, typically a Monte Carlo simulation oracle, follow the example above which can be used with the `solve` command. Subclass the Oracle class shipped with pymoso. Implement `__init__` and `g` with the signatures `__init__(self, rng)` and `g(self, x, rng)`. For `__init__`, it's enough to set the desired values for the number of objectives, `self.num_obj`, and the dimensionality of the feasible domain, `self.dim`.  
-
-The function `g` must run one simulation at the feasible point `x`. The return values must be ordered correctly. The first value is a boolean (`True` or `False`) indicating whether `x` is feasible. It is up to the programmer to implement the feasibility check. The second value is a tuple of length `self.num_obj` where each element is a number indicating one of the objective values. The simulation doesn't necessarily have to be implemented in Python, but of course the implementation of `g` must be valid Python code. For example, `g` may wrap a function call to a C library which runs the simulation and returns the objectives.  
-
-The `rng` parameter is a subclass of Python's built-in `random.Random()` class and implements the same methods. Thus, its used in the same way as a `random.Random()` object for programmers implementing their simulations in Python. For example, `rng.random()`, `rng.normalvariate()`, `rng.normalvariate(4, 7)`, and `rng.getState()` are valid. The generator uses mrg32k3a as it's backbone and uses Beasley-Springer-Moro to generate normal random variates.  
-
-Once implemented, the problem can be solved with, say, R-PERLE using the following command. For your problem, choose an appropriate starting point.  
+Once implemented, the problem can be solved with, say, R-PERLE using the following command. For your problem, choose an appropriate starting point and algorithm.  
 `pymoso solve myproblem.py RPERLE 97`
 
-### Example tester (mytester.py)
+### Implementing a Tester in PyMOSO
 ```
 import sys, os
 sys.path.insert(0,os.path.dirname(__file__))
