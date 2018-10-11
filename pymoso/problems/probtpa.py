@@ -16,8 +16,8 @@ class ProbTPA(Oracle):
         for xi in x:
             if not xi in xr:
                 isfeas = False
-        obj1 = []
-        obj2 = []
+        obj1 = None
+        obj2 = None
         if isfeas:
             z1 = rng.normalvariate(0, 1)
             z2 = rng.normalvariate(0, 1)

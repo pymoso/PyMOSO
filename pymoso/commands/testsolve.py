@@ -26,12 +26,6 @@ class TestSolve(BaseComm):
         isp = int(self.options['--isp'])
         proc = int(self.options['--proc'])
         crn = self.options['--crn']
-        ranx0 = False
-        if self.options['<x>']:
-            x0 = tuple(int(i) for i in self.options['<x>'])
-        else:
-            ranx0 = True
-            x0 = (0,)
         ## determine the solver and problem
         solvarg = self.options['<solver>']
         base_mod_name = solvarg
@@ -114,6 +108,12 @@ class TestSolve(BaseComm):
             save_errortb(name, tstr)
             print('--* Aborting.')
             sys.exit()
+        ranx0 = False
+        if self.options['<x>']:
+            x0 = tuple(int(i) for i in self.options['<x>'])
+        else:
+            ranx0 = True
+            x0 = (0,)
         params = self.options['<param>']
         vals = self.options['<val>']
         solve_kwargs = dict()

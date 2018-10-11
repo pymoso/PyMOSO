@@ -24,6 +24,16 @@ a2p127 = [[1464411153.0,  277697599.0, 1610723613.0],
     [2824425944.0, 32183930.0, 2093834863.0]
 ]
 
+a1p76 = [[82758667.0, 1871391091.0, 4127413238.0],
+    [3672831523.0, 69195019.0, 1871391091.0],
+    [3672091415.0, 3528743235.0, 69195019.0]
+]
+
+a2p76 = [[1511326704.0, 3759209742.0, 1610795712.0],
+    [4292754251.0, 1511326704.0, 3889917532.0],
+    [3859662829.0, 4292754251.0, 3708466080.0],
+]
+
 mrgnorm = 2.328306549295727688e-10
 mrgm1 = 4294967087.0
 mrgm2 = 4294944443.0
@@ -172,3 +182,18 @@ def get_next_prnstream(seed):
     sseed = tuple(ns1 + ns2)
     prn = MRG32k3a(sseed)
     return prn
+
+def jump_substream(prn):
+    """Set the prn to the next substream 2^76 steps."""
+    seed = prn.get_seed()
+    # split the seed into 2 components of length 3
+    s1 = seed[0:3]
+    s2 = seed[3:6]
+    # A*s % m for both seed parts
+    ns1m = mat333mult(a1p76, s1)
+    ns2m = mat333mult(a2p76, s2)
+    ns1 = mat311mod(ns1m, mrgm1)
+    ns2 = mat311mod(ns2m, mrgm2)
+    # random.Random objects need a hashable seed e.g. a tuple
+    sseed = tuple(ns1 + ns2)
+    prn.seed(sseed)

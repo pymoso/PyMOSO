@@ -23,7 +23,6 @@ class Solve(BaseComm):
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
             seed = (12345, 12345, 12345, 12345, 12345, 12345)
-        x0 = tuple(int(i) for i in self.options['<x>'])
         ## determine the solver and problem
         probarg = self.options['<problem>']
         base_mod_name = probarg
@@ -82,6 +81,7 @@ class Solve(BaseComm):
             save_errortb(name, tstr)
             print('--* Aborting. ')
             sys.exit()
+        x0 = tuple(int(i) for i in self.options['<x>'])
         fakeprn = Random()
         dim = probclass(fakeprn).dim
         if not len(x0) == dim:

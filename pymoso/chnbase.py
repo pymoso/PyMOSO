@@ -2,7 +2,7 @@
 """Provide base classes for problem and solver implementations."""
 from statistics import mean, variance
 from math import sqrt, ceil, floor
-from .prng.mrg32k3a import get_next_prnstream
+from .prng.mrg32k3a import get_next_prnstream, jump_substream
 import multiprocessing as mp
 import sys
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate
@@ -362,9 +362,10 @@ class RASolver(MOSOSolver):
                 print('--* Message: ', sys.exc_info()[1])
                 print('--* Aborting. ')
                 sys.exit()
-            if isfeas:
-                self.gbar[x] = fx
-                self.sehat[x] = vx
+            else:
+                if isfeas:
+                    self.gbar[x] = fx
+                    self.sehat[x] = vx
         #next, check feasibility against the constraint which may be different
         # than oracle feasibility
         if isfeas:
@@ -583,10 +584,8 @@ class Oracle(object):
     def __init__(self, rng):
         """Initialize a problem with noise with a pseudo-random generator."""
         self.rng = rng
-        self.num_calls = 0
         self.crnold_state = rng.getstate()
-        self.crnnew_state = rng.getstate()
-        self.crnflag = True
+        self.crnflag = False
         self.simpar = 1
         super().__init__()
 
@@ -594,15 +593,10 @@ class Oracle(object):
         """Set the common random number (crn) flag and intialize the crn states."""
         self.crnflag = crnflag
         self.crnold_state = self.rng.getstate()
-        self.crnnew_state = self.rng.getstate()
 
     def set_crnold(self, old_state):
         """Set the current crn rewind state."""
         self.crnold_state = old_state
-
-    def set_crnnew(self, new_state):
-        """Jump forward to start a new realization of crn."""
-        self.crnnew_state = new_state
 
     def crn_reset(self):
         """Rewind to the first crn."""
@@ -612,20 +606,13 @@ class Oracle(object):
     def crn_advance(self):
         """Jump ahead to the new crn, and set the new rewind point."""
         if self.crnflag:
-            self.num_calls = 0
-            crn_state = self.crnnew_state
-            self.set_crnold(self.crnnew_state)
-            self.rng.setstate(crn_state)
+            jump_substream(self.rng)
+            oldstate = self.rng.getstate()
+            self.set_crnold(oldstate)
 
-    def crn_check(self, num_calls):
-        """Rewind the rng if crnflag is True and set farthest CRN."""
+    def crn_check(self):
         if self.crnflag:
-            if num_calls > self.num_calls:
-                self.num_calls = num_calls
-                prnstate = self.rng.getstate()
-                self.set_crnnew(prnstate)
-            if self.crnflag:
-                self.crn_reset()
+            self.crn_reset()
 
     def hit(self, x, m):
         """Generate the mean of spending m simulation effort at point x.
@@ -651,7 +638,6 @@ class Oracle(object):
                 isfeas, objd = self.g(x, self.rng)
                 obmean = objd
                 obse = [0 for o in objd]
-                self.crn_check(m)
             else:
                 if self.simpar == 1:
                     ## do not parallelize replications
@@ -666,7 +652,6 @@ class Oracle(object):
                         obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
                         obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
                         obse = tuple([sqrt(obvar[i]/m) for i in dr])
-                    self.crn_check(m)
                 else:
                     sim_old = self.simpar
                     ## obtain replications in parallel
@@ -724,8 +709,6 @@ class Oracle(object):
                             pvar = [sum([obvar[i][k]*(num_rands[i] - 1) for i in pr])/(m - nproc) for k in dr]
                         ### compute standard error
                         obse = tuple([sqrt(pvar[k]/m) for k in dr])
-                    for i in range(m):
-                        self.rng.random()
                     #[print('cha2: ', orc.rng.get_seed()) for orc in orclst]
-                    self.crn_check(m)
+        self.crn_check()
         return isfeas, obmean, obse

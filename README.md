@@ -112,7 +112,7 @@ Both `solve` and `testsolve` create a subdirectory within the working directory 
 
 ## Programming guide
 ### Implementing a problem in PyMOSO
-Users can implement their own problems in PyMOSO using `myproblem.py` below as the template. The function signatures of `__init__` and `g` must remain the same as shown. Furthermore, in `__init__`, the only changes will be to set `self.num_obj` and `self.dim` as appropriate. The `g` function needs to implement a single simulation observation. It can be a wrapper to external simulation or other programs, but must return two values:
+Users can implement their own problems in PyMOSO using `myproblem.py` below as the template. The function signatures of `__init__` and `g` must remain the same as shown. Furthermore, in `__init__`, the only changes will be to set `self.num_obj` and `self.dim` as appropriate. The `g` function needs to implement a single simulation observation at `x`, a Python tuple of length `self.dim` representing some point. The function `g` can be a wrapper to external simulation or other programs, but must return two values:
 1. `True` or `False` depending on if `x` is feasible to the problem.
 1. A tuple of length `self.num_obj` containing the value of each objective.
 
@@ -142,7 +142,7 @@ class MyProblem(Oracle):
 
 Though not required, users may use the `rng` random number generator object. Doing so allows algorithms to take advantage of common random numbers. The implementation of the `rng` object is a subclass of Python's `random.Random()` where the underlying generator is `mrg32k3a`. Thus, Python's own `random` documentation applies to `rng` and can be found at https://docs.python.org/3/library/random.html.
 
-To be compatible with common random numbers, users can simply use the generator. See the below code listing for a simple example problem. If `g` is a wrapper to an external simulation, users can still remain compatible with common random numbers by generating the random numbers using `rng` and passing them to the simulation or by using `rng.get_seed()` and sending the seed to the generator used by the simulation. It is up to the user to ensure the seed obtained from `rng.get_seed()`, an `mrg32k3a` seed, is compatible with the generator used in their simulation.
+To be compatible with common random numbers, users can simply use the generator. See the below code listing for a simple example problem which is compatible with PyMOSO common random numbers. If `g` is a wrapper to an external simulation, users can still remain compatible with common random numbers by generating the random numbers using `rng` and passing them to the simulation or by using `rng.get_seed()` and sending the seed to the generator used by the simulation. It is up to the user to ensure the seed obtained from `rng.get_seed()`, an `mrg32k3a` seed, is compatible with their simulation's generator. 
 
 ##### Simple example problem
 ```

@@ -14,8 +14,8 @@ class ProbTPC(Oracle):
     def g(self, x, rng):
         df = self.density_factor
         xr = range(-5*df, 5*df + 1)
-        obj1 = []
-        obj2 = []
+        obj1 = None
+        obj2 = None
         isfeas = True
         for xi in x:
             if not xi in xr:

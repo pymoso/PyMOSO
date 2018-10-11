@@ -12,8 +12,8 @@ class ProbTPB(Oracle):
 
     def g(self, x, rng):
         """Estimate g(x)."""
-        obj1 = []
-        obj2 = []
+        obj1 = None
+        obj2 = None
         isfeas = True
         xr = range(0, 101)
         for xi in x:
