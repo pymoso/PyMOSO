@@ -3,7 +3,7 @@ from itertools import product, filterfalse
 from math import ceil, floor, sqrt
 import multiprocessing as mp
 from statistics import mean, variance
-
+from .prng.mrg32k3a import MRG32k3a, get_next_prnstream
 
 def solve(problem, solver, x0, **kwargs):
     budget = kwargs.pop('budget', 50000)
@@ -28,7 +28,7 @@ def solve(problem, solver, x0, **kwargs):
     paramargs = dict(paramlst)
     res = isp_run(solver, budget, orc, **paramargs)
     lastnu = len(res['les']) - 1
-    return res['les'][lastnu], orcstream.get_seed()
+    return res['les'][lastnu], res['endseed']
 
 
 def testsolve(tester, solver, x0, **kwargs):
@@ -43,7 +43,7 @@ def testsolve(tester, solver, x0, **kwargs):
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
-    orcstreams, solvstreams, x0stream = get_testsolve_prnstreams(isp, seed)
+    orcstreams, solvstreams, x0stream, endseed = get_testsolve_prnstreams(isp, seed)
     joblist = []
     currtest = tester()
     for i in range(isp):
@@ -59,29 +59,31 @@ def testsolve(tester, solver, x0, **kwargs):
         mainparms = (solver, budget, orc)
         joblist.append((mainparms, paramargs))
     res = par_runs(joblist, proc)
-    end_seed = solvstreams[isp - 1].get_seed()
-    return res, end_seed
+    return res, endseed
 
 
 def get_testsolve_prnstreams(num_trials, iseed):
-    from .prng.mrg32k3a import MRG32k3a, get_next_prnstream
     xprn = MRG32k3a(iseed)
+    max_RI = 200
     orcprn_lst = []
     solprn_lst = []
     for t in range(num_trials):
-        orcprn = get_next_prnstream(iseed)
-        orcprn_lst.append(orcprn)
-        iseed = orcprn._current_seed
         solprn = get_next_prnstream(iseed)
+        iseed = solprn.get_seed()
         solprn_lst.append(solprn)
-        iseed = solprn._current_seed
-    return orcprn_lst, solprn_lst, xprn
+    for t in range(num_trials):
+        orcprn = get_next_prnstream(iseed)
+        iseed = orcprn.get_seed()
+        orcprn_lst.append(orcprn)
+        for i in range(max_RI):
+            newprn = get_next_prnstream(iseed)
+            iseed = newprn.get_seed()
+    return orcprn_lst, solprn_lst, xprn, iseed
 
 
 def get_solv_prnstreams(iseed):
-    from .prng.mrg32k3a import MRG32k3a, get_next_prnstream
-    orcstream = MRG32k3a(iseed)
-    solvstream = get_next_prnstream(iseed)
+    solvstream = MRG32k3a(iseed)
+    orcstream = get_next_prnstream(iseed)
     return orcstream, solvstream
 
 

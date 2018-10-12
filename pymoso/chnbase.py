@@ -45,8 +45,8 @@ class RASolver(MOSOSolver):
 
     def solve(self, budget):
         """Initialize and solve a MOSO problem."""
-        self.orc.set_crnflag(True)
-        seed1 = self.orc.rng._current_seed
+        seed1 = self.orc.rng.get_seed()
+        self.endseed = seed1
         lesnu = dict()
         simcalls = dict()
         lesnu[0] = set() | {self.x0}
@@ -56,7 +56,7 @@ class RASolver(MOSOSolver):
         # invoke the Retrospective approximation algorithm
         self.rasolve(lesnu, simcalls, budget)
         # name the data keys and return the results
-        resdict = {'les': lesnu, 'simcalls': simcalls}
+        resdict = {'les': lesnu, 'simcalls': simcalls, 'endseed': self.endseed}
         return resdict
 
     def rasolve(self, phatnu, simcalls, budget):
@@ -70,7 +70,10 @@ class RASolver(MOSOSolver):
             aold = phatnu[self.nu - 1]
             phatnu[self.nu] = self.spsolve(aold)
             simcalls[self.nu] = self.num_calls
+            #print(self.nu, self.orc.rng.get_seed())
             self.orc.crn_advance()
+            self.endseed = self.orc.rng.get_seed()
+            #print(self.nu + 1, self.orc.rng.get_seed())
 
     def spline(self, x0, e=float('inf'), nobj=0, kcon=0):
         """
@@ -175,7 +178,7 @@ class RASolver(MOSOSolver):
                         break
         return xs, fxs, vxs, n
 
-    def pli(self, x, nobj):
+    def pli(self, x, e, nobj, kcon):
         """
         return a search direction for seeking a local minimizer
 
@@ -210,7 +213,7 @@ class RASolver(MOSOSolver):
         xbest = None
         fxbest = None
         for i in range(q + 1):
-            isfeas, fx, vx = self.estimate(simp[i])
+            isfeas, fx, vx = self.estimate(simp[i], e, kcon)
             if isfeas:
                 if not xbest:
                     xbest = simp[i]
@@ -266,7 +269,7 @@ class RASolver(MOSOSolver):
         stop_loop = False
         while not stop_loop:
             x1 = perturb(x0, sprn)
-            gamma, gbat, xbest, fxbest = self.pli(x1, nobj)
+            gamma, gbat, xbest, fxbest = self.pli(x1, e, nobj, kcon)
             if fxbest[nobj] < fxs[nobj]:
                 xs = xbest
                 fxs = fxbest
@@ -291,9 +294,9 @@ class RASolver(MOSOSolver):
                         xs = x1
                         fxs = fx1
                         sexs = sex1
+                x0 = xs
                 if not x1 == xs:
                     should_stop = True
-                x0 = xs
             if i <= 2:
                 stop_loop = True
         return xs, fxs, sexs, n
@@ -587,6 +590,7 @@ class Oracle(object):
         self.crnold_state = rng.getstate()
         self.crnflag = False
         self.simpar = 1
+        self.crn_obsold = rng.getstate()
         super().__init__()
 
     def set_crnflag(self, crnflag):
@@ -604,15 +608,32 @@ class Oracle(object):
         self.rng.setstate(crn_state)
 
     def crn_advance(self):
-        """Jump ahead to the new crn, and set the new rewind point."""
-        if self.crnflag:
-            jump_substream(self.rng)
-            oldstate = self.rng.getstate()
-            self.set_crnold(oldstate)
+        """Jump ahead to the new crn baseline, and set the new rewind point."""
+        numjumps = self.simpar
+        self.crn_reset()
+        for i in range(numjumps):
+            self.rng = get_next_prnstream(self.rng.get_seed())
+        new_oldstate = self.rng.getstate()
+        self.set_crnold(new_oldstate)
 
     def crn_check(self):
+        '''Either go back to the baseline crn or jump to the next substream.'''
         if self.crnflag:
             self.crn_reset()
+        if not self.crnflag:
+            self.crn_nextobs()
+
+    def crn_setobs(self):
+        '''Set an intermediate rewind point for jumping correctly.'''
+        state = self.rng.getstate()
+        self.crn_obsold = state
+
+    def crn_nextobs(self):
+        '''Jump to the next substream from a correctly set starting point.'''
+        state = self.crn_obsold
+        self.rng.setstate(state)
+        jump_substream(self.rng)
+        self.crn_setobs()
 
     def hit(self, x, m):
         """Generate the mean of spending m simulation effort at point x.
@@ -638,6 +659,7 @@ class Oracle(object):
                 isfeas, objd = self.g(x, self.rng)
                 obmean = objd
                 obse = [0 for o in objd]
+                self.crn_nextobs()
             else:
                 if self.simpar == 1:
                     ## do not parallelize replications
@@ -647,6 +669,7 @@ class Oracle(object):
                         isfeas, objd = self.g(x, self.rng)
                         feas.append(isfeas)
                         objm.append(objd)
+                        self.crn_nextobs()
                     if all(feas):
                         isfeas = True
                         obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
@@ -686,6 +709,7 @@ class Oracle(object):
                     with mp.Pool(nproc) as p:
                         #[print('cha1: ', orc.rng.get_seed()) for orc in orclst]
                         for i, r in enumerate(num_rands):
+                            # this is weird but i guess possible
                             pres.append(p.apply_async(mp_objmethod, (orclst[i], 'hit', (x, r))))
                         for i in pr:
                             ## 0 = feas, 1 = mean, 2 = se

@@ -71,6 +71,12 @@ class TestSolve(BaseComm):
         else:
             testclasses = getmembers(testers, isclass)
             #testclass = [tc[1] for tc in testclasses if tc[0] == testarg][0]
+        ranx0 = False
+        if self.options['<x>']:
+            x0 = tuple(int(i) for i in self.options['<x>'])
+        else:
+            ranx0 = True
+            x0 = (0,)
         try:
             fakeprn = Random()
             testclass = [tc[1] for tc in testclasses if tc[0].lower() == base_mod_name.lower()][0]
@@ -108,12 +114,6 @@ class TestSolve(BaseComm):
             save_errortb(name, tstr)
             print('--* Aborting.')
             sys.exit()
-        ranx0 = False
-        if self.options['<x>']:
-            x0 = tuple(int(i) for i in self.options['<x>'])
-        else:
-            ranx0 = True
-            x0 = (0,)
         params = self.options['<param>']
         vals = self.options['<val>']
         solve_kwargs = dict()
@@ -134,9 +134,9 @@ class TestSolve(BaseComm):
         opt_durr = end_opt_time - start_opt_time
         humtxt = gen_humanfile(name, testarg, solvarg, budget, opt_durr, params, vals, seed, end_seed)
         seed = tuple([int(i) for i in end_seed])
+        print('-- Optimization run time: {0:.2f} seconds'.format(opt_durr))
         endstr = '-- ending seed:'
         print(f'{endstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
-        print('-- Optimization run time: {0:.2f} seconds'.format(opt_durr))
         save_metadata(name, humtxt)
         do_metrics = True
         mytester = testclass()

@@ -100,6 +100,7 @@ class RPERLE(RLESolver):
                     back_dist = self.fse(sexst[k_con])
                     if back_dist == 0.0:
                         back_dist = 0.000001
+                    #print(epnew, ' > ', fxst[k_con], ' and ', fxtb0[k_con], ' < ', epnew)
                     epnew = fxst[k_con] - back_dist
                 mcAeps |= mcA
         tmp = {x: self.gbar[x] for x in mcAeps | a1new}
