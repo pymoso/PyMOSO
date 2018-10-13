@@ -27,8 +27,8 @@ def solve(problem, solver, x0, **kwargs):
         paramlst.extend(paramtups)
     paramargs = dict(paramlst)
     res = isp_run(solver, budget, orc, **paramargs)
-    lastnu = len(res['les']) - 1
-    return res['les'][lastnu], res['endseed']
+    lastnu = len(res['itersoln']) - 1
+    return res['itersoln'][lastnu], res['endseed']
 
 
 def testsolve(tester, solver, x0, **kwargs):
@@ -122,6 +122,7 @@ def par_runs(joblst, num_proc=1):
     """Solve many problems in parallel."""
     NUM_PROCESSES = num_proc
     rundict = []
+    #print(joblst)
     with mp.Pool(NUM_PROCESSES) as p:
         worklist = [(isp_run, (e[0]), (e[1])) for e in joblst]
         app_rd = [p.apply_async(do_work, job) for job in worklist]
@@ -181,8 +182,13 @@ def does_dominate(g1, g2, delta1, delta2):
         if g2[i] + delta2[i] < g1[i] - delta1[i]:
             is_dom = False
         i = i + 1
-    if g2[0] == g1[0] and g2[1] == g1[1]:
-        is_dom = False
+    if is_dom:
+        is_equal = True
+        for i in range(dim):
+            if not g1[i] - delta1[i] == g2[i] + delta2[i]:
+                is_equal = False
+        if is_equal:
+            is_dom = False
     return is_dom
 
 

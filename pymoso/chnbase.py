@@ -56,7 +56,7 @@ class RASolver(MOSOSolver):
         # invoke the Retrospective approximation algorithm
         self.rasolve(lesnu, simcalls, budget)
         # name the data keys and return the results
-        resdict = {'les': lesnu, 'simcalls': simcalls, 'endseed': self.endseed}
+        resdict = {'itersoln': lesnu, 'simcalls': simcalls, 'endseed': self.endseed}
         return resdict
 
     def rasolve(self, phatnu, simcalls, budget):
@@ -404,6 +404,10 @@ class RASolver(MOSOSolver):
 
     def remove_nlwep(self, mcS):
         """Compute the subset of mcS that are not LWEPs."""
+        if not mcS:
+            print('--* Unknown Error: Function remove_nlwep recieved an empty set.')
+            print('--* Aborting. ')
+            sys.exit()
         r = self.nbor_rad
         lwepset = set()
         domset = set()
@@ -507,6 +511,7 @@ class RLESolver(RASolver):
         """Generate the Non-Conforming neighborhood of a candidate LES."""
         # initialize the non-conforming neighborhood
         ncn = set()
+        nisdom = set()
         d = self.num_obj
         r = self.nbor_rad
         dr = range(d)
@@ -516,14 +521,16 @@ class RLESolver(RASolver):
         for s in mcS:
             fs = self.gbar[s]
             ses = self.sehat[s]
-            dels = tuple(self.calc_delta(ses[i]) for i in dr)
+            #dels = tuple(self.calc_delta(ses[i]) for i in dr)
             snb = get_nbors(s, r) - mcS
             for x in snb:
                 isfeas, fx, sex = self.estimate(x)
                 if isfeas:
-                    delx = tuple(self.calc_delta(sex[i]) for i in dr)
+                    #delx = tuple(self.calc_delta(sex[i]) for i in dr)
                     if does_strict_dominate(fx, fs, delzero, delzero):
                         ncn |= {x}
+                    if does_strict_dominate(fs, fx, delzero, delzero):
+                        nisdom |= {x}
         # definition 9 (b) initialization
         for x in delN - ncn:
             isfeas, fx, sex = self.estimate(x)
@@ -540,23 +547,26 @@ class RLESolver(RASolver):
                 for s in mcS:
                     fs = self.gbar[s]
                     ses = self.sehat[s]
+                    if does_weak_dominate(fx, fs, delzero, delzero):
+                        doesweakdom = True
+                for s in mcS:
+                    fs = self.gbar[s]
+                    ses = self.sehat[s]
                     # set the relaxation of the LES candidate member
                     dels = tuple(self.calc_delta(ses[i]) for i in dr)
                     # definition 9 (b) (i)
                     if does_weak_dominate(fs, fx, delzero, delzero):
                         notweakdom = False
                     # definition 9 (b) (ii)
-                    if does_dominate(fx, fs, delzero, delzero) and does_dominate(fs, fx, dels, delx):
+                    if does_dominate(fx, fs, delzero, delzero) and does_weak_dominate(fs, fx, dels, delx):
                         notrelaxdom = False
                     # definition 9 (b) (iii)
-                    if does_weak_dominate(fx, fs, delzero, delzero):
-                        doesweakdom = True
                     if does_weak_dominate(fs, fx, dels, delx) or does_weak_dominate(fx, fs, delx, dels):
                         wouldnotchange = False
                 # definition 9 (b)
-                if notweakdom and notrelaxdom and (wouldnotchange or doesweakdom):
+                if notweakdom and notrelaxdom and (doesweakdom or wouldnotchange):
                     ncn |= {x}
-        return ncn
+        return ncn - nisdom
 
     def seek_lwep(self, mcNd, mcS):
         """Find a sample path LWEP."""
