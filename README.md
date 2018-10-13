@@ -11,6 +11,47 @@ We also include an implementation of R-SPLINE, which can be cited as follows:
 
 Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation optimization using R-SPLINE: Retrospective Search with Piecewise-Linear Interpolation and Neighborhood Enumeration. ACM Transactions on Modeling and Computer Simulation, Vol. 23, No. 3, Article 17 (July 2013), 24 pages. DOI:http://dx.doi.org/10.1145/2499913.2499916
 
+
+Table of Contents
+=================
+
+   * [PyMOSO](#pymoso)
+      * [Reference](#reference)
+      * [Installation](#installation)
+         * [Dependency: Python 3.6 ](#dependency-python-36)
+         * [Install from PyPI](#install-from-pypi)
+         * [Install latest trunk version from git](#install-latest-trunk-version-from-git)
+         * [Install from source](#install-from-source)
+      * [CLI](#cli)
+               * [CLI: listitems](#cli-listitems)
+               * [CLI: solve](#cli-solve)
+               * [CLI: testsolve](#cli-testsolve)
+               * [CLI: Output](#cli-output)
+               * [Table of options for solve and testsolve](#table-of-options-for-solve-and-testsolve)
+               * [Table of algorithm-specific parameters](#table-of-algorithm-specific-parameters)
+      * [Programming guide](#programming-guide)
+         * [Implementing a problem in PyMOSO](#implementing-a-problem-in-pymoso)
+               * [Template for implementing problems (myproblem.py)](#template-for-implementing-problems-myproblempy)
+               * [Using rng](#using-rng)
+               * [Simple example problem](#simple-example-problem)
+         * [Implementing a Tester in PyMOSO](#implementing-a-tester-in-pymoso)
+         * [Implementing algorithms in PyMOSO](#implementing-algorithms-in-pymoso)
+               * [Example MOSO algorithm in PyMOSO that uses RLE to ensure convergence (myaccel.py)](#example-moso-algorithm-in-pymoso-that-uses-rle-to-ensure-convergence-myaccelpy)
+               * [Example of an RA algorithm (myraalg.py)](#example-of-an-ra-algorithm-myraalgpy)
+               * [Example of a MOSO algorithm (mymoso.py)](#example-of-a-moso-algorithm-mymosopy)
+               * [Class Structure and internal functions](#class-structure-and-internal-functions)
+               * [Useful snippets for implementing RA algorithms](#useful-snippets-for-implementing-ra-algorithms)
+                  * [Sample a point](#sample-a-point)
+                  * [Sample the point's neighbors](#sample-the-points-neighbors)
+                  * [argsort the points by 1st objective](#argsort-the-points-by-1st-objective)
+                  * [choose the minimizer and its objectives](#choose-the-minimizer-and-its-objectives)
+                  * [Use SPLINE to get a local minimizer](#use-spline-to-get-a-local-minimizer)
+                  * [Get the non-dominated subset of every visited point](#get-the-non-dominated-subset-of-every-visited-point)
+                  * [Randomly choose points from the subset](#randomly-choose-points-from-the-subset)
+         * [Using PyMOSO in Python programs](#using-pymoso-in-python-programs)
+         * [Solve example](#solve-example)
+         * [TestSolve example](#testsolve-example)
+
 ## Installation
 ### Dependency: Python 3.6+
 This software requires Python 3.6 or higher. Python can be downloaded from https://www.python.org/downloads/.
