@@ -11,47 +11,6 @@ We also include an implementation of R-SPLINE, which can be cited as follows:
 
 Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation optimization using R-SPLINE: Retrospective Search with Piecewise-Linear Interpolation and Neighborhood Enumeration. ACM Transactions on Modeling and Computer Simulation, Vol. 23, No. 3, Article 17 (July 2013), 24 pages. DOI:http://dx.doi.org/10.1145/2499913.2499916
 
-
-Table of Contents
-=================
-
-   * [PyMOSO](#pymoso)
-      * [Reference](#reference)
-      * [Installation](#installation)
-         * [Dependency: Python 3.6 ](#dependency-python-36)
-         * [Install from PyPI](#install-from-pypi)
-         * [Install latest trunk version from git](#install-latest-trunk-version-from-git)
-         * [Install from source](#install-from-source)
-      * [CLI](#cli)
-               * [CLI: listitems](#cli-listitems)
-               * [CLI: solve](#cli-solve)
-               * [CLI: testsolve](#cli-testsolve)
-               * [CLI: Output](#cli-output)
-               * [Table of options for solve and testsolve](#table-of-options-for-solve-and-testsolve)
-               * [Table of algorithm-specific parameters](#table-of-algorithm-specific-parameters)
-      * [Programming guide](#programming-guide)
-         * [Implementing a problem in PyMOSO](#implementing-a-problem-in-pymoso)
-               * [Template for implementing problems (myproblem.py)](#template-for-implementing-problems-myproblempy)
-               * [Using rng](#using-rng)
-               * [Simple example problem](#simple-example-problem)
-         * [Implementing a Tester in PyMOSO](#implementing-a-tester-in-pymoso)
-         * [Implementing algorithms in PyMOSO](#implementing-algorithms-in-pymoso)
-               * [Example MOSO algorithm in PyMOSO that uses RLE to ensure convergence (myaccel.py)](#example-moso-algorithm-in-pymoso-that-uses-rle-to-ensure-convergence-myaccelpy)
-               * [Example of an RA algorithm (myraalg.py)](#example-of-an-ra-algorithm-myraalgpy)
-               * [Example of a MOSO algorithm (mymoso.py)](#example-of-a-moso-algorithm-mymosopy)
-               * [Class Structure and internal functions](#class-structure-and-internal-functions)
-               * [Useful snippets for implementing RA algorithms](#useful-snippets-for-implementing-ra-algorithms)
-                  * [Sample a point](#sample-a-point)
-                  * [Sample the point's neighbors](#sample-the-points-neighbors)
-                  * [argsort the points by 1st objective](#argsort-the-points-by-1st-objective)
-                  * [choose the minimizer and its objectives](#choose-the-minimizer-and-its-objectives)
-                  * [Use SPLINE to get a local minimizer](#use-spline-to-get-a-local-minimizer)
-                  * [Get the non-dominated subset of every visited point](#get-the-non-dominated-subset-of-every-visited-point)
-                  * [Randomly choose points from the subset](#randomly-choose-points-from-the-subset)
-         * [Using PyMOSO in Python programs](#using-pymoso-in-python-programs)
-         * [Solve example](#solve-example)
-         * [TestSolve example](#testsolve-example)
-
 ## Installation
 ### Dependency: Python 3.6+
 This software requires Python 3.6 or higher. Python can be downloaded from https://www.python.org/downloads/.
@@ -117,19 +76,19 @@ Help:
   test problems.
 ```
 For now, PyMOSO has three commands: `listitems`, `solve`, and `testsolve`, which we explain below.
-##### CLI: listitems
+#### listitems
 The command `listitems` shows the PyMOSO objects (problems, testers, solvers) included in the default installation. The identifiers can be used as arguments to `solve` and `testsolve`. PyMOSO objects implemented by users will not show up when using `listitems`.
-##### CLI: solve
+#### solve
 The `solve` command is intended for practitioners seeking to a solve a simulation optimization problem. Three arguments are required: `<problem>`, `<solver>`, and  `<x>...`. For `<problem>`, users may specify an identifier for a built-in problem. A list of such identifiers can be viewed using `listitems`. Alternatively, users may implement their own problem as a PyMOSO oracle (see the code examples below) and specify the file name.
 For example,  
 `pymoso solve myproblem.py RPERLE 40 40`  
 The `<solver>` argument again either an identifier to a built-in algorithm, or a file name for a user-implemented algorithm. The `<x>...` is a feasible starting point for the algorithm, with each component of the starting point separated by a space. Any number of the options listed above can also be specified before the arguments. At the end of this section, we list the options and provide more detailed explanations. The `<x>` argument cannot take negative numbers from the command line. Use PyMOSO in a Python program if a negative starting point is required (see examples below).   
-##### CLI: testsolve
+#### testsolve
 The `testsolve` command is intended for researchers creating new simulation optimization algorithms.  Two arguments are required: `<tester>` and `<solver>`. Similar to `solve`, `<tester>` and `<solver>` may be specified as identifiers to built-in testers or as Python files containing user-implemented objects. Specifying `<x>...` is optional: testers may implement a method to generate feasible starting points. If not, then `<x>...` can be provided.  
-##### CLI: Output
+#### Output
 Both `solve` and `testsolve` create a subdirectory within the working directory in which the generated results are saved. In the case of `solve`, the directory typically contains two files: a file containing metadata such as the arguments and options specified, date, run time, and more. The second file contains the solution generated by the chosen solver. If applicable, an error file may be generated. If an error is generated, users may send the metadata file, the error file, and any user-implemented PyMOSO objects to us for assistance. In the case of `testsolve`, the file containing the solution will instead contain multiple solutions, with the last row containing the end solution returned by the algorithm. The intermediate solutions are provided to give a researchers a sense of how the algorithm progresses. If the `--isp` option is specified to generate multiple independent sample path solutions, there will a solution file for every independent sample path. If the `--metric` options is specified, the metric defined in the `<tester>` will be computed on the solutions and saved in a separate file.  All available options to `solve` or `testsolve` are specified below.  
 
-##### Table of options for solve and testsolve
+#### Table of options for solve and testsolve
 | Option | Description |
 | ----------- | ----------- |
 |`--budget=B`| The simulation budget limits the number of simulations the algorithm can use to generate a solution. `B` should be a natural number. |
@@ -143,7 +102,7 @@ Both `solve` and `testsolve` create a subdirectory within the working directory 
 |`--param <param> <val>`| Specify a parameter by name and value. These are algorithm-specific parameters.|
 
 
-##### Table of algorithm-specific parameters
+#### Table of algorithm-specific parameters
 | Algorithm | Parameter | Default | Description |
 | --------- | --------- | ------- | ----------- |
 | `RPERLE`, `RMINRLE`, `RPE`, `RSPLINE` | `mconst` | `2` | Sets the initial sample size, and subsequent schedule of sample sizes. |
@@ -158,7 +117,7 @@ Users can implement their own problems in PyMOSO using `myproblem.py` below as t
 1. `True` or `False` depending on if `x` is feasible to the problem.
 1. A tuple of length `self.num_obj` containing the value of each objective.
 
-##### Template for implementing problems (myproblem.py)
+#### Template for implementing problems (myproblem.py)
 ```python
 # import the Oracle base class
 from pymoso.chnbase import Oracle
@@ -182,7 +141,7 @@ class MyProblem(Oracle):
         return is_feas, (obj1, obj2)
 ```
 
-##### Using `rng`
+#### Using `rng`
 Though not required, users may use the `rng` random number generator object. Doing so allows algorithms to take advantage of common random numbers and ensures parallelized simulation replications are independent. The implementation of the `rng` object is a subclass of Python's `random.Random()` where the underlying generator is `mrg32k3a`. Thus, Python's own `random` documentation applies to `rng` and can be found at https://docs.python.org/3/library/random.html. We follow the example of L'Ecuyer et al. 2001 for `mrg32k3a` and implementing its independent streams and substreams.
 
 L'Ecuyer, P., Simard, R., Chen, E. J., Kelton, W. D. An Object-Oriented Random-Number Package with Many Long Streams and Substreams. (2002). Operations Research, 50(6), 1073-1075.  
@@ -195,7 +154,7 @@ To be compatible with common random numbers, users can simply use the generator.
 
 To ensure independent sampling of observations, PyMOSO "jumps" the stream after every observation by a fixed amount of `pow(2, 76)`. Thus, we require that every simulation observation use fewer than `pow(2, 76)` random numbers for users needing independent replications. We ensure independence among parallel replications by "giving" each processor an `rng` each of which are `pow(2, 127)` randomn numbers apart. When using the included algorithms, each retrospective iteration begins with a new independent stream `pow(2, 127)` from the beginning of the previous stream, where PyMOSO sets the previous stream to account for any parallel streams used within a retrospective iteration. thus, in a given retrospective iteration, a user may simulate 100 million points at a sample size of 1 million, without common random numbers, and easily not reach the limit.  For researchers using `testsolve`, the observations cannot be taken in parallel, but independent algorithm instances can be. To ensure the instances remain independent, researchers should set the budget such that the included algorithms do not surpass 200 retrospective iterations. For reference, on default settings, the sample size at every point in the 200th iteration is almost 380 million.
 
-##### Simple example problem
+#### Simple example problem
 ```python
 def g(self, x, rng):
     '''Check feasibility and simulate objective values.'''
@@ -290,7 +249,7 @@ Users can leverage internal PyMOSO structures to implement new algorithms. It is
 
 Pasupathy R, Ghosh S (2013) Simulation optimization: a concise overview and implementation guide. Topaloglu H, ed., TutORials in Operations Research, chapter 7, 122–150 (Catonsville, MD: INFORMS), URL http://dx.doi.org/10.1287/educ.2013.0118.
 
-##### Example MOSO algorithm in PyMOSO that uses RLE to ensure convergence (myaccel.py)
+#### Example MOSO algorithm in PyMOSO that uses RLE to ensure convergence (myaccel.py)
 ```python
 from pymoso.chnbase import RLESolver
 
@@ -309,7 +268,7 @@ Programmers can use pymoso to create new algorithms that use RLE for convergence
 Once implmented, solve a problem using the accelerator as follows.  
 `pymoso solve myproblem.py myaccel.py 97`  
 
-##### Example of an RA algorithm (myraalg.py)
+#### Example of an RA algorithm (myraalg.py)
 ```python
 from pymoso.chnbase import RASolver
 
@@ -327,7 +286,7 @@ More generally, algorithm designers can quickly implement any retrospective appr
 
 `pymoso solve myproblem.py myraalg.py 97`
 
-##### Example of a MOSO algorithm (mymoso.py)
+#### Example of a MOSO algorithm (mymoso.py)
 ```python
 from pymoso.chnbase import MOSOSolver
 
@@ -352,10 +311,11 @@ class MyMOSO(MOSOSolver):
 
 PyMOSO can accommodate any simulation optimization algorithm by implementing the `solve` function of a `MOSOSolver` class as shown. It does not have to be a multi-objective algorithm.  PyMOSO will require users to send an initial feasible point `x0` whether or not the algorithm needs it. It is accessed through `self.x0` which is a tuple. The return value must be a Python dictionary with the keys 'itersoln', 'simcalls', and 'endseed'. 'itersoln' itself is a dictionary with a key for every iteration (or a number indicating some ordered, intermediate step of the algorithm). Similarly, `simcalls` is itself a dictionary of iteration number by cumulative number of simulations at the end of the corresponding iteration. `endseed` is a tuple of length 6 representing a new indpendent `rng` seed users can pass into the next PyMOSO invocation.
 
-##### Class Structure and internal functions
+#### PyMOSO internals
 The base class `MOSOSolver` implements basic members required to solve MOSO problems. To implement a general (i.e. non-RA) MOSO algorithm in pymoso, one must subclass `MOSOSolver` and implement the `MOSOSolver.solve` function with signature `solve(self, budget)` and it must return a set, even if the set contains a single point. `RASolver` is a subclass of `MOSOSolver` which provides the machinery needed to quickly implement a retrospective approximation algorithm. To implement an RA algorithm, one must subclass `RASolver` and implement its `spsolve` method with signature `spsolve(self, warm_start)` which returns a set of points.`RLESolver`, subclass of `RASolver`, allows quick implementation of MOSO solvers that use `RLE` to ensure convergence, as shown in the example accelerator above. One only needs to implement the `accel` method of `RLESolver`. Oracles are the problems that PyMOSO can solve. Here, we provide a listing of the important objects available to pymoso programmers who are implementing MOSO algorithms.
 
-| PyMOSO internals | Example | Description |
+##### Table of PyMOSO internals
+| PyMOSO internal object | Example | Description |
 | ------------- | ------- | ----------- |
 |`pymoso.prng.mrg32k3a.MRG32k3a`| `rng = MRG32k3a()` | Subclass of `random.Random()` for generating random numbers. |
 |`pymoso.prng.mrg32k3a.get_next_prnstream`| `prn = get_next_prnstream(seed)` | Returns a stream 2^127 places from the given `seed` |
@@ -389,7 +349,7 @@ The base class `MOSOSolver` implements basic members required to solve MOSO prob
 |`RLESolver.betadel` | `bd = RLESolver.betadel` | The relaxation parameter used by `RLE`. |
 |`RLESolver.calc_delta` | `d = RLESolver.calc_delta(nu)` | Compute the relaxation for iteration `nu`. |
 
-
+##### Table of chnutils functions
 | chnutils function | Example | Description |
 | ------------- | ------- | ----------- |
 |`does_weak_dominate` | `dwd = does_weak_dominate(g1, g2, rel1, rel2)` | Returns true if `g1[i] - rel1[i] <= g2[i] + rel2[i]` for every `i`.
@@ -400,9 +360,9 @@ The base class `MOSOSolver` implements basic members required to solve MOSO prob
 |`get_nbors` | `nbors = get_nbors(x, r)` | Return the set of points no farther than `r` from `x` and exclude `x`. |
 |`get_setnbors` | `nbors = get_setnbors(S, r)` | Excluding points in the set `S`, return `get_nbors(s, r)` for every `s` in `S`. |
 
-##### Useful snippets for implementing RA algorithms
+#### Useful snippets for implementing RA algorithms
 These snippets will work within the `spsolve` and/or the `accel` functions in the `myaccel.py` and `myraalg.py` examples above.
-###### Sample a point
+##### Sample a point
 ```python
 from pymoso.chnutils import get_nbors
 # pretend x has not yet been visited in this RA iteration and is feasible
@@ -425,7 +385,7 @@ isfeas, fx, se = self.estimate(x)
 calls_used = self.num_calls - start_num_calls
 print(calls_used == 0) # True
 ```
-###### Sample the point's neighbors
+##### Sample the point's neighbors
 ```python
 # neighborhood radiuss
 r = self.nbor_rad
@@ -437,17 +397,17 @@ for n in nbors:
 # upsample also returns the feasible subset
 nbors = self.upsample(nbors)
 ```
-###### argsort the points by 1st objective
+##### argsort the points by 1st objective
 ```python
 # 0 index for first objective
 sorted_feas = sorted(nbors | {x}, key=lambda t: self.gbar[t][0])
 ```
-###### choose the minimizer and its objectives
+##### choose the minimizer and its objectives
 ```python
 xmin = sorted_feas[0]
 fxmin = self.gbar[x]
 ```
-###### Use SPLINE to get a local minimizer
+##### Use SPLINE to get a local minimizer
 ```python
 # no constraints and minimize the 2nd objective
 x0 = (2, 2, 2)
@@ -456,12 +416,12 @@ isfeas, fx, sex = self.estimate(x0)
 _, xmin, fxmin, sexmin = self.spline(x0, float('inf'), 1, 0)
 print(self.gbar[xmin] == fxmin) # True
 ```
-###### Get the non-dominated subset of every visited point
+##### Get the non-dominated subset of every visited point
 ```python
 from chnutils import get_nondom
 nondom = get_nondom(self.gbar)
 ```
-###### Randomly choose points from the subset
+##### Randomly choose points from the subset
 ```python
 solver_rng = self.sprn
 # pick 5 points -- returns a list, not a set.
@@ -469,7 +429,7 @@ ran_pts = solver_rng.sample(list(nondom), 5)
 one_in_five = solver_rng.choice(ran_pts)
 ```
 
-### Using PyMOSO in Python programs
+## Using PyMOSO in Python programs
 ### Solve example
 ```python
 # import the solve function
