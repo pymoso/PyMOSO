@@ -332,7 +332,7 @@ The base class `MOSOSolver` implements basic members required to solve MOSO prob
 | `Oracle.num_obj` | `no = Oracle.num_obj` | The number of objectives. |
 | `Oracle.dim` | `dim = Oracle.dim` | The cardinality of the feasible points. |
 | `MOSOSolver.orc` | `MOSOSolver.orc.hit(x, 4)` | The simulation oracle object being solved. |
-| `MOSOSolver.num_calls` | nc = MOSOSolver.num_calls | The current number of simulations used. |
+| `MOSOSolver.num_calls` | `nc = MOSOSolver.num_calls` | The current number of simulations used. |
 | `MOSOSOlver.num_obj` | `no = MOSOSolver.num_obj` | Should match `MOSOSolver.orc.num_obj` |
 | `MOSOSolver.dim` | `dim = MOSOSolver.dim` | Should match `MOSOSolver.orc.dim` |
 | `RASolver.gbar`   | `objs = self.gbar[x]` | A dictionary of the estimated values for visited points in the current retrospective iteration. |
