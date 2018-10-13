@@ -155,7 +155,7 @@ To be compatible with common random numbers, users can simply use the generator.
 To ensure independent sampling of observations, PyMOSO "jumps" the stream after every observation by a fixed amount of `pow(2, 76)`. Thus, we require that every simulation observation use fewer than `pow(2, 76)` random numbers for users needing independent replications. We ensure independence among parallel replications by "giving" each processor an `rng` each of which are `pow(2, 127)` randomn numbers apart. When using the included algorithms, each retrospective iteration begins with a new independent stream `pow(2, 127)` from the beginning of the previous stream, where PyMOSO sets the previous stream to account for any parallel streams used within a retrospective iteration. thus, in a given retrospective iteration, a user may simulate 100 million points at a sample size of 1 million, without common random numbers, and easily not reach the limit.  For researchers using `testsolve`, the observations cannot be taken in parallel, but independent algorithm instances can be. To ensure the instances remain independent, researchers should set the budget such that the included algorithms do not surpass 200 retrospective iterations. For reference, on default settings, the sample size at every point in the 200th iteration is almost 380 million.
 
 ##### Simple example problem
-```
+```python
 def g(self, x, rng):
     '''Check feasibility and simulate objective values.'''
     # feasible values for x in this example
@@ -186,7 +186,7 @@ Once implemented, the problem can be solved with, say, R-PERLE using the followi
 Researchers will want to incorporate the `MyProblem` into a `MyTester`. Testers allow researchers to compare algorithm performance using a known solution, a function to generate the true objective values at every feasible point, and a function to compute a metric from a generated solution to the known solution. For the included algorithms, the metric will be recorded on the solution generated every algorithm iteration.
 
 ### Implementing a Tester in PyMOSO
-```
+```python
 import sys, os
 sys.path.insert(0,os.path.dirname(__file__))
 # use hausdorff distance (dh) as an example metric
@@ -232,7 +232,7 @@ To test a problem using the `testsolve` command, implement a `Tester` object as 
 `pymoso testsolve mytester.py RPERLE 97`   
 
 Implement a `MyTester.get_ranx0(rng)` method if you want a tester that can generate random starting points. For example, using `MyProblem` feasible space.
-```
+```python
 def get_ranx0(self, rng):
     val = rng.choice(range(-100, 101))
     x0 = (val, )
@@ -250,7 +250,7 @@ Users can leverage internal PyMOSO structures to implement new algorithms. It is
 Pasupathy R, Ghosh S (2013) Simulation optimization: a concise overview and implementation guide. Topaloglu H, ed., TutORials in Operations Research, chapter 7, 122–150 (Catonsville, MD: INFORMS), URL http://dx.doi.org/10.1287/educ.2013.0118.
 
 ##### Example MOSO algorithm in PyMOSO that uses RLE to ensure convergence (myaccel.py)
-```
+```python
 from pymoso.chnbase import RLESolver
 
 # create a subclass of RLESolver
@@ -269,7 +269,7 @@ Once implmented, solve a problem using the accelerator as follows.
 `pymoso solve myproblem.py myaccel.py 97`  
 
 ##### Example of an RA algorithm (myraalg.py)
-```
+```python
 from pymoso.chnbase import RASolver
 
 # create a subclass of RASolver
@@ -287,7 +287,7 @@ More generally, algorithm designers can quickly implement any retrospective appr
 `pymoso solve myproblem.py myraalg.py 97`
 
 ##### Example of a MOSO algorithm (mymoso.py)
-```
+```python
 from pymoso.chnbase import MOSOSolver
 
 # create a subclass of MOSOSolver
@@ -362,7 +362,7 @@ The base class `MOSOSolver` implements basic members required to solve MOSO prob
 ##### Useful snippets for implementing RA algorithms
 These snippets will work within the `spsolve` and/or the `accel` functions in the `myaccel.py` and `myraalg.py` examples above.
 ###### Sample a point
-```
+```python
 from pymoso.chnutils import get_nbors
 # pretend x has not yet been visited in this RA iteration and is feasible
 x = (1, 1, 1)
@@ -385,7 +385,7 @@ calls_used = self.num_calls - start_num_calls
 print(calls_used == 0) # True
 ```
 ###### Sample the point's neighbors
-```
+```python
 # neighborhood radiuss
 r = self.nbor_rad
 nbors = get_nbors(x0, r)
@@ -397,17 +397,17 @@ for n in nbors:
 nbors = self.upsample(nbors)
 ```
 ###### argsort the points by 1st objective
-```
+```python
 # 0 index for first objective
 sorted_feas = sorted(nbors | {x}, key=lambda t: self.gbar[t][0])
 ```
 ###### choose the minimizer and its objectives
-```
+```python
 xmin = sorted_feas[0]
 fxmin = self.gbar[x]
 ```
 ###### Use SPLINE to get a local minimizer
-```
+```python
 # no constraints and minimize the 2nd objective
 x0 = (2, 2, 2)
 isfeas, fx, sex = self.estimate(x0)
@@ -416,12 +416,12 @@ _, xmin, fxmin, sexmin = self.spline(x0, float('inf'), 1, 0)
 print(self.gbar[xmin] == fxmin) # True
 ```
 ###### Get the non-dominated subset of every visited point
-```
+```python
 from chnutils import get_nondom
 nondom = get_nondom(self.gbar)
 ```
 ###### Randomly choose points from the subset
-```
+```python
 solver_rng = self.sprn
 # pick 5 points -- returns a list, not a set.
 ran_pts = solver_rng.sample(list(nondom), 5)
@@ -430,7 +430,7 @@ one_in_five = solver_rng.choice(ran_pts)
 
 ### Using PyMOSO in Python programs
 ### Solve example
-```
+```python
 # import the solve function
 from pymoso.chnutils import solve
 # import the module containing the RPERLE implementation
@@ -448,7 +448,7 @@ The `solve` function can take keyword arguments. The keyword values correspond t
 Here is a listing:  `budget`, `simpar`, `seed`. Algorithm-specific parameters can also be passed as keyword arguments. `soln` is a set of tuples representing points.
 
 ### TestSolve example
-```
+```python
 # import the testsolve functions
 from pymoso.chnutils import testsolve
 # import the module containing RPERLE
@@ -464,7 +464,7 @@ run_data = testsolve(MyTester, rp.RPERLE, x0, isp=20, proc=4)
 The `testsolve` function can take keyword arguments. The keyword values correspond to options in the command line help.
 Here is a listing: `budget`, `seed`, `isp`, `proc`. `run_data` is a dictionary with `range(isp)` as the keys. The value of each key is also a dictionary, with keys of `itersoln`, `simcalls`, and `endseed`. `itersoln` is itself a dictionary containing the list of solutions generated by the algorithm as it progresses. It's keys are iteration numbers. To compute the metric from, say, the solution at iteration 5 to the known solution of the 12th independent sample path, add code as follows.
 
-```
+```python
 iter5_soln = run_data[12]['itersoln'][5]
 isp12_iter5_metric = MyTester.metric(iter5_soln)
 ```
