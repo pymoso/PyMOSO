@@ -314,7 +314,7 @@ PyMOSO can accommodate any simulation optimization algorithm by implementing the
 ##### Class Structure and internal functions
 The base class `MOSOSolver` implements basic members required to solve MOSO problems. To implement a general (i.e. non-RA) MOSO algorithm in pymoso, one must subclass `MOSOSolver` and implement the `MOSOSolver.solve` function with signature `solve(self, budget)` and it must return a set, even if the set contains a single point. `RASolver` is a subclass of `MOSOSolver` which provides the machinery needed to quickly implement a retrospective approximation algorithm. To implement an RA algorithm, one must subclass `RASolver` and implement its `spsolve` method with signature `spsolve(self, warm_start)` which returns a set of points.`RLESolver`, subclass of `RASolver`, allows quick implementation of MOSO solvers that use `RLE` to ensure convergence, as shown in the example accelerator above. One only needs to implement the `accel` method of `RLESolver`. Oracles are the problems that PyMOSO can solve. Here, we provide a listing of the important objects available to pymoso programmers who are implementing MOSO algorithms.
 
-| pymoso object | Example | Description |
+| PyMOSO internals | Example | Description |
 | ------------- | ------- | ----------- |
 |`pymoso.prng.mrg32k3a.MRG32k3a`| `rng = MRG32k3a()` | Subclass of `random.Random()` for generating random numbers. |
 |`pymoso.prng.mrg32k3a.get_next_prnstream`| `prn = get_next_prnstream(seed)` | Returns a stream 2^127 places from the given `seed` |
@@ -359,6 +359,34 @@ The base class `MOSOSolver` implements basic members required to solve MOSO prob
 |`get_nbors` | `nbors = get_nbors(x, r)` | Return the set of points no farther than `r` from `x` and exclude `x`. |
 |`get_setnbors` | `nbors = get_setnbors(S, r)` | Excluding points in the set `S`, return `get_nbors(s, r)` for every `s` in `S`. |
 
+##### Useful snippets for implementing RA algorithms
+These snippets will work within the `spsolve` and/or the `accel` functions in the `myaccel.py` and `myraalg.py` examples above.
+###### Sample a point and its neighbors
+```
+from pymoso.chnutils import get_nbors
+# pretend x has not yet been visited in this RA iteration and is feasible
+x = (1, 1, 1)
+
+m = self.m # the sample size for this RA iteration
+start_num_calls = self.num_calls # the cumulative number of simulations used
+isfeas, fx, se = self.estimate(x)
+
+calls_used = self.num_calls - start_num_calls
+print(m == calls_used) # True
+print(fx == self.gbar[x]) # True
+print(se, self.sehat[x]) # True
+
+start_num_calls = self.num_calls
+isfeas, fx, se = self.estimate(x)
+calls_used = self.num_calls - start_num_calls
+print(calls_used == 0) # True
+
+nbors = get_nbors(x0, r)
+self.upsample(nbors)
+for n in nbors:
+  print(n in self.gbar) # True if n is feasible else False
+
+```
 
 ### Using PyMOSO in Python programs
 ### Solve example
