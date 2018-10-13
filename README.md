@@ -118,7 +118,7 @@ Users can implement their own problems in PyMOSO using `myproblem.py` below as t
 1. A tuple of length `self.num_obj` containing the value of each objective.
 
 ##### Template for implementing problems (myproblem.py)
-```
+```python
 # import the Oracle base class
 from pymoso.chnbase import Oracle
 
