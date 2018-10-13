@@ -361,31 +361,71 @@ The base class `MOSOSolver` implements basic members required to solve MOSO prob
 
 ##### Useful snippets for implementing RA algorithms
 These snippets will work within the `spsolve` and/or the `accel` functions in the `myaccel.py` and `myraalg.py` examples above.
-###### Sample a point and its neighbors
+###### Sample a point
 ```
 from pymoso.chnutils import get_nbors
 # pretend x has not yet been visited in this RA iteration and is feasible
 x = (1, 1, 1)
 
-m = self.m # the sample size for this RA iteration
-start_num_calls = self.num_calls # the cumulative number of simulations used
+# self.m is the sample size of the current RA iteration
+m = self.m
+# self.num_calls is the cumulative number of simulations used till now
+start_num_calls = self.num_calls
+# use estimate to sample x and put results in self.gbar and self.sehat
 isfeas, fx, se = self.estimate(x)
-
 calls_used = self.num_calls - start_num_calls
 print(m == calls_used) # True
 print(fx == self.gbar[x]) # True
 print(se, self.sehat[x]) # True
 
+# estimate will not simulate again in subsequent visits to a point
 start_num_calls = self.num_calls
 isfeas, fx, se = self.estimate(x)
 calls_used = self.num_calls - start_num_calls
 print(calls_used == 0) # True
-
+```
+###### Sample the point's neighbors
+```
+# neighborhood radiuss
+r = self.nbor_rad
 nbors = get_nbors(x0, r)
 self.upsample(nbors)
 for n in nbors:
-  print(n in self.gbar) # True if n is feasible else False
+  print(n in self.gbar) # True if n feasible else False
 
+# upsample also returns the feasible subset
+nbors = self.upsample(nbors)
+```
+###### argsort the points by 1st objective
+```
+# 0 index for first objective
+sorted_feas = sorted(nbors | {x}, key=lambda t: self.gbar[t][0])
+```
+###### choose the minimizer and its objectives
+```
+xmin = sorted_feas[0]
+fxmin = self.gbar[x]
+```
+###### Use SPLINE to get a local minimizer
+```
+# no constraints and minimize the 2nd objective
+x0 = (2, 2, 2)
+isfeas, fx, sex = self.estimate(x0)
+# the suppressed value is the set visited along SPLINE's trajectory
+_, xmin, fxmin, sexmin = self.spline(x0, float('inf'), 1, 0)
+print(self.gbar[xmin] == fxmin) # True
+```
+###### Get the non-dominated subset of every visited point
+```
+from chnutils import get_nondom
+nondom = get_nondom(self.gbar)
+```
+###### Randomly choose points from the subset
+```
+solver_rng = self.sprn
+# pick 5 points -- returns a list, not a set.
+ran_pts = solver_rng.sample(list(nondom), 5)
+one_in_five = solver_rng.choice(ran_pts)
 ```
 
 ### Using PyMOSO in Python programs
