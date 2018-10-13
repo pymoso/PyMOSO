@@ -295,7 +295,12 @@ def get_nondom(edict):
     pts = list(edict.keys())
     vals = list(edict.values())
     sind = argsort(vals)
-    Mpts, Mobjs = front(pts, vals)
+    newpts = []
+    newvals = []
+    for i in range(len(pts)):
+        newpts.append(pts[sind[i]])
+        newvals.append(vals[sind[i]])
+    Mpts, Mobjs = front(newpts, newvals)
     return set(Mpts)
 
 

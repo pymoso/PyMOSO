@@ -5,7 +5,7 @@ from math import sqrt, ceil, floor
 from .prng.mrg32k3a import get_next_prnstream, jump_substream
 import multiprocessing as mp
 import sys
-from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate
+from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
 
 
 def mp_objmethod(instance, name, args=(), kwargs=None):
@@ -511,7 +511,7 @@ class RLESolver(RASolver):
         """Generate the Non-Conforming neighborhood of a candidate LES."""
         # initialize the non-conforming neighborhood
         ncn = set()
-        nisdom = set()
+        #nisdom = set()
         d = self.num_obj
         r = self.nbor_rad
         dr = range(d)
@@ -529,8 +529,8 @@ class RLESolver(RASolver):
                     #delx = tuple(self.calc_delta(sex[i]) for i in dr)
                     if does_strict_dominate(fx, fs, delzero, delzero):
                         ncn |= {x}
-                    if does_strict_dominate(fs, fx, delzero, delzero):
-                        nisdom |= {x}
+                    # if does_strict_dominate(fs, fx, delzero, delzero):
+                    #     nisdom |= {x}
         # definition 9 (b) initialization
         for x in delN - ncn:
             isfeas, fx, sex = self.estimate(x)
@@ -566,7 +566,7 @@ class RLESolver(RASolver):
                 # definition 9 (b)
                 if notweakdom and notrelaxdom and (doesweakdom or wouldnotchange):
                     ncn |= {x}
-        return ncn - nisdom
+        return ncn
 
     def seek_lwep(self, mcNd, mcS):
         """Find a sample path LWEP."""
