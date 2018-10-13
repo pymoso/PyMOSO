@@ -376,7 +376,7 @@ isfeas, fx, se = self.estimate(x)
 calls_used = self.num_calls - start_num_calls
 print(m == calls_used) # True
 print(fx == self.gbar[x]) # True
-print(se, self.sehat[x]) # True
+print(se == self.sehat[x]) # True
 
 # estimate will not simulate again in subsequent visits to a point
 start_num_calls = self.num_calls
