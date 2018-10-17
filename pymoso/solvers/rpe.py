@@ -5,7 +5,7 @@ import sys
 
 
 class RPE(RASolver):
-    """Use P-epsilon as a sample path solver, no RLE."""
+    """A solver using R-Pe for integer-ordered bi-objective MOSO."""
 
     def __init__(self, orc, **kwargs):
         self.betaeps = kwargs.pop('betaeps', 0.5)

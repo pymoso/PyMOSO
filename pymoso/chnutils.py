@@ -136,8 +136,8 @@ def par_runs(joblst, num_proc=1):
 def gen_metric(rundat, tester):
     """Generate metrics for a sample path run."""
     met_data = {}
-    for nu in rundat['les']:
-        les_nu = rundat['les'][nu]
+    for nu in rundat['itersoln']:
+        les_nu = rundat['itersoln'][nu]
         calls_nu = rundat['simcalls'][nu]
         met_nu = tester.metric(les_nu)
         met_data[nu] = (nu, calls_nu, met_nu)
