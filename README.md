@@ -107,7 +107,7 @@ ProbTPC                        Test Problem C                 TPCTester
 ```
 
 ### The `solve` command
-The PyMOSO `solve` command is for solving MOSO problems. Users can solve the built-in problems (use the `listitems` command to view the built-in problems), however, PyMOSO `solve` users typically will have their own MOSO problem they wish to solve. Thus, we assume users have implemented a PyMOSO oracle named `MyProblem` in `myproblem.py`.  In the examples that follow, we assume the `MyProblem` implementation below, which is a bi-objective oracle with one-dimensional feasible points. See [Implementing PyMOSO Oracles](#Implementing PyMOSO Oracles) for instructions on implementing a MOSO problem as a PyMOSO oracle.  
+The PyMOSO `solve` command is for solving MOSO problems. Users can solve the built-in problems (use the `listitems` command to view the built-in problems), however, PyMOSO `solve` users typically will have their own MOSO problem they wish to solve. Thus, we assume users have implemented a PyMOSO oracle named `MyProblem` in `myproblem.py`.  In the examples that follow, we assume the `MyProblem` implementation below, which is a bi-objective oracle with one-dimensional feasible points. See [Implementing PyMOSO Oracles](#Implementing-PyMOSO-Oracles) for instructions on implementing a MOSO problem as a PyMOSO oracle.  
 
 ```python3
 # import the Oracle base class
