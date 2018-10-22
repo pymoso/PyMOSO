@@ -6,7 +6,7 @@ PyMOSO is software for solving multi-objective simulation (MOSO) problems and fo
 
 If you use PyMOSO in work leading to publication, please cite the paper which introduces PyMOSO.
 
---citation available soon
+Cooper, K., Hunter, S. R. 2018. PyMOSO: Software for Multi-Objective Simulation Optimization with R-PeRLE and R-MinRLE. Optimization Online, http://www.optimization-online.org/DB_HTML/2018/10/6876.html.
 
 ## Additional Reading
 The initial release of PyMOSO contains solvers that implement four total algorithms, in alphabetical order: R-MinRLE, R-Pe, R-PERLE, and R-SPLINE.  The algorithms R-MinRLE, R-Pe, R-PERLE were introduced in the following paper:
@@ -107,80 +107,103 @@ ProbTPC                        Test Problem C                 TPCTester
 ```
 
 ### The `solve` command
-The \pychn\ \inline{solve} command is for solving MOSO problems. Users can solve the built-in problems (use the \inline{listitems} command to view the built-in problems), however, \pychn\ \inline{solve} users typically will have their own MOSO problem they wish to solve. Thus, we assume users have implemented a \pychn\ oracle named \inline{MyProblem} in \inline{myproblem.py}.  In the examples that follow, we assume the \inline{MyProblem} implementation in Figure~\ref{app:myproblem}, which is a bi-objective oracle with one-dimensional feasible points. See \S\ref{app:oracle} for instructions on implementing a MOSO problem as a \pychn\ oracle.
+The PyMOSO `solve` command is for solving MOSO problems. Users can solve the built-in problems (use the `listitems` command to view the built-in problems), however, PyMOSO `solve` users typically will have their own MOSO problem they wish to solve. Thus, we assume users have implemented a PyMOSO oracle named `MyProblem` in `myproblem.py`.  In the examples that follow, we assume the `MyProblem` implementation below, which is a bi-objective oracle with one-dimensional feasible points. See [Implementing PyMOSO Oracles](#Implementing PyMOSO Oracles) for instructions on implementing a MOSO problem as a PyMOSO oracle.  
 
-The template \inline{solve} command is \inline{pymoso solve oracle solver x0}, where \inline{oracle} is a built-in or user-defined oracle, \inline{solver} is a built-in or user-defined algorithm, and \inline{x0} is a feasible starting point for the solver, with a space between each component. As a first example, we solve the user-defined \inline{MyProblem} using the built-in \rperle\ starting at the feasible point 97.
+```python3
+# import the Oracle base class
+from pymoso.chnbase import Oracle
 
-\begin{figure}[b]
-\lstinputlisting[basicstyle=\scriptsize, showstringspaces=false, numbers=left, xleftmargin=3em, language=python, frame=single, framexleftmargin=2.5em,belowskip=-0.1\baselineskip]{myproblem.py}
-\caption{The file \inline{myproblem.py} implements the example \inline{MyProblem}. }
-\label{app:myproblem}
-\end{figure}
+class MyProblem(Oracle):
+    '''Example implementation of a user-defined MOSO problem.'''
+    def __init__(self, rng):
+        '''Specify the number of objectives and dimensionality of points.'''
+        self.num_obj = 2
+        self.dim = 1
+        super().__init__(rng)
 
-\inline{pymoso solve myproblem.py RPERLE 97}
+    def g(self, x, rng):
+        '''Check feasibility and simulate objective values.'''
+        # feasible values for x in this example
+        feas_range = range(-100, 101)
+        # initialize obj to empty and is_feas to False
+        obj = []
+        is_feas = False
+        # check that dimensions of x match self.dim
+        if len(x) == self.dim:
+            is_feas = True
+            # then check that each component of x is in the range above
+            for i in x:
+                if not i in feas_range:
+                    is_feas = False
+        # if x is feasible, simulate the objectives
+        if is_feas:
+            #use rng to generate random numbers
+            z0 = rng.normalvariate(0, 1)
+            z1 = rng.normalvariate(0, 1)
+            obj1 = x[0]**2 + z0
+            obj2 = (x[0] - 2)**2 + z1
+            obj = (obj1, obj2)
+        return is_feas, obj
+```
 
-\noindent Similarly, we can solve built-in problems, such as \inline{ProbTPA} which has two-dimensional feasible points.
+The template `solve` command is `pymoso solve oracle solver x0`, where `oracle` is a built-in or user-defined oracle, `solver` is a built-in or user-defined algorithm, and `x0` is a feasible starting point for the solver, with a space between each component. As a first example, we solve the user-defined `MyProblem` using the built-in R-PERLE starting at the feasible point 97.  
 
-\inline{pymoso solve ProbTPA RPERLE 40 40}
 
-\noindent %Since solving \inline{ProbTPA} is of dubious value to both practitioners and researchers, we
-Henceforth, we present \inline{solve} examples only for solving \inline{MyProblem}.
- Since \inline{MyProblem} is bi-objective, we recommend using the \rperle\ solver. However, for two or more objectives, \pychn\ has \rminrle.
+`pymoso solve myproblem.py RPERLE 97`  
 
-\inline{pymoso solve myproblem.py RMINRLE 97}
+Similarly, we can solve built-in problems, such as `ProbTPA` which has two-dimensional feasible points.  
 
-\noindent For a single objective problem, \pychn\ has R-SPLINE. We remark that if given a multi-objective problem, R-SPLINE will simply minimize the first objective. We do not necessarily prohibit such use, but urge that users take care when using R-SPLINE to minimize one objective of a many-objective problem.
+`pymoso solve ProbTPA RPERLE 40 40`  
 
-\inline{pymoso solve myproblem.py RSPLNE 97}
+Henceforth, we present `solve` examples only for solving `MyProblem`.  Since `MyProblem` is bi-objective, we recommend using the `R-PERLE` solver. However, for two or more objectives, PyMOSO implements `R-MinRLE`.  
 
-Regardless of the chosen solver, \pychn\ creates a new sub-directory of the working directory containing output. There will be a metadata file, indicating the date, time, solver, problem, and any other specified options. In addition, \pychn\ creates a file containing the solver-generated solution. \pychn\ provides additional options for users solving MOSO problems. We present examples of each option below. First, users can specify the name of the output directory.
+`pymoso solve myproblem.py RMINRLE 97`  
 
-\inline{pymoso solve --odir=OutDirectory myproblem.py RPERLE 45}
+For a single objective problem, PyMOSO implements `R-SPLINE`. We remark that if given a multi-objective problem, `R-SPLINE` will simply minimize the first objective. We do not necessarily prohibit such use, but urge that users take care when using R-SPLINE to minimize one objective of a many-objective problem.  
 
-\noindent Users can specify the simulation budget, which is currently set to a default of 200.
+`pymoso solve myproblem.py RSPLNE 97`  
 
-\inline{pymoso solve --budget=100000 myproblem.py RPERLE 12}
+Regardless of the chosen solver, PyMOSO creates a new sub-directory of the working directory containing output. There will be a metadata file, indicating the date, time, solver, problem, and any other specified options. In addition, PyMOSO creates a file containing the solver-generated solution. PyMOSO provides additional options for users solving MOSO problems. We present examples of each option below. First, users can specify the name of the output directory.  
 
-\noindent Users may specify to take simulation replications in parallel. We only recommend doing so if the user has thought through appropriate pseudo-random number stream control issues (see \S\ref{app:oracle}). %-implemented oracle is compatible.
-	Furthermore, due to the overhead of parallelization, we only recommend using the parallel simulation replications feature if observations are sufficiently ``expensive'' to compute, e.g. the simulation takes a half second or more to generate a single observation. We remark that the run-time complexity of the simulation oracle may not perfectly indicate when it is appropriate to use parallelization; other factors include, e.g., the total simulation budget.
+`pymoso solve --odir=OutDirectory myproblem.py RPERLE 45`  
 
-\inline{pymoso solve --simpar=4 myproblem.py RPERLE 44}
+Users can specify the simulation budget, which is currently set to a default of 200.  
 
-\noindent Currently, all \pychn\ solvers support using common random numbers. Users may enable the functionality using the \inline{crn} option.
+`pymoso solve --budget=100000 myproblem.py RPERLE 12`  
 
-\inline{pymoso solve --crn myproblem.py RMINRLE 62}
+Users may specify to take simulation replications in parallel. We only recommend doing so if the user has thought through appropriate pseudo-random number stream control issues (see [Implementing PyMOSO Oracles](##Implementing PyMOSO Oracles)). Furthermore, due to the overhead of parallelization, we only recommend using the parallel simulation replications feature if observations are sufficiently "expensive" to compute, e.g. the simulation takes a half second or more to generate a single observation. We remark that the run-time complexity of the simulation oracle may not perfectly indicate when it is appropriate to use parallelization; other factors include, e.g., the total simulation budget.  
 
-\noindent We do not recommend this option unless the oracle is implemented to be compatible, that is, the oracle uses \pychn's pseudo-random number generator   to generate pseudo-random numbers or to provide a seed to an external \inline{mrg32k3a} generator (see \S\ref{app:oracle}).
+`pymoso solve --simpar=4 myproblem.py RPERLE 44`  
 
- Users may specify an initial seed to \pychn's \inline{mrg32k3a} pseudo-random number generator. Seeds must be 6 positive integers with spaces. The default is 12345 for each of the 6 components.
+Currently, all PyMOSO solvers support using common random numbers. Users may enable the functionality using the `--crn` option.  
 
-\inline{pymoso solve --seed 1111 2222 3333 4444 5555 6666 myproblem.py RPERLE 23}
+`pymoso solve --crn myproblem.py RMINRLE 62`  
 
-\noindent Users may specify algorithm-specific parameters (see the papers in which the algorithms were introduced for detailed explanations of the  parameters.) All parameters are specified in the form \inline{--param name value}. For example, the RLE relaxation parameter can be specified and set as \inline{betadel} to a real number. We refer the reader to Table~\ref{tab:asp} for the full list of currently available algorithm-specific parameters.
+We do not recommend this option unless the oracle is implemented to be compatible, that is, the oracle uses PyMOSO's pseudo-random number generator to generate pseudo-random numbers or to provide a seed to an external `mrg32k3a` generator (see [Implementing PyMOSO Oracles](##Implementing PyMOSO Oracles)).   
+
+Users may specify an initial seed to PyMOSO's `mrg32k3a` pseudo-random number generator. Seeds must be 6 positive integers with spaces. The default is 12345 for each of the 6 components.  
+
+`pymoso solve --seed 1111 2222 3333 4444 5555 6666 myproblem.py RPERLE 23`  
+
+Users may specify algorithm-specific parameters (see the papers in which the algorithms were introduced for detailed explanations of the parameters.) All parameters are specified in the form `--param name value`. For example, the RLE relaxation parameter can be specified and set as `betadel` to a real number. We refer the reader to [the table](####Table of Algorithm-Specific Parameters) for the full list of currently available algorithm-specific parameters.
 
 \inline{pymoso solve --param betadel 0.2 myproblem.py RPERLE 34}
 
-\begin{table}[hb]
-\caption{The table contains the current list of algorithm-specific parameters.}\label{tab:asp}
-\begin{SingleSpacedXI}
-\begin{tabular}{ p{1.8cm}  p{1.3cm}  p{4.3cm}  p{7.9cm} }
-  \hline
-  Parameter Name & Default Value & Affected Solvers & Description \\
-  \hline
-  mconst & 2 & \rperle, \rminrle, \rpe, R-SPLINE \raggedright & Initialize the sample size and subsequent schedule of sample sizes. \\
-  bconst & 8 & \rperle, \rminrle, \rpe, R-SPLINE \raggedright & Initialize the search sampling limit and subsequent schedule of limits. \\
-  radius & 1 & \rperle, \rminrle, \rpe, R-SPLINE \raggedright & Set the radius $a$ that determines a point's neighborhood, $\mcN_a$ \citep{RSPLINE}. \\
-  betadel & 0.5 & \rperle, \rminrle & Roughly, set how likely RLE is to keep a point in the input set. See \cite{2018coohunnag}. \\
-  betaeps & 0.5 & \rperle, \rpe & Roughly, set how likely \algname{P$\varepsilon$} is to search from a point. See \cite{2018coohunnag}. \\
-  \hline
-\end{tabular}
-\end{SingleSpacedXI}
-\end{table}
+####Table of Algorithm-Specific Parameters
+| Parameter Name | Default Value | Affected Solvers | Description |
+| -------------- | ------------- |  --------------  | ----------- |
+| `mconst`       |    2          |`RPERLE`, `RMINRLE`, `RPE`, `RSPLINE` | Initialize the sample size and subsequent schedule of sample sizes.|  
+| `bconst`       |    8          |`RPERLE`, `RMINRLE`, `RPE`, `RSPLINE` | Initialize the search sampling limit and subsequent schedule of limits. |  
+| `radius`       |   1           |`RPERLE`, `RMINRLE`, `RPE`, `RSPLINE` | Sets radius that determines a point's neighborhood. |  
+| `betadel` | `0.5` | `RPERLE`, `RMINRLE` | Roughly, affects how likely it is for RLE to keep its given solution. |  
+| `betaeps` | `0.5` | `RPERLE`, `RPE` | Roughly, affects how likely PE will perform a search from a point. |   
 
-\noindent Finally, users may specify any number of options in one invocation. However, all options must be specified in after the \inline{solve} command and before the \inline{myproblem.py} argument. Furthermore, any \inline{--param} options must be last. (Note that the \inline{\} at the end of the first line continues the command to the second line.)
+Finally, users may specify any number of options in one invocation. However, all options must be specified in after the `solve` command and before the `myproblem.py` argument. Furthermore, any `--param` options must be the last options. (Note that the `\` at the end of the first line continues the command to the second line.)
 
-\inline{pymoso solve --crn --simpar=4 --budget=10000 --seed 1 2 3 4 5 6 \}
-\inline{     --odir=Exp1 --param mconst 4 --param betadel 0.7 myproblem.py RPERLE 97}
+`pymoso solve --crn --simpar=4 --budget=10000 --seed 1 2 3 4 5 6 \`  
+``     --odir=Exp1 --param mconst 4 --param betadel 0.7 myproblem.py RPERLE 97`  
+
+
 ### The `testsolve` command
 The `testsolve` command is intended for researchers creating new simulation optimization algorithms.  Two arguments are required: `<tester>` and `<solver>`. Similar to `solve`, `<tester>` and `<solver>` may be specified as identifiers to built-in testers or as Python files containing user-implemented objects. Specifying `<x>...` is optional: testers may implement a method to generate feasible starting points. If not, then `<x>...` can be provided.  
 ### Output
