@@ -195,7 +195,8 @@ Finally, users may specify any number of options in one invocation. However, all
 `     --odir=Exp1 --param mconst 4 --param betadel 0.7 myproblem.py RPERLE 97`  
 
 
-####Table of Algorithm-Specific Parameters
+####Table of Algorithm-Specific Parameters  
+
 | Parameter Name | Default Value | Affected Solvers | Description |
 | -------------- | ------------- |  --------------  | ----------- |
 | `mconst`       |    2          |`RPERLE`, `RMINRLE`, `RPE`, `RSPLINE` | Initialize the sample size and subsequent schedule of sample sizes.|  
