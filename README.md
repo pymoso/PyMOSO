@@ -240,6 +240,8 @@ Users can implement their own problems in PyMOSO using `myproblem.py` below as t
 1. `True` or `False` depending on if `x` is feasible to the problem.
 1. A tuple of length `self.num_obj` containing the value of each objective.
 
+## Implementing PyMOSO Oracles
+
 #### Template for implementing problems (myproblem.py)
 ```python
 # import the Oracle base class
