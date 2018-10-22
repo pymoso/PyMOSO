@@ -171,7 +171,7 @@ Users can specify the simulation budget, which is currently set to a default of 
 
 `pymoso solve --budget=100000 myproblem.py RPERLE 12`  
 
-Users may specify to take simulation replications in parallel. We only recommend doing so if the user has thought through appropriate pseudo-random number stream control issues (see [Implementing PyMOSO Oracles](##Implementing PyMOSO Oracles)). Furthermore, due to the overhead of parallelization, we only recommend using the parallel simulation replications feature if observations are sufficiently "expensive" to compute, e.g. the simulation takes a half second or more to generate a single observation. We remark that the run-time complexity of the simulation oracle may not perfectly indicate when it is appropriate to use parallelization; other factors include, e.g., the total simulation budget.  
+Users may specify to take simulation replications in parallel. We only recommend doing so if the user has thought through appropriate pseudo-random number stream control issues (see [Implementing PyMOSO Oracles](#Implementing-PyMOSO-Oracles)). Furthermore, due to the overhead of parallelization, we only recommend using the parallel simulation replications feature if observations are sufficiently "expensive" to compute, e.g. the simulation takes a half second or more to generate a single observation. We remark that the run-time complexity of the simulation oracle may not perfectly indicate when it is appropriate to use parallelization; other factors include, e.g., the total simulation budget.  
 
 `pymoso solve --simpar=4 myproblem.py RPERLE 44`  
 
@@ -179,13 +179,13 @@ Currently, all PyMOSO solvers support using common random numbers. Users may ena
 
 `pymoso solve --crn myproblem.py RMINRLE 62`  
 
-We do not recommend this option unless the oracle is implemented to be compatible, that is, the oracle uses PyMOSO's pseudo-random number generator to generate pseudo-random numbers or to provide a seed to an external `mrg32k3a` generator (see [Implementing PyMOSO Oracles](##Implementing PyMOSO Oracles)).   
+We do not recommend this option unless the oracle is implemented to be compatible, that is, the oracle uses PyMOSO's pseudo-random number generator to generate pseudo-random numbers or to provide a seed to an external `mrg32k3a` generator (see [Implementing PyMOSO Oracles](#Implementing-PyMOSO-Oracles)).   
 
 Users may specify an initial seed to PyMOSO's `mrg32k3a` pseudo-random number generator. Seeds must be 6 positive integers with spaces. The default is 12345 for each of the 6 components.  
 
 `pymoso solve --seed 1111 2222 3333 4444 5555 6666 myproblem.py RPERLE 23`  
 
-Users may specify algorithm-specific parameters (see the papers in which the algorithms were introduced for detailed explanations of the parameters.) All parameters are specified in the form `--param name value`. For example, the RLE relaxation parameter can be specified and set as `betadel` to a real number. We refer the reader to [the table](####Table of Algorithm-Specific Parameters) for the full list of currently available algorithm-specific parameters.
+Users may specify algorithm-specific parameters (see the papers in which the algorithms were introduced for detailed explanations of the parameters.) All parameters are specified in the form `--param name value`. For example, the RLE relaxation parameter can be specified and set as `betadel` to a real number. We refer the reader to [the table](#Table-of-Algorithm-Specific-Parameters) for the full list of currently available algorithm-specific parameters.
 
 \inline{pymoso solve --param betadel 0.2 myproblem.py RPERLE 34}
 
