@@ -1,6 +1,6 @@
 # PyMOSO
 
-PyMOSO is software for solving multi-objective simulation (MOSO) problems and for creating, comparing, and testing MOSO algorithms.
+PyMOSO is software for solving multi-objective simulation optimization (MOSO) problems and for creating, comparing, and testing MOSO algorithms.
 
 ## Reference
 
