@@ -618,7 +618,7 @@ run_data = testsolve(MyTester, rp.RPERLE, x0, isp=100, crn=True, radius=2)
 ```
 
 #### Computing a Metric on `testsolve` Output
-Programmers must compute their metric. Here, `run_data` is a dictionary of the form described [here](#implementing-pymoso-algorithms).
+Programmers must compute their metric. Here, `run_data` is a dictionary of the form described [here](#implementing-pymoso-algorithms) and we compute the metric on the 5th iteration of of the 12th independent algorithm instance.
 ```python
 iter5_soln = run_data[11]['itersoln'][4]
 isp12_iter5_metric = MyTester.metric(iter5_soln)
