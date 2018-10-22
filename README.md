@@ -286,7 +286,7 @@ Usually, implementing a PyMOSO oracle implies implementing a Monte Carlo simulat
 
 If users already have an implemented simulation oracle, they may find it convenient to implement `g` as wrapper which calls that simulation from Python. As an example, suppose a user has implemented a simulation in C which is compiled to a C library called `mysim.so` and placed in the working directory. Suppose further that the simulation function takes the following as parameters: an array of integers representing a point and an unsigned integer representing the number of observations to take at `x`. The function output is defined as `struct Simout` with members `feas` set to 0 or 1, `obj` a double array set to the mean of the observed objective values, and `var` a double array set to the sample variance of the observed objective values. Then users can modify the template to wrap the C function `struct Simout c_func(int x, int n)` as in [the example](#example-oracle-that-wraps-a-c-simulation).  
 
-####Example Oracle that Wraps a C Simulation
+#### Example Oracle that Wraps a C Simulation
 ```python
 from ctypes import CDLL, c_double, c_uint, c_int, Structure
 import os.path
@@ -625,3 +625,94 @@ isp12_iter5_metric = MyTester.metric(iter5_soln)
 ```
 
 ## PyMOSO Object Reference
+### The `pymoso.prng.mrg32k3a` Module
+The `pymoso.prng.mrg32k3a` module exposes the pseudo-random number generator and functions to manipulate it.
+
+| Object | Description |
+| ------ | ----------- |
+| `MRG32k3a` | Sub-class of random.Random, defines all `rng` objects. |
+| `get_next_prnstream(seed)` | Return an `rng` object seeded 2^127 steps from the input seed.|
+| `jump_substream(rng)` | Seed the input `rng` object 2^76 steps forward. |
+
+### The `pymoso.chnbase` Module
+The `pymoso.chnbase` module implements the base classes for oracles and solvers. Programmers should sub-class these when creating new PyMOSO implementations.
+| Class | Description |
+| ------ | ----------- |
+| `Oracle` | Base class for implementing oracles. |
+| `RLESolver` | Base class for implementing solvers using RLE. |
+| `RASolver` | Base class for implementing RA solvers.|
+|`MOSOSolver` | Base class for all solvers. |
+
+### The `pymoso.chnutils` Module
+The `pymoso.chnutils` contains useful functions for implementing and testing algorithms.  
+
+| Function | Description |
+| ------ | ----------- |
+|`solve(oracle, solver, x0, **kwargs)` | [See here](#minimal-solve-example) for instructions. |
+|`testsolve(tester, solver, x0, **kwargs)` | [See here](#a-testsolve-example) for instructions. |
+|`does_weak_dominate(g, h, relg, relh)` | All inputs are tuples of equal length. Returns `True` if `g` weakly dominates `h` with the relaxations. |
+|`does_dominate(g, h, relg, relh)` | Returns `True` if `g` dominates `h` with the relaxations. |
+|`does_strict_dominate(g, h, relg, relh)` | Returns `True` if `g` strictly dominates `h` with the relaxations. |
+|`get_nondom(obj_dict)` | Input: a dictionary with tuples for keys and values. The keys are feasible points; the values are their objective values. Return: a set of tuples representing non-dominated points. |
+|`get_nbors(x, r)` | Input: a tuple `x`, a positive real scalar `r` indicating the neighborhood radius. Return: Set of tuples which are the neighbors.|
+|`get_setnbors(S, r)` | Input: a set of tuples, and the neighborhood radius. Return: the union of `get_nbors(s, r)` for every `s` in `S`. |
+| `dh(A, B)` | Returns the Hausdorff distance between set `A` and set `B`. |
+|`edist(x1, x2)` | Return the Euclidean distance from `x1` to `x2`. |
+|`get_metric(results, tester)` | Input: `results` is a dictionary, the output of each sample path of `testsolve`. `tester` must implement `metric`. Returns: The set of triples (iteration, simulation count, metric) for an algorithm run.|
+
+### The `Oracle` Class
+When implementing `RASolver` algorithms, programmers may not need to access `Oracle` objects directly at all. When implementing `MOSOSolver` algorithms, programmers will use (or wrap) `hit` and `crn_advance()`.  
+
+| Member/Method | Description |
+| ------ | ----------- |
+|`num_obj` | A positive integer, the number of objectives.|
+|`dim` | A positive integer, the dimensionality of feasible points. |
+| `rng` | An instance of `MRG32k3a`.|
+|`hit(x, n)` | Take `n` observations of `x`. Return: `True`, and a tuple containing the mean of the observations for each objective, and a tuple containing the standard error for each objective if `x` is feasible. The function handles CRN internally. |
+|`set_crnflag(bool)` | Turn CRN on (`True`) or off. |
+|`set_crnold(state)` | Save the `rng` state as the CRN baseline, e.g. for an algorithm iteration. Get the state using `rng.getstate()`. |
+|`crn_reset()` | Back the oracle `rng` to the CRN baseline. |
+|`crn_advance()` | If CRN is on, reset, and then jump to the next independent pseudo-random stream and save the new baseline, e.g. before starting a new algorithm iteration. |
+|`crn_setobs()` | Set an intermediate CRN for individual oracle observations. |
+|`crn_nextobs()` | Jump the `rng` forward, e.g. after taking an observation, and `crn_setobs` the seed. |
+|`crn_check()` | f CRN is on, return to the baseline. Otherwise, use `crn_nextobs` before taking the next observation. |
+
+### The `MOSOSolver` Class
+
+The class provides a basic structure for implementing new MOSO algorithms in PyMOSO.  
+
+| Member/Method | Description |
+| ------ | ----------- |
+|`orc` | The oracle object for the solver to solve. |
+|`dim` | Number of dimensions of points in the feasible set. Should match `self.orc`|
+|`num_obj`| Similarly, the number of objectives in `self.orc`. |
+|`num_calls` | A running count of the number of simulation replications taken of `self.orc`.|
+|`x0` | A feasible starting point. This point is additionally supplied to algorithms that don't need one.|
+
+### The `RASolver` Class
+
+The class implements a common structure for all RA algorithms, including: caching of simulation replications, scheduling and updating of sample sizes and limits, and a wrapper to `Oracle.hit`.  
+
+| Member/Method | Description |
+| ------ | ----------- |
+|`sprn` | An instance of `MRG32k3a` for the solver to use.|
+|`nbor_rad` | The neighborhood radius used by solvers seeking local optimality. |
+| `gbar` | A dictionary where every key and value is a tuple. The keys are feasible points, values are their objective values. `gbar` is "wiped" every retrospective iteration. |
+|`sehat` | Exactly like `gbar` except the values are standard errors.|
+|`m` | The sample size of the current iteration. |
+|`calc_m(nu)` | Compute the sample size of the current iteration. RA algorithms automatically do this every iteration and assign the value to `m'.|
+|`b` | The searching sample limit of the current iteration. |
+|`calc_b(nu)` | Exactly as `calc_m` but for the searching sample limit.|
+|`estimate(x, c, obj)`| The `estimate` function is essentially a smart wrapper for `self.orc.hit`. Inputs: tuple `x` to sample, `c` a feasibility constraint, `obj` the objective to constrain. Return: same as `Oracle.hit`. Retrieves or saves the results from/to `gbar` and `sehat` as appropriate. Returns not feasible if the otherwise feasible result is not less than the constraint.|
+|`upsample(S)`| A version of `estimate` for sets. Returns the feasible subset of `S`.|
+|`spline(x, c, obmin, obcon)` | Return a sample path local minimizer. Input: a feasible start, constraint, objective to minimize, objective to constrain. Return: a set of tuples of the trajectory, the minimizer tuple, the minimum tuple, the standard error tuple.|
+
+### The `RLESolver` Class
+
+The sub-class of \inlinetwo{RASolver} adds RLE and its relaxation.
+
+| Member/Method | Description |
+| ------ | ----------- |
+|`betadel` | Affects the relaxation values computed in RLE. |
+|`calc_delta(se)` | Computes the RLE relaxation given a standard error, using `self.m` and `self.betadel`. |
+|`rle(candidate_les)` | Input: set of tuples, Returns: set of tuples. Finds the LES at sample size `self.m`.|
