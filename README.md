@@ -185,7 +185,7 @@ Users may specify an initial seed to PyMOSO's `mrg32k3a` pseudo-random number ge
 
 `pymoso solve --seed 1111 2222 3333 4444 5555 6666 myproblem.py RPERLE 23`  
 
-Users may specify algorithm-specific parameters (see the papers in which the algorithms were introduced for detailed explanations of the parameters.) All parameters are specified in the form `--param name value`. For example, the RLE relaxation parameter can be specified and set as `betadel` to a real number. We refer the reader to [the table](####Table-of-Algorithm-Specific-Parameters) for the full list of currently available algorithm-specific parameters.  
+Users may specify algorithm-specific parameters (see the papers in which the algorithms were introduced for detailed explanations of the parameters.) All parameters are specified in the form `--param name value`. For example, the RLE relaxation parameter can be specified and set as `betadel` to a real number. We refer the reader to [the table](#### Table-of-Algorithm-Specific-Parameters) for the full list of currently available algorithm-specific parameters.  
 
 `pymoso solve --param betadel 0.2 myproblem.py RPERLE 34`  
 
