@@ -18,23 +18,19 @@ def true_g(x):
     obj2 = (x[0] - 2)**2
     return obj1, obj2
 
-# define a solution as appropriate for the metric
-soln = {(0, 4), (4, 0), (1, 1)}
-
+# define an answer as appropriate for the metric
+myanswer = {(0, 4), (4, 0), (1, 1)}
 
 class MyTester(object):
     '''Example tester implementation for MyProblem.'''
     def __init__(self):
         self.ranorc = MyProblem
-        self.soln = soln
+        self.answer = myanswer
         self.true_g = true_g
         self.get_ranx0 = get_ranx0
 
     def metric(self, eles):
         '''Metric to be computed per retrospective iteration.'''
-        efrontier = []
-        for point in eles:
-            objs = self.true_g(point)s
-            efrontier.append(objs)
-        haus = dh(efrontier, self.soln)
+	epareto = [self.true_g(point) for point in eles]
+        haus = dh(epareto, self.answer)
         return haus

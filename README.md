@@ -1,83 +1,56 @@
 # PyMOSO
 
-This project implements the R-PERLE algorithm for solving bi-objective simulation optimization problems on integer lattices and the R-MinRLE algorithm, a benchmark algorithm for solving multi-objective simulation optimization problems on integer lattices. This project is in beta! Please contact us here regarding issues.
+PyMOSO is software for solving multi-objective simulation (MOSO) problems and for creating, comparing, and testing MOSO algorithms.
 
 ## Reference
-If you use this software for work leading to publications, please cite the article in which R-PERLE and R-MinRLE were proposed:
+
+If you use PyMOSO in work leading to publication, please cite the paper which introduces PyMOSO.
+
+--citation available soon
+
+## Additional Reading
+The initial release of PyMOSO contains solvers that implement four total algorithms, in alphabetical order: R-MinRLE, R-Pe, R-PERLE, and R-SPLINE.  The algorithms R-MinRLE, R-Pe, R-PERLE were introduced in the following paper:
 
 Cooper, K., Hunter, S. R., and Nagaraj, K. 2018. Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework. Optimization Online, http://www.optimization-online.org/DB_HTML/2018/06/6649.html.
 
-We also include an implementation of R-SPLINE, which can be cited as follows:
+The algorithm R-SPLINE was introduced in the following paper:
 
-Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation optimization using R-SPLINE: Retrospective Search with Piecewise-Linear Interpolation and Neighborhood Enumeration. ACM Transactions on Modeling and Computer Simulation, Vol. 23, No. 3, Article 17 (July 2013), 24 pages. DOI:http://dx.doi.org/10.1145/2499913.2499916
+Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation optimization using R-SPLINE: Retrospective Search with Piecewise-Linear Interpolation and Neighborhood Enumeration. ACM Transactions on Modeling and Computer Simulation, Vol. 23, No. 3, Article 17 (July 2013), 24 pages.  http://dx.doi.org/10.1145/2499913.2499916
 
-Table of Contents
-=================
-
-   * [PyMOSO](#pymoso)
-      * [Reference](#reference)
-      * [Installation](#installation)
-         * [Dependency: Python 3.6 ](#dependency-python-36)
-         * [Install from PyPI](#install-from-pypi)
-         * [Install latest trunk version from git](#install-latest-trunk-version-from-git)
-         * [Install from source](#install-from-source)
-      * [CLI](#cli)
-         * [listitems](#listitems)
-         * [solve](#solve)
-         * [testsolve](#testsolve)
-         * [Output](#output)
-         * [Table of options for solve and testsolve](#table-of-options-for-solve-and-testsolve)
-         * [Table of algorithm-specific parameters](#table-of-algorithm-specific-parameters)
-      * [Implementing problems, testers, and algorithms in PyMOSO](#implementing-problems-testers-and-algorithms-in-pymoso)
-         * [Implementing a problem in PyMOSO](#implementing-a-problem-in-pymoso)
-            * [Template for implementing problems (myproblem.py)](#template-for-implementing-problems-myproblempy)
-            * [Using rng](#using-rng)
-            * [Simple example problem](#simple-example-problem)
-         * [Implementing a Tester in PyMOSO](#implementing-a-tester-in-pymoso)
-         * [Implementing algorithms in PyMOSO](#implementing-algorithms-in-pymoso)
-            * [Example MOSO algorithm in PyMOSO that uses RLE to ensure convergence (myaccel.py)](#example-moso-algorithm-in-pymoso-that-uses-rle-to-ensure-convergence-myaccelpy)
-            * [Example of an RA algorithm (myraalg.py)](#example-of-an-ra-algorithm-myraalgpy)
-            * [Example of a MOSO algorithm (mymoso.py)](#example-of-a-moso-algorithm-mymosopy)
-            * [PyMOSO internals](#pymoso-internals)
-               * [Table of PyMOSO internals](#table-of-pymoso-internals)
-               * [Table of chnutils functions](#table-of-chnutils-functions)
-            * [Useful snippets for implementing RA algorithms](#useful-snippets-for-implementing-ra-algorithms)
-               * [Sample a point](#sample-a-point)
-               * [Sample the point's neighbors](#sample-the-points-neighbors)
-               * [argsort the points by 1st objective](#argsort-the-points-by-1st-objective)
-               * [choose the minimizer and its objectives](#choose-the-minimizer-and-its-objectives)
-               * [Use SPLINE to get a local minimizer](#use-spline-to-get-a-local-minimizer)
-               * [Get the non-dominated subset of every visited point](#get-the-non-dominated-subset-of-every-visited-point)
-               * [Randomly choose points from the subset](#randomly-choose-points-from-the-subset)
-      * [Using PyMOSO in Python programs](#using-pymoso-in-python-programs)
-         * [Solve example](#solve-example)
-         * [TestSolve example](#testsolve-example)
+We recommend reading these papers to understand the algorithms, what they return, and the algorithm parameter options that we describe in the user manual.
 
 ## Installation
-### Dependency: Python 3.6+
-This software requires Python 3.6 or higher. Python can be downloaded from https://www.python.org/downloads/.
+Since PyMOSO is programmed in Python, every PyMOSO user must first install Python, which can be downloaded from https://www.python.org/downloads/. PyMOSO is compatible with Python versions 3.6 and higher. In the remainder of this section, we assume an appropriate Python version is installed. We discuss three different methods to install PyMOSO: first, from the Python Packaging Index; second, directly from our source code using git; and third, manually installing PyMOSO from our source code.
 
-### Install from PyPI
-`pip install pymoso`
+### Install PyMOSO from the Python Packaging Index using `pip`
+For ease of distribution, we keep stable, recent releases of PyMOSO on the Python Packaging Index (PyPI). Since the program `pip` is included in Python versions 3.6 and higher, we recommend using `pip` to install PyMOSO. To do so, open a terminal, type the following command, and press enter.  
 
-### Install latest trunk version from git
-`pip install git+https://github.rcac.purdue.edu/HunterGroup/pymoso.git`
+`pip install pymoso`  
 
-### Install from source
-1. Install prerequisite packages.   
-`pip install wheel docopt`
-1. Download the project code either from  
-https://github.rcac.purdue.edu/HunterGroup/pymoso/releases   
-for the official releases or using  
-`git clone git@github.rcac.purdue.edu:HunterGroup/pymoso.git`  
-for the latest version.  
-1. Navigate to the newly downloaded project directory containing setup.py and build the binary wheel.  
-`python setup.py bdist_wheel`
-1. Install the wheel.  
-`pip install dist/pymoso-x.x.x-py3-none-any.whl`  
-Replace the x.x.x with the correct file name corresponding to the code version. Modify the command to select the particular wheel you've built or downloaded.
+Depending on how users configure their Python installation and how many version of Python they install, they may need to replace `pip` with `pip3`, or other variants of `pip`.  
 
-## CLI
+### Install PyMOSO from the repository using `pip`
+Users with `git` installed can use `pip` to install the most current version of PyMOSO directly from our source code:  
+
+`pip install git+https://github.rcac.purdue.edu/HunterGroup/pymoso.git`  
+
+We consider the latest source to be less stable than the fixed releases we upload to PyPI, and thus we recommend most users install PyMOSO from PyPI.  
+
+### Install PyMOSO from Source Code
+Users may follow the steps below to manually install PyMOSO from any version of the source code.  
+1. Acquire the PyMOSO source code, for example, by downloading it from the repository https://github.com/HunterResearch/PyMOSO.
+1. Install the `wheel` package, e.g. using the `pip install wheel` command.
+1. Open a terminal and navigate into the main project directory which contains the file `setup.py`.
+1. Build the installable PyMOSO package, called a wheel, using the command `python setup.py bdist_wheel`. As with `pip`, some users may need to replace `python` with `python3` or something similar. The command should create a directory named `dist` containing the PyMOSO wheel.
+1. Install the PyMOSO wheel using pip install `dist/pymoso-x.x.x-py3-none-any.whl`, where users replace `x.x.x` with the appropriate PyMOSO version.
+
+
+## Command Line Interface (CLI)
+PyMOSO users solving MOSO problems and testing MOSO algorithms may do so using the command line interface. First, we show how to access the included help file. Then, we show how to view the lists of solvers, testers, and oracles installed by default with PyMOSO. Finally, we discuss the `solve` and `testsolve` commands.
+
+### CLI help
+PyMOSO includes a command line help file. The help file shows syntax templates for every PyMOSO command, the available options, and a selection of example invocations. The `pymoso --help` invocation prints the file to the terminal. The file is also printed when PyMOSO cannot parse an invocation that begins with `pymoso`. We show the current help file below.  
+
 ```
 Usage:
   pymoso listitems
@@ -112,20 +85,103 @@ Examples:
   pymoso solve --param radius 3 ProbTPA RPERLE 45 45
   pymoso testsolve --isp=16 --proc=4 TPATester RPERLE
   pymoso testsolve --isp=20 --proc=10 --metric --crn TPBTester RMINRLE 9 9
-
-Help:
-  Use the listitems command to view a list of available solvers, problems, and
-  test problems.
 ```
 For now, PyMOSO has three commands: `listitems`, `solve`, and `testsolve`, which we explain below.
-### listitems
-The command `listitems` shows the PyMOSO objects (problems, testers, solvers) included in the default installation. The identifiers can be used as arguments to `solve` and `testsolve`. PyMOSO objects implemented by users will not show up when using `listitems`.
-### solve
-The `solve` command is intended for practitioners seeking to a solve a simulation optimization problem. Three arguments are required: `<problem>`, `<solver>`, and  `<x>...`. For `<problem>`, users may specify an identifier for a built-in problem. A list of such identifiers can be viewed using `listitems`. Alternatively, users may implement their own problem as a PyMOSO oracle (see the code examples below) and specify the file name.
-For example,  
-`pymoso solve myproblem.py RPERLE 40 40`  
-The `<solver>` argument again either an identifier to a built-in algorithm, or a file name for a user-implemented algorithm. The `<x>...` is a feasible starting point for the algorithm, with each component of the starting point separated by a space. Any number of the options listed above can also be specified before the arguments. At the end of this section, we list the options and provide more detailed explanations. The `<x>` argument cannot take negative numbers from the command line. Use PyMOSO in a Python program if a negative starting point is required (see examples below).   
-### testsolve
+### The `listitems` command for viewing solvers, testers, and oracles included in PyMOSO
+The default installation of PyMOSO includes a selection of solvers, testers, and oracles. Users can view the complete lists of included solvers, testers, and oracles using the `pymoso listitems` command. We show the current listing below. Test problems A, B, and C refer to those in Cooper et al (2018).
+
+```
+Solver                         Description
+************************       ************************
+RMINRLE                        A solver using R-MinRLE for integer-ordered MOSO.
+RPE                            A solver using R-Pe for integer-ordered bi-objective MOSO.
+RPERLE                         A solver using RPERLE for integer-ordered bi-objective MOSO.
+RSPLINE                        A solver using R-SPLINE for single objective SO.
+
+Problems                       Description                    Test Name (if available)
+************************       ************************       ************************
+ProbSimpleSO                   x^2 + noise.                   SimpleSOTester
+ProbTPA                        Test Problem A                 TPATester
+ProbTPB                        Test Problem B                 TPBTester
+ProbTPC                        Test Problem C                 TPCTester
+```
+
+### The `solve` command
+The \pychn\ \inline{solve} command is for solving MOSO problems. Users can solve the built-in problems (use the \inline{listitems} command to view the built-in problems), however, \pychn\ \inline{solve} users typically will have their own MOSO problem they wish to solve. Thus, we assume users have implemented a \pychn\ oracle named \inline{MyProblem} in \inline{myproblem.py}.  In the examples that follow, we assume the \inline{MyProblem} implementation in Figure~\ref{app:myproblem}, which is a bi-objective oracle with one-dimensional feasible points. See \S\ref{app:oracle} for instructions on implementing a MOSO problem as a \pychn\ oracle.
+
+The template \inline{solve} command is \inline{pymoso solve oracle solver x0}, where \inline{oracle} is a built-in or user-defined oracle, \inline{solver} is a built-in or user-defined algorithm, and \inline{x0} is a feasible starting point for the solver, with a space between each component. As a first example, we solve the user-defined \inline{MyProblem} using the built-in \rperle\ starting at the feasible point 97.
+
+\begin{figure}[b]
+\lstinputlisting[basicstyle=\scriptsize, showstringspaces=false, numbers=left, xleftmargin=3em, language=python, frame=single, framexleftmargin=2.5em,belowskip=-0.1\baselineskip]{myproblem.py}
+\caption{The file \inline{myproblem.py} implements the example \inline{MyProblem}. }
+\label{app:myproblem}
+\end{figure}
+
+\inline{pymoso solve myproblem.py RPERLE 97}
+
+\noindent Similarly, we can solve built-in problems, such as \inline{ProbTPA} which has two-dimensional feasible points.
+
+\inline{pymoso solve ProbTPA RPERLE 40 40}
+
+\noindent %Since solving \inline{ProbTPA} is of dubious value to both practitioners and researchers, we
+Henceforth, we present \inline{solve} examples only for solving \inline{MyProblem}.
+ Since \inline{MyProblem} is bi-objective, we recommend using the \rperle\ solver. However, for two or more objectives, \pychn\ has \rminrle.
+
+\inline{pymoso solve myproblem.py RMINRLE 97}
+
+\noindent For a single objective problem, \pychn\ has R-SPLINE. We remark that if given a multi-objective problem, R-SPLINE will simply minimize the first objective. We do not necessarily prohibit such use, but urge that users take care when using R-SPLINE to minimize one objective of a many-objective problem.
+
+\inline{pymoso solve myproblem.py RSPLNE 97}
+
+Regardless of the chosen solver, \pychn\ creates a new sub-directory of the working directory containing output. There will be a metadata file, indicating the date, time, solver, problem, and any other specified options. In addition, \pychn\ creates a file containing the solver-generated solution. \pychn\ provides additional options for users solving MOSO problems. We present examples of each option below. First, users can specify the name of the output directory.
+
+\inline{pymoso solve --odir=OutDirectory myproblem.py RPERLE 45}
+
+\noindent Users can specify the simulation budget, which is currently set to a default of 200.
+
+\inline{pymoso solve --budget=100000 myproblem.py RPERLE 12}
+
+\noindent Users may specify to take simulation replications in parallel. We only recommend doing so if the user has thought through appropriate pseudo-random number stream control issues (see \S\ref{app:oracle}). %-implemented oracle is compatible.
+	Furthermore, due to the overhead of parallelization, we only recommend using the parallel simulation replications feature if observations are sufficiently ``expensive'' to compute, e.g. the simulation takes a half second or more to generate a single observation. We remark that the run-time complexity of the simulation oracle may not perfectly indicate when it is appropriate to use parallelization; other factors include, e.g., the total simulation budget.
+
+\inline{pymoso solve --simpar=4 myproblem.py RPERLE 44}
+
+\noindent Currently, all \pychn\ solvers support using common random numbers. Users may enable the functionality using the \inline{crn} option.
+
+\inline{pymoso solve --crn myproblem.py RMINRLE 62}
+
+\noindent We do not recommend this option unless the oracle is implemented to be compatible, that is, the oracle uses \pychn's pseudo-random number generator   to generate pseudo-random numbers or to provide a seed to an external \inline{mrg32k3a} generator (see \S\ref{app:oracle}).
+
+ Users may specify an initial seed to \pychn's \inline{mrg32k3a} pseudo-random number generator. Seeds must be 6 positive integers with spaces. The default is 12345 for each of the 6 components.
+
+\inline{pymoso solve --seed 1111 2222 3333 4444 5555 6666 myproblem.py RPERLE 23}
+
+\noindent Users may specify algorithm-specific parameters (see the papers in which the algorithms were introduced for detailed explanations of the  parameters.) All parameters are specified in the form \inline{--param name value}. For example, the RLE relaxation parameter can be specified and set as \inline{betadel} to a real number. We refer the reader to Table~\ref{tab:asp} for the full list of currently available algorithm-specific parameters.
+
+\inline{pymoso solve --param betadel 0.2 myproblem.py RPERLE 34}
+
+\begin{table}[hb]
+\caption{The table contains the current list of algorithm-specific parameters.}\label{tab:asp}
+\begin{SingleSpacedXI}
+\begin{tabular}{ p{1.8cm}  p{1.3cm}  p{4.3cm}  p{7.9cm} }
+  \hline
+  Parameter Name & Default Value & Affected Solvers & Description \\
+  \hline
+  mconst & 2 & \rperle, \rminrle, \rpe, R-SPLINE \raggedright & Initialize the sample size and subsequent schedule of sample sizes. \\
+  bconst & 8 & \rperle, \rminrle, \rpe, R-SPLINE \raggedright & Initialize the search sampling limit and subsequent schedule of limits. \\
+  radius & 1 & \rperle, \rminrle, \rpe, R-SPLINE \raggedright & Set the radius $a$ that determines a point's neighborhood, $\mcN_a$ \citep{RSPLINE}. \\
+  betadel & 0.5 & \rperle, \rminrle & Roughly, set how likely RLE is to keep a point in the input set. See \cite{2018coohunnag}. \\
+  betaeps & 0.5 & \rperle, \rpe & Roughly, set how likely \algname{P$\varepsilon$} is to search from a point. See \cite{2018coohunnag}. \\
+  \hline
+\end{tabular}
+\end{SingleSpacedXI}
+\end{table}
+
+\noindent Finally, users may specify any number of options in one invocation. However, all options must be specified in after the \inline{solve} command and before the \inline{myproblem.py} argument. Furthermore, any \inline{--param} options must be last. (Note that the \inline{\} at the end of the first line continues the command to the second line.)
+
+\inline{pymoso solve --crn --simpar=4 --budget=10000 --seed 1 2 3 4 5 6 \}
+\inline{     --odir=Exp1 --param mconst 4 --param betadel 0.7 myproblem.py RPERLE 97}
+### The `testsolve` command
 The `testsolve` command is intended for researchers creating new simulation optimization algorithms.  Two arguments are required: `<tester>` and `<solver>`. Similar to `solve`, `<tester>` and `<solver>` may be specified as identifiers to built-in testers or as Python files containing user-implemented objects. Specifying `<x>...` is optional: testers may implement a method to generate feasible starting points. If not, then `<x>...` can be provided.  
 ### Output
 Both `solve` and `testsolve` create a subdirectory within the working directory in which the generated results are saved. In the case of `solve`, the directory typically contains two files: a file containing metadata such as the arguments and options specified, date, run time, and more. The second file contains the solution generated by the chosen solver. If applicable, an error file may be generated. If an error is generated, users may send the metadata file, the error file, and any user-implemented PyMOSO objects to us for assistance. In the case of `testsolve`, the file containing the solution will instead contain multiple solutions, with the last row containing the end solution returned by the algorithm. The intermediate solutions are provided to give a researchers a sense of how the algorithm progresses. If the `--isp` option is specified to generate multiple independent sample path solutions, there will a solution file for every independent sample path. If the `--metric` options is specified, the metric defined in the `<tester>` will be computed on the solutions and saved in a separate file.  All available options to `solve` or `testsolve` are specified below.  
