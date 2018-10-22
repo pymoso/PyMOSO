@@ -185,9 +185,15 @@ Users may specify an initial seed to PyMOSO's `mrg32k3a` pseudo-random number ge
 
 `pymoso solve --seed 1111 2222 3333 4444 5555 6666 myproblem.py RPERLE 23`  
 
-Users may specify algorithm-specific parameters (see the papers in which the algorithms were introduced for detailed explanations of the parameters.) All parameters are specified in the form `--param name value`. For example, the RLE relaxation parameter can be specified and set as `betadel` to a real number. We refer the reader to [the table](#Table-of-Algorithm-Specific-Parameters) for the full list of currently available algorithm-specific parameters.
+Users may specify algorithm-specific parameters (see the papers in which the algorithms were introduced for detailed explanations of the parameters.) All parameters are specified in the form `--param name value`. For example, the RLE relaxation parameter can be specified and set as `betadel` to a real number. We refer the reader to [the table](#Table-of-Algorithm-Specific-Parameters) for the full list of currently available algorithm-specific parameters.  
 
-\inline{pymoso solve --param betadel 0.2 myproblem.py RPERLE 34}
+`pymoso solve --param betadel 0.2 myproblem.py RPERLE 34`  
+
+Finally, users may specify any number of options in one invocation. However, all options must be specified in after the `solve` command and before the `myproblem.py` argument. Furthermore, any `--param` options must be the last options. (Note that the `\` at the end of the first line continues the command to the second line.)
+
+`pymoso solve --crn --simpar=4 --budget=10000 --seed 1 2 3 4 5 6 \`  
+`     --odir=Exp1 --param mconst 4 --param betadel 0.7 myproblem.py RPERLE 97`  
+
 
 ####Table of Algorithm-Specific Parameters
 | Parameter Name | Default Value | Affected Solvers | Description |
@@ -197,11 +203,6 @@ Users may specify algorithm-specific parameters (see the papers in which the alg
 | `radius`       |   1           |`RPERLE`, `RMINRLE`, `RPE`, `RSPLINE` | Sets radius that determines a point's neighborhood. |  
 | `betadel` | `0.5` | `RPERLE`, `RMINRLE` | Roughly, affects how likely it is for RLE to keep its given solution. |  
 | `betaeps` | `0.5` | `RPERLE`, `RPE` | Roughly, affects how likely PE will perform a search from a point. |   
-
-Finally, users may specify any number of options in one invocation. However, all options must be specified in after the `solve` command and before the `myproblem.py` argument. Furthermore, any `--param` options must be the last options. (Note that the `\` at the end of the first line continues the command to the second line.)
-
-`pymoso solve --crn --simpar=4 --budget=10000 --seed 1 2 3 4 5 6 \`  
-``     --odir=Exp1 --param mconst 4 --param betadel 0.7 myproblem.py RPERLE 97`  
 
 
 ### The `testsolve` command
