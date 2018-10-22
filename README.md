@@ -19,6 +19,56 @@ Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation o
 
 We recommend reading these papers to understand the algorithms, what they return, and the algorithm parameter options that we describe in the user manual.
 
+Table of Contents
+=================
+
+   * [PyMOSO](#pymoso)
+      * [Reference](#reference)
+      * [Additional Reading](#additional-reading)
+      * [Installation](#installation)
+         * [Install PyMOSO from the Python Packaging Index using pip](#install-pymoso-from-the-python-packaging-index-using-pip)
+         * [Install PyMOSO from the repository using pip](#install-pymoso-from-the-repository-using-pip)
+         * [Install PyMOSO from Source Code](#install-pymoso-from-source-code)
+      * [Command Line Interface (CLI)](#command-line-interface-cli)
+         * [CLI help](#cli-help)
+         * [The listitems command for viewing solvers, testers, and oracles included in PyMOSO](#the-listitems-command-for-viewing-solvers-testers-and-oracles-included-in-pymoso)
+         * [The solve command](#the-solve-command)
+            * [The Example Oracle](#the-example-oracle)
+            * [Table of Algorithm-Specific Parameters](#table-of-algorithm-specific-parameters)
+         * [The testsolve Command](#the-testsolve-command)
+            * [The Example Tester](#the-example-tester)
+      * [Implementing problems, testers, and algorithms in PyMOSO](#implementing-problems-testers-and-algorithms-in-pymoso)
+         * [Implementing PyMOSO Oracles](#implementing-pymoso-oracles)
+            * [Example Oracle that Wraps a C Simulation](#example-oracle-that-wraps-a-c-simulation)
+            * [Example Wrapper with PyMOSO Random Numbers](#example-wrapper-with-pymoso-random-numbers)
+         * [Implementing PyMOSO Testers](#implementing-pymoso-testers)
+            * [Example Metric 1](#example-metric-1)
+            * [Example Metric 2](#example-metric-2)
+         * [Implementing PyMOSO Algorithms](#implementing-pymoso-algorithms)
+            * [Template Accelerator](#template-accelerator)
+            * [Template RA Solver](#template-ra-solver)
+            * [Template MOSO Solver](#template-moso-solver)
+               * [Take Simulation Replications at a Point](#take-simulation-replications-at-a-point)
+               * [Find Neighbors and Take Simulation Replications](#find-neighbors-and-take-simulation-replications)
+               * [Argsort a Dictionary of Points](#argsort-a-dictionary-of-points)
+               * [Select the Minimizer and its Value](#select-the-minimizer-and-its-value)
+               * [Use SPLINE to Retrive a Local Minimizer](#use-spline-to-retrive-a-local-minimizer)
+               * [Find the Non-Dominated Points in a Dictionary](#find-the-non-dominated-points-in-a-dictionary)
+               * [Randomly Select Points in a Set](#randomly-select-points-in-a-set)
+         * [Using solve and <code>testsolve</code> in Python Programs](#using-solve-and-testsolve-in-python-programs)
+            * [Minimal solve Example](#minimal-solve-example)
+            * [Some solve Examples with Options](#some-solve-examples-with-options)
+            * [A testsolve Example](#a-testsolve-example)
+            * [Computing a Metric on testsolve Output](#computing-a-metric-on-testsolve-output)
+      * [PyMOSO Object Reference](#pymoso-object-reference)
+         * [The pymoso.prng.mrg32k3a Module](#the-pymosoprngmrg32k3a-module)
+         * [The pymoso.chnbase Module](#the-pymosochnbase-module)
+         * [The pymoso.chnutils Module](#the-pymosochnutils-module)
+         * [The Oracle Class](#the-oracle-class)
+         * [The MOSOSolver Class](#the-mososolver-class)
+         * [The RASolver Class](#the-rasolver-class)
+         * [The RLESolver Class](#the-rlesolver-class)
+
 ## Installation
 Since PyMOSO is programmed in Python, every PyMOSO user must first install Python, which can be downloaded from https://www.python.org/downloads/. PyMOSO is compatible with Python versions 3.6 and higher. In the remainder of this section, we assume an appropriate Python version is installed. We discuss three different methods to install PyMOSO: first, from the Python Packaging Index; second, directly from our source code using git; and third, manually installing PyMOSO from our source code.
 
