@@ -6,10 +6,10 @@ PyMOSO is software for solving multi-objective simulation (MOSO) problems and fo
 
 If you use PyMOSO in work leading to publication, please cite the paper which introduces PyMOSO.
 
-Cooper, K., Hunter, S. R. 2018. PyMOSO: Software for Multi-Objective Simulation Optimization with R-PeRLE and R-MinRLE. Optimization Online, http://www.optimization-online.org/DB_HTML/2018/10/6876.html.
+Cooper, K., Hunter, S. R. 2018. PyMOSO: Software for Multi-Objective Simulation Optimization with R-PERLE and R-MinRLE. Optimization Online, http://www.optimization-online.org/DB_HTML/2018/10/6876.html.
 
 ## Additional Reading
-The initial release of PyMOSO contains solvers that implement four total algorithms, in alphabetical order: R-MinRLE, R-Pe, R-PERLE, and R-SPLINE.  The algorithms R-MinRLE, R-Pe, R-PERLE were introduced in the following paper:
+The initial release of PyMOSO contains solvers that implement four total algorithms, in alphabetical order: R-MinRLE, R-PE, R-PERLE, and R-SPLINE.  The algorithms R-MinRLE, R-PE, R-PERLE were introduced in the following paper:
 
 Cooper, K., Hunter, S. R., and Nagaraj, K. 2018. Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework. Optimization Online, http://www.optimization-online.org/DB_HTML/2018/06/6649.html.
 
