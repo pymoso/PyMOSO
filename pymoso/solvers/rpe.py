@@ -12,7 +12,7 @@ class RPE(RASolver):
         super().__init__(orc, **kwargs)
 
     def spsolve(self, warm_start):
-        '''Use P-epsilon as a sample path solver. This won't converge. '''
+        '''Use P-epsilon as a sample path solver.'''
         next_start = self.pe(warm_start)
         return next_start
 
@@ -113,16 +113,3 @@ class RPE(RASolver):
         m = self.m
         relax = se/pow(m, self.betaeps)
         return relax
-
-    def get_min(self, mcS):
-        """Return a minimum for every objective using spline."""
-        self.upsample(mcS)
-        unconst = float('inf')
-        kcon = 0
-        xmin = set()
-        krange = range(self.num_obj)
-        for k in krange:
-            kmin = min(mcS, key=lambda t: self.gbar[t][k])
-            _, xmink, _, _ = self.spline(kmin, unconst, k, kcon)
-            xmin |= {xmink}
-        return xmin

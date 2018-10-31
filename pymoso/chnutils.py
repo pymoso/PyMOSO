@@ -304,22 +304,6 @@ def get_nondom(edict):
     return set(Mpts)
 
 
-def remove_strict_dom(edict):
-    """returns the non-strictly-dominated keys of a dictionary {x: (g1, g2)}"""
-    g1 = 0
-    g2 = 1
-    pars = get_biparetos(edict)
-    pts = set(edict.keys())
-    g1parmax = min(pars, key=lambda x: edict[x][g1])
-    g2parmax = min(pars, key=lambda x: edict[x][g2])
-    g1parval = edict[g1parmax][g1]
-    g2parval = edict[g2parmax][g2]
-    g1weak = [x for x in pts if edict[x][g1] == g1parval]
-    g2weak = [x for x in pts if edict[x][g2] == g2parval]
-    weaklies = pars | set(g1weak) | set(g2weak)
-    return weaklies
-
-
 def get_nbors(x, r=1):
     """Find all neighbors of point x within radius r."""
     # define a filter function for points too far away
@@ -336,7 +320,7 @@ def get_nbors(x, r=1):
         bounds.append(range(a, b+1))
     boxpts = product(*bounds)
     # remove those farther than r from x and return the list of neighbors
-    nbors = filterfalse(edist_filter, boxpts)
+    nbors = set(filterfalse(edist_filter, boxpts))
     return set(nbors)
 
 
@@ -349,7 +333,7 @@ def get_setnbors(mcs, r):
     set_nbors = set()
     for x in mcs:
         set_nbors |= get_nbors(x, r)
-    return set_nbors
+    return set_nbors - mcs
 
 
 def enorm(x):
@@ -361,8 +345,7 @@ def enorm(x):
 def perturb(x, prn):
     """ randomly perturb x, as in the R-SPLINE paper. See Wang et. al 2013"""
     q = len(x)
-    u = prn.random()
-    return tuple(x[i] + 0.3*(u - 0.5) for i in range(q))
+    return tuple(x[i] + 0.3*(prn.random() - 0.5) for i in range(q))
 
 
 def edist(x1,x2):

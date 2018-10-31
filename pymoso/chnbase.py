@@ -67,13 +67,29 @@ class RASolver(MOSOSolver):
             self.b = self.calc_b(self.nu)
             self.gbar = dict()
             self.sehat = dict()
+            #print(self.nu)
+            #print('warm start: ', phatnu[self.nu - 1])
             aold = phatnu[self.nu - 1]
             phatnu[self.nu] = self.spsolve(aold)
+            #print('spsolve: ', phatnu[self.nu])
             simcalls[self.nu] = self.num_calls
-            #print(self.nu, self.orc.rng.get_seed())
             self.orc.crn_advance()
             self.endseed = self.orc.rng.get_seed()
-            #print(self.nu + 1, self.orc.rng.get_seed())
+
+    def get_min(self, mcS):
+        """Return a minimum for every objective using spline."""
+        self.upsample(mcS | {self.x0})
+        unconst = float('inf')
+        kcon = 0
+        xmin = set()
+        krange = range(self.num_obj)
+        for k in krange:
+            kmin = min(mcS | {self.x0}, key=lambda t: self.gbar[t][k])
+            _, xmink, _, _ = self.spline(kmin, unconst, k, kcon)
+            xmin |= {xmink}
+        tmp = {x: self.gbar[x] for x in xmin | mcS | {self.x0}}
+        xmin = get_nondom(tmp)
+        return xmin
 
     def spline(self, x0, e=float('inf'), nobj=0, kcon=0):
         """
@@ -213,18 +229,21 @@ class RASolver(MOSOSolver):
         xbest = None
         fxbest = None
         for i in range(q + 1):
-            isfeas, fx, vx = self.estimate(simp[i], e, kcon)
+            isfeas, fx, vx = self.estimate(simp[i])
             if isfeas:
-                if not xbest:
-                    xbest = simp[i]
-                    fxbest = fx
+                isfeas2, fx, vx = self.estimate(simp[i], e, kcon)
+                if isfeas2:
+                    if not xbest:
+                            xbest = simp[i]
+                            fxbest = fx
+                    else:
+                        if fx[nobj] < fxbest[nobj]:
+                            xbest = simp[i]
+                            fxbest = fx
                 n += 1
                 t += w[i]
                 gbat += w[i]*fx[nobj]
                 ghat[simp[i]] = fx
-                if fx[nobj] < fxbest[nobj]:
-                    xbest = simp[i]
-                    fxbest = fx
         if t > 0:
             gbat /= t
         else:
@@ -270,9 +289,10 @@ class RASolver(MOSOSolver):
         while not stop_loop:
             x1 = perturb(x0, sprn)
             gamma, gbat, xbest, fxbest = self.pli(x1, e, nobj, kcon)
-            if fxbest[nobj] < fxs[nobj]:
-                xs = xbest
-                fxs = fxbest
+            if xbest:
+                if fxbest[nobj] < fxs[nobj]:
+                    xs = xbest
+                    fxs = fxbest
             n += m*(q + 1)
             if not gamma or gamma == [0.0]*q:
                 stop_loop = True
@@ -327,6 +347,7 @@ class RASolver(MOSOSolver):
             vx = self.sehat[x]
         #if not, perform sampling
         else:
+            #print('in: ', self.orc.rng.get_seed())
             try:
                 isfeas, fx, vx = self.orc.hit(x, m)
             except TypeError:
@@ -365,21 +386,21 @@ class RASolver(MOSOSolver):
                 print('--* Message: ', sys.exc_info()[1])
                 print('--* Aborting. ')
                 sys.exit()
-            else:
-                if isfeas:
-                    self.gbar[x] = fx
-                    self.sehat[x] = vx
+            if isfeas:
+                #print('out: ', self.orc.rng.get_seed())
+                self.num_calls += m
+                self.gbar[x] = fx
+                self.sehat[x] = vx
         #next, check feasibility against the constraint which may be different
         # than oracle feasibility
         if isfeas:
-            self.num_calls += m
             if fx[nobj] > con:
                 isfeas = False
         return isfeas, fx, vx
 
-    def spsolve(self, warm_start):
-        """Solve a sample path problem. Implement this in the child class."""
-        pass
+    # def spsolve(self, warm_start):
+    #     """Solve a sample path problem. Implement this in the child class."""
+    #     pass
 
     def upsample(self, mcS):
         """sample a set at the current sample size"""
@@ -458,36 +479,36 @@ class RLESolver(RASolver):
         ales = self.rle(anew)
         return ales
 
-    def accel(self, warm_start):
-        """Accelerate RLE - Implement this function in a child class."""
-        return warm_start
+    # def accel(self, warm_start):
+    #     """Accelerate RLE - Implement this function in a child class."""
+    #     return warm_start
 
     def rle(self, mcS):
         """Return a sample path ALES."""
         mcXw = {self.x0}
-        try:
-            mcS = self.upsample(mcS | mcXw)
-        except TypeError:
-            print('--* RLE Error: Failed to upsample.')
-            print('--* Message: ', sys.exc_info()[1])
-            print('--* Ensure accel function returns a set.')
-            print('--* Aborting. ')
-            sys.exit()
-        except:
-            print('--* RLE Error: Failed to upsample.')
-            print('--* Message: ', sys.exc_info()[1])
-            print('--* Aborting. ')
-            sys.exit()
+        # try:
+        mcS = self.upsample(mcS | mcXw)
+        # except TypeError:
+        #     print('--* RLE Error: Failed to upsample.')
+        #     print('--* Message: ', sys.exc_info()[1])
+        #     print('--* Ensure accel function returns a set.')
+        #     print('--* Aborting. ')
+        #     sys.exit()
+        # except:
+        #     print('--* RLE Error: Failed to upsample.')
+        #     print('--* Message: ', sys.exc_info()[1])
+        #     print('--* Aborting. ')
+        #     sys.exit()
         b = self.b
         n = 0
-        try:
-            tmp = {s: self.gbar[s] for s in mcS | mcXw}
-        except KeyError:
-            print('--* RLE Error: No simulated points.')
-            print('--* Message: ', sys.exc_info()[1])
-            print('--* Is x0 feasible?')
-            print('--* Aborting. ')
-            sys.exit()
+        # try:
+        tmp = {s: self.gbar[s] for s in mcS | mcXw}
+        # except KeyError:
+        #     print('--* RLE Error: No simulated points.')
+        #     print('--* Message: ', sys.exc_info()[1])
+        #     print('--* Is x0 feasible?')
+        #     print('--* Aborting. ')
+        #     sys.exit()
         mcS = get_nondom(tmp)
         mcNnc = self.get_ncn(mcS)
         while n <= b and mcNnc:
@@ -572,7 +593,6 @@ class RLESolver(RASolver):
         """Find a sample path LWEP."""
         b = self.b
         n = 0
-        delz = [0]*self.num_obj
         mcXw = set()
         xnew = set() | mcNd
         while not mcXw and n <= b:
@@ -616,6 +636,7 @@ class Oracle(object):
         """Rewind to the first crn."""
         crn_state = self.crnold_state
         self.rng.setstate(crn_state)
+        self.crn_setobs()
 
     def crn_advance(self):
         """Jump ahead to the new crn baseline, and set the new rewind point."""
@@ -625,13 +646,12 @@ class Oracle(object):
             self.rng = get_next_prnstream(self.rng.get_seed())
         new_oldstate = self.rng.getstate()
         self.set_crnold(new_oldstate)
+        self.crn_obsold = new_oldstate
 
     def crn_check(self):
         '''Either go back to the baseline crn or jump to the next substream.'''
         if self.crnflag:
             self.crn_reset()
-        if not self.crnflag:
-            self.crn_nextobs()
 
     def crn_setobs(self):
         '''Set an intermediate rewind point for jumping correctly.'''
@@ -665,84 +685,87 @@ class Oracle(object):
         obse = []
         mr = range(m)
         if m > 0:
-            if m == 1:
-                isfeas, objd = self.g(x, self.rng)
-                obmean = objd
-                obse = [0 for o in objd]
-                self.crn_nextobs()
+            print('--* Error: Number of replications must be at least 1. ')
+            print('--* Aborting. ')
+            sys.exit()
+        if m == 1:
+            isfeas, objd = self.g(x, self.rng)
+            obmean = objd
+            obse = [0 for o in objd]
+            self.crn_nextobs()
+        else:
+            if self.simpar == 1:
+                ## do not parallelize replications
+                feas = []
+                objm = []
+                for i in mr:
+                    isfeas, objd = self.g(x, self.rng)
+                    feas.append(isfeas)
+                    objm.append(objd)
+                    self.crn_nextobs()
+                if all(feas):
+                    isfeas = True
+                    obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
+                    obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
+                    obse = tuple([sqrt(obvar[i]/m) for i in dr])
             else:
-                if self.simpar == 1:
-                    ## do not parallelize replications
-                    feas = []
-                    objm = []
-                    for i in mr:
-                        isfeas, objd = self.g(x, self.rng)
-                        feas.append(isfeas)
-                        objm.append(objd)
-                        self.crn_nextobs()
-                    if all(feas):
-                        isfeas = True
-                        obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
-                        obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
-                        obse = tuple([sqrt(obvar[i]/m) for i in dr])
-                else:
-                    sim_old = self.simpar
-                    ## obtain replications in parallel
-                    ## divide m into chunks for the processors
-                    nproc = self.simpar
-                    if self.simpar > m:
-                        nproc = m
-                    pr = range(nproc)
-                    num_rands = [int(m/nproc) for i in pr]
-                    for i in range(m % nproc):
-                        num_rands[i] += 1
-                    ## create prn for each process by jumping ahead 2^127 spots
-                    ## and a hit function for each using an oracle object
-                    start_seed = self.rng.get_seed()
-                    ## turn off simpar during parallelization
-                    self.simpar = 1
-                    orclst = [self]
-                    prnrng = range(len(num_rands) - 1)
-                    for i in prnrng:
-                        nextprn = get_next_prnstream(start_seed)
-                        start_seed = nextprn.get_seed()
-                        myorc = Oracle(nextprn)
-                        myorc.num_obj = self.num_obj
-                        myorc.dim = self.dim
-                        myorc.g = self.g
-                        orclst.append(myorc)
-                    ## take the replications in parallel
-                    pres = []
-                    feas = []
-                    means = []
-                    ses = []
-                    with mp.Pool(nproc) as p:
-                        #[print('cha1: ', orc.rng.get_seed()) for orc in orclst]
-                        for i, r in enumerate(num_rands):
-                            # this is weird but i guess possible
-                            pres.append(p.apply_async(mp_objmethod, (orclst[i], 'hit', (x, r))))
-                        for i in pr:
-                            ## 0 = feas, 1 = mean, 2 = se
-                            res = pres[i].get()
-                            feas.append(res[0])
-                            means.append(res[1])
-                            ses.append(res[2])
-                    ## turn simpar back on before returning
-                    self.simpar = sim_old
-                    if all(feas):
-                        isfeas = True
-                        ## weighted average of replications
-                        obmean = tuple([sum([means[i][k]*num_rands[i]/m for i in pr]) for k in dr])
-                        ### convert se output back to variance
-                        obvar = [[num_rands[i]*ses[i][k]**2 for k in dr] for i in pr]
-                        ### compute pooled variance
-                        ##### special case 1 :(
-                        if m == nproc:
-                            pvar = [variance([means[i][k] for i in pr], obmean[k]) for k in dr]
-                        else:
-                            pvar = [sum([obvar[i][k]*(num_rands[i] - 1) for i in pr])/(m - nproc) for k in dr]
-                        ### compute standard error
-                        obse = tuple([sqrt(pvar[k]/m) for k in dr])
-                    #[print('cha2: ', orc.rng.get_seed()) for orc in orclst]
+                sim_old = self.simpar
+                ## obtain replications in parallel
+                ## divide m into chunks for the processors
+                nproc = self.simpar
+                if self.simpar > m:
+                    nproc = m
+                pr = range(nproc)
+                num_rands = [int(m/nproc) for i in pr]
+                for i in range(m % nproc):
+                    num_rands[i] += 1
+                ## create prn for each process by jumping ahead 2^127 spots
+                ## and a hit function for each using an oracle object
+                start_seed = self.rng.get_seed()
+                ## turn off simpar during parallelization
+                self.simpar = 1
+                orclst = [self]
+                prnrng = range(len(num_rands) - 1)
+                for i in prnrng:
+                    nextprn = get_next_prnstream(start_seed)
+                    start_seed = nextprn.get_seed()
+                    myorc = Oracle(nextprn)
+                    myorc.num_obj = self.num_obj
+                    myorc.dim = self.dim
+                    myorc.g = self.g
+                    orclst.append(myorc)
+                ## take the replications in parallel
+                pres = []
+                feas = []
+                means = []
+                ses = []
+                with mp.Pool(nproc) as p:
+                    #[print('cha1: ', orc.rng.get_seed()) for orc in orclst]
+                    for i, r in enumerate(num_rands):
+                        # this is weird but i guess possible
+                        pres.append(p.apply_async(mp_objmethod, (orclst[i], 'hit', (x, r))))
+                    for i in pr:
+                        ## 0 = feas, 1 = mean, 2 = se
+                        res = pres[i].get()
+                        feas.append(res[0])
+                        means.append(res[1])
+                        ses.append(res[2])
+                ## turn simpar back on before returning
+                self.simpar = sim_old
+                if all(feas):
+                    isfeas = True
+                    ## weighted average of replications
+                    obmean = tuple([sum([means[i][k]*num_rands[i]/m for i in pr]) for k in dr])
+                    ### convert se output back to variance
+                    obvar = [[num_rands[i]*ses[i][k]**2 for k in dr] for i in pr]
+                    ### compute pooled variance
+                    ##### special case 1 :(
+                    if m == nproc:
+                        pvar = [variance([means[i][k] for i in pr], obmean[k]) for k in dr]
+                    else:
+                        pvar = [sum([obvar[i][k]*(num_rands[i] - 1) for i in pr])/(m - nproc) for k in dr]
+                    ### compute standard error
+                    obse = tuple([sqrt(pvar[k]/m) for k in dr])
+                #[print('cha2: ', orc.rng.get_seed()) for orc in orclst]
         self.crn_check()
         return isfeas, obmean, obse

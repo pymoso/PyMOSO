@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import sys
 from ..chnbase import RLESolver
-from ..chnutils import get_biparetos
+from ..chnutils import get_biparetos, get_nondom
 
 
 class RPERLE(RLESolver):
@@ -112,16 +112,3 @@ class RPERLE(RLESolver):
         m = self.m
         relax = se/pow(m, self.betaeps)
         return relax
-
-    def get_min(self, mcS):
-        """Return a minimum for every objective using spline."""
-        self.upsample(mcS)
-        unconst = float('inf')
-        kcon = 0
-        xmin = set()
-        krange = range(self.num_obj)
-        for k in krange:
-            kmin = min(mcS, key=lambda t: self.gbar[t][k])
-            _, xmink, _, _ = self.spline(kmin, unconst, k, kcon)
-            xmin |= {xmink}
-        return xmin
