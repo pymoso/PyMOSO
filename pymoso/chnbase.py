@@ -684,7 +684,7 @@ class Oracle(object):
         obmean = []
         obse = []
         mr = range(m)
-        if m > 0:
+        if m < 1:
             print('--* Error: Number of replications must be at least 1. ')
             print('--* Aborting. ')
             sys.exit()
