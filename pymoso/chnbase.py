@@ -83,11 +83,13 @@ class RASolver(MOSOSolver):
         kcon = 0
         xmin = set()
         krange = range(self.num_obj)
+        mcT = set()
         for k in krange:
             kmin = min(mcS | {self.x0}, key=lambda t: self.gbar[t][k])
-            _, xmink, _, _ = self.spline(kmin, unconst, k, kcon)
+            tb, xmink, _, _ = self.spline(kmin, unconst, k, kcon)
             xmin |= {xmink}
-        tmp = {x: self.gbar[x] for x in xmin | mcS | {self.x0}}
+            mcT |= tb
+        tmp = {x: self.gbar[x] for x in xmin | mcS | mcT | {self.x0}}
         xmin = get_nondom(tmp)
         return xmin
 
@@ -314,9 +316,9 @@ class RASolver(MOSOSolver):
                         xs = x1
                         fxs = fx1
                         sexs = sex1
-                x0 = xs
-                if not x1 == xs:
+                if not x1 == xs and n > b:
                     should_stop = True
+            x0 = xs
             if i <= 2:
                 stop_loop = True
         return xs, fxs, sexs, n
@@ -665,6 +667,38 @@ class Oracle(object):
         jump_substream(self.rng)
         self.crn_setobs()
 
+    def bump(self, x, m):
+        """Generate m replications at x and return them as a list.
+        Positional Arguments:
+        x -- point at which to generate replications
+        m -- number of replications to generate at x
+
+        Return Values:
+        isfeas -- boolean indicating feasibility of x
+        obs -- list of length m containing a tuple for each replication
+        """
+        d = self.num_obj
+        dr = range(d)
+        isfeas = False
+        obs = []
+        mr = range(m)
+        if m < 1:
+            print('--* Error: Number of replications must be at least 1. ')
+            print('--* Aborting. ')
+            sys.exit()
+        else:
+            mr = range(m)
+            feas = []
+            for i in mr:
+                oisfeas, objd = self.g(x, self.rng)
+                feas.append(oisfeas)
+                obs.append(objd)
+                self.crn_nextobs()
+            if all(feas):
+                isfeas = True
+        self.crn_check()
+        return isfeas, obs
+
     def hit(self, x, m):
         """Generate the mean of spending m simulation effort at point x.
 
@@ -699,8 +733,8 @@ class Oracle(object):
                 feas = []
                 objm = []
                 for i in mr:
-                    isfeas, objd = self.g(x, self.rng)
-                    feas.append(isfeas)
+                    oisfeas, objd = self.g(x, self.rng)
+                    feas.append(oisfeas)
                     objm.append(objd)
                     self.crn_nextobs()
                 if all(feas):
