@@ -282,11 +282,11 @@ class RASolver(MOSOSolver):
         m = self.m
         q = len(x0)
         ss = 2.0
+        c = 2.0
         xs = x0
         fxs = fx0
         sexs = sex0
         n = 0
-        c = 2.0
         stop_loop = False
         while not stop_loop:
             x1 = perturb(x0, sprn)
@@ -316,7 +316,7 @@ class RASolver(MOSOSolver):
                         xs = x1
                         fxs = fx1
                         sexs = sex1
-                if not x1 == xs and n > b:
+                if not x1 == xs or n > b:
                     should_stop = True
             x0 = xs
             if i <= 2:
