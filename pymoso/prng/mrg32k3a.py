@@ -3,7 +3,7 @@
 
 import random
 from math import log
-
+import functools
 
 ## constants used in mrg32k3a and in substream generation
 ## all from:
@@ -107,6 +107,15 @@ def bsm(u):
 
 class MRG32k3a(random.Random):
     """Subclass the default random.Random using mrg32k3a as the generator."""
+    @classmethod
+    def set_class_cache(cls, cache_flag):
+        if not cache_flag:
+            cls.generate = mrg32k3a
+            cls.bsm = bsm
+        else:
+            cls.generate = functools.lru_cache(maxsize=None)(mrg32k3a)
+            cls.bsm = functools.lru_cache(maxsize=None)(bsm)
+        return cls
 
     def __init__(self, x=None):
         """Initialize the generator with an optional mrg32k3a seed (tuple of length 6)."""
@@ -125,7 +134,7 @@ class MRG32k3a(random.Random):
     def random(self):
         """Generate a random u ~ U(0, 1) and advance the generator state."""
         seed = self._current_seed
-        newseed, u = mrg32k3a(seed)
+        newseed, u = MRG32k3a.generate(seed)
         self.seed(newseed)
         return u
 
@@ -145,7 +154,7 @@ class MRG32k3a(random.Random):
     def normalvariate(self, mu=0, sigma=1):
         """Generate a random z ~ N(mu, sigma)."""
         u = self.random()
-        z = bsm(u)
+        z = MRG32k3a.bsm(u)
         return sigma*z + mu
 
 
@@ -167,7 +176,7 @@ def mat311mod(a, b):
     return res
 
 
-def get_next_prnstream(seed):
+def get_next_prnstream(seed, crn):
     """Instantiate a generator seeded 2^127 steps from the input seed."""
     assert(len(seed) == 6)
     # split the seed into 2 components of length 3
@@ -180,7 +189,7 @@ def get_next_prnstream(seed):
     ns2 = mat311mod(ns2m, mrgm2)
     # random.Random objects need a hashable seed e.g. a tuple
     sseed = tuple(ns1 + ns2)
-    prn = MRG32k3a(sseed)
+    prn = MRG32k3a.set_class_cache(crn)(sseed)
     return prn
 
 def jump_substream(prn):

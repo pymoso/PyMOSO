@@ -2,7 +2,7 @@
 """Provide base classes for problem and solver implementations."""
 from statistics import mean, variance
 from math import sqrt, ceil, floor
-from .prng.mrg32k3a import get_next_prnstream, jump_substream
+from .prng.mrg32k3a import get_next_prnstream, jump_substream, mrg32k3a, bsm
 import multiprocessing as mp
 import sys
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
@@ -645,10 +645,13 @@ class Oracle(object):
         numjumps = self.simpar
         self.crn_reset()
         for i in range(numjumps):
-            self.rng = get_next_prnstream(self.rng.get_seed())
+            self.rng = get_next_prnstream(self.rng.get_seed(), self.crnflag)
         new_oldstate = self.rng.getstate()
         self.set_crnold(new_oldstate)
         self.crn_obsold = new_oldstate
+        if self.crnflag:
+            self.rng.generate.cache_clear()
+            self.rng.bsm.cache_clear()
 
     def crn_check(self):
         '''Either go back to the baseline crn or jump to the next substream.'''

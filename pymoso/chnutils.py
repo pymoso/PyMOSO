@@ -16,7 +16,7 @@ def solve(problem, solver, x0, **kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
     ## generate all prn streams
-    orcstream, solvstream = get_solv_prnstreams(seed)
+    orcstream, solvstream = get_solv_prnstreams(seed, crn)
     ## generate the experiment list
     paramlst = [('solvprn', solvstream), ('x0', x0), ]
     orc = problem(orcstream)
@@ -43,7 +43,7 @@ def testsolve(tester, solver, x0, **kwargs):
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
-    orcstreams, solvstreams, x0stream, endseed = get_testsolve_prnstreams(isp, seed)
+    orcstreams, solvstreams, x0stream, endseed = get_testsolve_prnstreams(isp, seed, crn)
     joblist = []
     currtest = tester()
     for i in range(isp):
@@ -62,28 +62,28 @@ def testsolve(tester, solver, x0, **kwargs):
     return res, endseed
 
 
-def get_testsolve_prnstreams(num_trials, iseed):
+def get_testsolve_prnstreams(num_trials, iseed, crn):
     xprn = MRG32k3a(iseed)
     max_RI = 200
     orcprn_lst = []
     solprn_lst = []
     for t in range(num_trials):
-        solprn = get_next_prnstream(iseed)
+        solprn = get_next_prnstream(iseed, False)
         iseed = solprn.get_seed()
         solprn_lst.append(solprn)
     for t in range(num_trials):
-        orcprn = get_next_prnstream(iseed)
+        orcprn = get_next_prnstream(iseed, crn)
         iseed = orcprn.get_seed()
         orcprn_lst.append(orcprn)
         for i in range(max_RI):
-            newprn = get_next_prnstream(iseed)
+            newprn = get_next_prnstream(iseed, crn)
             iseed = newprn.get_seed()
     return orcprn_lst, solprn_lst, xprn, iseed
 
 
-def get_solv_prnstreams(iseed):
-    solvstream = MRG32k3a(iseed)
-    orcstream = get_next_prnstream(iseed)
+def get_solv_prnstreams(iseed, crn):
+    solvstream = MRG32k3a.set_class_cache(False)(iseed)
+    orcstream = get_next_prnstream(iseed, crn)
     return orcstream, solvstream
 
 
