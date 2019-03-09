@@ -42,14 +42,14 @@ Help:
 
 
 from inspect import getmembers, isclass
-
 from docopt import docopt
-
 from . import __version__ as VERSION
 
 
 def main():
-    """Main CLI entrypoint."""
+    """
+    Main CLI entrypoint.
+    """
     from . import commands
     options = docopt(__doc__, version=VERSION)
     for (k, v) in options.items():
