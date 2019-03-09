@@ -1,5 +1,16 @@
 #!/usr/bin/env python
-"""Provide a subclass of random.Random using mrg32k3a as the generator with substream support."""
+"""
+Summary
+-------
+Provide a subclass of random.Random using mrg32k3a as the generator 
+with substream support.
+
+Listing
+-------
+MRG323k3a
+get_next_prnstream
+jump_substream
+"""
 
 import random
 from math import log
@@ -52,6 +63,19 @@ bsmc = [0.3374754822726147, 0.9761690190917186, 0.1607979714918209, 0.0276438810
 
 # this is adapted to pure Python from the P. L'Ecuyer code referenced above
 def mrg32k3a(seed):
+	"""
+	Generate a random number between 0 and 1 from a seed.
+	
+	Parameters
+	----------
+	seed : tuple of int
+		Length must be 6. 
+	
+	Returns
+	-------
+	newseed : tuple of int
+	u : float
+	"""
     p1 = mrga12*seed[1] - mrga13n*seed[0]
     k1 = int(p1/mrgm1)
     p1 -= k1*mrgm1
@@ -72,7 +96,18 @@ def mrg32k3a(seed):
 
 # as in beasly-springer-moro
 def bsm(u):
-    """Approximate the uth quantile of the standard normal distribution."""
+    """
+    Approximate the quantiles of the standard normal distribution.
+    
+    Parameters
+    ----------
+    u : float
+		Desired quantile between 0 and 1
+	
+	Returns
+	-------
+	z : float
+    """
     y = u - 0.5
     if abs(y) < 0.42:
         ## approximate from the center (Beasly Springer 1973)
@@ -106,7 +141,24 @@ def bsm(u):
 
 
 class MRG32k3a(random.Random):
-    """Subclass the default random.Random using mrg32k3a as the generator."""
+    """
+    Implements mrg32k3a as the generator for a random.Random object
+    
+    Attributes
+    ----------
+    _current_seed : tuple of int
+		6 integer mrg32k3a seed
+	
+	Parameters
+	----------
+	x : tuple of int, optional
+		Seed from which to start the generator
+		
+	See also
+	--------
+	random.Random
+    """
+    
     @classmethod
     def set_class_cache(cls, cache_flag):
         if not cache_flag:
@@ -118,7 +170,6 @@ class MRG32k3a(random.Random):
         return cls
 
     def __init__(self, x=None):
-        """Initialize the generator with an optional mrg32k3a seed (tuple of length 6)."""
         if not x:
             x = (12345, 12345, 12345, 12345, 12345, 12345)
         assert(len(x) == 6)
@@ -126,40 +177,115 @@ class MRG32k3a(random.Random):
         super().__init__(x)
 
     def seed(self, a):
-        """Set the seed of mrg32k3a and update the generator state."""
+        """
+        Set the seed of mrg32k3a and update the generator state.
+        
+        Parameters
+        ----------
+        a : tuple of int
+        """
         assert(len(a) == 6)
         self._current_seed = a
         super().seed(a)
 
     def random(self):
-        """Generate a random u ~ U(0, 1) and advance the generator state."""
+        """
+        Generate a standard uniform variate and advance the generator
+        state.
+        
+        Returns
+        -------
+        u : float
+        """
         seed = self._current_seed
         newseed, u = MRG32k3a.generate(seed)
         self.seed(newseed)
         return u
 
     def get_seed(self):
-        """Return the current mrg32k3a seed."""
+        """
+        Return the current mrg32k3a seed.
+        
+        Returns
+        -------
+        tuple of int
+			The current mrg32k3a seed
+        """
         return self._current_seed
 
     def getstate(self):
-        """Return a state object describing the current generator."""
+        """
+        Return the state of the generator.
+        
+        Returns
+        -------
+        tuple of int
+			The current seed
+		tuple
+			Random.getstate output
+		
+		See also
+		--------
+		random.Random
+		"""
         return self.get_seed(), super().getstate()
 
     def setstate(self, state):
-        """Set the internal state of the generator."""
+        """
+        Set the internal state of the generator.
+        
+        Parameters
+        ----------
+        state : tuple
+			tuple[0] is mrg32k3a seed, [1] is random.Random.getstate
+			
+		See also
+		--------
+		random.Random
+        """
         self.seed(state[0])
         super().setstate(state[1])
 
     def normalvariate(self, mu=0, sigma=1):
-        """Generate a random z ~ N(mu, sigma)."""
+        """
+        Generate a normal random variate.
+        
+        Parameters
+        ----------
+        mu : float
+			Expected value of the normal distribution from which to 
+			generate. Default is 0.
+		sigma : float
+			Standard deviatoin of the normal distribution from which to
+			generate. Default is 1. 
+			
+		Returns
+		-------
+		float
+			A normal variate from the specified distribution
+        
+        """
         u = self.random()
         z = MRG32k3a.bsm(u)
         return sigma*z + mu
 
 
 def mat333mult(a, b):
-    """Multiply a 3x3 matrix with a 3x1 matrix."""
+    """
+    Multiply a 3x3 matrix with a 3x1 matrix.
+    
+    Parameters
+    ----------
+    a : tuple of tuple of float
+		3x3 matrix
+    b : tuple of tuple if float
+		3x1 matrix
+		
+    Returns
+    -------
+    res : list of float
+		3x1 matrix
+    """
     res = [0, 0, 0]
     r3 = range(3)
     for i in r3:
@@ -168,7 +294,21 @@ def mat333mult(a, b):
 
 
 def mat311mod(a, b):
-    """Compute mod(a, b) where a is 3x1 matrix."""
+    """
+    Compute moduli of a 3x1 matrix.
+    
+    Parameters
+    ----------
+    a : tuple of float
+		3x1 matrix
+	b : float
+		modulus
+		
+	Returns
+	-------
+	res : tuple of float
+		3x1 matrix
+    """
     res = [0, 0, 0]
     r3 = range(3)
     for i in r3:
@@ -177,7 +317,18 @@ def mat311mod(a, b):
 
 
 def get_next_prnstream(seed, crn):
-    """Instantiate a generator seeded 2^127 steps from the input seed."""
+    """
+    Instantiate a generator seeded 2^127 steps from the input seed.
+    
+    Parameters
+    ----------
+    seed : tuple of int
+    crn : bool
+    
+    Returns
+    -------
+    prn : MRG32k3a object
+    """
     assert(len(seed) == 6)
     # split the seed into 2 components of length 3
     s1 = seed[0:3]
@@ -193,7 +344,13 @@ def get_next_prnstream(seed, crn):
     return prn
 
 def jump_substream(prn):
-    """Set the prn to the next substream 2^76 steps."""
+    """
+    Advance the rng to the next substream 2^76 steps.
+    
+    Parameters
+    ----------
+    prn : MRG32k3a object
+    """
     seed = prn.get_seed()
     # split the seed into 2 components of length 3
     s1 = seed[0:3]
