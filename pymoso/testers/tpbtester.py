@@ -1,10 +1,28 @@
 #!/usr/bin/env python
+"""
+Summary
+-------
+Provide the tester for Test Problem B
+"""
 from ..problems import probtpb
 from math import exp
 from ..chnutils import dh
 
 
 def true_g(x):
+	"""
+	Compute the expected values of a point. 
+	
+	Parameters
+	----------
+	x : tuple of int
+		A feasible point
+	
+	Returns
+	-------
+	tuple of float
+		The objective values
+	"""
     g1 = 4*x[0]/100
     if x[1] >= 0 and x[1] <= 40:
         f2 = 4 - 3*exp(-pow((x[1]-20)/2, 2))
@@ -21,6 +39,18 @@ def true_g(x):
 
 
 def get_ranx0(rng):
+	"""
+	Uniformly sample from the feasible space.
+	
+	Parameters
+	----------
+	rng : prng.MRG32k3a object
+	
+	Returns
+	-------
+	x0 : tuple of int
+		The randomly chosen point
+	"""
     xr = range(0, 101)
     x1 = rng.choice(xr)
     x2 = rng.choice(xr)
@@ -29,6 +59,17 @@ def get_ranx0(rng):
 
 
 class TPBTester(object):
+	"""
+	Store useful data for working with Test Problem B.
+		
+	Attributes
+	----------
+	ranorc : chnbase.Oracle class
+	true_g : function
+	soln : list of set of tuple of int
+		The set of LES's which solve TPC locally
+	get_ranx0 : function
+	"""
     def __init__(self):
         self.ranorc = probtpb.ProbTPB
         self.true_g = true_g
@@ -36,6 +77,19 @@ class TPBTester(object):
         self.get_ranx0 = get_ranx0
 
     def metric(self, eles):
+		"""
+		Compute a metric from a simulated solution to the true solution.
+		
+		Parameters
+		----------
+		else : set of tuple of numbers
+			Simulated solution
+		
+		Returns
+		-------
+		float
+			The performance metric
+		"""
         efrontier = []
         for point in eles:
             objs = self.true_g(point)
