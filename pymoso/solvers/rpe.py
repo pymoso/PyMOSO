@@ -1,23 +1,64 @@
 #!/usr/bin/env python
+"""
+Summary
+-------
+Provide an implementation of R-Pe for users needing a 
+bi-objective simulation optimization solver. 
+"""
 from ..chnbase import RASolver
 from ..chnutils import get_biparetos
 import sys
 
 
 class RPE(RASolver):
-    """A solver using R-Pe for integer-ordered bi-objective MOSO."""
+    """
+    R-Pe solver for bi-objective simulation optimization.
+    
+    Parameters
+    ----------
+    orc : chnbase.Oracle object
+	kwargs : dict
+	
+	See also
+	--------
+	chnbase.RASolver
+    """
 
     def __init__(self, orc, **kwargs):
         self.betaeps = kwargs.pop('betaeps', 0.5)
         super().__init__(orc, **kwargs)
 
     def spsolve(self, warm_start):
-        '''Use P-epsilon as a sample path solver.'''
+        """
+        Set P-epsilon as the sample path solver. RASolvers require that 
+        this function is implemented.
+        
+		Parameters
+		----------
+		warm_start : set of tuple of int
+		
+		Returns
+		-------
+		next_start : set of tuple of int
+        """
         next_start = self.pe(warm_start)
         return next_start
 
     def pe(self, aold):
-        """Return candidate bi-objective LEPs using the P-Epsilon algorithm."""
+        """
+        Generate candidate bi-objective LEPs using the P-Epsilon 
+        algorithm.
+        
+        Parameters
+        ----------
+        aold : set of tuple of int
+			The ALES of the previous iteration
+			
+		Returns
+		-------
+		phatp : set of tuple of int
+			A candidate ALES
+        """
         aold = self.upsample(aold | {self.x0})
         try:
             mnumin = self.get_min(aold)
@@ -109,7 +150,18 @@ class RPE(RASolver):
         return phatp
 
     def fse(self, se):
-        """Compute diminishing standard error function for an iteration nu."""
+        """
+        Compute diminishing standard error function for an iteration.
+        
+        Parameters
+        ----------
+        se : float
+			Standard error of an objective value
+		
+		Returns
+		-------
+		relax : float
+        """
         m = self.m
         relax = se/pow(m, self.betaeps)
         return relax

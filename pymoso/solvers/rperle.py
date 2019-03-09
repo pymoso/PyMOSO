@@ -1,21 +1,63 @@
 #!/usr/bin/env python
+"""
+Summary
+-------
+Provide an implementation of R-PERLE for users needing a 
+bi-objective simulation optimization solver. 
+"""
 import sys
 from ..chnbase import RLESolver
 from ..chnutils import get_biparetos, get_nondom
 
 
 class RPERLE(RLESolver):
-    """A solver using RPERLE for integer-ordered bi-objective MOSO."""
+    """
+    R-PERLE solver for bi-objective simulation optimization.
+    
+    Parameters
+    ----------
+    orc : chnbase.Oracle object
+	kwargs : dict
+	
+	See also
+	--------
+	chnbase.RLESolver, chnbase.RASolver
+    """
 
     def __init__(self, orc, **kwargs):
         self.betaeps = kwargs.pop('betaeps', 0.5)
         super().__init__(orc, **kwargs)
 
     def accel(self, warm_start):
+		"""
+		Compute a candidate ALES. RLESolvers require that this function 
+		is implemented. 
+		
+		Parameters
+		----------
+		warm_start : set of tuple of int
+		
+		Returns
+		-------
+		set of tuple of int
+		"""
         return self.pe(warm_start)
 
     def pe(self, aold):
-        """Return candidate bi-objective LEPs using the P-Epsilon algorithm."""
+        """
+        Generate candidate bi-objective LEPs using the P-Epsilon 
+        algorithm.
+        
+        Parameters
+        ----------
+        aold : set of tuple of int
+			The ALES of the previous iteration
+			
+		Returns
+		-------
+		phatp : set of tuple of int
+			A candidate ALES
+        """
         aold = self.upsample(aold | {self.x0})
         try:
             mnumin = self.get_min(aold)
@@ -108,7 +150,18 @@ class RPERLE(RLESolver):
         return phatp
 
     def fse(self, se):
-        """Compute diminishing standard error function for an iteration nu."""
+        """
+        Compute diminishing standard error function for an iteration.
+        
+        Parameters
+        ----------
+        se : float
+			Standard error of an objective value
+		
+		Returns
+		-------
+		relax : float
+        """
         m = self.m
         relax = se/pow(m, self.betaeps)
         return relax
