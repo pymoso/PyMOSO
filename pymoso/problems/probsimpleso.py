@@ -1,16 +1,51 @@
 #!/usr/bin/env python
+"""
+Summary
+-------
+Provides implementation of the Test Simple SO Problem 
+Oracle for use in PyMOSO.
+"""
 from ..chnbase import Oracle
 
 
 class ProbSimpleSO(Oracle):
-    """x^2 + noise."""
+    """
+    An Oracle that simulates the Test Simple SO problem.
+    
+    Attributes
+    ----------
+    num_obj : int, 1
+    dim : int, 1
+    
+    Parameters
+    ----------
+    rng : prng.MRG32k3a object
+    
+	See also
+	--------
+	chnbase.Oracle
+    """
     def __init__(self, rng):
         self.num_obj = 1
         self.dim = 1
         super().__init__(rng)
 
     def g(self, x, rng):
-        """Estimate g(x)."""
+		"""
+		Simulates one replication. PyMOSO requires that all valid 
+		Oracles implement an Oracle.g. 
+		
+		Parameters
+		----------
+		x : tuple of int
+		rng : prng.MRG32k3a object
+		
+		Returns
+		-------
+		isfeas : bool
+		tuple of float
+			simulated objective values
+		"""
         xr = range(-100, 101)
         isfeas = True
         for xi in x:

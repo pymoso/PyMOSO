@@ -1,39 +1,37 @@
 #!/usr/bin/env python
 """
-	Summary
-	-------
-	Provide supporting functions for solving MOSO problems,  
-	implementing MOSO algorithms, and computing metrics.
+Provide supporting functions for solving MOSO problems, implementing 
+MOSO algorithms, and computing metrics.
 	
-	Listing
-	--------------
-	solve
-	testsolve
-	get_testsolve_prnstreams
-	get_solv_prnstreams
-	do_work
-	combine_runs
-	isp_run
-	par_runs
-	gen_metric
-	par_diff
-	does_weak_dominate
-	does_dominate
-	does_strict_dominate
-	is_lep
-	is_lwep
-	get_biparetos
-	front
-	get_nondom
-	get_nbors
-	argsort
-	get_setnbors
-	enorm
-	perturb
-	edist
-	dxB
-	dAB
-	dH
+Listing
+--------------
+solve
+testsolve
+get_testsolve_prnstreams
+get_solv_prnstreams
+do_work
+combine_runs
+isp_run
+par_runs
+gen_metric
+par_diff
+does_weak_dominate
+does_dominate
+does_strict_dominate
+is_lep
+is_lwep
+get_biparetos
+front
+get_nondom
+get_nbors
+argsort
+get_setnbors
+enorm
+perturb
+edist
+dxB
+dAB
+dH
 """
 
 from itertools import product, filterfalse

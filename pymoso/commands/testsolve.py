@@ -1,4 +1,4 @@
-"""The solve and testsolve command"""
+"""Provide the CLI testsolve command."""
 
 from .basecomm import *
 from inspect import getmembers, isclass
@@ -12,7 +12,14 @@ from ..chnutils import testsolve, par_diff, par_runs
 
 
 class TestSolve(BaseComm):
-    """Test a MOSO algorithm against a problem with a known solution."""
+    """
+    Implements the CLI testsolve command with the specified arguments 
+    and options. 
+    
+    See also
+    --------
+    BaseComm
+    """    
     def run(self):
         ## get the options with default values
         budget = int(self.options['--budget'])

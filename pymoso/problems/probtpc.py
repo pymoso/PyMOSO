@@ -1,10 +1,32 @@
 #!/usr/bin/env python
+"""
+Summary
+-------
+Provides implementation of the Test Problem C Oracle for use in PyMOSO.
+"""
 from ..chnbase import Oracle
 from math import exp, sqrt, sin
 
 
 class ProbTPC(Oracle):
-    """Test Problem C"""
+    """
+    An Oracle that simulates Test Problem C.
+    
+    Attributes
+    ----------
+    num_obj : int, 2
+    dim : int, 3
+    density_factor : int, 2
+    
+    Parameters
+    ----------
+    rng : prng.MRG32k3a object
+    
+	See also
+	--------
+	chnbase.Oracle
+    """
+    
     def __init__(self, rng):
         self.num_obj = 2
         self.dim = 3
@@ -12,6 +34,21 @@ class ProbTPC(Oracle):
         super().__init__(rng)
 
     def g(self, x, rng):
+		"""
+		Simulates one replication. PyMOSO requires that all valid 
+		Oracles implement an Oracle.g. 
+		
+		Parameters
+		----------
+		x : tuple of int
+		rng : prng.MRG32k3a object
+		
+		Returns
+		-------
+		isfeas : bool
+		tuple of float
+			simulated objective values
+		"""
         df = self.density_factor
         xr = range(-5*df, 5*df + 1)
         obj1 = None

@@ -1,18 +1,16 @@
 #!/usr/bin/env python
 """
-	Summary
-	-------
-	Provide base classes and supporting functions for problem 
-	and solver implementations.
+Provide base classes and supporting functions for problem  and solver 
+implementations.
 	
-	Listing
-	--------------
-	_mp_objmethod, function
-	MOSOSolver(object), class
-	RASolver(MOSOSolver), class
-	RLESolver(RASolver), class
-	Oracle(object), class
-	"""
+Listing
+--------------
+_mp_objmethod, function
+MOSOSolver(object), class
+RASolver(MOSOSolver), class
+RLESolver(RASolver), class
+Oracle(object), class
+"""
 from statistics import mean, variance
 from math import sqrt, ceil, floor
 from .prng.mrg32k3a import get_next_prnstream, jump_substream, mrg32k3a, bsm
