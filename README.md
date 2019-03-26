@@ -82,7 +82,7 @@ Depending on how users configure their Python installation and how many version 
 ### Install PyMOSO from the repository using `pip`
 Users with `git` installed can use `pip` to install the most current version of PyMOSO directly from our source code:  
 
-`pip install git+https://github.rcac.purdue.edu/HunterGroup/pymoso.git`  
+`pip install git+https://github.com/pymoso/PyMOSO.git`  
 
 We consider the latest source to be less stable than the fixed releases we upload to PyPI, and thus we recommend most users install PyMOSO from PyPI.  
 
