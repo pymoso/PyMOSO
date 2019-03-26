@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-Provide base classes and supporting functions for problem  and solver 
+Provide base classes and supporting functions for problem  and solver
 implementations.
-	
+
 Listing
 --------------
 _mp_objmethod, function
@@ -22,29 +22,29 @@ from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep,
 def _mp_objmethod(instance, name, args=(), kwargs=None):
     """
     Wraps an instance method with arguments for use in multiprocessing
-    functions. 
-    
+    functions.
+
     Parameters
     ----------
     instance : Oracle
     name : str
-		The name of the 'instance' method to execute in a 
-		multiprocessing routine. 
+		The name of the 'instance' method to execute in a
+		multiprocessing routine.
 	args : tuple, optional
 		Positional arguments requiredby 'instance.name'
-	kwargs : dict, optional 
+	kwargs : dict, optional
 		Keyword arguments used by 'instance.name'
-	
+
 	Returns
 	-------
 	instance.name
-		A callable method. 
-		
+		A callable method.
+
 	See also
 	--------
 	getattr
     """
-    
+
     if kwargs is None:
         kwargs = {}
     return getattr(instance, name)(*args, **kwargs)
@@ -53,7 +53,7 @@ def _mp_objmethod(instance, name, args=(), kwargs=None):
 class MOSOSolver(object):
     """
     Base class for solver implentations.
-    
+
     Attributes
     ----------
     orc : Oracle
@@ -63,15 +63,15 @@ class MOSOSolver(object):
 	num_obj : int
 		The number of objectives returned by orc.g
 	dim : The cardinality of points in the domain of orc.g
-	
+
 	Parameters
 	----------
 	orc: Oracle object
-    
+
     Notes
     -----
     The solve attribute must be implemented in sub-classes for use in
-    PyMOSO. 
+    PyMOSO.
     """
 
     def __init__(self, orc):
@@ -84,10 +84,10 @@ class MOSOSolver(object):
 
 class RASolver(MOSOSolver):
     """
-    Base class for Retrospective Approximation algorithm 
+    Base class for Retrospective Approximation algorithm
     implementations. The class methods assume integer-ordered feasible
-    points. 
-    
+    points.
+
     Attributes
     ----------
     orc : Oracle
@@ -103,20 +103,20 @@ class RASolver(MOSOSolver):
 	mconst : int
 		Affects the iteration sample sizes. Default is 2
 	bconst : int
-		Affects the iteration sampling search limits. 
+		Affects the iteration sampling search limits.
 	sprn : prng.MRG32k3a object. Default is 8.
 		Pseudo-random number stream available to the solver, should
 		generate independently of orc.rng.
 	x0 : tuple of numbers
-		Vector points such that x0[0] is its first component, and 
+		Vector points such that x0[0] is its first component, and
 		x0[orc.dim - 1] is the last.
 	gbar : dict
-		Dictionary of {tuple of int: tuple of float} mapping feasible 
-		points to their objective values. In RA algorithms, it is 
-		cleared every iteration. 
+		Dictionary of {tuple of int: tuple of float} mapping feasible
+		points to their objective values. In RA algorithms, it is
+		cleared every iteration.
 	sehat : dict
-		Like gbar, but maps feasible points to standard errors of 
-		the objective values. 
+		Like gbar, but maps feasible points to standard errors of
+		the objective values.
 	m : int
 		Iteration sample size which is automatically updated
 	b : int
@@ -125,15 +125,15 @@ class RASolver(MOSOSolver):
 		The iteration number
 	endseed : tuple of int
 		The next seed to be used by 'orc.rng'
-		
+
 	Parameters
 	----------
 	orc : Oracle object
 	kwargs : dict
-	
+
 	Notes
 	-----
-	The method spsolve must be implemented to use an RASolver in 
+	The method spsolve must be implemented to use an RASolver in
 	PyMOSO
     """
 
@@ -153,12 +153,12 @@ class RASolver(MOSOSolver):
     def solve(self, budget):
         """
         Solves the MOSO problem implicitly implemented in orc.
-        
+
         Parameters
         ----------
         budget : int
 			The maximum number of calls allowed to orc.g
-			
+
 		Returns
 		-------
 		resdict : dict
@@ -179,9 +179,9 @@ class RASolver(MOSOSolver):
 
     def rasolve(self, phatnu, simcalls, budget):
         """
-        Repeatedly solve the sample-path problem using a sequence of 
-        increasing sample sizes. 
-        
+        Repeatedly solve the sample-path problem using a sequence of
+        increasing sample sizes.
+
         Parameters
         ----------
         phatnu : dict
@@ -190,13 +190,13 @@ class RASolver(MOSOSolver):
 			Dictionary of {iteration int : int of calls to orc.g}
 		budget : int
 			Total number of calls allowed to orc.g across all iterations
-			
+
 		Notes
 		-----
 		This updates does not return anything, it updates the simcalls,
-		phatnu dictionaries and the endseed value.  
+		phatnu dictionaries and the endseed value.
         """
-        
+
         while self.num_calls < budget:
             self.nu += 1
             self.m = self.calc_m(self.nu)
@@ -216,17 +216,17 @@ class RASolver(MOSOSolver):
         """
         Generate a sample path minimizer for every objective and other
         visited, non-dominated points.
-        
+
         Parameters
         ----------
         mcS : set
 			Set of tuples of int representing feasible point of orc.
-			
+
 		Returns
 		-------
 		xmin : set
 			Set of non-dominated points searched by spline in every
-			objective. 
+			objective.
         """
         self.upsample(mcS | {self.x0})
         unconst = float('inf')
@@ -253,7 +253,7 @@ class RASolver(MOSOSolver):
 			Feasible point of orc
         e : float
 			Constraint such the minimum 'fxn' < 'e'. Defaults to
-			float('inf'), i.e. unconstrained. 
+			float('inf'), i.e. unconstrained.
 		nobj : int
 			Index of the objective to minimize, takes {0, 1,..., dim-1}
 			Defaults to 0, the first objective
@@ -272,7 +272,7 @@ class RASolver(MOSOSolver):
 		sexn : tuple of float
 			Standard errors of 'fxn'
         """
-        
+
         fx0 = self.gbar[x0]
         sex0 = self.sehat[x0]
         b = self.b
@@ -295,27 +295,27 @@ class RASolver(MOSOSolver):
     def ne(self, x, fx, sex, nobj, e=float('inf'), kcon=0):
         """
         Finds a neighborhood point with an objective value smaller than
-        that of a given point. 
+        that of a given point.
 
         Parameters
         ----------
         x : tuple of int
-			Feasible point around which to perform the neighborhood 
+			Feasible point around which to perform the neighborhood
 			search
 		fx : tuple of float
 			Objective values of 'x'
 		sex : tuple of float
 			Standard errors of 'fx'
 		nobj : int
-			index of the objective to minimize, takes values in 
+			index of the objective to minimize, takes values in
 			{0, 1, ..., dim-1}, default is 0
 		e : float
 			constraint such that solution objective value < 'e', default
 			is float('inf') i.e. unconstrained
 		kcon : int
-			index of the objective to constrain less than 'e', takes 
+			index of the objective to constrain less than 'e', takes
 			values in {0, 1, ..., dim-1}, default is 0
-		
+
 		Returns
 		-------
 		xs : tuple of int
@@ -458,10 +458,10 @@ class RASolver(MOSOSolver):
 		e : float
 			Constraint on the values of the minimizer
 		nobj : int
-			Index of objective to minimize, takes values in 
+			Index of objective to minimize, takes values in
 			{0, 1, ..., dim-1}
 		kcon : int
-			Index of objective to constrain less than 'e', takes values 
+			Index of objective to constrain less than 'e', takes values
 			in {0, 1, ..., dim-1}
 		b : int
 			Limit on calls to orc.g when searching
@@ -469,7 +469,7 @@ class RASolver(MOSOSolver):
         Returns
         -------
         xs: tuple of int
-			The point with the smallest value found by searching the 
+			The point with the smallest value found by searching the
 			psuedo-gradients
 		fxs : tuple of float
 			The objective values of 'xs'
@@ -527,7 +527,7 @@ class RASolver(MOSOSolver):
         """
         Wraps simulation calls, updates the number of simulation calls,
         performs feasibility checks, and stores the resulting objective
-        values. 
+        values.
 
         Parameters
         ----------
@@ -537,7 +537,7 @@ class RASolver(MOSOSolver):
 			Constraint value to check feasibility, default is
 			float('inf') i.e. unconstrained
 		nobj : int
-			Index of objective to minimize, default is 0, takes values 
+			Index of objective to minimize, default is 0, takes values
 			in {0, 1, ..., len('x') -1}
 
 		Returns
@@ -614,14 +614,14 @@ class RASolver(MOSOSolver):
 
     def upsample(self, mcS):
         """
-        Estimate points at the sample size of the current iteration and 
-        store the results. 
-        
+        Estimate points at the sample size of the current iteration and
+        store the results.
+
         Parameters
         ----------
         mcS : set of tuple of int
 			Set of feasible points of which to estimate
-		
+
 		Returns
 		-------
 		outset : set of tuple of int
@@ -637,18 +637,18 @@ class RASolver(MOSOSolver):
     def calc_m(self, nu):
         """
         Compute the iteration sample size
-        
+
         Parameters
         ----------
         nu : int
 			the iteration number
-			
+
 		Returns
 		-------
 		int
 			The sample size
         """
-        
+
         mmul = 1.1
         m_init = self.mconst
         return ceil(m_init*pow(mmul, nu))
@@ -656,12 +656,12 @@ class RASolver(MOSOSolver):
     def calc_b(self, nu):
         """
         Compute the iteration search sample limit
-        
+
         Parameters
         ----------
         nu : int
 			the iteration number
-			
+
 		Returns
 		-------
 		int
@@ -673,14 +673,14 @@ class RASolver(MOSOSolver):
 
     def remove_nlwep(self, mcS):
         """
-        Remove non-LWEP's a set and return the points that cause the 
-        removals. 
-        
+        Remove non-LWEP's a set and return the points that cause the
+        removals.
+
         Parameters
         ----------
         mcS : set of tuple of int
 			Set of feasible points
-		
+
 		Returns
 		-------
 		lwepset : set of tuple of int
@@ -710,9 +710,9 @@ class RASolver(MOSOSolver):
 
 class RLESolver(RASolver):
     """
-    Base class for Retrospective Approximation algorithm 
+    Base class for Retrospective Approximation algorithm
     implementations which rely on the RLE routine for convergence.
-    
+
     Attributes
     ----------
     orc : Oracle
@@ -728,20 +728,20 @@ class RLESolver(RASolver):
 	mconst : int
 		Affects the iteration sample sizes. Default is 2
 	bconst : int
-		Affects the iteration sampling search limits. 
+		Affects the iteration sampling search limits.
 	sprn : prng.MRG32k3a object. Default is 8.
 		Pseudo-random number stream available to the solver, should
-		generate independently of orc.rng. Required. 
+		generate independently of orc.rng. Required.
 	x0 : tuple of numbers
-		Vector points such that x0[0] is its first component, and 
-		x0[orc.dim - 1] is the last. Required. 
+		Vector points such that x0[0] is its first component, and
+		x0[orc.dim - 1] is the last. Required.
 	gbar : dict
-		Dictionary of {tuple of int: tuple of float} mapping feasible 
-		points to their objective values. In RA algorithms, it is 
-		cleared every iteration. 
+		Dictionary of {tuple of int: tuple of float} mapping feasible
+		points to their objective values. In RA algorithms, it is
+		cleared every iteration.
 	sehat : dict
-		Like gbar, but maps feasible points to standard errors of 
-		the objective values. 
+		Like gbar, but maps feasible points to standard errors of
+		the objective values.
 	m : int
 		Iteration sample size which is automatically updated
 	b : int
@@ -751,34 +751,34 @@ class RLESolver(RASolver):
 	endseed : tuple of int
 		The next seed to be used by 'orc.rng'
 	betadel : float
-		Affects the search relaxation in RLE. Defaults to 0.5. 
-	
+		Affects the search relaxation in RLE. Defaults to 0.5.
+
 	Parameters
 	----------
 	orc : Oracle object
 	kwargs : dict
-	
+
 	Notes
 	-----
-	The method accel must be implemented to use a RLESolver in 
+	The method accel must be implemented to use a RLESolver in
 	PyMOSO.
     """
-    
+
     def __init__(self, orc, **kwargs):
         self.betadel = kwargs.pop('betadel', 0.5)
         super().__init__(orc, **kwargs)
 
     def spsolve(self, warm_start):
         """
-        Skeleton function which solve sthe sample path probem implicit 
-        in 'orc.g' by calling 'accel' then 'rle'. 
-        
+        Skeleton function which solve sthe sample path probem implicit
+        in 'orc.g' by calling 'accel' then 'rle'.
+
         Parameters
         ----------
         warm_start : set of tuple of int
 			Set of feasible points which solve the sample path problem
 			of the previous iteration
-		
+
 		Returns
 		-------
 		ales : set of tuple of int
@@ -819,12 +819,12 @@ class RLESolver(RASolver):
     def rle(self, mcS):
         """
         Generate an ALES from a set of feasible points
-        
+
         Parameters
         ----------
         mcS : set of tuple of int
 			Set of feasible points
-		
+
 		Returns
 		-------
 		mcS : set of tuple of int
@@ -876,12 +876,12 @@ class RLESolver(RASolver):
     def get_ncn(self, mcS):
         """
         Generate the Non-Conforming neighborhood of a candidate ALES.
-        
+
         Parameters
         ----------
         mcS : set of tuple of int
 			Set of feasible points which do not dominate each other
-		
+
 		Returns
 		-------
 		ncn : set of tuple of int
@@ -949,19 +949,19 @@ class RLESolver(RASolver):
     def seek_lwep(self, mcNd, mcS):
         """
         Find a sample path LWEP
-        
+
         Parameters
         ----------
         mcNd : set of tuple of int
 			Set of points which dominate non-conforming points
 		mcS : set of tuple of int
 			Set of candidate ALES points
-			
+
 		Returns
 		-------
 		mcXw : set of tuple of int
 			Set of new LWEP's neither in nor dominated by members of
-			mcS or mcNd. 
+			mcS or mcNd.
         """
         b = self.b
         n = 0
@@ -979,12 +979,12 @@ class RLESolver(RASolver):
     def calc_delta(self, se):
         """
         Compute the RLE parameter for the current iteration.
-        
+
         Parameters
         ----------
         se : float
 			Standard error of the objective value to be relaxed
-		
+
 		Returns
 		-------
 		relax : float
@@ -997,20 +997,20 @@ class RLESolver(RASolver):
 class Oracle(object):
     """
     Base class to implement black-box simulations that implicitly
-    define a MOSO problem. 
-    
+    define a MOSO problem.
+
     Attributes
     ----------
     rng : prng.MRG32k3a object
-		pseudo-random number generator used by the Oracle to simulate 
+		pseudo-random number generator used by the Oracle to simulate
 		objective values at feasible points
 	crnold_state : tuple
-		Tuple of length 2. The first item is a tuple of int, which is 
+		Tuple of length 2. The first item is a tuple of int, which is
 		an mrg32k3a seed. The second is random.Random state.
 	crn_obsold : tuple
 		Like crnold_state
 	crnflag : bool
-		Indicates whether common random numbers is turned on or off. 
+		Indicates whether common random numbers is turned on or off.
 		Defaults to off.
 	simpar : int
 		Number of processes to use when doing simulations. Defaults to 1
@@ -1018,11 +1018,11 @@ class Oracle(object):
 		Number of dimensions of feasible points
 	num_obj : int
 		Number of objectives returned by g
-	
+
 	Parameters
 	----------
 	rng : prng.MRG32k3a object
-		
+
     """
 
     def __init__(self, rng):
@@ -1035,9 +1035,9 @@ class Oracle(object):
 
     def set_crnflag(self, crnflag):
         """
-        Set the common random number (crn) flag and intialize the 
+        Set the common random number (crn) flag and intialize the
         crn states.
-        
+
         Parameters
         ----------
         crnflag: bool
@@ -1048,7 +1048,7 @@ class Oracle(object):
     def set_crnold(self, old_state):
         """
         Set the crn rewind state.
-        
+
         Parameters
         ----------
         old_state : tuple
@@ -1103,16 +1103,16 @@ class Oracle(object):
 
     def bump(self, x, m):
         """
-        Simulate 'm' replications at 'x' and return the replication 
+        Simulate 'm' replications at 'x' and return the replication
         values as a list
-        
+
         Parameters
         ----------
         x : tuple of int
 			point at which to simulate
 		m : int
 			number of replications to simulate 'x'
-		
+
 		Returns
 		-------
 		isfeas : bool
@@ -1120,7 +1120,7 @@ class Oracle(object):
 		obs : list of tuple of float
 			list of length 'm' of simulated objective values
         """
-        
+
         d = self.num_obj
         dr = range(d)
         isfeas = False
@@ -1145,7 +1145,7 @@ class Oracle(object):
 
     def hit(self, x, m):
         """
-        Generate the means and standard errors of 'm' simulation 
+        Generate the means and standard errors of 'm' simulation
         replications at point 'x'.
 
         Parameters
@@ -1157,14 +1157,14 @@ class Oracle(object):
 
         Returns
         -------
-        isfeas : bool 
+        isfeas : bool
 			indicates the feasibility of 'x'
         obmean : tuple of float
 			mean of each objective of 'm' simulations
         obse : tuple of float
 			mean of standard errors of each objective of 'm' simulations
         """
-        
+
         d = self.num_obj
         dr = range(d)
         isfeas = False
@@ -1214,7 +1214,7 @@ class Oracle(object):
                 orclst = [self]
                 prnrng = range(len(num_rands) - 1)
                 for i in prnrng:
-                    nextprn = get_next_prnstream(start_seed)
+                    nextprn = get_next_prnstream(start_seed, self.crnflag)
                     start_seed = nextprn.get_seed()
                     myorc = Oracle(nextprn)
                     myorc.num_obj = self.num_obj

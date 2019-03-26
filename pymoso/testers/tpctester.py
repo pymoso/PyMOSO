@@ -13,13 +13,13 @@ df = 2
 
 def true_g(x):
 	"""
-	Compute the expected values of a point. 
-	
+	Compute the expected values of a point.
+
 	Parameters
 	----------
 	x : tuple of int
 		A feasible point
-	
+
 	Returns
 	-------
 	tuple of float
@@ -38,11 +38,11 @@ def true_g(x):
 def get_ranx0(rng):
 	"""
 	Uniformly sample from the feasible space.
-	
+
 	Parameters
 	----------
 	rng : prng.MRG32k3a object
-	
+
 	Returns
 	-------
 	x0 : tuple of int
@@ -59,7 +59,7 @@ def get_ranx0(rng):
 class TPCTester(object):
 	"""
 	Store useful data for working with Test Problem C.
-	
+
 	Attributes
 	----------
 	ranorc : chnbase.Oracle class
@@ -77,12 +77,12 @@ class TPCTester(object):
     def metric(self, eles):
 		"""
 		Compute a metric from a simulated solution to the true solution.
-		
+
 		Parameters
 		----------
-		else : set of tuple of numbers
+		eles : set of tuple of numbers
 			Simulated solution
-		
+
 		Returns
 		-------
 		float

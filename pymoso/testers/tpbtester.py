@@ -11,13 +11,13 @@ from ..chnutils import dh
 
 def true_g(x):
 	"""
-	Compute the expected values of a point. 
-	
+	Compute the expected values of a point.
+
 	Parameters
 	----------
 	x : tuple of int
 		A feasible point
-	
+
 	Returns
 	-------
 	tuple of float
@@ -41,11 +41,11 @@ def true_g(x):
 def get_ranx0(rng):
 	"""
 	Uniformly sample from the feasible space.
-	
+
 	Parameters
 	----------
 	rng : prng.MRG32k3a object
-	
+
 	Returns
 	-------
 	x0 : tuple of int
@@ -61,7 +61,7 @@ def get_ranx0(rng):
 class TPBTester(object):
 	"""
 	Store useful data for working with Test Problem B.
-		
+
 	Attributes
 	----------
 	ranorc : chnbase.Oracle class
@@ -79,12 +79,12 @@ class TPBTester(object):
     def metric(self, eles):
 		"""
 		Compute a metric from a simulated solution to the true solution.
-		
+
 		Parameters
 		----------
-		else : set of tuple of numbers
-			Simulated solution
-		
+		eles : set of tuple of numbers
+			The simulated solution
+
 		Returns
 		-------
 		float
