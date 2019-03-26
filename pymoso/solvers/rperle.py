@@ -2,8 +2,8 @@
 """
 Summary
 -------
-Provide an implementation of R-PERLE for users needing a 
-bi-objective simulation optimization solver. 
+Provide an implementation of R-PERLE for users needing a
+bi-objective simulation optimization solver.
 """
 import sys
 from ..chnbase import RLESolver
@@ -13,15 +13,15 @@ from ..chnutils import get_biparetos, get_nondom
 class RPERLE(RLESolver):
     """
     R-PERLE solver for bi-objective simulation optimization.
-    
+
     Parameters
     ----------
     orc : chnbase.Oracle object
-	kwargs : dict
-	
-	See also
-	--------
-	chnbase.RLESolver, chnbase.RASolver
+    kwargs : dict
+
+    See also
+    --------
+    chnbase.RLESolver, chnbase.RASolver
     """
 
     def __init__(self, orc, **kwargs):
@@ -29,34 +29,34 @@ class RPERLE(RLESolver):
         super().__init__(orc, **kwargs)
 
     def accel(self, warm_start):
-		"""
-		Compute a candidate ALES. RLESolvers require that this function 
-		is implemented. 
-		
-		Parameters
-		----------
-		warm_start : set of tuple of int
-		
-		Returns
-		-------
-		set of tuple of int
-		"""
+        """
+        Compute a candidate ALES. RLESolvers require that this function
+        is implemented.
+
+        Parameters
+        ----------
+        warm_start : set of tuple of int
+
+        Returns
+        -------
+        set of tuple of int
+        """
         return self.pe(warm_start)
 
     def pe(self, aold):
         """
-        Generate candidate bi-objective LEPs using the P-Epsilon 
+        Generate candidate bi-objective LEPs using the P-Epsilon
         algorithm.
-        
+
         Parameters
         ----------
         aold : set of tuple of int
-			The ALES of the previous iteration
-			
-		Returns
-		-------
-		phatp : set of tuple of int
-			A candidate ALES
+            The ALES of the previous iteration
+
+        Returns
+        -------
+        phatp : set of tuple of int
+            A candidate ALES
         """
         aold = self.upsample(aold | {self.x0})
         try:
@@ -152,15 +152,15 @@ class RPERLE(RLESolver):
     def fse(self, se):
         """
         Compute diminishing standard error function for an iteration.
-        
+
         Parameters
         ----------
         se : float
-			Standard error of an objective value
-		
-		Returns
-		-------
-		relax : float
+            Standard error of an objective value
+
+        Returns
+        -------
+        relax : float
         """
         m = self.m
         relax = se/pow(m, self.betaeps)

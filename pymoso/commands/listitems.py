@@ -7,16 +7,16 @@ from inspect import getmembers, isclass, ismodule
 class ListItems(BaseComm):
     """
     Implements the CLI command listitems.
-    
+
     See also
     --------
     BaseComm
     """
     def run(self):
-		"""
-		Print the list of solvers, problems, and testers that are 
-		included in PyMOSO. 
-		"""
+        """
+        Print the list of solvers, problems, and testers that are
+        included in PyMOSO.
+        """
         ## list of problem classes
         probclasses = getmembers(problems, isclass)
         ## list of solver classes

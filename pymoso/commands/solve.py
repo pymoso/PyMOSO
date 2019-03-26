@@ -1,4 +1,6 @@
-"""Provide the CLI solve command."""
+"""
+Provide the CLI solve command.
+"""
 
 from .basecomm import *
 from inspect import getmembers, isclass
@@ -12,18 +14,18 @@ from ..chnutils import solve
 
 class Solve(BaseComm):
     """
-    Implements the CLI solve command with the specified arguments and 
-    options. 
-    
+    Implements the CLI solve command with the specified arguments and
+    options.
+
     See also
     --------
     BaseComm
     """
     def run(self):
-		"""
-		Parse the CLI command and solve the selected problem using the
-		selected solver. 
-		"""
+        """
+        Parse the CLI command and solve the selected problem using the
+        selected solver.
+        """
         ## get the options with default values
         budget = int(self.options['--budget'])
         name = self.options['--odir']

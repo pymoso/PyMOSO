@@ -1,6 +1,6 @@
 """
-Base class for implementing CLI commands. Most users will not need to 
-use these functions. 
+Base class for implementing CLI commands. Most users will not need to
+use these functions.
 """
 import os
 import pathlib
@@ -17,18 +17,18 @@ import traceback
 
 
 def check_expname(name):
-	"""
-	Check that the experiment file has been generated and load its 
-	contents.
-	
-	Parameters
-	----------
-	name : str
-	
-	Returns
-	-------
-	datstr: str
-	"""
+    """
+    Check that the experiment file has been generated and load its
+    contents.
+
+    Parameters
+    ----------
+    name : str
+
+    Returns
+    -------
+    datstr: str
+    """
     if not os.path.isdir(name):
         return False
     fn = name + '/' + name + '.txt'
@@ -41,14 +41,14 @@ def check_expname(name):
 
 
 def save_errortb(name, errmsg):
-	"""
-	Save a message to a file.
-	
-	Parameters
-	----------
-	name : str
-	errmsg : str
-	"""
+    """
+    Save a message to a file.
+
+    Parameters
+    ----------
+    name : str
+    errmsg : str
+    """
     mydir = name
     pathlib.Path(name).mkdir(exist_ok=True)
     humfilen = 'err_' + name + '.txt'
@@ -58,14 +58,14 @@ def save_errortb(name, errmsg):
 
 
 def save_metadata(name, humantxt):
-	"""
-	Save an experiment metadata string to a file.
-	
-	Parameters
-	----------
-	name : str
-	humantxt : str
-	"""
+    """
+    Save an experiment metadata string to a file.
+
+    Parameters
+    ----------
+    name : str
+    humantxt : str
+    """
     mydir = name
     pathlib.Path(name).mkdir(exist_ok=True)
     humfilen = name + '.txt'
@@ -75,25 +75,25 @@ def save_metadata(name, humantxt):
 
 
 def gen_humanfile(name, probn, solvn, budget, runtime, param, vals, startseed, endseed):
-	"""
-	Generate a human-readable experiment metadata string
-	
-	Parameters
-	----------
-	name : str
-	probn : str
-	budget : int
-	runtime : float
-	param : list
-	vals : list
-	startseed : tuple of int
-	endseed : tuple of int
-	
-	Returns
-	-------
-	ddict : dict
-		ordered dictionary of the parameters and values
-	"""
+    """
+    Generate a human-readable experiment metadata string
+
+    Parameters
+    ----------
+    name : str
+    probn : str
+    budget : int
+    runtime : float
+    param : list
+    vals : list
+    startseed : tuple of int
+    endseed : tuple of int
+
+    Returns
+    -------
+    ddict : dict
+        ordered dictionary of the parameters and values
+    """
     today = date.today()
     tstr = today.strftime("%A %d. %B %Y")
     timestr = time.strftime('%X')
@@ -104,15 +104,15 @@ def gen_humanfile(name, probn, solvn, budget, runtime, param, vals, startseed, e
 
 
 def save_metrics(name, exp, metdata):
-	"""
-	Save metrics data output to the experiment file.
-	
-	Parameters
-	----------
-	name : str
-	exp : int
-	metdata : dict
-	"""
+    """
+    Save metrics data output to the experiment file.
+
+    Parameters
+    ----------
+    name : str
+    exp : int
+    metdata : dict
+    """
     pref = 'metrics_' + str(exp) + '_'
     ispdatn = pref + name + '.txt'
     metdatpth = os.path.join(name, ispdatn)
@@ -125,15 +125,15 @@ def save_metrics(name, exp, metdata):
 
 
 def save_isp(name, exp, ispdat):
-	"""
-	Save testsolve output to the experiment file. 
-	
-	Parameters
-	----------
-	name : str
-	exp : int
-	ispdat : dict
-	""""
+    """
+    Save testsolve output to the experiment file.
+
+    Parameters
+    ----------
+    name : str
+    exp : int
+    ispdat : dict
+    """
     pref = 'ispdata_' + str(exp) + '_'
     ispdatn = pref + name + '.txt'
     ispdatpth = os.path.join(name, ispdatn)
@@ -146,14 +146,14 @@ def save_isp(name, exp, ispdat):
 
 
 def save_les(name, lesstr):
-	"""
-	Save solve output to experiment file.
-	
-	Parameters
-	----------
-	name : str
-	lesstr : str
-	"""
+    """
+    Save solve output to experiment file.
+
+    Parameters
+    ----------
+    name : str
+    lesstr : str
+    """
     pref = 'rundata_'
     rundatn = pref + name + '.txt'
     rundpth = os.path.join(name, rundatn)
@@ -164,16 +164,16 @@ def save_les(name, lesstr):
 class BaseComm(object):
     """
     A base CLI command.
-    
+
     Attributes
     ----------
     options : list
-		List of options specified via CLI
-	args : tuple
-		List of arguments specified via CLI
-	kwargs : dict
-		List of keyword arguments specified to CLI
-    
+        List of options specified via CLI
+    args : tuple
+        List of arguments specified via CLI
+    kwargs : dict
+        List of keyword arguments specified to CLI
+
     Parameters
     ----------
     options : list
@@ -187,11 +187,11 @@ class BaseComm(object):
         self.kwargs = kwargs
 
     def run(self):
-		"""
-		Placeholder function that must be implemented in command sub-classes. 
-		
-		Raises
-		------
-		NotImplementedError
-		"""
+        """
+        Placeholder function that must be implemented in command sub-classes.
+
+        Raises
+        ------
+        NotImplementedError
+        """
         raise NotImplementedError('You must implement the run() method yourself!')

@@ -2,7 +2,7 @@
 """
 Summary
 -------
-Provide a subclass of random.Random using mrg32k3a as the generator 
+Provide a subclass of random.Random using mrg32k3a as the generator
 with substream support.
 
 Listing
@@ -63,19 +63,19 @@ bsmc = [0.3374754822726147, 0.9761690190917186, 0.1607979714918209, 0.0276438810
 
 # this is adapted to pure Python from the P. L'Ecuyer code referenced above
 def mrg32k3a(seed):
-	"""
-	Generate a random number between 0 and 1 from a seed.
-	
-	Parameters
-	----------
-	seed : tuple of int
-		Length must be 6. 
-	
-	Returns
-	-------
-	newseed : tuple of int
-	u : float
-	"""
+    """
+    Generate a random number between 0 and 1 from a seed.
+
+    Parameters
+    ----------
+    seed : tuple of int
+        Length must be 6.
+
+    Returns
+    -------
+    newseed : tuple of int
+    u : float
+    """
     p1 = mrga12*seed[1] - mrga13n*seed[0]
     k1 = int(p1/mrgm1)
     p1 -= k1*mrgm1
@@ -98,15 +98,15 @@ def mrg32k3a(seed):
 def bsm(u):
     """
     Approximate the quantiles of the standard normal distribution.
-    
+
     Parameters
     ----------
     u : float
-		Desired quantile between 0 and 1
-	
-	Returns
-	-------
-	z : float
+        Desired quantile between 0 and 1
+
+    Returns
+    -------
+    z : float
     """
     y = u - 0.5
     if abs(y) < 0.42:
@@ -143,22 +143,22 @@ def bsm(u):
 class MRG32k3a(random.Random):
     """
     Implements mrg32k3a as the generator for a random.Random object
-    
+
     Attributes
     ----------
     _current_seed : tuple of int
-		6 integer mrg32k3a seed
-	
-	Parameters
-	----------
-	x : tuple of int, optional
-		Seed from which to start the generator
-		
-	See also
-	--------
-	random.Random
+        6 integer mrg32k3a seed
+
+    Parameters
+    ----------
+    x : tuple of int, optional
+        Seed from which to start the generator
+
+    See also
+    --------
+    random.Random
     """
-    
+
     @classmethod
     def set_class_cache(cls, cache_flag):
         if not cache_flag:
@@ -179,7 +179,7 @@ class MRG32k3a(random.Random):
     def seed(self, a):
         """
         Set the seed of mrg32k3a and update the generator state.
-        
+
         Parameters
         ----------
         a : tuple of int
@@ -192,7 +192,7 @@ class MRG32k3a(random.Random):
         """
         Generate a standard uniform variate and advance the generator
         state.
-        
+
         Returns
         -------
         u : float
@@ -205,43 +205,43 @@ class MRG32k3a(random.Random):
     def get_seed(self):
         """
         Return the current mrg32k3a seed.
-        
+
         Returns
         -------
         tuple of int
-			The current mrg32k3a seed
+            The current mrg32k3a seed
         """
         return self._current_seed
 
     def getstate(self):
         """
         Return the state of the generator.
-        
+
         Returns
         -------
         tuple of int
-			The current seed
-		tuple
-			Random.getstate output
-		
-		See also
-		--------
-		random.Random
-		"""
+            The current seed
+        tuple
+            Random.getstate output
+
+        See also
+        --------
+        random.Random
+        """
         return self.get_seed(), super().getstate()
 
     def setstate(self, state):
         """
         Set the internal state of the generator.
-        
+
         Parameters
         ----------
         state : tuple
-			tuple[0] is mrg32k3a seed, [1] is random.Random.getstate
-			
-		See also
-		--------
-		random.Random
+            tuple[0] is mrg32k3a seed, [1] is random.Random.getstate
+
+        See also
+        --------
+        random.Random
         """
         self.seed(state[0])
         super().setstate(state[1])
@@ -249,21 +249,21 @@ class MRG32k3a(random.Random):
     def normalvariate(self, mu=0, sigma=1):
         """
         Generate a normal random variate.
-        
+
         Parameters
         ----------
         mu : float
-			Expected value of the normal distribution from which to 
-			generate. Default is 0.
-		sigma : float
-			Standard deviatoin of the normal distribution from which to
-			generate. Default is 1. 
-			
-		Returns
-		-------
-		float
-			A normal variate from the specified distribution
-        
+            Expected value of the normal distribution from which to
+            generate. Default is 0.
+        sigma : float
+            Standard deviatoin of the normal distribution from which to
+            generate. Default is 1.
+
+        Returns
+        -------
+        float
+            A normal variate from the specified distribution
+
         """
         u = self.random()
         z = MRG32k3a.bsm(u)
@@ -273,18 +273,18 @@ class MRG32k3a(random.Random):
 def mat333mult(a, b):
     """
     Multiply a 3x3 matrix with a 3x1 matrix.
-    
+
     Parameters
     ----------
     a : tuple of tuple of float
-		3x3 matrix
+        3x3 matrix
     b : tuple of tuple if float
-		3x1 matrix
-		
+        3x1 matrix
+
     Returns
     -------
     res : list of float
-		3x1 matrix
+        3x1 matrix
     """
     res = [0, 0, 0]
     r3 = range(3)
@@ -296,18 +296,18 @@ def mat333mult(a, b):
 def mat311mod(a, b):
     """
     Compute moduli of a 3x1 matrix.
-    
+
     Parameters
     ----------
     a : tuple of float
-		3x1 matrix
-	b : float
-		modulus
-		
-	Returns
-	-------
-	res : tuple of float
-		3x1 matrix
+        3x1 matrix
+    b : float
+        modulus
+
+    Returns
+    -------
+    res : tuple of float
+        3x1 matrix
     """
     res = [0, 0, 0]
     r3 = range(3)
@@ -319,12 +319,12 @@ def mat311mod(a, b):
 def get_next_prnstream(seed, crn):
     """
     Instantiate a generator seeded 2^127 steps from the input seed.
-    
+
     Parameters
     ----------
     seed : tuple of int
     crn : bool
-    
+
     Returns
     -------
     prn : MRG32k3a object
@@ -346,7 +346,7 @@ def get_next_prnstream(seed, crn):
 def jump_substream(prn):
     """
     Advance the rng to the next substream 2^76 steps.
-    
+
     Parameters
     ----------
     prn : MRG32k3a object

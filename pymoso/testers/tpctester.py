@@ -12,19 +12,19 @@ from ..chnutils import dh
 df = 2
 
 def true_g(x):
-	"""
-	Compute the expected values of a point.
+    """
+    Compute the expected values of a point.
 
-	Parameters
-	----------
-	x : tuple of int
-		A feasible point
+    Parameters
+    ----------
+    x : tuple of int
+        A feasible point
 
-	Returns
-	-------
-	tuple of float
-		The objective values
-	"""
+    Returns
+    -------
+    tuple of float
+        The objective values
+    """
     x = tuple(i/df for i in x)
     s = [sin(i) for i in x]
     chisquare = 1.0
@@ -36,18 +36,18 @@ def true_g(x):
 
 
 def get_ranx0(rng):
-	"""
-	Uniformly sample from the feasible space.
+    """
+    Uniformly sample from the feasible space.
 
-	Parameters
-	----------
-	rng : prng.MRG32k3a object
+    Parameters
+    ----------
+    rng : prng.MRG32k3a object
 
-	Returns
-	-------
-	x0 : tuple of int
-		The randomly chosen point
-	"""
+    Returns
+    -------
+    x0 : tuple of int
+        The randomly chosen point
+    """
     xr = range(-5*df, 5*df + 1)
     x1 = rng.choice(xr)
     x2 = rng.choice(xr)
@@ -57,17 +57,17 @@ def get_ranx0(rng):
 
 
 class TPCTester(object):
-	"""
-	Store useful data for working with Test Problem C.
+    """
+    Store useful data for working with Test Problem C.
 
-	Attributes
-	----------
-	ranorc : chnbase.Oracle class
-	true_g : function
-	soln : list of set of tuple of int
-		The set of LES's which solve TPC locally
-	get_ranx0 : function
-	"""
+    Attributes
+    ----------
+    ranorc : chnbase.Oracle class
+    true_g : function
+    soln : list of set of tuple of int
+        The set of LES's which solve TPC locally
+    get_ranx0 : function
+    """
     def __init__(self):
         self.ranorc = probtpc.ProbTPC
         self.true_g = true_g
@@ -75,19 +75,19 @@ class TPCTester(object):
         self.get_ranx0 = get_ranx0
 
     def metric(self, eles):
-		"""
-		Compute a metric from a simulated solution to the true solution.
+        """
+        Compute a metric from a simulated solution to the true solution.
 
-		Parameters
-		----------
-		eles : set of tuple of numbers
-			Simulated solution
+        Parameters
+        ----------
+        eles : set of tuple of numbers
+            Simulated solution
 
-		Returns
-		-------
-		float
-			The performance metric
-		"""
+        Returns
+        -------
+        float
+            The performance metric
+        """
         efrontier = []
         for point in eles:
             objs = self.true_g(point)
