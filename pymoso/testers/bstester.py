@@ -3,7 +3,7 @@ Summary
 -------
 Provide the tester for the Bus Scheduling problem.
 """
-from ..problems import BSProb
+from ..problems import bsprob
 from math import sqrt
 
 
@@ -69,7 +69,7 @@ class BSTester(object):
 	get_ranx0 : function, get_ranx0
 	"""
 	def __init__(self):
-		self.ranorc = BSProb
+		self.ranorc = bsprob.BSProb
 		#self.answer = myanswer
 		self.true_g = true_g
 		self.get_ranx0 = get_ranx0
