@@ -132,7 +132,7 @@ def testsolve(tester, solver, x0, **kwargs):
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
-    orcstreams, solvstreams, x0stream, endseed = get_testsolve_prnstreams(isp, seed, crn)
+    orcstreams, solvstreams, x0stream, endseed = get_testsolve_prnstreams(isp, seed, crn, simpar)
     joblist = []
     currtest = tester()
     for i in range(isp):
@@ -152,7 +152,7 @@ def testsolve(tester, solver, x0, **kwargs):
     return res, endseed
 
 
-def get_testsolve_prnstreams(num_trials, iseed, crn):
+def get_testsolve_prnstreams(num_trials, iseed, crn, simpar):
     """
     Create the set of random number stream generators with which to test
     a MOSO algorithm.
@@ -184,8 +184,9 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
         iseed = solprn.get_seed()
         solprn_lst.append(solprn)
     for t in range(num_trials):
-        orcprn = get_next_prnstream(iseed, crn)
-        iseed = orcprn.get_seed()
+        for par in range(len(simpar)):
+            orcprn = get_next_prnstream(iseed, crn)
+            iseed = orcprn.get_seed()
         orcprn_lst.append(orcprn)
         for i in range(max_RI):
             newprn = get_next_prnstream(iseed, crn)
