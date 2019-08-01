@@ -13,19 +13,20 @@ from ..chnutils import testsolve, par_diff, par_runs
 
 class TestSolve(BaseComm):
     """
-    Implements the CLI testsolve command with the specified arguments 
-    and options. 
-    
+    Implements the CLI testsolve command with the specified arguments
+    and options.
+
     See also
     --------
     BaseComm
-    """    
+    """
     def run(self):
         ## get the options with default values
         budget = int(self.options['--budget'])
         name = self.options['--odir']
         hasseed = self.options['--seed']
         metric = self.options['--metric']
+        simpar = self.opptions['--simpar']
         if hasseed:
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
@@ -130,6 +131,7 @@ class TestSolve(BaseComm):
         solve_kwargs['proc'] = proc
         solve_kwargs['ranx0'] = ranx0
         solve_kwargs['crn'] = crn
+        solve_kwargs['simpar'] = simpar
         for i, p in enumerate(params):
             solve_kwargs[p] = float(vals[i])
         start_opt_time = time.time()
