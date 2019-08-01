@@ -39,6 +39,21 @@ from math import ceil, floor, sqrt
 import multiprocessing as mp
 from statistics import mean, variance
 from .prng.mrg32k3a import MRG32k3a, get_next_prnstream
+from multiprocessing.pool import Pool
+
+# redefine process pool via inheritance
+import multiprocessing.context as context
+class NoDaemonProcess(context.Process):
+    def _get_daemon(self):
+        return False
+    def _set_daemon(self, value):
+        pass
+    daemon = property(_get_daemon, _set_daemon)
+
+class MyPool(Pool):
+    def Process(self, *args, **kwds):
+        return NoDaemonProcess(*args, **kwds)
+
 
 def solve(problem, solver, x0, **kwargs):
     """
@@ -110,6 +125,7 @@ def testsolve(tester, solver, x0, **kwargs):
     seed = kwargs.pop('seed', default_seed)
     isp = kwargs.pop('isp', 1)
     proc = kwargs.pop('proc', 1)
+    simpar = kwargs.pop('simpar', 1)
     ranx0 = kwargs.pop('ranx0')
     crn = kwargs.pop('crn', False)
     paramtups = []
@@ -125,6 +141,7 @@ def testsolve(tester, solver, x0, **kwargs):
         paramlst = [('solvprn', solvstreams[i]), ('x0', x0), ]
         orc = currtest.ranorc(orcstreams[i])
         orc.set_crnflag(crn)
+        orc.simpar = simpar
         ## create arguments for (unknown) optional named parameters
         if paramtups:
             paramlst.extend(paramtups)
@@ -291,7 +308,7 @@ def par_runs(joblst, num_proc=1):
     NUM_PROCESSES = num_proc
     rundict = []
     #print(joblst)
-    with mp.Pool(NUM_PROCESSES) as p:
+    with MyPool(NUM_PROCESSES) as p:
         worklist = [(isp_run, (e[0]), (e[1])) for e in joblst]
         app_rd = [p.apply_async(do_work, job) for job in worklist]
         for r in app_rd:
