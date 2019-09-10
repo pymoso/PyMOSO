@@ -159,22 +159,34 @@ class MRG32k3a(random.Random):
     random.Random
     """
 
-    @classmethod
-    def set_class_cache(cls, cache_flag):
-        if not cache_flag:
-            cls.generate = mrg32k3a
-            cls.bsm = bsm
-        else:
-            cls.generate = functools.lru_cache(maxsize=None)(mrg32k3a)
-            cls.bsm = functools.lru_cache(maxsize=None)(bsm)
-        return cls
-
     def __init__(self, x=None):
         if not x:
             x = (12345, 12345, 12345, 12345, 12345, 12345)
         assert(len(x) == 6)
         self.version = 2
+        self.generate = mrg32k3a
+        self.bsm = bsm
         super().__init__(x)
+
+    def set_class_cache(self, cache_flag):
+        """
+        Sets whether to use an LRU cache for both the random function and the
+        bsm function.
+
+        Parameters
+        ----------
+        cache_flag : bool
+
+        See also
+        --------
+        functools.lru_cache
+        """
+        if not cache_flag:
+            self.generate = mrg32k3a
+            self.bsm = bsm
+        else:
+            self.generate = functools.lru_cache(maxsize=None)(mrg32k3a)
+            self.bsm = functools.lru_cache(maxsize=None)(bsm)
 
     def seed(self, a):
         """
@@ -198,7 +210,7 @@ class MRG32k3a(random.Random):
         u : float
         """
         seed = self._current_seed
-        newseed, u = MRG32k3a.generate(seed)
+        newseed, u = self.generate(seed)
         self.seed(newseed)
         return u
 
@@ -266,7 +278,7 @@ class MRG32k3a(random.Random):
 
         """
         u = self.random()
-        z = MRG32k3a.bsm(u)
+        z = self.bsm(u)
         return sigma*z + mu
 
 
@@ -316,7 +328,7 @@ def mat311mod(a, b):
     return res
 
 
-def get_next_prnstream(seed, crn):
+def get_next_prnstream(seed, use_cache):
     """
     Instantiate a generator seeded 2^127 steps from the input seed.
 
@@ -340,7 +352,8 @@ def get_next_prnstream(seed, crn):
     ns2 = mat311mod(ns2m, mrgm2)
     # random.Random objects need a hashable seed e.g. a tuple
     sseed = tuple(ns1 + ns2)
-    prn = MRG32k3a.set_class_cache(crn)(sseed)
+    prn = MRG32k3a(sseed)
+    prn.set_class_cache(use_cache)
     return prn
 
 def jump_substream(prn):

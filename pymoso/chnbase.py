@@ -81,6 +81,9 @@ class MOSOSolver(object):
         self.dim = self.orc.dim
         super().__init__()
 
+    # def solve(self, budget):
+    #     raise NotImplementedError
+
 
 class RASolver(MOSOSolver):
     """

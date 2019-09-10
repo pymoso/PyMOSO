@@ -193,7 +193,7 @@ def get_solv_prnstreams(iseed, crn):
     orcstream : prng.MRG32k3a object
     solvstream : prng.MRG32k3a object
     """
-    solvstream = MRG32k3a.set_class_cache(False)(iseed)
+    solvstream = MRG32k3a(iseed)
     orcstream = get_next_prnstream(iseed, crn)
     return orcstream, solvstream
 
