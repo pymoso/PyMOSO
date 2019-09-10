@@ -14,40 +14,51 @@ Oracle(object), class
 from statistics import mean, variance
 from math import sqrt, ceil, floor
 from .prng.mrg32k3a import get_next_prnstream, jump_substream, mrg32k3a, bsm
-import multiprocessing as mp
+from multiprocessing import Queue, Process
 import sys
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
 
 
-def _mp_objmethod(instance, name, args=(), kwargs=None):
+def mp_replicate(orccls, x, rngcls, seed):
     """
-    Wraps an instance method with arguments for use in multiprocessing
-    functions.
+    Wrap `Oracle.g` in a top-level function for use with multiprocessing.
 
     Parameters
     ----------
-    instance : Oracle
-    name : str
-		The name of the 'instance' method to execute in a
-		multiprocessing routine.
-	args : tuple, optional
-		Positional arguments requiredby 'instance.name'
-	kwargs : dict, optional
-		Keyword arguments used by 'instance.name'
+    orccls : Oracle class
+    x : tuple of int
+    rngcls : random.Random class
+    seed : tuple of int
 
-	Returns
-	-------
-	instance.name
-		A callable method.
+    Returns
+    -------
+    isfeas : bool
+    objvals : tuple of float
 
-	See also
-	--------
-	getattr
+    See also
+    --------
+    Oracle.replicate
     """
 
-    if kwargs is None:
-        kwargs = {}
-    return getattr(instance, name)(*args, **kwargs)
+    rng = rngcls(seed)
+    orc = orccls(rng)
+    orc.set_crnflag(False)
+    isfeas, objvals = orc.g(x, rng)
+    return isfeas, objvals
+
+
+def mp_worker(input, output):
+    """
+    Process an item from `input` queue and place results in `output` queue.
+
+    Parameters
+    ----------
+    input : multiprocessing.Queue object
+    output : multiprocessing.Queue object
+    """
+    for func, args in iter(input.get, 'STOP'):
+        result = func(*args)
+        output.put(result)
 
 
 class MOSOSolver(object):
@@ -57,16 +68,16 @@ class MOSOSolver(object):
     Attributes
     ----------
     orc : Oracle
-		The problem implementation to solve
-	num_calls : int
-		The total number of calls to orc.g
-	num_obj : int
-		The number of objectives returned by orc.g
-	dim : The cardinality of points in the domain of orc.g
+    The problem implementation to solve
+    num_calls : int
+    The total number of calls to orc.g
+    num_obj : int
+    The number of objectives returned by orc.g
+    dim : The cardinality of points in the domain of orc.g
 
-	Parameters
-	----------
-	orc: Oracle object
+    Parameters
+    ----------
+    orc: Oracle object
 
     Notes
     -----
@@ -94,50 +105,50 @@ class RASolver(MOSOSolver):
     Attributes
     ----------
     orc : Oracle
-		The problem implementation to solve
-	num_calls : int
-		The total number of calls to orc.g
-	num_obj : int
-		The number of objectives returned by orc.g
-	dim : int
-		The cardinality of points in the domain of orc.g
-	nbor_rad : int
-		The radius used to determine point neighbors, defaults is 1
-	mconst : int
-		Affects the iteration sample sizes. Default is 2
-	bconst : int
-		Affects the iteration sampling search limits.
-	sprn : prng.MRG32k3a object. Default is 8.
-		Pseudo-random number stream available to the solver, should
-		generate independently of orc.rng.
-	x0 : tuple of numbers
-		Vector points such that x0[0] is its first component, and
-		x0[orc.dim - 1] is the last.
-	gbar : dict
-		Dictionary of {tuple of int: tuple of float} mapping feasible
-		points to their objective values. In RA algorithms, it is
-		cleared every iteration.
-	sehat : dict
-		Like gbar, but maps feasible points to standard errors of
-		the objective values.
-	m : int
-		Iteration sample size which is automatically updated
-	b : int
-		Iteration search sampling limit which is automatically updated
-	nu : int
-		The iteration number
-	endseed : tuple of int
-		The next seed to be used by 'orc.rng'
+    The problem implementation to solve
+    num_calls : int
+    The total number of calls to orc.g
+    num_obj : int
+    The number of objectives returned by orc.g
+    dim : int
+    The cardinality of points in the domain of orc.g
+    nbor_rad : int
+    The radius used to determine point neighbors, defaults is 1
+    mconst : int
+    Affects the iteration sample sizes. Default is 2
+    bconst : int
+    Affects the iteration sampling search limits.
+    sprn : prng.MRG32k3a object. Default is 8.
+    Pseudo-random number stream available to the solver, should
+    generate independently of orc.rng.
+    x0 : tuple of numbers
+    Vector points such that x0[0] is its first component, and
+    x0[orc.dim - 1] is the last.
+    gbar : dict
+    Dictionary of {tuple of int: tuple of float} mapping feasible
+    points to their objective values. In RA algorithms, it is
+    cleared every iteration.
+    sehat : dict
+    Like gbar, but maps feasible points to standard errors of
+    the objective values.
+    m : int
+    Iteration sample size which is automatically updated
+    b : int
+    Iteration search sampling limit which is automatically updated
+    nu : int
+    The iteration number
+    endseed : tuple of int
+    The next seed to be used by 'orc.rng'
 
-	Parameters
-	----------
-	orc : Oracle object
-	kwargs : dict
+    Parameters
+    ----------
+    orc : Oracle object
+    kwargs : dict
 
-	Notes
-	-----
-	The method spsolve must be implemented to use an RASolver in
-	PyMOSO
+    Notes
+    -----
+    The method spsolve must be implemented to use an RASolver in
+    PyMOSO
     """
 
     def __init__(self, orc, **kwargs):
@@ -160,11 +171,11 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         budget : int
-			The maximum number of calls allowed to orc.g
+    The maximum number of calls allowed to orc.g
 
-		Returns
-		-------
-		resdict : dict
+    Returns
+    -------
+    resdict : dict
         """
         seed1 = self.orc.rng.get_seed()
         self.endseed = seed1
@@ -188,16 +199,16 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         phatnu : dict
-			Stores the set of tuples of int for each iteration
-		simcalls : dict
-			Dictionary of {iteration int : int of calls to orc.g}
-		budget : int
-			Total number of calls allowed to orc.g across all iterations
+    Stores the set of tuples of int for each iteration
+    simcalls : dict
+    Dictionary of {iteration int : int of calls to orc.g}
+    budget : int
+    Total number of calls allowed to orc.g across all iterations
 
-		Notes
-		-----
-		This updates does not return anything, it updates the simcalls,
-		phatnu dictionaries and the endseed value.
+    Notes
+    -----
+    This updates does not return anything, it updates the simcalls,
+    phatnu dictionaries and the endseed value.
         """
 
         while self.num_calls < budget:
@@ -223,13 +234,13 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         mcS : set
-			Set of tuples of int representing feasible point of orc.
+    Set of tuples of int representing feasible point of orc.
 
-		Returns
-		-------
-		xmin : set
-			Set of non-dominated points searched by spline in every
-			objective.
+    Returns
+    -------
+    xmin : set
+    Set of non-dominated points searched by spline in every
+    objective.
         """
         self.upsample(mcS | {self.x0})
         unconst = float('inf')
@@ -253,27 +264,27 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         x0 : tuple of int
-			Feasible point of orc
+    Feasible point of orc
         e : float
-			Constraint such the minimum 'fxn' < 'e'. Defaults to
-			float('inf'), i.e. unconstrained.
-		nobj : int
-			Index of the objective to minimize, takes {0, 1,..., dim-1}
-			Defaults to 0, the first objective
-		kcon : int
-			Index of the objective to constrain, takes {0, 1,..., dim-1}
-			Defaults to 0.
+    Constraint such the minimum 'fxn' < 'e'. Defaults to
+    float('inf'), i.e. unconstrained.
+    nobj : int
+    Index of the objective to minimize, takes {0, 1,..., dim-1}
+    Defaults to 0, the first objective
+    kcon : int
+    Index of the objective to constrain, takes {0, 1,..., dim-1}
+    Defaults to 0.
 
         Returns
         -------
         mcT : set of tuples of numbers
-			The set of visited points
-		xn : tuple of int
-			The feasible minimizer
-		fxn : tuple of float
-			Objective values of 'xn'
-		sexn : tuple of float
-			Standard errors of 'fxn'
+    The set of visited points
+    xn : tuple of int
+    The feasible minimizer
+    fxn : tuple of float
+    Objective values of 'xn'
+    sexn : tuple of float
+    Standard errors of 'fxn'
         """
 
         fx0 = self.gbar[x0]
@@ -303,30 +314,30 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         x : tuple of int
-			Feasible point around which to perform the neighborhood
-			search
-		fx : tuple of float
-			Objective values of 'x'
-		sex : tuple of float
-			Standard errors of 'fx'
-		nobj : int
-			index of the objective to minimize, takes values in
-			{0, 1, ..., dim-1}, default is 0
-		e : float
-			constraint such that solution objective value < 'e', default
-			is float('inf') i.e. unconstrained
-		kcon : int
-			index of the objective to constrain less than 'e', takes
-			values in {0, 1, ..., dim-1}, default is 0
+    Feasible point around which to perform the neighborhood
+    search
+    fx : tuple of float
+    Objective values of 'x'
+    sex : tuple of float
+    Standard errors of 'fx'
+    nobj : int
+    index of the objective to minimize, takes values in
+    {0, 1, ..., dim-1}, default is 0
+    e : float
+    constraint such that solution objective value < 'e', default
+    is float('inf') i.e. unconstrained
+    kcon : int
+    index of the objective to constrain less than 'e', takes
+    values in {0, 1, ..., dim-1}, default is 0
 
-		Returns
-		-------
-		xs : tuple of int
-			Feasible point which minimizes the neighborhood of 'x'
-		fxs : tuple of float
-			Objective values of 'xs'
-		sexs : tuple of float
-			Standard errors of 'fxs'
+    Returns
+    -------
+    xs : tuple of int
+    Feasible point which minimizes the neighborhood of 'x'
+    fxs : tuple of float
+    Objective values of 'xs'
+    sexs : tuple of float
+    Standard errors of 'fxs'
         """
         q = self.dim
         m = self.m
@@ -378,24 +389,24 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         x : tuple of int
-			Feasible point
-		e : float
-			Feasibility constraint on points in the convex hull
-		nobj : int
-			Index of objective on which to construct the pseudo-gradient
-		kcon : int
-			Index on objective to constrain
+    Feasible point
+    e : float
+    Feasibility constraint on points in the convex hull
+    nobj : int
+    Index of objective on which to construct the pseudo-gradient
+    kcon : int
+    Index on objective to constrain
 
         Returns
         -------
         gamma : tuple of float
-			direction of the pseudo-gradient
-		gbat : tuple of float
-			interpolated objective values of the perturbed 'x'
+    direction of the pseudo-gradient
+    gbat : tuple of float
+    interpolated objective values of the perturbed 'x'
         xbest : tuple of int
-			minimizer of 'x' and its convex hull
-		fxbest : tuple of float
-			minimum value of 'x' and its convex hull
+    minimizer of 'x' and its convex hull
+    fxbest : tuple of float
+    minimum value of 'x' and its convex hull
         """
         q = self.dim
         x0 = tuple(floor(x[i]) for i in range(q))
@@ -453,33 +464,33 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         x0 : tuple of int
-			Feasible point from which to search
-		fx0 : tuple of float
-			Objective values of 'x0'
-		sex0 : tuple of float
-			Standard errors of 'fx0'
-		e : float
-			Constraint on the values of the minimizer
-		nobj : int
-			Index of objective to minimize, takes values in
-			{0, 1, ..., dim-1}
-		kcon : int
-			Index of objective to constrain less than 'e', takes values
-			in {0, 1, ..., dim-1}
-		b : int
-			Limit on calls to orc.g when searching
+    Feasible point from which to search
+    fx0 : tuple of float
+    Objective values of 'x0'
+    sex0 : tuple of float
+    Standard errors of 'fx0'
+    e : float
+    Constraint on the values of the minimizer
+    nobj : int
+    Index of objective to minimize, takes values in
+    {0, 1, ..., dim-1}
+    kcon : int
+    Index of objective to constrain less than 'e', takes values
+    in {0, 1, ..., dim-1}
+    b : int
+    Limit on calls to orc.g when searching
 
         Returns
         -------
         xs: tuple of int
-			The point with the smallest value found by searching the
-			psuedo-gradients
-		fxs : tuple of float
-			The objective values of 'xs'
-		sexs : tuple of float
-			The standard errors of 'fxs'
-		n : int
-			The number of new calls to orc.g
+    The point with the smallest value found by searching the
+    psuedo-gradients
+    fxs : tuple of float
+    The objective values of 'xs'
+    sexs : tuple of float
+    The standard errors of 'fxs'
+    n : int
+    The number of new calls to orc.g
         """
         sprn = self.sprn
         m = self.m
@@ -535,22 +546,22 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         x : tuple of int
-			Point to simulate
-		con : float
-			Constraint value to check feasibility, default is
-			float('inf') i.e. unconstrained
-		nobj : int
-			Index of objective to minimize, default is 0, takes values
-			in {0, 1, ..., len('x') -1}
+    Point to simulate
+    con : float
+    Constraint value to check feasibility, default is
+    float('inf') i.e. unconstrained
+    nobj : int
+    Index of objective to minimize, default is 0, takes values
+    in {0, 1, ..., len('x') -1}
 
-		Returns
-		-------
-		isfeas : bool
-			True if 'fx' < 'e' and 'x' is feasible to the simulation
-		fx : tuple of float
-			Objective values of 'x'
-		vx : tuple of float
-			Standard errors of 'fx'
+    Returns
+    -------
+    isfeas : bool
+    True if 'fx' < 'e' and 'x' is feasible to the simulation
+    fx : tuple of float
+    Objective values of 'x'
+    vx : tuple of float
+    Standard errors of 'fx'
         """
         m = self.m
         #first, check if x has already been sampled in this iteration
@@ -623,12 +634,12 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         mcS : set of tuple of int
-			Set of feasible points of which to estimate
+    Set of feasible points of which to estimate
 
-		Returns
-		-------
-		outset : set of tuple of int
-			Subset of 'mcS' which are feasible
+    Returns
+    -------
+    outset : set of tuple of int
+    Subset of 'mcS' which are feasible
         """
         outset = set()
         for s in mcS:
@@ -644,12 +655,12 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         nu : int
-			the iteration number
+    the iteration number
 
-		Returns
-		-------
-		int
-			The sample size
+    Returns
+    -------
+    int
+    The sample size
         """
 
         mmul = 1.1
@@ -663,12 +674,12 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         nu : int
-			the iteration number
+    the iteration number
 
-		Returns
-		-------
-		int
-			The sample limit
+    Returns
+    -------
+    int
+    The sample limit
         """
         mmul = 1.2
         m_init = self.bconst*(self.dim - 1)
@@ -682,14 +693,14 @@ class RASolver(MOSOSolver):
         Parameters
         ----------
         mcS : set of tuple of int
-			Set of feasible points
+    Set of feasible points
 
-		Returns
-		-------
-		lwepset : set of tuple of int
-			Subset of 'mcS' which are LWEP's
-		domset : set of tuple of int
-			Set which causes points in 'mcS' to be removed
+    Returns
+    -------
+    lwepset : set of tuple of int
+    Subset of 'mcS' which are LWEP's
+    domset : set of tuple of int
+    Set which causes points in 'mcS' to be removed
         """
         if not mcS:
             print('--* Unknown Error: Function remove_nlwep recieved an empty set.')
@@ -719,52 +730,52 @@ class RLESolver(RASolver):
     Attributes
     ----------
     orc : Oracle
-		The problem implementation to solve
-	num_calls : int
-		The total number of calls to orc.g
-	num_obj : int
-		The number of objectives returned by orc.g
-	dim : int
-		The cardinality of points in the domain of orc.g
-	nbor_rad : int
-		The radius used to determine point neighbors, defaults is 1
-	mconst : int
-		Affects the iteration sample sizes. Default is 2
-	bconst : int
-		Affects the iteration sampling search limits.
-	sprn : prng.MRG32k3a object. Default is 8.
-		Pseudo-random number stream available to the solver, should
-		generate independently of orc.rng. Required.
-	x0 : tuple of numbers
-		Vector points such that x0[0] is its first component, and
-		x0[orc.dim - 1] is the last. Required.
-	gbar : dict
-		Dictionary of {tuple of int: tuple of float} mapping feasible
-		points to their objective values. In RA algorithms, it is
-		cleared every iteration.
-	sehat : dict
-		Like gbar, but maps feasible points to standard errors of
-		the objective values.
-	m : int
-		Iteration sample size which is automatically updated
-	b : int
-		Iteration search sampling limit which is automatically updated
-	nu : int
-		The iteration number
-	endseed : tuple of int
-		The next seed to be used by 'orc.rng'
-	betadel : float
-		Affects the search relaxation in RLE. Defaults to 0.5.
+    The problem implementation to solve
+    num_calls : int
+    The total number of calls to orc.g
+    num_obj : int
+    The number of objectives returned by orc.g
+    dim : int
+    The cardinality of points in the domain of orc.g
+    nbor_rad : int
+    The radius used to determine point neighbors, defaults is 1
+    mconst : int
+    Affects the iteration sample sizes. Default is 2
+    bconst : int
+    Affects the iteration sampling search limits.
+    sprn : prng.MRG32k3a object. Default is 8.
+    Pseudo-random number stream available to the solver, should
+    generate independently of orc.rng. Required.
+    x0 : tuple of numbers
+    Vector points such that x0[0] is its first component, and
+    x0[orc.dim - 1] is the last. Required.
+    gbar : dict
+    Dictionary of {tuple of int: tuple of float} mapping feasible
+    points to their objective values. In RA algorithms, it is
+    cleared every iteration.
+    sehat : dict
+    Like gbar, but maps feasible points to standard errors of
+    the objective values.
+    m : int
+    Iteration sample size which is automatically updated
+    b : int
+    Iteration search sampling limit which is automatically updated
+    nu : int
+    The iteration number
+    endseed : tuple of int
+    The next seed to be used by 'orc.rng'
+    betadel : float
+    Affects the search relaxation in RLE. Defaults to 0.5.
 
-	Parameters
-	----------
-	orc : Oracle object
-	kwargs : dict
+    Parameters
+    ----------
+    orc : Oracle object
+    kwargs : dict
 
-	Notes
-	-----
-	The method accel must be implemented to use a RLESolver in
-	PyMOSO.
+    Notes
+    -----
+    The method accel must be implemented to use a RLESolver in
+    PyMOSO.
     """
 
     def __init__(self, orc, **kwargs):
@@ -779,14 +790,14 @@ class RLESolver(RASolver):
         Parameters
         ----------
         warm_start : set of tuple of int
-			Set of feasible points which solve the sample path problem
-			of the previous iteration
+    Set of feasible points which solve the sample path problem
+    of the previous iteration
 
-		Returns
-		-------
-		ales : set of tuple of int
-			Set of feasible points which solve the sample path problem
-			of the current iteration
+    Returns
+    -------
+    ales : set of tuple of int
+    Set of feasible points which solve the sample path problem
+    of the current iteration
         """
         try:
             anew = self.accel(warm_start)
@@ -826,12 +837,12 @@ class RLESolver(RASolver):
         Parameters
         ----------
         mcS : set of tuple of int
-			Set of feasible points
+    Set of feasible points
 
-		Returns
-		-------
-		mcS : set of tuple of int
-			Set of feasible points which are an ALES
+    Returns
+    -------
+    mcS : set of tuple of int
+    Set of feasible points which are an ALES
         """
         mcXw = {self.x0}
         # try:
@@ -883,12 +894,12 @@ class RLESolver(RASolver):
         Parameters
         ----------
         mcS : set of tuple of int
-			Set of feasible points which do not dominate each other
+    Set of feasible points which do not dominate each other
 
-		Returns
-		-------
-		ncn : set of tuple of int
-			Set of feasible points which cause mcS to not be an ALES
+    Returns
+    -------
+    ncn : set of tuple of int
+    Set of feasible points which cause mcS to not be an ALES
         """
         # initialize the non-conforming neighborhood
         ncn = set()
@@ -956,15 +967,15 @@ class RLESolver(RASolver):
         Parameters
         ----------
         mcNd : set of tuple of int
-			Set of points which dominate non-conforming points
-		mcS : set of tuple of int
-			Set of candidate ALES points
+    Set of points which dominate non-conforming points
+    mcS : set of tuple of int
+    Set of candidate ALES points
 
-		Returns
-		-------
-		mcXw : set of tuple of int
-			Set of new LWEP's neither in nor dominated by members of
-			mcS or mcNd.
+    Returns
+    -------
+    mcXw : set of tuple of int
+    Set of new LWEP's neither in nor dominated by members of
+    mcS or mcNd.
         """
         b = self.b
         n = 0
@@ -986,11 +997,11 @@ class RLESolver(RASolver):
         Parameters
         ----------
         se : float
-			Standard error of the objective value to be relaxed
+    Standard error of the objective value to be relaxed
 
-		Returns
-		-------
-		relax : float
+    Returns
+    -------
+    relax : float
         """
         m = self.m
         relax = se/pow(m, self.betadel)
@@ -1005,26 +1016,26 @@ class Oracle(object):
     Attributes
     ----------
     rng : prng.MRG32k3a object
-		pseudo-random number generator used by the Oracle to simulate
-		objective values at feasible points
-	crnold_state : tuple
-		Tuple of length 2. The first item is a tuple of int, which is
-		an mrg32k3a seed. The second is random.Random state.
-	crn_obsold : tuple
-		Like crnold_state
-	crnflag : bool
-		Indicates whether common random numbers is turned on or off.
-		Defaults to off.
-	simpar : int
-		Number of processes to use when doing simulations. Defaults to 1
-	dim : int
-		Number of dimensions of feasible points
-	num_obj : int
-		Number of objectives returned by g
+    pseudo-random number generator used by the Oracle to simulate
+    objective values at feasible points
+    crnold_state : tuple
+    Tuple of length 2. The first item is a tuple of int, which is
+    an mrg32k3a seed. The second is random.Random state.
+    crn_obsold : tuple
+    Like crnold_state
+    crnflag : bool
+    Indicates whether common random numbers is turned on or off.
+    Defaults to off.
+    simpar : int
+    Number of processes to use when doing simulations. Defaults to 1
+    dim : int
+    Number of dimensions of feasible points
+    num_obj : int
+    Number of objectives returned by g
 
-	Parameters
-	----------
-	rng : prng.MRG32k3a object
+    Parameters
+    ----------
+    rng : prng.MRG32k3a object
 
     """
 
@@ -1032,9 +1043,40 @@ class Oracle(object):
         self.rng = rng
         self.crnold_state = rng.getstate()
         self.crnflag = False
-        self.simpar = 1
         self.crn_obsold = rng.getstate()
         super().__init__()
+
+
+    def set_simpar(self, simpar):
+        """
+        Intialize processes when parallel replications is enabled.
+
+        Parameters
+        ----------
+        simpar : int
+            Number of processes to use when performing simulation replications.
+        """
+        self.simpar = simpar
+        if self.simpar > 1:
+            self.req_q = Queue()
+            self.res_q = Queue()
+            self.proc = []
+            for i in range(self.simpar):
+                p = Process(target=mp_worker, args=(self.req_q, self.res_q))
+                p.start()
+                self.proc.append(p)
+
+
+    def mp_cleanup(self):
+        """
+        Terminate all multiprocessing processes created in `__init__`. Call
+        this after simulation is complete.
+        """
+        if self.simpar > 1:
+            for p in self.proc:
+                p.terminate()
+                p.join()
+
 
     def set_crnflag(self, crnflag):
         """
@@ -1070,10 +1112,8 @@ class Oracle(object):
         """
         Jump ahead to the new crn baseline, and set the new rewind point
         """
-        numjumps = self.simpar
-        self.crn_reset()
-        for i in range(numjumps):
-            self.rng = get_next_prnstream(self.rng.get_seed(), self.crnflag)
+        self.crn_check()
+        self.rng = get_next_prnstream(self.rng.get_seed(), self.crnflag)
         new_oldstate = self.rng.getstate()
         self.set_crnold(new_oldstate)
         self.crn_obsold = new_oldstate
@@ -1112,16 +1152,16 @@ class Oracle(object):
         Parameters
         ----------
         x : tuple of int
-			point at which to simulate
-		m : int
-			number of replications to simulate 'x'
+    point at which to simulate
+    m : int
+    number of replications to simulate 'x'
 
-		Returns
-		-------
-		isfeas : bool
-			Indicates if 'x' is feasible
-		obs : list of tuple of float
-			list of length 'm' of simulated objective values
+    Returns
+    -------
+    isfeas : bool
+    Indicates if 'x' is feasible
+    obs : list of tuple of float
+    list of length 'm' of simulated objective values
         """
 
         d = self.num_obj
@@ -1154,18 +1194,18 @@ class Oracle(object):
         Parameters
         ----------
         x : tuple of int
-			point at which to simulate
-		m : int
-			number of replications to simulate 'x'
+    point at which to simulate
+    m : int
+    number of replications to simulate 'x'
 
         Returns
         -------
         isfeas : bool
-			indicates the feasibility of 'x'
+    indicates the feasibility of 'x'
         obmean : tuple of float
-			mean of each objective of 'm' simulations
+    mean of each objective of 'm' simulations
         obse : tuple of float
-			mean of standard errors of each objective of 'm' simulations
+    mean of standard errors of each objective of 'm' simulations
         """
 
         d = self.num_obj
@@ -1174,88 +1214,60 @@ class Oracle(object):
         obmean = []
         obse = []
         mr = range(m)
-        if m < 1:
-            print('--* Error: Number of replications must be at least 1. ')
-            print('--* Aborting. ')
-            sys.exit()
+        assert(m >= 1)
         if m == 1:
             isfeas, objd = self.g(x, self.rng)
             obmean = objd
             obse = [0 for o in objd]
             self.crn_nextobs()
         else:
-            if self.simpar == 1:
-                ## do not parallelize replications
-                feas = []
-                objm = []
+            feas = []
+            objm = []
+            # take replications in parallel
+            if self.simpar > 1:
                 for i in mr:
-                    oisfeas, objd = self.g(x, self.rng)
-                    feas.append(oisfeas)
-                    objm.append(objd)
+                    # we will reconstruct objects within `mp_replicate` and then
+                    # compute the replications in parallel
+                    orccls = type(self)
+                    rngcls = type(self.rng)
+                    cseed = self.rng.get_seed()
+                    proc_job = (mp_replicate, (orccls, x, rngcls, cseed))
+                    self.req_q.put(proc_job)
                     self.crn_nextobs()
-                if all(feas):
-                    isfeas = True
-                    obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
-                    obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
-                    obse = tuple([sqrt(obvar[i]/m) for i in dr])
+                for i in mr:
+                    # block until parallel results are ready
+                    isfeasi, oval = self.res_q.get()
+                    feas.append(isfeasi)
+                    objm.append(oval)
+            # do not take replications in parallel
             else:
-                sim_old = self.simpar
-                ## obtain replications in parallel
-                ## divide m into chunks for the processors
-                nproc = self.simpar
-                if self.simpar > m:
-                    nproc = m
-                pr = range(nproc)
-                num_rands = [int(m/nproc) for i in pr]
-                for i in range(m % nproc):
-                    num_rands[i] += 1
-                ## create prn for each process by jumping ahead 2^127 spots
-                ## and a hit function for each using an oracle object
-                start_seed = self.rng.get_seed()
-                ## turn off simpar during parallelization
-                self.simpar = 1
-                orclst = [self]
-                prnrng = range(len(num_rands) - 1)
-                for i in prnrng:
-                    nextprn = get_next_prnstream(start_seed, self.crnflag)
-                    start_seed = nextprn.get_seed()
-                    myorc = Oracle(nextprn)
-                    myorc.num_obj = self.num_obj
-                    myorc.dim = self.dim
-                    myorc.g = self.g
-                    orclst.append(myorc)
-                ## take the replications in parallel
-                pres = []
-                feas = []
-                means = []
-                ses = []
-                with mp.Pool(nproc) as p:
-                    #[print('cha1: ', orc.rng.get_seed()) for orc in orclst]
-                    for i, r in enumerate(num_rands):
-                        # this is weird but i guess possible
-                        pres.append(p.apply_async(_mp_objmethod, (orclst[i], 'hit', (x, r))))
-                    for i in pr:
-                        ## 0 = feas, 1 = mean, 2 = se
-                        res = pres[i].get()
-                        feas.append(res[0])
-                        means.append(res[1])
-                        ses.append(res[2])
-                ## turn simpar back on before returning
-                self.simpar = sim_old
-                if all(feas):
-                    isfeas = True
-                    ## weighted average of replications
-                    obmean = tuple([sum([means[i][k]*num_rands[i]/m for i in pr]) for k in dr])
-                    ### convert se output back to variance
-                    obvar = [[num_rands[i]*ses[i][k]**2 for k in dr] for i in pr]
-                    ### compute pooled variance
-                    ##### special case 1 :(
-                    if m == nproc:
-                        pvar = [variance([means[i][k] for i in pr], obmean[k]) for k in dr]
-                    else:
-                        pvar = [sum([obvar[i][k]*(num_rands[i] - 1) for i in pr])/(m - nproc) for k in dr]
-                    ### compute standard error
-                    obse = tuple([sqrt(pvar[k]/m) for k in dr])
-                #[print('cha2: ', orc.rng.get_seed()) for orc in orclst]
+                for i in mr:
+                    isfeasi, oval = self.g(x, self.rng)
+                    feas.append(isfeasi)
+                    objm.append(oval)
+                    self.crn_nextobs()
+            if all(feas):
+                isfeas = True
+                obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
+                obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
+                obse = tuple([sqrt(obvar[i]/m) for i in dr])
         self.crn_check()
         return isfeas, obmean, obse
+
+    def g(self, x, rng):
+        """
+        Generate a single replication at point `x`.
+
+        Parameters
+        ----------
+        x : tuple
+        rng : random.Random object
+
+        Returns
+        -------
+        bool
+            Indicates feasibility of `x`
+        tuple of float
+            The simulated values for each objective
+        """
+        raise NotImplementedError

@@ -15,7 +15,7 @@ class ProbTPA(Oracle):
     ----------
     num_obj : int, 2
     dim : int, 2
-    
+
     Parameters
     ----------
     rng : prng.MRG32k3a object

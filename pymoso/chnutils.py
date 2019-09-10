@@ -40,6 +40,7 @@ import multiprocessing as mp
 from statistics import mean, variance
 from .prng.mrg32k3a import MRG32k3a, get_next_prnstream
 
+
 def solve(problem, solver, x0, **kwargs):
     """
     Uses a specified MOSO algorithm to solve a MOSO problem.
@@ -59,27 +60,29 @@ def solve(problem, solver, x0, **kwargs):
         is a tuple of int of length 6
     """
 
-    budget = kwargs.pop('budget', 50000)
-    default_seed = (12345, 12345, 12345, 12345, 12345, 12345)
-    seed = kwargs.pop('seed', default_seed)
-    simpar = kwargs.pop('simpar', 1)
-    crn = kwargs.pop('crn', False)
+    budget = kwargs.pop('budget')
+    seed = kwargs.pop('seed')
+    simpar = kwargs.pop('simpar')
+    crn = kwargs.pop('crn')
     paramtups = []
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
     ## generate all prn streams
+    solvstream = MRG32k3a(seed)
+    orcstream = get_next_prnstream(seed, crn)
     orcstream, solvstream = get_solv_prnstreams(seed, crn)
     ## generate the experiment list
     paramlst = [('solvprn', solvstream), ('x0', x0), ]
     orc = problem(orcstream)
     orc.set_crnflag(crn)
-    orc.simpar = simpar
+    orc.set_simpar(simpar)
     ## create arguments for (unknown) optional named parameters
     if paramtups:
         paramlst.extend(paramtups)
     paramargs = dict(paramlst)
     res = isp_run(solver, budget, orc, **paramargs)
+    orc.mp_cleanup()
     lastnu = len(res['itersoln']) - 1
     return res['itersoln'][lastnu], res['endseed']
 
@@ -105,13 +108,12 @@ def testsolve(tester, solver, x0, **kwargs):
         an independent stream.
     """
 
-    budget = kwargs.pop('budget', 50000)
-    default_seed = (12345, 12345, 12345, 12345, 12345, 12345)
-    seed = kwargs.pop('seed', default_seed)
-    isp = kwargs.pop('isp', 1)
-    proc = kwargs.pop('proc', 1)
+    budget = kwargs.pop('budget')
+    seed = kwargs.pop('seed')
+    isp = kwargs.pop('isp')
+    proc = kwargs.pop('proc')
     ranx0 = kwargs.pop('ranx0')
-    crn = kwargs.pop('crn', False)
+    crn = kwargs.pop('crn')
     paramtups = []
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
@@ -119,12 +121,15 @@ def testsolve(tester, solver, x0, **kwargs):
     orcstreams, solvstreams, x0stream, endseed = get_testsolve_prnstreams(isp, seed, crn)
     joblist = []
     currtest = tester()
+    orclst = []
     for i in range(isp):
         if ranx0:
             x0 = currtest.get_ranx0(x0stream)
         paramlst = [('solvprn', solvstreams[i]), ('x0', x0), ]
         orc = currtest.ranorc(orcstreams[i])
         orc.set_crnflag(crn)
+        orc.set_simpar(1)
+        orclst.append(orc)
         ## create arguments for (unknown) optional named parameters
         if paramtups:
             paramlst.extend(paramtups)
@@ -132,6 +137,8 @@ def testsolve(tester, solver, x0, **kwargs):
         mainparms = (solver, budget, orc)
         joblist.append((mainparms, paramargs))
     res = par_runs(joblist, proc)
+    for o in orclst:
+        o.mp_cleanup()
     return res, endseed
 
 
