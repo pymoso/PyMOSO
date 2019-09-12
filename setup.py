@@ -29,6 +29,7 @@ setup(
     version = __version__,
     description = 'Python Multi-Objective Simulation Optimization: a package for using, implementing, and testing simulation optimization algorithms.',
     long_description = long_description,
+    long_description_content_type="text/markdown",
     author = 'Kyle Cooper',
     author_email = 'coope149@purdue.edu',
     url = 'https://github.com/pymoso/PyMOSO',
