@@ -6,16 +6,16 @@ PyMOSO is software for solving multi-objective simulation optimization (MOSO) pr
 
 If you use PyMOSO in work leading to publication, please cite the paper which introduces PyMOSO.
 
-Cooper, K., Hunter, S. R. 2018. PyMOSO: Software for Multi-Objective Simulation Optimization with R-PERLE and R-MinRLE. Optimization Online, http://www.optimization-online.org/DB_HTML/2018/10/6876.html.
+Cooper, K., Hunter, S. R. 2019. PyMOSO: Software for Multi-Objective Simulation Optimization with R-PERLE and R-MinRLE. <em>INFORMS Journal on Computing</em>, to appear. Preprint: http://www.optimization-online.org/DB_HTML/2018/10/6876.html.
 
 ## Additional Reading
 The initial release of PyMOSO contains solvers that implement four total algorithms, in alphabetical order: R-MinRLE, R-PE, R-PERLE, and R-SPLINE.  The algorithms R-MinRLE, R-PE, R-PERLE were introduced in the following paper:
 
-Cooper, K., Hunter, S. R., and Nagaraj, K. 2018. Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework. Optimization Online, http://www.optimization-online.org/DB_HTML/2018/06/6649.html.
+Cooper, K., Hunter, S. R., and Nagaraj, K. 2019. Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework. <em>INFORMS Journal on Computing</em>, to appear. Preprint: http://www.optimization-online.org/DB_HTML/2018/06/6649.html.
 
 The algorithm R-SPLINE was introduced in the following paper:
 
-Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation optimization using R-SPLINE: Retrospective Search with Piecewise-Linear Interpolation and Neighborhood Enumeration. ACM Transactions on Modeling and Computer Simulation, Vol. 23, No. 3, Article 17 (July 2013), 24 pages.  http://dx.doi.org/10.1145/2499913.2499916
+Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation optimization using R-SPLINE: Retrospective Search with Piecewise-Linear Interpolation and Neighborhood Enumeration. <em>ACM Transactions on Modeling and Computer Simulation</em>, Vol. 23, No. 3, Article 17 (July 2013), 24 pages.  http://dx.doi.org/10.1145/2499913.2499916
 
 We recommend reading these papers to understand the algorithms, what they return, and the algorithm parameter options that we describe in the user manual.
 
