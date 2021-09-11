@@ -6,12 +6,12 @@ PyMOSO is software for solving multi-objective simulation optimization (MOSO) pr
 
 If you use PyMOSO in work leading to publication, please cite the paper which introduces PyMOSO.
 
-Cooper, K., Hunter, S. R. 2019. PyMOSO: Software for Multi-Objective Simulation Optimization with R-PERLE and R-MinRLE. <em>INFORMS Journal on Computing</em>, to appear. Preprint: http://www.optimization-online.org/DB_HTML/2018/10/6876.html.
+Cooper, K., Hunter, S. R. 2020. PyMOSO: Software for Multi-Objective Simulation Optimization with R-PERLE and R-MinRLE. <em>INFORMS Journal on Computing</em>, 32(4): 1101-1108. DOI: 10.1287/ijoc.2019.0902, Preprint: http://web.ics.purdue.edu/~hunter63/PAPERS/pre2019coohun.pdf.
 
 ## Additional Reading
 The initial release of PyMOSO contains solvers that implement four total algorithms, in alphabetical order: R-MinRLE, R-PE, R-PERLE, and R-SPLINE.  The algorithms R-MinRLE, R-PE, R-PERLE were introduced in the following paper:
 
-Cooper, K., Hunter, S. R., and Nagaraj, K. 2019. Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework. <em>INFORMS Journal on Computing</em>, to appear. Preprint: http://www.optimization-online.org/DB_HTML/2018/06/6649.html.
+Cooper, K., Hunter, S. R., and Nagaraj, K. 2020. Bi-objective simulation optimization on integer lattices using the epsilon-constraint method in a retrospective approximation framework. <em>INFORMS Journal on Computing</em>, 32(4): 1080-1100. DOI: 10.1287/ijoc.2019.0918, Preprint: http://web.ics.purdue.edu/~hunter63/PAPERS/pre2019coohunnag.pdf.
 
 The algorithm R-SPLINE was introduced in the following paper:
 
