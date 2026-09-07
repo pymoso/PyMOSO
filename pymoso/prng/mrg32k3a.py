@@ -284,7 +284,12 @@ class MRG32k3a(random.Random):
 
 def mat333mult(a, b):
     """
-    Multiply a 3x3 matrix with a 3x1 matrix.
+    Multiply a 3x3 matrix with a 3x1 matrix, in exact Python integer
+    arithmetic. The row sums here reach roughly 2^62-2^63 (matrix
+    elements and seed components are each up to ~2^32), which silently
+    loses precision in float64 (53 bits of exact integer range); Python
+    ints are arbitrary precision, so casting to int before multiplying
+    is exact by construction. See docs/phase2a-verification.md, item 1.
 
     Parameters
     ----------
@@ -295,19 +300,22 @@ def mat333mult(a, b):
 
     Returns
     -------
-    res : list of float
+    res : list of int
         3x1 matrix
     """
     res = [0, 0, 0]
     r3 = range(3)
     for i in r3:
-        res[i] = sum([a[i][j]*b[j] for j in r3])
+        res[i] = sum([int(a[i][j])*int(b[j]) for j in r3])
     return res
 
 
 def mat311mod(a, b):
     """
-    Compute moduli of a 3x1 matrix.
+    Compute moduli of a 3x1 matrix, in exact Python integer arithmetic.
+    Python's '/' between two ints is float true division, which would
+    reintroduce the same precision loss mat333mult avoids if 'a' holds
+    a large exact int; '%' on ints is exact.
 
     Parameters
     ----------
@@ -318,13 +326,14 @@ def mat311mod(a, b):
 
     Returns
     -------
-    res : tuple of float
+    res : tuple of int
         3x1 matrix
     """
     res = [0, 0, 0]
     r3 = range(3)
+    bi = int(b)
     for i in r3:
-        res[i] = int(a[i] - int(a[i]/b)*b)
+        res[i] = int(a[i]) % bi
     return res
 
 
