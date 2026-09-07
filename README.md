@@ -102,29 +102,20 @@ PyMOSO users solving MOSO problems and testing MOSO algorithms may do so using t
 PyMOSO includes a command line help file. The help file shows syntax templates for every PyMOSO command, the available options, and a selection of example invocations. The `pymoso --help` invocation prints the file to the terminal. The file is also printed when PyMOSO cannot parse an invocation that begins with `pymoso`. We show the current help file below.  
 
 ```
-Usage:
-  pymoso listitems
-  pymoso solve [--budget=B] [--odir=D] [--crn] [--simpar=P]
-    [(--seed <s> <s> <s> <s> <s> <s>)] [(--param <param> <val>)]...
-    <problem> <solver> <x>...
-  pymoso testsolve [--budget=B] [--odir=D] [--crn] [--isp=T] [--proc=Q]
-    [--metric] [(--seed <s> <s> <s> <s> <s> <s>)] [(--param <param> <val>)]...
-    <tester> <solver> [<x>...]
-  pymoso -h | --help
-  pymoso -v | --version
+$ pymoso --help
+usage: pymoso [-h] [-v] <command> ...
 
-Options:
-  --budget=B                Set the simulation budget [default: 200]
-  --odir=D                  Set the output file directory name. [default: testrun]
-  --crn                     Set if common random numbers are desired.
-  --seed                    Set the random number seed with 6 spaced integers.
-  --simpar=P                Set number of parallel processes for simulation replications. [default: 1]
-  --isp=T                   Set number of algorithm instances to solve. [default: 1]
-  --proc=Q                  Set number of parallel processes for the algorithm instances. [default: 1]
-  --metric                  Set if metric computation is desired.
-  --param                   Specify a solver-specific parameter <param> <val>.
-  -h --help                 Show this screen.
-  -v --version              Show version.
+pymoso
+
+positional arguments:
+  <command>
+    listitems    List the built-in solvers, problems, and testers.
+    solve        Solve a MOSO problem.
+    testsolve    Test a MOSO algorithm on a MOSO problem.
+
+options:
+  -h, --help     show this help message and exit
+  -v, --version  show program's version number and exit
 
 Examples:
   pymoso listitems
@@ -135,25 +126,89 @@ Examples:
   pymoso solve --param radius 3 ProbTPA RPERLE 45 45
   pymoso testsolve --isp=16 --proc=4 TPATester RPERLE
   pymoso testsolve --isp=20 --proc=10 --metric --crn TPBTester RMINRLE 9 9
+
+Help:
+  Use the listitems command to view a list of available solvers, problems, and
+  test problems.
+
+$ pymoso solve --help
+usage: pymoso solve [-h] [--budget BUDGET] [--odir ODIR] [--crn]
+                    [--seed <s> <s> <s> <s> <s> <s>] [--param <param> <val>]
+                    [--simpar SIMPAR]
+                    <problem> <solver> <x> [<x> ...]
+
+positional arguments:
+  <problem>
+  <solver>
+  <x>
+
+options:
+  -h, --help            show this help message and exit
+  --budget BUDGET       Set the simulation budget [default: 200]
+  --odir ODIR           Set the output file directory name. [default: testrun]
+  --crn                 Set if common random numbers are desired.
+  --seed <s> <s> <s> <s> <s> <s>
+                        Set the random number seed with 6 spaced integers.
+  --param <param> <val>
+                        Specify a solver-specific parameter <param> <val>.
+                        Repeatable.
+  --simpar SIMPAR       Set number of parallel processes for simulation
+                        replications. [default: 1]
+
+$ pymoso testsolve --help
+usage: pymoso testsolve [-h] [--budget BUDGET] [--odir ODIR] [--crn]
+                        [--seed <s> <s> <s> <s> <s> <s>]
+                        [--param <param> <val>] [--isp ISP] [--proc PROC]
+                        [--metric]
+                        <tester> <solver> [<x> ...]
+
+positional arguments:
+  <tester>
+  <solver>
+  <x>
+
+options:
+  -h, --help            show this help message and exit
+  --budget BUDGET       Set the simulation budget [default: 200]
+  --odir ODIR           Set the output file directory name. [default: testrun]
+  --crn                 Set if common random numbers are desired.
+  --seed <s> <s> <s> <s> <s> <s>
+                        Set the random number seed with 6 spaced integers.
+  --param <param> <val>
+                        Specify a solver-specific parameter <param> <val>.
+                        Repeatable.
+  --isp ISP             Set number of algorithm instances to solve. [default:
+                        1]
+  --proc PROC           Set number of parallel processes for the algorithm
+                        instances. [default: 1]
+  --metric              Set if metric computation is desired.
+
+$ pymoso listitems --help
+usage: pymoso listitems [-h]
+
+options:
+  -h, --help  show this help message and exit
 ```
 For now, PyMOSO has three commands: `listitems`, `solve`, and `testsolve`, which we explain below.
 ### The `listitems` command for viewing solvers, testers, and oracles included in PyMOSO
 The default installation of PyMOSO includes a selection of solvers, testers, and oracles. Users can view the complete lists of included solvers, testers, and oracles using the `pymoso listitems` command. We show the current listing below. Test problems A, B, and C refer to those in Cooper et al (2018).
 
 ```
-Solver                         Description
-************************       ************************
-RMINRLE                        A solver using R-MinRLE for integer-ordered MOSO.
-RPE                            A solver using R-Pe for integer-ordered bi-objective MOSO.
-RPERLE                         A solver using RPERLE for integer-ordered bi-objective MOSO.
-RSPLINE                        A solver using R-SPLINE for single objective SO.
 
-Problems                       Description                    Test Name (if available)
-************************       ************************       ************************
-ProbSimpleSO                   x^2 + noise.                   SimpleSOTester
-ProbTPA                        Test Problem A                 TPATester
-ProbTPB                        Test Problem B                 TPBTester
-ProbTPC                        Test Problem C                 TPCTester
+Solver                         Description                   
+************************       ************************      
+RMINRLE                        A solver using R-MinRLE for integer-ordered MOSO.
+RPE                            R-Pe solver for bi-objective simulation optimization.
+RPERLE                         R-PERLE solver for bi-objective simulation optimization.
+RSPLINE                        R-SPLINE solver for single-objective simulation optimization.
+
+Problems                       Description                                                  Test Name (if available)      
+************************       ************************                                     ************************      
+BSProb                         An Oracle that simulates a bus-scheduling problem, minimizing total BSTester                      
+ProbSimpleSO                   An Oracle that simulates the Test Simple SO problem.         SimpleSOTester                
+ProbTPA                        An Oracle that simulates Test Problem A.                     TPATester                     
+ProbTPB                        An Oracle that simulates Test Problem B.                     TPBTester                     
+ProbTPC                        An Oracle that simulates Test Problem C.                     TPCTester                     
 ```
 
 ### The `solve` command

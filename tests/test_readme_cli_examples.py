@@ -24,6 +24,14 @@ NOT marked xfail here: --simpar works on this base (917bf06, upstream,
 unrelated to and predating this migration -- see
 docs/upstream-simpar.md, KNOWN_ISSUES.md issue 2), confirmed directly
 below rather than assumed from the diff.
+
+Fixed by Layer 3 (next commit after this file was first written): a
+bare `content == "pymoso"` branch used to also match a line that is
+literally just the word "pymoso" -- which Layer 3's regenerated --help
+text now contains (argparse's top-level description, cli.py's own
+docstring first line), extracting a bogus zero-argument "pymoso"
+example that naturally fails ("the following arguments are required:
+<command>"). Removed; a bare "pymoso" was never a real invocation.
 """
 import re
 import shlex
@@ -54,7 +62,7 @@ def extract_cli_examples(readme_text):
             candidates.append(pending)
             pending = None
             continue
-        if content == "pymoso" or content.startswith("pymoso "):
+        if content.startswith("pymoso "):
             if "<" in content or "[" in content or "..." in content or " | " in content:
                 continue
             if content.endswith("\\"):
