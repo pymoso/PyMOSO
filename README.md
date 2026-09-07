@@ -130,7 +130,7 @@ Examples:
   pymoso listitems
   pymoso solve ProbTPA RPERLE 4 14
   pymoso solve --budget=100000 --odir=test1  ProbTPB RMINRLE 3 12
-  pymoso solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 31 21 11
+  pymoso solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 5 5 5
   pymoso solve --simpar=4 --param betaeps 0.4 ProbTPA RPERLE 30 30
   pymoso solve --param radius 3 ProbTPA RPERLE 45 45
   pymoso testsolve --isp=16 --proc=4 TPATester RPERLE

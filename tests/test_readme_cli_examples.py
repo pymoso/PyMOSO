@@ -1,0 +1,137 @@
+"""
+Layer 2 (making the README's executable content testable): every
+`pymoso ...` invocation shown in the README, parsed from the README
+text itself (not transcribed by hand) so a newly-added example is
+picked up automatically, run with a small budget/isp/proc and asserted
+to exit 0.
+
+This checks invocability only -- that the command parses and the run
+completes without error -- not correctness of the result. Correctness
+of what pymoso computes is what tests/test_golden.py's end-seed
+baselines are for; this file would not notice a wrong answer.
+
+Parsing rule: a "real" example is a line (whether a bare fenced-block
+line or a single-backtick inline code span) that, once any markdown
+wrapping is stripped, starts with `pymoso ` and contains none of
+`<`, `[`, or `...` -- which excludes the abstract Usage: template
+(placeholders) while keeping every concrete invocation, in the help
+text's own Examples: section and in prose. A command whose backtick
+span ends in a backslash is joined with the next one (the README's two
+line-continuation examples).
+
+Unlike the equivalent file on the earlier fork, --simpar examples are
+NOT marked xfail here: --simpar works on this base (917bf06, upstream,
+unrelated to and predating this migration -- see
+docs/upstream-simpar.md, KNOWN_ISSUES.md issue 2), confirmed directly
+below rather than assumed from the diff.
+"""
+import re
+import shlex
+import shutil
+import subprocess
+
+import pytest
+
+pytestmark = pytest.mark.timeout(90)
+
+README = open("README.md", encoding="utf-8").read()
+
+
+def extract_cli_examples(readme_text):
+    """Parse every concrete `pymoso ...` invocation out of the README
+    text, joining backslash-continued lines. Returns a de-duplicated
+    list preserving first-seen order."""
+    candidates = []
+    pending = None
+    for raw in readme_text.splitlines():
+        line = raw.strip()
+        m = re.match(r"^`(.*)`$", line)
+        content = (m.group(1) if m else line).rstrip()
+        if pending is not None:
+            pending = pending[:-1].rstrip() + " " + content.lstrip()
+            if pending.endswith("\\"):
+                continue
+            candidates.append(pending)
+            pending = None
+            continue
+        if content == "pymoso" or content.startswith("pymoso "):
+            if "<" in content or "[" in content or "..." in content or " | " in content:
+                continue
+            if content.endswith("\\"):
+                pending = content
+                continue
+            candidates.append(content)
+    seen = set()
+    deduped = []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c)
+            deduped.append(c)
+    return deduped
+
+
+CLI_EXAMPLES = extract_cli_examples(README)
+assert len(CLI_EXAMPLES) >= 20, f"expected at least 20 CLI examples, parsed {len(CLI_EXAMPLES)}"
+
+SIMPAR_EXAMPLES = [c for c in CLI_EXAMPLES if "--simpar" in c]
+assert SIMPAR_EXAMPLES, "expected at least one --simpar example"
+
+
+def _prepare_argv(cmd, small_budget=200, small_isp=2, small_proc=2):
+    """Parse a command string into argv (without 'pymoso'), replacing
+    any --budget/--isp/--proc with small values so the test suite stays
+    fast; solve/testsolve without an explicit --budget get one added.
+    This is exactly the "run with a small budget" adjustment -- it does
+    not change which options are present, only their values.
+    """
+    argv = shlex.split(cmd)[1:]
+    subcommand = argv[0] if argv else None
+    out = []
+    has_budget = False
+    skip_next = False
+    for tok in argv:
+        if skip_next:
+            skip_next = False
+            continue
+        if tok.startswith("--budget="):
+            out.append(f"--budget={small_budget}")
+            has_budget = True
+        elif tok == "--budget":
+            out.append(f"--budget={small_budget}")
+            has_budget = True
+            skip_next = True
+        elif tok.startswith("--isp="):
+            out.append(f"--isp={small_isp}")
+        elif tok.startswith("--proc="):
+            out.append(f"--proc={small_proc}")
+        else:
+            out.append(tok)
+    if subcommand in ("solve", "testsolve") and not has_budget:
+        out = [out[0], f"--budget={small_budget}"] + out[1:]
+    return out
+
+
+def _run_example(cmd, tmp_path):
+    argv = _prepare_argv(cmd)
+    if any("myproblem.py" in a or "mytester.py" in a for a in argv):
+        shutil.copy("pymoso/examples/myproblem.py", tmp_path)
+        shutil.copy("pymoso/examples/mytester.py", tmp_path)
+    return subprocess.run(["pymoso"] + argv, cwd=tmp_path, capture_output=True, text=True, timeout=60)
+
+
+@pytest.mark.parametrize("cmd", CLI_EXAMPLES, ids=range(len(CLI_EXAMPLES)))
+def test_readme_cli_example_is_invocable(cmd, tmp_path):
+    proc = _run_example(cmd, tmp_path)
+    assert proc.returncode == 0, (cmd, proc.stdout, proc.stderr)
+
+
+@pytest.mark.parametrize("cmd", SIMPAR_EXAMPLES, ids=range(len(SIMPAR_EXAMPLES)))
+def test_simpar_examples_specifically_confirmed_to_succeed(cmd, tmp_path):
+    """Redundant with test_readme_cli_example_is_invocable above for
+    these same commands, but explicit: these are the exact examples the
+    earlier fork's equivalent test had to xfail (KNOWN_ISSUES.md issue
+    2). If --simpar ever regresses, this fails with the specific old
+    signature named below, not just a generic "not zero" failure."""
+    proc = _run_example(cmd, tmp_path)
+    assert proc.returncode == 0, (cmd, proc.stdout, proc.stderr)
+    assert "get_next_prnstream() missing 1 required positional argument" not in proc.stdout

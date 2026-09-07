@@ -48,9 +48,13 @@ README_EXAMPLES = {
     ),
     "solve_seed": (
         ["solve", "--seed", "12345", "32123", "5322", "2", "9543", "666666666",
-         "ProbTPC", "RPERLE", "31", "21", "11"],
-        1,  # x0=(31,21,11) is infeasible for ProbTPC -- a real, pre-existing
-            # README bug, unrelated to CLI parsing. Still true on this base.
+         "ProbTPC", "RPERLE", "5", "5", "5"],
+        0,  # was x0=(31,21,11), infeasible for ProbTPC ([-10,10] per
+            # component at the default density_factor=2) -- a real,
+            # pre-existing README bug, unrelated to CLI parsing, fixed
+            # in Layer 2 (docs/phase2c-cli-migration.md and this
+            # migration's Layer 2 commit). (5,5,5) is feasible with the
+            # same seed, confirmed directly.
     ),
     "solve_simpar_param": (
         ["solve", "--simpar=4", "--param", "betaeps", "0.4", "ProbTPA", "RPERLE", "30", "30"],
@@ -87,9 +91,13 @@ def test_readme_example_details_solve_basic(tmp_path):
     assert "-- Done!" in proc.stdout
 
 
-def test_readme_example_details_seed_currently_fails_infeasible_x0(tmp_path):
+def test_readme_example_details_seed_now_succeeds(tmp_path):
+    """Was x0=(31,21,11), infeasible for ProbTPC -- fixed to (5,5,5) in
+    Layer 2. Confirmed here rather than assumed: this example actually
+    runs to completion now."""
     proc = run(README_EXAMPLES["solve_seed"][0], tmp_path)
-    assert "is infeasible" in proc.stdout
+    assert proc.returncode == 0
+    assert "-- Done!" in proc.stdout
 
 
 def test_readme_example_details_simpar_now_succeeds(tmp_path):
