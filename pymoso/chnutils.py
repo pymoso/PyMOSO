@@ -385,6 +385,13 @@ def does_weak_dominate(g1, g2, delta1, delta2):
     Returns
     -------
     is_dom : bool
+
+    Examples
+    --------
+    >>> does_weak_dominate((1, 2), (2, 3), (0, 0), (0, 0))
+    True
+    >>> does_weak_dominate((2, 3), (1, 2), (0, 0), (0, 0))
+    False
     """
     dim = len(g1)
     is_dom = True
@@ -414,6 +421,13 @@ def does_dominate(g1, g2, delta1, delta2):
     Returns
     -------
     is_dom : bool
+
+    Examples
+    --------
+    >>> does_dominate((1, 2), (2, 3), (0, 0), (0, 0))
+    True
+    >>> does_dominate((1, 2), (1, 2), (0, 0), (0, 0))
+    False
     """
     dim = len(g1)
     is_dom = True
@@ -450,6 +464,13 @@ def does_strict_dominate(g1, g2, delta1, delta2):
     Returns
     -------
     bool
+
+    Examples
+    --------
+    >>> does_strict_dominate((1, 1), (2, 2), (0, 0), (0, 0))
+    True
+    >>> does_strict_dominate((1, 2), (2, 2), (0, 0), (0, 0))
+    False
     """
     dim = len(g1)
     is_sdom = True
@@ -619,6 +640,13 @@ def get_nondom(edict):
     -------
     set
         Set of non-dominated points
+
+    Examples
+    --------
+    >>> sorted(get_nondom({(0, 0): (1, 5), (1, 0): (3, 3), (2, 0): (5, 1)}))
+    [(0, 0), (1, 0), (2, 0)]
+    >>> get_nondom({(0, 0): (1, 1), (1, 0): (2, 2)})
+    {(0, 0)}
     """
     pts = list(edict.keys())
     vals = list(edict.values())
@@ -647,6 +675,11 @@ def get_nbors(x, r=1):
     -------
     set of tuple of int
         The neighborhood of 'x'
+
+    Examples
+    --------
+    >>> sorted(get_nbors((0,), 1))
+    [(-1,), (1,)]
     """
     # define a filter function for points too far away
     def edist_filter(x1):
@@ -697,6 +730,11 @@ def get_setnbors(mcs, r):
     -------
     set of tuple of int
         The exclusive neighborhood
+
+    Examples
+    --------
+    >>> sorted(get_setnbors({(0,), (1,)}, 1))
+    [(-1,), (2,)]
     """
     set_nbors = set()
     for x in mcs:
@@ -751,6 +789,11 @@ def edist(x1,x2):
     Returns
     -------
     float
+
+    Examples
+    --------
+    >>> edist((0, 0), (3, 4))
+    5.0
     """
     q = len(x1)
     return sqrt(sum([pow(x1[i] - x2[i], 2) for i in range(q)]))
@@ -811,5 +854,12 @@ def dh(A, B):
     -------
     float
         The Hausdorf distance
+
+    Examples
+    --------
+    >>> dh({(0, 0)}, {(3, 4)})
+    5.0
+    >>> dh({(0, 0)}, {(0, 0)})
+    0.0
     """
     return max(dAB(A, B), dAB(B, A))
