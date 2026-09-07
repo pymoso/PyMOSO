@@ -6,7 +6,6 @@ Provide an implementation of R-MinRLE for users needing a
 multi-objective simulation optimization solver.
 """
 from ..chnbase import RLESolver
-import sys
 
 
 class RMINRLE(RLESolver):
@@ -32,7 +31,5 @@ class RMINRLE(RLESolver):
         set of tuple of int
         """
         if not warm_start:
-            print('--* R-MinRLE Error: No feasible warm start. Is x0 feasible?')
-            print('--* Aborting.')
-            sys.exit()
+            raise ValueError('No feasible warm start. Is x0 feasible?')
         return self.get_min(warm_start)

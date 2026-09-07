@@ -242,6 +242,10 @@ class RASolver(MOSOSolver):
     objective.
         """
         self.upsample(mcS | {self.x0})
+        if self.x0 not in self.gbar:
+            raise ValueError(
+                'x0={0} is infeasible. RA solvers require a feasible starting point.'.format(self.x0)
+            )
         unconst = float('inf')
         kcon = 0
         xmin = set()
@@ -788,6 +792,10 @@ class RLESolver(RASolver):
         """
         try:
             anew = self.accel(warm_start)
+        except ValueError:
+            # a deliberate, already-clear error (e.g. an infeasible x0,
+            # raised by get_min) -- do not bury it in a generic wrapper
+            raise
         except AttributeError as e:
             raise RuntimeError(
                 '{0}: Unable to run accel(). Missing an import, or accel() not implemented? '
