@@ -33,6 +33,9 @@ class TestSolve(BaseComm):
         isp = int(self.options['--isp'])
         proc = int(self.options['--proc'])
         crn = self.options['--crn']
+        validate_positive_int('--budget', budget)
+        validate_positive_int('--isp', isp)
+        validate_positive_int('--proc', proc)
         ## determine the solver and problem
         solvarg = self.options['<solver>']
         base_mod_name = solvarg

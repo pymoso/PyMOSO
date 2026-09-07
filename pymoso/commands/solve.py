@@ -32,6 +32,8 @@ class Solve(BaseComm):
         hasseed = self.options['--seed']
         simpar = int(self.options['--simpar'])
         crn = self.options['--crn']
+        validate_positive_int('--budget', budget)
+        validate_positive_int('--simpar', simpar)
         if hasseed:
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
