@@ -31,6 +31,6 @@ class MyTester(object):
 
     def metric(self, eles):
         '''Metric to be computed per retrospective iteration.'''
-	epareto = [self.true_g(point) for point in eles]
+        epareto = [self.true_g(point) for point in eles]
         haus = dh(epareto, self.answer)
         return haus
