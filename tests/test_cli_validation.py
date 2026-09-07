@@ -17,6 +17,8 @@ import subprocess
 
 import pytest
 
+pytestmark = pytest.mark.timeout(60)
+
 CASES = [
     (["pymoso", "solve", "--budget=0", "ProbTPA", "RPERLE", "40", "40"], "--budget"),
     (["pymoso", "solve", "--simpar=-1", "ProbTPA", "RPERLE", "40", "40"], "--simpar"),

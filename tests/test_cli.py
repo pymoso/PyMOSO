@@ -11,10 +11,19 @@ which is a frozen historical record and should not change at all.
 See docs/phase2c-cli-migration.md for the full, reasoned list of
 differences from the pre-migration (docopt) behavior that this file's
 expectations encode.
+
+Every test here spawns the real `pymoso` subprocess, so a hang in the
+CLI (see tests/test_simpar_worker_lifecycle.py for the specific bug
+this guards against) would otherwise hang the whole suite.
+pytest-timeout's module-level marker below forces any such hang to
+fail after 60 seconds -- generous over every real test's ~1-3s
+runtime -- instead of consuming the run indefinitely.
 """
 import subprocess
 
 import pytest
+
+pytestmark = pytest.mark.timeout(60)
 
 
 def run(args, cwd):

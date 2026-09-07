@@ -23,7 +23,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install pymoso and test dependencies
-        run: uv pip install --system -e . pytest
+        run: uv pip install --system -e . pytest pytest-timeout
 
       - name: Compile check
         run: python -m compileall -q pymoso/
