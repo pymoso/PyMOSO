@@ -18,19 +18,23 @@ the two codebases differ in ways (the `--simpar` rework, whitespace
 normalization, an added bus-scheduling problem, etc.) that can and do
 change exact end-seed output even where the underlying defect (issue 1
 below) is unchanged. Some individual case values happen to coincide with
-the old fork's pre-fix numbers and some don't; this wasn't investigated
-further; it isn't the point of this baseline being here.
+the old fork's numbers (both this migration's pre-fix capture and its
+post-fix capture below each match two of the old fork's own values, at
+the cases where nothing either codebase changed affects that particular
+code path) and some don't; this wasn't investigated further, it isn't
+the point of this baseline being here.
 
-**Capture conditions:**
+**Capture conditions (current, post jump-ahead fix):**
 
 - Environment: `.venv-baseline`, CPython 3.10.21, this repo installed
   editable (`uv pip install -e .`), captured from the source tree
   directly.
-- Commit: `a8242f2` on the `pymoso-migration` branch (after restoring
-  library kwarg defaults, before the jump-ahead fix).
+- Commit: `e095287` on the `pymoso-migration` branch (the jump-ahead
+  fix itself).
 - Command: `pytest tests/test_golden.py -vv` for the CLI cases; direct
   `solve()`/`testsolve()` calls (see the test file) for the two
-  library-level cases.
+  library-level cases. Re-run twice to confirm determinism before being
+  written into `CASES`.
 
 **Why capture from source instead of a wheel:** the earlier (1.0.4)
 capture was taken from a PyPI wheel specifically because the old fork's
@@ -62,9 +66,38 @@ what every subsequent regeneration should do.
   CLI counterparts' end seeds exactly, as expected: the CLI commands
   are thin wrappers over these same functions.
 
-### Current values (pre jump-ahead fix)
+### Current values (post jump-ahead fix)
 
 | Case | End seed |
+|---|---|
+| rperle_tpa | `4226535370, 3918856659, 447968167, 400221883, 592996512, 2795685938` |
+| rminrle_tpa | `33132303, 325849388, 376624132, 1563924626, 293517807, 795864341` |
+| rpe_tpa | `3464732221, 1507014170, 850131796, 3585675128, 2782941437, 844928957` |
+| rspline_simpleso | `3294576687, 175234757, 49170740, 679432683, 2711532206, 2761197391` |
+| testsolve_tpa | `1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063` |
+| rperle_tpa_crn | `3777646647, 1837464056, 4204654757, 664239048, 4190510072, 2959195122` |
+| rperle_tpa_seed2 | `4131271395, 3226219906, 777515709, 589263233, 2312345461, 1567227549` |
+| rperle_tpa_simpar2 | `4226535370, 3918856659, 447968167, 400221883, 592996512, 2795685938` |
+| solve() library call | `4226535370, 3918856659, 447968167, 400221883, 592996512, 2795685938` |
+| testsolve() library call | `1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063` |
+
+None of these ten values has all six components divisible by 256 --
+confirmed directly, not just asserted -- unlike every pre-fix value
+below, which does.
+
+---
+
+## Historical: this migration's own pre jump-ahead-fix capture
+
+The values below are what `CASES` held between this migration's phase-0
+capture commit and the jump-ahead fix landing (i.e., exactly what's
+described in the rest of this file's prose above, before the fix).
+Every one of these ten end seeds has all six components divisible by
+256, the exact signature of the float64 precision loss documented in
+KNOWN_ISSUES.md issue 1 -- captured from this branch's own source tree,
+not a wheel, unlike the 1.0.4 baseline further below.
+
+| Case | Pre-fix end seed (this migration) |
 |---|---|
 | rperle_tpa | `738848768, 2094673920, 3003824128, 304680960, 1844190720, 1414365184` |
 | rminrle_tpa | `351780864, 2663153664, 3654082560, 106530816, 1144764416, 1616205824` |
@@ -76,12 +109,6 @@ what every subsequent regeneration should do.
 | rperle_tpa_simpar2 | `738848768, 2094673920, 3003824128, 304680960, 1844190720, 1414365184` |
 | solve() library call | `738848768, 2094673920, 3003824128, 304680960, 1844190720, 1414365184` |
 | testsolve() library call | `4147335168, 2708353024, 1540286464, 2835288064, 3722176512, 2227803136` |
-
-**These values are pre-fix.** Every one of them is expected to change
-once the jump-ahead fix (KNOWN_ISSUES.md issue 1) lands in a subsequent
-commit, at which point this table moves down to a "Historical" section
-and a fresh post-fix table takes its place, following the same pattern
-below for the original 1.0.4 baseline.
 
 ---
 

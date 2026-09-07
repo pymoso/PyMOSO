@@ -8,49 +8,48 @@ from pymoso.problems.probtpa import ProbTPA
 from pymoso.solvers.rperle import RPERLE
 from pymoso.testers.tpatester import TPATester
 
-# Captured from github.com/pymoso/PyMOSO's master (commit a8242f2 on this
-# migration branch), from the source tree directly -- not a PyPI wheel;
-# see tests/golden/README.md for why. This is the PRE jump-ahead-fix
-# baseline for this base: the float64 mat333mult/mat311mod precision loss
-# (KNOWN_ISSUES.md issue 1) is still present here. A later commit in this
-# migration applies the fix and recaptures these values separately.
+# Recaptured against the exact-integer jump-ahead fix (see
+# KNOWN_ISSUES.md issue 1 and the "Fix MRG32k3a jump-ahead precision
+# loss" commit). The pre-fix values these replaced are preserved in
+# tests/golden/README.md for historical reference -- they are not
+# restorable defaults, the old jump-ahead was wrong.
 
 SEED_RE = re.compile(r"^--\s+(?:next|ending) seed:\s+(.+)$", re.M)
 
 CASES = {
     "rperle_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RPERLE", "40", "40"],
-        (738848768, 2094673920, 3003824128, 304680960, 1844190720, 1414365184),
+        (4226535370, 3918856659, 447968167, 400221883, 592996512, 2795685938),
     ),
     "rminrle_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RMINRLE", "40", "40"],
-        (351780864, 2663153664, 3654082560, 106530816, 1144764416, 1616205824),
+        (33132303, 325849388, 376624132, 1563924626, 293517807, 795864341),
     ),
     "rpe_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RPE", "40", "40"],
-        (3303566336, 4006175744, 3614092288, 1314799616, 1181410816, 4085780480),
+        (3464732221, 1507014170, 850131796, 3585675128, 2782941437, 844928957),
     ),
     "rspline_simpleso": (
         ["pymoso", "solve", "--budget=1000", "ProbSimpleSO", "RSPLINE", "40"],
-        (703488000, 1321244672, 1775603712, 3804634112, 1506610176, 4268795904),
+        (3294576687, 175234757, 49170740, 679432683, 2711532206, 2761197391),
     ),
     "testsolve_tpa": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--metric",
          "TPATester", "RPERLE"],
-        (4147335168, 2708353024, 1540286464, 2835288064, 3722176512, 2227803136),
+        (1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063),
     ),
     "rperle_tpa_crn": (
         ["pymoso", "solve", "--budget=1000", "--crn", "ProbTPA", "RPERLE", "40", "40"],
-        (3661742080, 1011607552, 2254225408, 2663375872, 466939904, 3186325504),
+        (3777646647, 1837464056, 4204654757, 664239048, 4190510072, 2959195122),
     ),
     "rperle_tpa_seed2": (
         ["pymoso", "solve", "--budget=1000", "--seed", "1", "2", "3", "4", "5", "6",
          "ProbTPA", "RPERLE", "40", "40"],
-        (1248518144, 988284928, 1514053632, 1982265344, 806676480, 2743545856),
+        (4131271395, 3226219906, 777515709, 589263233, 2312345461, 1567227549),
     ),
     "rperle_tpa_simpar2": (
         ["pymoso", "solve", "--budget=1000", "--simpar=2", "ProbTPA", "RPERLE", "40", "40"],
-        (738848768, 2094673920, 3003824128, 304680960, 1844190720, 1414365184),
+        (4226535370, 3918856659, 447968167, 400221883, 592996512, 2795685938),
     ),
 }
 
@@ -83,7 +82,7 @@ def test_library_solve_end_seed_matches_baseline():
         ProbTPA, RPERLE, (40, 40),
         budget=1000, seed=(12345,) * 6, simpar=1, crn=False,
     )
-    assert end_seed == (738848768, 2094673920, 3003824128, 304680960, 1844190720, 1414365184)
+    assert end_seed == (4226535370, 3918856659, 447968167, 400221883, 592996512, 2795685938)
 
 
 def test_library_testsolve_end_seed_matches_baseline():
@@ -91,4 +90,4 @@ def test_library_testsolve_end_seed_matches_baseline():
         TPATester, RPERLE, (40, 40),
         budget=1000, seed=(12345,) * 6, isp=4, proc=1, crn=False, ranx0=False,
     )
-    assert end_seed == (4147335168, 2708353024, 1540286464, 2835288064, 3722176512, 2227803136)
+    assert end_seed == (1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063)
