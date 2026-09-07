@@ -34,7 +34,7 @@ setup(
     author_email = 'coope149@purdue.edu',
     url = 'https://github.com/pymoso/PyMOSO',
     packages = ['pymoso', 'pymoso.solvers', 'pymoso.commands', 'pymoso.prng', 'pymoso.problems', 'pymoso.testers'],
-    install_requires = ['docopt'],
+    install_requires = [],
     entry_points = {
         'console_scripts': [
             'pymoso = pymoso.cli:main',
