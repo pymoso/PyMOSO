@@ -60,12 +60,7 @@ class RPE(RASolver):
 			A candidate ALES
         """
         aold = self.upsample(aold | {self.x0})
-        try:
-            mnumin = self.get_min(aold)
-        except ValueError:
-            print('--* RPE Error: No feasible warm start. Is x0 feasible?')
-            print('--* Aborting.')
-            sys.exit()
+        mnumin = self.get_min(aold)
         aold, domset = self.remove_nlwep(aold)
         a0new = mnumin | aold
         tmp = {x: self.gbar[x] for x in mnumin | a0new}

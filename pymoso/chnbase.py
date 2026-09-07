@@ -15,7 +15,6 @@ from statistics import mean, variance
 from math import sqrt, ceil, floor
 from .prng.mrg32k3a import get_next_prnstream, jump_substream, mrg32k3a, bsm
 from multiprocessing import Queue, Process
-import sys
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
 
 
@@ -158,10 +157,10 @@ class RASolver(MOSOSolver):
         try:
             self.sprn = kwargs.pop('sprn')
             self.x0 = kwargs.pop('x0')
-        except KeyError:
-            print('--* Error: Please specify an x0 and a random number seed for the solver.')
-            print('--* Aborting. ')
-            sys.exit()
+        except KeyError as e:
+            raise TypeError(
+                '{0} requires an x0 and a random number seed (sprn).'.format(type(self).__name__)
+            ) from e
         super().__init__(orc)
 
     def solve(self, budget):
@@ -574,42 +573,32 @@ class RASolver(MOSOSolver):
             #print('in: ', self.orc.rng.get_seed())
             try:
                 isfeas, fx, vx = self.orc.hit(x, m)
-            except TypeError:
-                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
-                print('--* Message: ', sys.exc_info()[1])
-                print('--* Ensure the g signature is g(self, x, rng). ')
-                print('--* Ensure isfeas, (obj1, obj2, ...) is returned. ')
-                print('--* Aborting. ')
-                sys.exit()
-            except ZeroDivisionError:
-                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
-                print('--* Message: ', sys.exc_info()[1])
-                print('--* Aborting. ')
-                sys.exit()
-            except ValueError:
-                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
-                print('--* Message: ', sys.exc_info()[1])
-                print('--* Ensure the g signature is g(self, x, rng). ')
-                print('--* Ensure isfeas, (obj1, obj2, ...) is returned. ')
-                print('--* Aborting. ')
-                sys.exit()
-            except AttributeError:
-                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
-                print('--* Message: ', sys.exc_info()[1])
-                print('--* Are you missing an import?')
-                print('--* Aborting. ')
-                sys.exit()
-            except IndexError:
-                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
-                print('--* Message: ', sys.exc_info()[1])
-                print('--* Ensure len(obj1, obj2, ..) == num_obj')
-                print('--* Aborting. ')
-                sys.exit()
-            except:
-                print('--* Error: Unable to simulate ', type(self.orc).__name__, '. ')
-                print('--* Message: ', sys.exc_info()[1])
-                print('--* Aborting. ')
-                sys.exit()
+            except TypeError as e:
+                raise RuntimeError(
+                    'Unable to simulate {0}. Ensure the g signature is g(self, x, rng) '
+                    'and returns isfeas, (obj1, obj2, ...). Message: {1}'.format(type(self.orc).__name__, e)
+                ) from e
+            except ZeroDivisionError as e:
+                raise RuntimeError(
+                    'Unable to simulate {0}. Message: {1}'.format(type(self.orc).__name__, e)
+                ) from e
+            except ValueError as e:
+                raise RuntimeError(
+                    'Unable to simulate {0}. Ensure the g signature is g(self, x, rng) '
+                    'and returns isfeas, (obj1, obj2, ...). Message: {1}'.format(type(self.orc).__name__, e)
+                ) from e
+            except AttributeError as e:
+                raise RuntimeError(
+                    'Unable to simulate {0}. Are you missing an import? Message: {1}'.format(type(self.orc).__name__, e)
+                ) from e
+            except IndexError as e:
+                raise RuntimeError(
+                    'Unable to simulate {0}. Ensure len(obj1, obj2, ..) == num_obj. Message: {1}'.format(type(self.orc).__name__, e)
+                ) from e
+            except Exception as e:
+                raise RuntimeError(
+                    'Unable to simulate {0}. Message: {1}'.format(type(self.orc).__name__, e)
+                ) from e
             if isfeas:
                 #print('out: ', self.orc.rng.get_seed())
                 self.num_calls += m
@@ -703,9 +692,7 @@ class RASolver(MOSOSolver):
     Set which causes points in 'mcS' to be removed
         """
         if not mcS:
-            print('--* Unknown Error: Function remove_nlwep recieved an empty set.')
-            print('--* Aborting. ')
-            sys.exit()
+            raise ValueError('remove_nlwep received an empty set.')
         r = self.nbor_rad
         lwepset = set()
         domset = set()
@@ -801,28 +788,23 @@ class RLESolver(RASolver):
         """
         try:
             anew = self.accel(warm_start)
-        except AttributeError:
-            print('--* ', type(self).__name__, 'Error: Unable to run accel(). ')
-            print('--* Message: ', sys.exc_info()[1])
-            print('--* Missing an import?')
-            print('--* Aborting. ')
-            sys.exit()
-        except ZeroDivisionError:
-            print('--* ', type(self).__name__, 'Error: Unable to run accel(). ')
-            print('--* Message: ', sys.exc_info()[1])
-            print('--* Aborting. ')
-            sys.exit()
-        except TypeError:
-            print('--* ', type(self).__name__, 'Error: Unable to run accel(). ')
-            print('--* Message: ', sys.exc_info()[1])
-            print('--* Points must be tuples.')
-            print('--* Aborting. ')
-            sys.exit()
-        except:
-            print('--* ', type(self).__name__, 'Error: Unable to run accel(). ')
-            print('--* Message: ', sys.exc_info()[1])
-            print('--* Aborting. ')
-            sys.exit()
+        except AttributeError as e:
+            raise RuntimeError(
+                '{0}: Unable to run accel(). Missing an import, or accel() not implemented? '
+                'Message: {1}'.format(type(self).__name__, e)
+            ) from e
+        except ZeroDivisionError as e:
+            raise RuntimeError(
+                '{0}: Unable to run accel(). Message: {1}'.format(type(self).__name__, e)
+            ) from e
+        except TypeError as e:
+            raise RuntimeError(
+                '{0}: Unable to run accel(). Points must be tuples. Message: {1}'.format(type(self).__name__, e)
+            ) from e
+        except Exception as e:
+            raise RuntimeError(
+                '{0}: Unable to run accel(). Message: {1}'.format(type(self).__name__, e)
+            ) from e
         ales = self.rle(anew)
         return ales
 
@@ -1170,9 +1152,7 @@ class Oracle(object):
         obs = []
         mr = range(m)
         if m < 1:
-            print('--* Error: Number of replications must be at least 1. ')
-            print('--* Aborting. ')
-            sys.exit()
+            raise ValueError('Number of replications must be at least 1.')
         else:
             mr = range(m)
             feas = []

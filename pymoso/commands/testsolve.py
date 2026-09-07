@@ -136,7 +136,14 @@ class TestSolve(BaseComm):
         print('** Testing ', solvarg, ' using ', testarg, ' **')
         stsstr = '-- using starting seed:'
         print(f'{stsstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
-        res, end_seed = testsolve(testclass, solvclass, x0, **solve_kwargs)
+        try:
+            res, end_seed = testsolve(testclass, solvclass, x0, **solve_kwargs)
+        except Exception:
+            print('--* Error: ', sys.exc_info()[1])
+            tstr = ''.join(traceback.format_exc())
+            save_errortb(name, tstr)
+            print('--* Aborting.')
+            sys.exit(1)
         end_opt_time = time.time()
         opt_durr = end_opt_time - start_opt_time
         humtxt = gen_humanfile(name, testarg, solvarg, budget, opt_durr, params, vals, seed, end_seed)
