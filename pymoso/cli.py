@@ -1,30 +1,20 @@
 """
 pymoso
 
-Usage:
-  pymoso listitems
-  pymoso solve [--budget=B] [--odir=D] [--crn] [--simpar=P]
-    [(--seed <s> <s> <s> <s> <s> <s>)] [(--param <param> <val>)]...
-    <problem> <solver> <x>...
-  pymoso testsolve [--budget=B] [--odir=D] [--crn] [--isp=T] [--proc=Q]
-    [--metric] [(--seed <s> <s> <s> <s> <s> <s>)] [(--param <param> <val>)]...
-    <tester> <solver> [<x>...]
-  pymoso -h | --help
-  pymoso -v | --version
+Command-line interface for solving MOSO problems (`solve`), testing MOSO
+algorithms (`testsolve`), and listing the solvers/problems/testers bundled
+with PyMOSO (`listitems`).
 
-Options:
-  --budget=B                Set the simulation budget [default: 200]
-  --odir=D                  Set the output file directory name. [default: testrun]
-  --crn                     Set if common random numbers are desired.
-  --simpar=P                Set number of parallel processes for simulation replications. [default: 1]
-  --isp=T                   Set number of algorithm instances to solve. [default: 1]
-  --proc=Q                  Set number of parallel processes for the algorithm instances. [default: 1]
-  --metric                  Set if metric computation is desired.
-  --seed                    Set the random number seed with 6 spaced integers.
-  --param                   Specify a solver-specific parameter <param> <val>.
-  -h --help                 Show this screen.
-  -v --version              Show version.
+Run `pymoso --help` for the top-level command list, or e.g.
+`pymoso solve --help` for a specific command's options.
+"""
 
+import argparse
+from inspect import getmembers, isclass
+from . import __version__ as VERSION
+
+
+EPILOG = """
 Examples:
   pymoso listitems
   pymoso solve ProbTPA RPERLE 4 14
@@ -41,9 +31,129 @@ Help:
 """
 
 
-from inspect import getmembers, isclass
-from docopt import docopt
-from . import __version__ as VERSION
+def positive_int(value):
+    """
+    argparse type= validator: accept only positive integers. Used for
+    --budget/--simpar/--isp/--proc so a non-positive process/replication
+    count is rejected at the CLI boundary instead of reaching mp.Pool
+    (which raises an opaque error for a non-positive process count) or
+    another downstream crash. Replaces the separate
+    basecomm.validate_positive_int check from commit 82c177b.
+
+    Parameters
+    ----------
+    value : str
+
+    Returns
+    -------
+    int
+    """
+    try:
+        ivalue = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError('invalid int value: {0!r}'.format(value))
+    if ivalue < 1:
+        raise argparse.ArgumentTypeError('must be a positive integer, got {0}'.format(ivalue))
+    return ivalue
+
+
+def _add_common_options(subp):
+    """Options shared by solve and testsolve."""
+    subp.add_argument('--budget', type=positive_int, default=200,
+                       help='Set the simulation budget [default: 200]')
+    subp.add_argument('--odir', default='testrun',
+                       help='Set the output file directory name. [default: testrun]')
+    subp.add_argument('--crn', action='store_true',
+                       help='Set if common random numbers are desired.')
+    subp.add_argument('--seed', nargs=6, type=int, metavar='<s>',
+                       help='Set the random number seed with 6 spaced integers.')
+    subp.add_argument('--param', nargs=2, action='append', metavar=('<param>', '<val>'),
+                       help='Specify a solver-specific parameter <param> <val>. Repeatable.')
+
+
+def build_parser():
+    """
+    Build the pymoso argument parser: subparsers for listitems, solve,
+    and testsolve, preserving the invocation syntax of the previous
+    docopt-based CLI (see docs/ for the characterization this was
+    checked against).
+    """
+    parser = argparse.ArgumentParser(
+        prog='pymoso',
+        description=__doc__.strip().splitlines()[0],
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument('-v', '--version', action='version', version=VERSION)
+
+    subparsers = parser.add_subparsers(dest='command', required=True, metavar='<command>')
+
+    subparsers.add_parser('listitems', help='List the built-in solvers, problems, and testers.')
+
+    solve_p = subparsers.add_parser('solve', help='Solve a MOSO problem.')
+    _add_common_options(solve_p)
+    solve_p.add_argument('--simpar', type=positive_int, default=1,
+                          help='Set number of parallel processes for simulation replications. [default: 1]')
+    solve_p.add_argument('problem', metavar='<problem>')
+    solve_p.add_argument('solver', metavar='<solver>')
+    solve_p.add_argument('x', metavar='<x>', nargs='+')
+
+    testsolve_p = subparsers.add_parser('testsolve', help='Test a MOSO algorithm on a MOSO problem.')
+    _add_common_options(testsolve_p)
+    testsolve_p.add_argument('--isp', type=positive_int, default=1,
+                              help='Set number of algorithm instances to solve. [default: 1]')
+    testsolve_p.add_argument('--proc', type=positive_int, default=1,
+                              help='Set number of parallel processes for the algorithm instances. [default: 1]')
+    testsolve_p.add_argument('--metric', action='store_true',
+                              help='Set if metric computation is desired.')
+    testsolve_p.add_argument('tester', metavar='<tester>')
+    testsolve_p.add_argument('solver', metavar='<solver>')
+    testsolve_p.add_argument('x', metavar='<x>', nargs='*')
+
+    return parser
+
+
+def _options_for_solve(args):
+    """
+    Translate argparse's Namespace into the same dict shape
+    commands/solve.py already expects (unchanged from the docopt era),
+    so that module needs no changes beyond dropping its now-redundant
+    int()/validate_positive_int() calls.
+    """
+    param = args.param or []
+    return {
+        '--budget': args.budget,
+        '--odir': args.odir,
+        '--crn': args.crn,
+        '--simpar': args.simpar,
+        '--seed': args.seed is not None,
+        '<s>': args.seed if args.seed is not None else [],
+        '<problem>': args.problem,
+        '<solver>': args.solver,
+        '<x>': args.x,
+        '<param>': [p[0] for p in param],
+        '<val>': [p[1] for p in param],
+    }
+
+
+def _options_for_testsolve(args):
+    """Same as _options_for_solve, for commands/testsolve.py."""
+    param = args.param or []
+    return {
+        '--budget': args.budget,
+        '--odir': args.odir,
+        '--crn': args.crn,
+        '--isp': args.isp,
+        '--proc': args.proc,
+        '--metric': args.metric,
+        '--seed': args.seed is not None,
+        '<s>': args.seed if args.seed is not None else [],
+        '<tester>': args.tester,
+        '<solver>': args.solver,
+        '<x>': args.x,
+        '<param>': [p[0] for p in param],
+        '<val>': [p[1] for p in param],
+    }
 
 
 def main():
@@ -51,11 +161,19 @@ def main():
     Main CLI entrypoint.
     """
     from . import commands
-    options = docopt(__doc__, version=VERSION)
-    for (k, v) in options.items():
-        if hasattr(commands, k) and v:
-            commod = getattr(commands, k)
-            comclasses = getmembers(commod, isclass)
-            comclass = [cmcls[1] for cmcls in comclasses if cmcls[0] != 'BaseComm' and issubclass(cmcls[1], commands.basecomm.BaseComm)][0]
-            cominst = comclass(options)
-            cominst.run()
+
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.command == 'solve':
+        options = _options_for_solve(args)
+    elif args.command == 'testsolve':
+        options = _options_for_testsolve(args)
+    else:
+        options = {}
+
+    commod = getattr(commands, args.command)
+    comclasses = getmembers(commod, isclass)
+    comclass = [cmcls[1] for cmcls in comclasses if cmcls[0] != 'BaseComm' and issubclass(cmcls[1], commands.basecomm.BaseComm)][0]
+    cominst = comclass(options)
+    cominst.run()

@@ -22,7 +22,7 @@ class TestSolve(BaseComm):
     """    
     def run(self):
         ## get the options with default values
-        budget = int(self.options['--budget'])
+        budget = self.options['--budget']
         name = self.options['--odir']
         hasseed = self.options['--seed']
         metric = self.options['--metric']
@@ -30,12 +30,9 @@ class TestSolve(BaseComm):
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
             seed = DEFAULT_SEED
-        isp = int(self.options['--isp'])
-        proc = int(self.options['--proc'])
+        isp = self.options['--isp']
+        proc = self.options['--proc']
         crn = self.options['--crn']
-        validate_positive_int('--budget', budget)
-        validate_positive_int('--isp', isp)
-        validate_positive_int('--proc', proc)
         ## determine the solver and problem
         solvarg = self.options['<solver>']
         base_mod_name = solvarg

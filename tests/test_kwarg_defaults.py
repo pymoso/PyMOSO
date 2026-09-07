@@ -7,13 +7,13 @@ calls had at the shared merge-base (budget/seed/isp/proc/crn); ranx0
 never had one in any version checked. See KNOWN_ISSUES.md issue 7.
 
 Also checks that the restored defaults actually match the CLI's own
-documented values, parsed directly from docopt rather than re-typed --
-a coupling test, not just a comment, so a change to either side that
-isn't mirrored in the other fails loudly here instead of drifting
-silently.
+documented values, parsed directly from argparse's own parser rather
+than re-typed -- a coupling test, not just a comment, so a change to
+either side that isn't mirrored in the other fails loudly here instead
+of drifting silently. (Originally checked against docopt's parsed
+output; rewritten against argparse as part of the docopt->argparse
+migration -- same property, different parser.)
 """
-from docopt import docopt
-
 import pymoso.cli as cli
 from pymoso.chnutils import (
     solve, testsolve,
@@ -58,19 +58,21 @@ def test_testsolve_with_partial_kwargs():
 
 # ---------------------------------------------------------------------------
 # The restored defaults match the CLI's own documented values, checked
-# against docopt's actual parsed output rather than by re-typing the
+# against argparse's actual parsed output rather than by re-typing the
 # numbers -- so the two genuinely cannot drift apart unnoticed.
 # ---------------------------------------------------------------------------
 
-def test_defaults_match_docopt_parsed_values():
-    opts = docopt(cli.__doc__, argv=['solve', 'ProbTPA', 'RPERLE', '1', '1'])
-    assert int(opts['--budget']) == DEFAULT_BUDGET
-    assert int(opts['--simpar']) == DEFAULT_SIMPAR
+def test_defaults_match_argparse_parsed_values():
+    parser = cli.build_parser()
 
-    opts = docopt(cli.__doc__, argv=['testsolve', 'TPATester', 'RPERLE'])
-    assert int(opts['--budget']) == DEFAULT_BUDGET
-    assert int(opts['--isp']) == DEFAULT_ISP
-    assert int(opts['--proc']) == DEFAULT_PROC
+    args = parser.parse_args(['solve', 'ProbTPA', 'RPERLE', '1'])
+    assert args.budget == DEFAULT_BUDGET
+    assert args.simpar == DEFAULT_SIMPAR
+
+    args = parser.parse_args(['testsolve', 'TPATester', 'RPERLE'])
+    assert args.budget == DEFAULT_BUDGET
+    assert args.isp == DEFAULT_ISP
+    assert args.proc == DEFAULT_PROC
 
 
 def test_default_seed_matches_cli_fallback_object():

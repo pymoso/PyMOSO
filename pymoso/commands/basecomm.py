@@ -4,7 +4,6 @@ use these functions.
 """
 import os
 import pathlib
-import sys
 import time
 import collections
 from datetime import date
@@ -15,25 +14,6 @@ from .. import testers
 from random import Random
 from json import dump
 import traceback
-
-
-def validate_positive_int(option_name, value):
-    """
-    Ensure a CLI-supplied integer option is a positive integer, exiting
-    with a clear message otherwise. Catches --budget/--simpar/--isp/--proc
-    misconfiguration at the CLI boundary, before it reaches mp.Pool (which
-    raises on a non-positive process count) or another downstream crash.
-
-    Parameters
-    ----------
-    option_name : str
-        The CLI option name, for the error message, e.g. '--simpar'.
-    value : int
-    """
-    if value < 1:
-        print('--* Error: {0} must be a positive integer, got {1}.'.format(option_name, value))
-        print('--* Aborting. ')
-        sys.exit(1)
 
 
 def check_expname(name):

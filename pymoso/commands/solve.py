@@ -27,13 +27,11 @@ class Solve(BaseComm):
         selected solver.
         """
         ## get the options with default values
-        budget = int(self.options['--budget'])
+        budget = self.options['--budget']
         name = self.options['--odir']
         hasseed = self.options['--seed']
-        simpar = int(self.options['--simpar'])
+        simpar = self.options['--simpar']
         crn = self.options['--crn']
-        validate_positive_int('--budget', budget)
-        validate_positive_int('--simpar', simpar)
         if hasseed:
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
