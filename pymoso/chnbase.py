@@ -15,7 +15,7 @@ from statistics import mean, variance
 from math import sqrt, ceil, floor
 from .prng.mrg32k3a import get_next_prnstream, jump_substream, mrg32k3a, bsm
 from multiprocessing import Queue, Process
-from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
+from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos, MAX_RI
 
 
 def mp_replicate(orccls, x, rngcls, seed):
@@ -212,6 +212,17 @@ class RASolver(MOSOSolver):
 
         while self.num_calls < budget:
             self.nu += 1
+            if self.nu > MAX_RI:
+                raise RuntimeError(
+                    'RA solver reached iteration {0}, exceeding MAX_RI={1} -- the number '
+                    'of iterations of random-stream headroom reserved per independent '
+                    'sample path in chnutils.get_testsolve_prnstreams. Continuing would '
+                    'silently walk into the next sample path\'s reserved stream (see '
+                    'docs/phase2a-verification.md, item 3, for a concrete demonstration). '
+                    'To proceed: reduce --budget, increase mconst so fewer RA iterations '
+                    'are needed, or raise chnutils.MAX_RI (and regenerate any pre-reserved '
+                    'stream windows that assumed the old value).'.format(self.nu, MAX_RI)
+                )
             self.m = self.calc_m(self.nu)
             self.b = self.calc_b(self.nu)
             self.gbar = dict()

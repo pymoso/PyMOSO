@@ -40,6 +40,12 @@ import multiprocessing as mp
 from statistics import mean, variance
 from .prng.mrg32k3a import MRG32k3a, get_next_prnstream
 
+# Number of retrospective-approximation iterations' worth of substream
+# headroom reserved per independent sample path in get_testsolve_prnstreams.
+# An RA solver that runs past this many iterations walks into the next
+# sample path's reserved streams (see docs/phase2a-verification.md #3);
+# RASolver.rasolve enforces this bound at runtime.
+MAX_RI = 200
 
 def solve(problem, solver, x0, **kwargs):
     """
@@ -166,7 +172,6 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
         Next independent seed with which the user can invoke PyMOSO
     """
     xprn = MRG32k3a(iseed)
-    max_RI = 200
     orcprn_lst = []
     solprn_lst = []
     for t in range(num_trials):
@@ -177,7 +182,7 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
         orcprn = get_next_prnstream(iseed, crn)
         iseed = orcprn.get_seed()
         orcprn_lst.append(orcprn)
-        for i in range(max_RI):
+        for i in range(MAX_RI):
             newprn = get_next_prnstream(iseed, crn)
             iseed = newprn.get_seed()
     return orcprn_lst, solprn_lst, xprn, iseed
