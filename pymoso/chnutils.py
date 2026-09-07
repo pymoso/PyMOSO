@@ -100,13 +100,12 @@ def solve(problem, solver, x0, **kwargs):
     paramlst = [('solvprn', solvstream), ('x0', x0), ]
     orc = problem(orcstream)
     orc.set_crnflag(crn)
-    orc.set_simpar(simpar)
     ## create arguments for (unknown) optional named parameters
     if paramtups:
         paramlst.extend(paramtups)
     paramargs = dict(paramlst)
-    res = isp_run(solver, budget, orc, **paramargs)
-    orc.mp_cleanup()
+    with orc.set_simpar(simpar):
+        res = isp_run(solver, budget, orc, **paramargs)
     lastnu = len(res['itersoln']) - 1
     return res['itersoln'][lastnu], res['endseed']
 

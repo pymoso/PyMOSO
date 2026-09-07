@@ -1056,6 +1056,15 @@ class Oracle(object):
         ----------
         simpar : int
             Number of processes to use when performing simulation replications.
+
+        Returns
+        -------
+        Oracle
+            self, so this doubles as a context manager: `with
+            orc.set_simpar(n):` guarantees mp_cleanup() runs via
+            __exit__ on every exit path (normal return, exception, or
+            KeyboardInterrupt), not only when the caller's own code
+            happens to reach an explicit mp_cleanup() call.
         """
         self.simpar = simpar
         if self.simpar > 1:
@@ -1066,6 +1075,14 @@ class Oracle(object):
                 p = Process(target=mp_worker, args=(self.req_q, self.res_q))
                 p.start()
                 self.proc.append(p)
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.mp_cleanup()
+        return False
 
 
     def mp_cleanup(self):
