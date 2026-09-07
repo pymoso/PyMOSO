@@ -8,7 +8,7 @@ from random import Random
 import traceback
 import importlib.util
 import importlib
-from ..chnutils import testsolve, par_diff, par_runs
+from ..chnutils import testsolve, par_diff, par_runs, DEFAULT_SEED
 
 
 class TestSolve(BaseComm):
@@ -29,7 +29,7 @@ class TestSolve(BaseComm):
         if hasseed:
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
-            seed = (12345, 12345, 12345, 12345, 12345, 12345)
+            seed = DEFAULT_SEED
         isp = int(self.options['--isp'])
         proc = int(self.options['--proc'])
         crn = self.options['--crn']

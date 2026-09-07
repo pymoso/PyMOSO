@@ -47,6 +47,24 @@ from .prng.mrg32k3a import MRG32k3a, get_next_prnstream
 # RASolver.rasolve enforces this bound at runtime.
 MAX_RI = 200
 
+# Defaults for solve()/testsolve()'s keyword arguments, matching the CLI's
+# documented values (pymoso/cli.py's --budget/--simpar/--isp/--proc
+# [default: ...] annotations and commands/solve.py's/testsolve.py's own
+# seed fallback). Defined here, not in commands/basecomm.py, because
+# basecomm.py already imports chnutils -- the reverse import would be
+# circular. The CLI layer imports these same names for its own Python-
+# level defaults instead of hardcoding a second copy; tests/test_kwarg_
+# defaults.py additionally checks the values against docopt's own parsed
+# defaults directly, so a change to either side that isn't mirrored in
+# the other is caught rather than silently drifting.
+DEFAULT_BUDGET = 200
+DEFAULT_SEED = (12345, 12345, 12345, 12345, 12345, 12345)
+DEFAULT_SIMPAR = 1
+DEFAULT_ISP = 1
+DEFAULT_PROC = 1
+DEFAULT_CRN = False
+DEFAULT_RANX0 = False
+
 def solve(problem, solver, x0, **kwargs):
     """
     Uses a specified MOSO algorithm to solve a MOSO problem.
@@ -66,10 +84,10 @@ def solve(problem, solver, x0, **kwargs):
         is a tuple of int of length 6
     """
 
-    budget = kwargs.pop('budget')
-    seed = kwargs.pop('seed')
-    simpar = kwargs.pop('simpar')
-    crn = kwargs.pop('crn')
+    budget = kwargs.pop('budget', DEFAULT_BUDGET)
+    seed = kwargs.pop('seed', DEFAULT_SEED)
+    simpar = kwargs.pop('simpar', DEFAULT_SIMPAR)
+    crn = kwargs.pop('crn', DEFAULT_CRN)
     paramtups = []
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
@@ -114,12 +132,12 @@ def testsolve(tester, solver, x0, **kwargs):
         an independent stream.
     """
 
-    budget = kwargs.pop('budget')
-    seed = kwargs.pop('seed')
-    isp = kwargs.pop('isp')
-    proc = kwargs.pop('proc')
-    ranx0 = kwargs.pop('ranx0')
-    crn = kwargs.pop('crn')
+    budget = kwargs.pop('budget', DEFAULT_BUDGET)
+    seed = kwargs.pop('seed', DEFAULT_SEED)
+    isp = kwargs.pop('isp', DEFAULT_ISP)
+    proc = kwargs.pop('proc', DEFAULT_PROC)
+    ranx0 = kwargs.pop('ranx0', DEFAULT_RANX0)
+    crn = kwargs.pop('crn', DEFAULT_CRN)
     paramtups = []
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))

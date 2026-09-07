@@ -9,7 +9,7 @@ import os
 from random import Random
 import traceback
 import importlib.util
-from ..chnutils import solve
+from ..chnutils import solve, DEFAULT_SEED
 
 
 class Solve(BaseComm):
@@ -37,7 +37,7 @@ class Solve(BaseComm):
         if hasseed:
             seed = tuple(int(i) for i in self.options['<s>'])
         else:
-            seed = (12345, 12345, 12345, 12345, 12345, 12345)
+            seed = DEFAULT_SEED
         ## determine the solver and problem
         probarg = self.options['<problem>']
         base_mod_name = probarg
