@@ -7,7 +7,8 @@ from ..chnbase import Oracle
 
 class BSProb(Oracle):
     """
-    An Oracle that simulates the Test Simple SO problem.
+    An Oracle that simulates a bus-scheduling problem, minimizing total
+    passenger wait time and bus-dispatch cost.
 
     Attributes
     ----------
