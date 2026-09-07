@@ -212,7 +212,7 @@ Henceforth, we present `solve` examples only for solving `MyProblem`.  Since `My
 
 For a single objective problem, PyMOSO implements `R-SPLINE`. We remark that if given a multi-objective problem, `R-SPLINE` will simply minimize the first objective. We do not necessarily prohibit such use, but urge that users take care when using R-SPLINE to minimize one objective of a many-objective problem.  
 
-`pymoso solve myproblem.py RSPLNE 97`  
+`pymoso solve myproblem.py RSPLINE 97`  
 
 Regardless of the chosen solver, PyMOSO creates a new sub-directory of the working directory containing output. There will be a metadata file, indicating the date, time, solver, problem, and any other specified options. In addition, PyMOSO creates a file containing the solver-generated solution. PyMOSO provides additional options for users solving MOSO problems. We present examples of each option below. First, users can specify the name of the output directory.  
 
@@ -477,7 +477,6 @@ def metric(self, singleton_set):
     # let self.soln be a real number
     dist = abs(self.true_g(point) - self.answer)
     return dist
-
 ```
 
 ### Implementing PyMOSO Algorithms
@@ -510,6 +509,8 @@ class MyAccel(RLESolver):
 In the second category, algorithm designers can quickly implement any RA algorithm by sub-classing `RASolver` and implementing the `spsolve` function, as shown in the [RA solver template](#template-ra-solver). The algorithm can be a single-objective algorithm. PyMOSO cannot guarantee the convergence of such algorithms. The template is technically valid in PyMOSO but is probably not effective.  
 
 #### Template RA Solver
+As written below, this template never terminates when run via `solve()`, at any budget: `spsolve` never calls `self.estimate`, so `self.num_calls` never advances past 0, and the retrospective-approximation loop cannot reach a normal budget-exhausted stop. A real implementation must call `self.estimate` (directly, or via `self.upsample`/`self.spline`) to make progress against the budget.
+
 ```python
 from pymoso.chnbase import RASolver
 
@@ -538,15 +539,17 @@ In the third category, PyMOSO can accommodate any simulation optimization algori
 Researchers may use the [MOSO template](#template-moso-solver)  to implement new simulation optimization algorithms.  
 
 #### Template MOSO Solver
+This is a structural sketch, not a runnable template: it shows the required shape of a `MOSOSolver.solve()` (loop against the budget, return a `results` dict) rather than a working algorithm. Do not call `solve()` on this class as written.
+
 ```python
 from pymoso.chnbase import MOSOSolver
 
 class MyMOSOAlg(MOSOSolver):
-    '''Template implementation of a MOSO solver.'''
+    '''Structural sketch of a MOSO solver, illustrative only -- not meant to be run as written.'''
 
     def solve(self, budget):
         while self.num_calls <= budget:
-            # implement algorithm logic and return the results
+            pass  # implement algorithm logic and return the results
         return results
 ```
 
@@ -579,7 +582,7 @@ print(calls_used == 0) # True
 ```python
 # neighborhood radiuss
 r = self.nbor_rad
-nbors = get_nbors(x0, r)
+nbors = get_nbors(x, r)
 self.upsample(nbors)
 for n in nbors:
   print(n in self.gbar) # True if n feasible else False
@@ -595,7 +598,7 @@ sorted_feas = sorted(nbors | {x}, key=lambda t: self.gbar[t][0])
 ##### Select the Minimizer and its Value
 ```python
 xmin = sorted_feas[0]
-fxmin = self.gbar[x]
+fxmin = self.gbar[xmin]
 ```
 ##### Use SPLINE to Retrive a Local Minimizer
 ```python
@@ -608,14 +611,14 @@ print(self.gbar[xmin] == fxmin) # True
 ```
 ##### Find the Non-Dominated Points in a Dictionary
 ```python
-from chnutils import get_nondom
+from pymoso.chnutils import get_nondom
 nondom = get_nondom(self.gbar)
 ```
 ##### Randomly Select Points in a Set
 ```python
 solver_rng = self.sprn
-# pick 5 points -- returns a list, not a set.
-ran_pts = solver_rng.sample(list(nondom), 5)
+# pick up to 5 points -- returns a list, not a set.
+ran_pts = solver_rng.sample(list(nondom), min(5, len(nondom)))
 one_in_five = solver_rng.choice(ran_pts)
 ```
 
@@ -662,7 +665,10 @@ import pymoso.solvers.rperle as rp
 # import the MyTester class
 from mytester import MyTester
 
-# testsolve needs a "dummy" x0 even if MyTester will generate them
+# testsolve always requires an x0 positionally, even though it is only
+# actually used when ranx0=True is passed (otherwise every independent
+# sample path uses this x0 unchanged); MyTester can generate its own
+# per sample path via get_ranx0 if you pass ranx0=True below.
 x0 = (1, )
 run_data = testsolve(MyTester, rp.RPERLE, x0, isp=100, crn=True, radius=2)
 ```
@@ -670,8 +676,8 @@ run_data = testsolve(MyTester, rp.RPERLE, x0, isp=100, crn=True, radius=2)
 #### Computing a Metric on `testsolve` Output
 Programmers must compute their metric. Here, `run_data` is a dictionary of the form described [here](#implementing-pymoso-algorithms) and we compute the metric on the 5th iteration of of the 12th independent algorithm instance.
 ```python
-iter5_soln = run_data[11]['itersoln'][4]
-isp12_iter5_metric = MyTester.metric(iter5_soln)
+iter5_soln = run_data[0][11]['itersoln'][4]
+isp12_iter5_metric = MyTester().metric(iter5_soln)
 ```
 
 ## PyMOSO Object Reference
