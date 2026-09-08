@@ -23,7 +23,8 @@ reasoned from the 1.0.4 wheel most of this project's early
 investigation used or from reading the diff.
 
 If you have used PyMOSO 1.0.8 or later in work leading to publication,
-please read issue 1.
+please read issue 1. It affects the numerical output of individual
+runs, not the convergence theory the algorithms are proven against.
 
 ---
 
@@ -32,8 +33,9 @@ please read issue 1.
 ### 1. Incorrect pseudo-random stream jump-ahead
 
 **Affects:** all 1.x versions, including 1.0.8 and the canonical
-repository's current master. **Severity:** high — affects numerical
-results.
+repository's current master. **Severity:** high — alters the numerical
+output of individual runs. Does not affect the convergence theory the
+algorithms are proven against; see "What this means" below.
 
 **Verified against 1.0.8:** `pymoso solve --budget=1000 ProbTPA RPERLE
 40 40` on a real 1.0.8 install reports ending seed
@@ -78,25 +80,38 @@ jump-ahead arithmetic itself; `mat333mult`/`mat311mod` are confirmed
 byte-identical to the version this was originally found against (see
 `docs/upstream-simpar.md`).
 
-#### What this means for results
+#### What this means
 
-The stream positions used after the first jump are not the positions the
-convergence theory assumes. The affected quantity is the *independence
-guarantee* between streams, not the quality of the underlying generator.
+The convergence theorems for RPERLE/RMINRLE/RSPLINE/RPE are proofs about
+the algorithms, assuming truly independent pseudo-random streams. They
+are not empirical claims about what any particular piece of software's
+PRNG actually does, and this defect does not touch them: nothing in the
+published theory is invalidated by a bug in this implementation.
+
+What the defect affects is numerical output — the specific solutions and
+metric values a given run produced. The stream positions a 1.x run
+actually used after the first jump are not the positions the theory's
+independence assumption calls for, so a run's numbers do not necessarily
+carry the guarantees the theory attaches to a run using truly independent
+streams. That is a gap between this implementation and what the theory
+assumes of it, not a defect in the theory itself.
 
 We are not currently able to state how large an effect this has on any
-particular published result, and we do not want to overstate or
-understate it. What can be said:
+particular reported number, and whether it materially changed any
+published value is an empirical question this document does not settle.
+We do not want to overstate or understate it. What can be said:
 
-- Values drawn remain valid MRG32k3a output; they are not degenerate or
-  patterned.
+- The generator was producing valid MRG32k3a output throughout; values
+  are not degenerate or patterned.
 - Streams intended to be far apart are still far apart, but not by the
   exact reserved distance, so the guarantee of non-overlap does not
   strictly hold.
-- Results will not reproduce bit-for-bit across a fix.
+- Numerical output (end seeds, per-run solution and metric values) will
+  not reproduce bit-for-bit across the fix.
 
-Researchers with published results that depend on stream independence
-may wish to re-run and compare.
+Empirical studies whose contribution is a performance comparison —
+rather than a theoretical result — may warrant re-running and comparing
+against this fix.
 
 #### Status
 
