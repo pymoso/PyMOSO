@@ -399,6 +399,44 @@ a fourth independent point fix.
 
 ---
 
+### 11. A multi-file custom problem or tester fails to load at all
+
+**Affects:** all 1.x versions, including 1.0.8 and the canonical
+repository's current master. **Severity:** high for anyone it applies
+to — immediate crash, no workaround short of inlining everything into
+one file — but scoped narrowly: only custom problem/tester files
+supplied on the command line by path (`pymoso solve myproblem.py ...`,
+`pymoso testsolve mytester.py ...`), not the four built-in problems/
+testers (`ProbTPA`, `TPATester`, etc.), which are real installed
+submodules and load normally regardless of this issue. Single process,
+no `--simpar`/`--proc` involved — this is unrelated to issue 9.
+
+**What is wrong:** `commands/solve.py`/`commands/testsolve.py` load a
+user's file via `importlib.util.spec_from_file_location` +
+`exec_module`, but never add that file's own directory to `sys.path`
+first. If the file imports anything from a sibling module in the same
+directory — the realistic shape for any nontrivial simulation, where
+the objective computation is factored out rather than inlined — that
+import fails immediately: `ModuleNotFoundError`, raw traceback, no
+useful message pointing at the actual cause.
+
+**Verified against 1.0.8:** a fixture (`myproblem.py` importing a
+sibling `helper.py`, `scratch/multifile_cli_check/`) run via `pymoso
+solve --budget=200 myproblem.py RPERLE 40`, from inside the fixture's
+own directory (ruling out a cwd-on-`sys.path` explanation, not just
+single-process/no-parallelism), fails identically on a real PyPI 1.0.8
+install and on this branch: same `ModuleNotFoundError: No module named
+'helper'`, same crash site (`commands/solve.py:47`,
+`spec.loader.exec_module(module)`). Confirmed no alternate loading path
+exists — `sys.path` is never touched anywhere in `commands/solve.py`,
+`commands/testsolve.py`, or `cli.py`, on either version.
+
+**Status:** not fixed on this branch as of this entry. This has never
+worked, on the released/used version or any version checked — not a
+migration regression.
+
+---
+
 ## Development-history only (pre-1.0.8, no known users)
 
 ### 2. `--simpar` (parallel simulation replications)
