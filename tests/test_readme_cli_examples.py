@@ -139,14 +139,20 @@ def test_readme_cli_example_is_invocable(cmd, tmp_path):
     # already-seeded Oracle instance per job, not a class reference, so
     # the --simpar source-bundle transport fix doesn't cover it -- it
     # still hangs on Python 3.14+ (forkserver) for a dynamically-loaded
-    # file. Checked before running, not after timing out at 60s: this
-    # is the one README example that hits it (--proc with myproblem.py/
-    # mytester.py), confirmed via tests/test_multifile_transport.py's
-    # own --proc xfail test, which reproduces this exact gap on demand.
-    if "--proc" in cmd and (".py" in cmd) and sys.version_info >= (3, 14):
+    # file. chnutils.par_runs uses multiprocessing.Pool unconditionally
+    # (not gated behind --proc > 1), so this isn't limited to examples
+    # that spell out --proc: confirmed directly, two examples with no
+    # --proc at all (just `testsolve ... mytester.py RPERLE`, relying
+    # on the default) also hang on 3.14 during a real matrix run, not
+    # just the one that says --proc=20. Checked before running, not
+    # after timing out at 60s. See
+    # tests/test_multifile_transport.py::test_multifile_problem_under_proc_matches_serial,
+    # which reproduces this exact gap on demand.
+    if "testsolve" in cmd and (".py" in cmd) and sys.version_info >= (3, 14):
         pytest.xfail(
-            "KNOWN_ISSUES.md issue 9: --proc + a dynamically-loaded file "
-            "hangs on Python 3.14+ (forkserver) -- see "
+            "KNOWN_ISSUES.md issue 9: testsolve() + a dynamically-loaded "
+            "file hangs on Python 3.14+ (forkserver), regardless of --proc "
+            "-- see "
             "tests/test_multifile_transport.py::test_multifile_problem_under_proc_matches_serial"
         )
     proc = _run_example(cmd, tmp_path)
