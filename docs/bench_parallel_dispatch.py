@@ -235,6 +235,9 @@ def render_sweep_tables(run_label, results):
     # with a different PROC_ISP would show a header that contradicts
     # its own table's isp column.
     proc_isp = results["proc"][0]["isp"] if results["proc"] else "?"
+    physical_cores = results["machine"].get("physical_cores")
+
+    observations = []
 
     for mechanism, key, extra_cols, extra_fmt in [
         ("--simpar (solve)", "simpar", [], lambda r: []),
@@ -256,6 +259,17 @@ def render_sweep_tables(run_label, results):
                 ])
             out.append(_table(table_rows, ["workers", "seconds", "calls", "speedup vs. workers=1", *extra_cols]))
             out.append("")
+
+            best = max(rows, key=lambda r: serial["elapsed_s"] / r["elapsed_s"])
+            best_speedup = serial["elapsed_s"] / best["elapsed_s"]
+            observations.append(
+                f"- {mechanism.split(' ')[0]}, {tier}: best speedup {best_speedup:.2f}x at "
+                f"workers={best['workers']} (this machine has {physical_cores} physical cores)."
+            )
+
+    out.append("**Observations** (auto-derived from the table data above, not hand-written):\n")
+    out.extend(observations)
+    out.append("")
     return "\n".join(out)
 
 
