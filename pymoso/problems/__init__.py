@@ -3,4 +3,4 @@ from .probtpb import ProbTPB
 from .probtpc import ProbTPC
 from .probsimpleso import ProbSimpleSO
 from .bsprob import BSProb
-from .probexpensive import ProbExpensive, ProbExpensiveLight, ProbExpensiveModerate
+from .probexpensive import ProbExpensive, ProbExpensiveLight, ProbExpensiveModerate, ProbExpensiveHeavy

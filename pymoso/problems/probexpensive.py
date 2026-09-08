@@ -151,3 +151,16 @@ class ProbExpensiveModerate(ProbExpensive):
     clearly not dominant.
     """
     burn_units = 20_000
+
+
+class ProbExpensiveHeavy(ProbExpensive):
+    """
+    ProbExpensive at a heavy cost tier: burn_units=60,000.
+
+    Measured locally at ~35ms/replication. Not used by any pytest test
+    (too slow to be worth the added CI time over what
+    ProbExpensiveModerate already demonstrates) -- exists for
+    docs/bench_parallel_dispatch.py, to show the regime where dispatch
+    overhead is unambiguously negligible.
+    """
+    burn_units = 60_000

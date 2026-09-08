@@ -206,6 +206,7 @@ Problems                       Description                                      
 ************************       ************************                                     ************************      
 BSProb                         An Oracle that simulates a bus-scheduling problem, minimizing total BSTester                      
 ProbExpensive                  An Oracle simulating the same problem as ProbSimpleSO, plus a ExpensiveTester               
+ProbExpensiveHeavy             ProbExpensive at a heavy cost tier: burn_units=60,000.                                     
 ProbExpensiveLight             ProbExpensive at a light cost tier: burn_units=2,000.                                      
 ProbExpensiveModerate          ProbExpensive at a moderate cost tier: burn_units=20,000.    ExpensiveTester               
 ProbSimpleSO                   An Oracle that simulates the Test Simple SO problem.         SimpleSOTester                
