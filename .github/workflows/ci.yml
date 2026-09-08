@@ -9,11 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # Only 3.10 is currently verified (see CLAUDE.md: .venv-baseline
-        # targets pre-3.11 semantics for the golden regression tests).
-        # Broader version support is a later modernization step, not yet
-        # validated here.
-        python-version: ["3.10"]
+        # 3.10 is the compatibility floor (golden baselines were captured
+        # there; verified identical on every version in this matrix).
+        # 3.14 is the development environment (.venv-dev) -- forkserver is
+        # its default multiprocessing start method, unlike fork on 3.10-3.13,
+        # which is where the known --proc/--simpar gaps live (see
+        # KNOWN_ISSUES.md issue 9, docs/forkserver-hang.md). Those are
+        # handled with conditional xfail markers (sys.version_info >= (3,
+        # 14)) rather than by excluding 3.14 from the matrix, so it still
+        # gates on anything else.
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
 
@@ -23,7 +28,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install pymoso and test dependencies
-        run: uv pip install --system -e . pytest pytest-timeout
+        run: uv pip install --system -e . pytest pytest-timeout docopt
 
       - name: Compile check
         run: python -m compileall -q pymoso/
