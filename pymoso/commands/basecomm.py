@@ -3,9 +3,11 @@ Base class for implementing CLI commands. Most users will not need to
 use these functions.
 """
 import os
+import sys
 import pathlib
 import time
 import collections
+import importlib.util
 from datetime import date
 from .. import chnutils as mprun
 from .. import solvers
@@ -14,6 +16,39 @@ from .. import testers
 from random import Random
 from json import dump
 import traceback
+
+
+def load_user_module(mod_name, filepath):
+    """
+    Load a user-supplied .py file as a module registered under mod_name
+    (e.g. 'pymoso.problems.myproblem'), with that file's own directory
+    temporarily on sys.path so a sibling import (`from helper import
+    ...`) resolves. sys.path is restored to its prior state afterward,
+    not left mutated -- this can run more than once in the same
+    process (repeated CLI-class invocations, e.g. in tests), and a
+    permanent sys.path append is a side effect callers should not
+    inherit.
+
+    Parameters
+    ----------
+    mod_name : str
+    filepath : str
+        Path to the .py file, as given on the command line.
+
+    Returns
+    -------
+    module
+    """
+    file_dir = os.path.dirname(os.path.abspath(filepath))
+    sys.path.insert(0, file_dir)
+    try:
+        spec = importlib.util.spec_from_file_location(mod_name, filepath)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        sys.modules[mod_name] = module
+    finally:
+        sys.path.remove(file_dir)
+    return module
 
 
 def check_expname(name):

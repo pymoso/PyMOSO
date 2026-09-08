@@ -39,10 +39,7 @@ class TestSolve(BaseComm):
         if solvarg.endswith('.py'):
             base_mod_name = os.path.basename(solvarg).replace('.py', '')
             mod_name = '.'.join(['pymoso', 'solvers', base_mod_name])
-            spec = importlib.util.spec_from_file_location(mod_name, solvarg)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            sys.modules[mod_name] = module
+            module = load_user_module(mod_name, solvarg)
             smodule = importlib.import_module(mod_name)
             solvclasses = getmembers(smodule, isclass)
             #solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == base_mod_name][0]
@@ -68,10 +65,7 @@ class TestSolve(BaseComm):
         if testarg.endswith('.py'):
             base_mod_name = os.path.basename(testarg).replace('.py', '')
             mod_name = '.'.join(['pymoso', 'solvers', base_mod_name])
-            spec = importlib.util.spec_from_file_location(mod_name, testarg)
-            tmodule = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(tmodule)
-            sys.modules[mod_name] = tmodule
+            tmodule = load_user_module(mod_name, testarg)
             tmodule = importlib.import_module(mod_name)
             testclasses = getmembers(tmodule, isclass)
             #testclass = [tc[1] for tc in testclasses if tc[0].lower() == mod_name][0]

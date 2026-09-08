@@ -335,3 +335,62 @@ def test_seed_and_param_interleaved_out_of_order_now_parses_correctly(tmp_path):
     assert proc.returncode == 0
     assert "-- Done!" in proc.stdout
     assert "1            2            3            4            5            6" in proc.stdout
+
+
+# ---------------------------------------------------------------------------
+# Multi-file custom problems (KNOWN_ISSUES.md issue 11): commands/solve.py
+# never added a dynamically-loaded file's own directory to sys.path, so a
+# sibling import failed outright -- confirmed on this branch and on a real
+# PyPI 1.0.8 install, single process, no --simpar/--proc involved. Fixed
+# via basecomm.load_user_module. Single process only; the --simpar/3.14
+# transport case is covered separately (see the forkserver-hang tests).
+# ---------------------------------------------------------------------------
+
+MULTIFILE_HELPER = '''\
+PENALTY = 3.0
+
+def noisy_quadratic(x0, rng):
+    z = rng.normalvariate(0, 1)
+    return x0**2 + PENALTY*z
+'''
+
+MULTIFILE_PROBLEM = '''\
+from pymoso.chnbase import Oracle
+from helper import noisy_quadratic, PENALTY
+
+class MyProblem(Oracle):
+    def __init__(self, rng):
+        self.num_obj = 2
+        self.dim = 1
+        super().__init__(rng)
+
+    def g(self, x, rng):
+        feas_range = range(-100, 101)
+        obj = []
+        is_feas = False
+        if len(x) == self.dim:
+            is_feas = True
+            for i in x:
+                if not i in feas_range:
+                    is_feas = False
+        if is_feas:
+            obj1 = noisy_quadratic(x[0], rng)
+            z1 = rng.normalvariate(0, 1)
+            obj2 = (x[0] - 2)**2 + z1 + 0*PENALTY
+            obj = (obj1, obj2)
+        return is_feas, obj
+'''
+
+
+def test_multifile_custom_problem_loads_and_solves(tmp_path):
+    """A custom problem file importing a sibling helper module must
+    load and solve in a single process, no --simpar/--proc. Confirmed
+    failing before the fix (KNOWN_ISSUES.md issue 11): raw
+    ModuleNotFoundError, identical on this branch and a real PyPI 1.0.8
+    install."""
+    (tmp_path / 'helper.py').write_text(MULTIFILE_HELPER)
+    (tmp_path / 'myproblem.py').write_text(MULTIFILE_PROBLEM)
+    proc = run(["solve", "--budget=200", "myproblem.py", "RPERLE", "40"], tmp_path)
+    assert proc.returncode == 0, proc.stderr
+    assert "ModuleNotFoundError" not in proc.stderr
+    assert "-- Done!" in proc.stdout

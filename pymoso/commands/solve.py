@@ -42,10 +42,7 @@ class Solve(BaseComm):
         if probarg.endswith('.py'):
             base_mod_name = os.path.basename(probarg).replace('.py', '')
             mod_name = '.'.join(['pymoso', 'problems', base_mod_name])
-            spec = importlib.util.spec_from_file_location(mod_name, probarg)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            sys.modules[mod_name] = module
+            module = load_user_module(mod_name, probarg)
             pmodule = importlib.import_module(mod_name)
             probclasses = getmembers(module, isclass)
             #probclass = [prob[1] for prob in probclasses if prob[0].lower() == mod_name][0]
@@ -70,10 +67,7 @@ class Solve(BaseComm):
         if solvarg.endswith('.py'):
             base_mod_name = os.path.basename(solvarg).replace('.py', '')
             mod_name = '.'.join(['pymoso', 'solvers', base_mod_name])
-            spec = importlib.util.spec_from_file_location(mod_name, solvarg)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            sys.modules[mod_name] = module
+            module = load_user_module(mod_name, solvarg)
             smodule = importlib.import_module(mod_name)
             solvclasses = getmembers(smodule, isclass)
             #solvclass = [sol[1] for sol in solvclasses if sol[0].lower() == base_mod_name][0]
