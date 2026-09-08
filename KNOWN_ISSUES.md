@@ -310,6 +310,95 @@ needing an undocumented keyword argument.
 
 ---
 
+### 9. User-supplied problem/tester files hang `--simpar`/`--proc` on Python 3.14+
+
+**Affects:** all 1.x versions, including 1.0.8 and the canonical
+repository's current master, on Python 3.14 or later. **Severity:**
+high — indefinite hang, no error, on the documented way a user supplies
+their own problem or tester.
+
+**Verified against 1.0.8:** `commands/solve.py` and
+`commands/testsolve.py` both register a user's `<file>.py` into
+`sys.modules['pymoso.problems.<name>']`/`sys.modules['pymoso.testers.<name>']`
+purely in-process (`sys.modules[mod_name] = module`), with no real file
+backing that name in the installed package — byte-identical to this
+branch's mechanism. `Process`/`Pool` usage in `chnbase.py`/`chnutils.py`
+is likewise unchanged. Full diagnosis, including a minimal
+reproduction independent of pymoso, in `docs/forkserver-hang.md`.
+
+`--simpar`/`--proc` dispatch simulation jobs through a
+`multiprocessing.Queue`/`Pool`, carrying the problem/tester class by
+reference. Unpickling that reference in a worker re-imports the
+synthetic module name. Under `fork` (the default on Python 3.10-3.13),
+the worker inherits the parent's `sys.modules` via copy-on-write and
+this works. Under `forkserver` — **the new default on Linux as of
+Python 3.14** — each worker starts fresh and the re-import genuinely
+fails (`ModuleNotFoundError`). `multiprocessing` doesn't propagate a
+crashed worker's exception to its parent, so the parent blocks forever
+waiting for that worker's result. No error, no traceback, no exit —
+just an indefinite hang.
+
+Built-in problems/testers (`ProbTPA`, `TPATester`, etc.) are real,
+properly-installed submodules and are not affected — only files passed
+by path on the command line.
+
+**Status:** not fixed on this branch; diagnosis only (`docs/forkserver-hang.md`),
+per explicit instruction not to fix it yet. Forcing `ctx =
+get_context('fork')` would unblock this specific hang but is a
+workaround, not a fix — forking a process holding threads or locks can
+deadlock the child, which is precisely why CPython moved off `fork` as
+the default; see `docs/forkserver-hang.md` for why this also needs to
+be solved in a way that survives a worker not sharing the parent's
+filesystem or process state at all (relevant to a longer-term
+distributed-execution goal for this project).
+
+---
+
+### 10. `--simpar`/`--proc` worker processes leak if the parent is killed externally
+
+**Affects:** all 1.x versions, including 1.0.8 and the canonical
+repository's current master. **Severity:** moderate — requires an
+external kill (not a normal Python exception) to trigger, but leaves
+worker processes running indefinitely when it does.
+
+**Verified against 1.0.8:** `chnbase.py`'s `Oracle.set_simpar`/
+`mp_cleanup`/`__exit__` structure predates this branch's own fix for
+the in-process error-path leak (see "Fixed on this branch" in
+`CLAUDE.md`, and `tests/test_simpar_worker_lifecycle.py`) and is
+otherwise unchanged in 1.0.8. This entry describes a different gap in
+the same mechanism, present on both.
+
+`Oracle.mp_cleanup()` (`terminate()`+`join()` on every worker process)
+only runs via the `set_simpar` context manager's `__exit__`, which
+Python only calls when the `with` block's frame unwinds — a normal
+return, or a raised exception propagating through it. If the *parent*
+process itself is killed externally (SIGKILL, SIGTERM to a process
+group, a supervisor deciding a hung process should die — including
+killing it in response to issue 9's hang), `__exit__` never runs, and
+every worker process it spawned is orphaned, alive, and blocked
+waiting on its input queue indefinitely. Observed directly while
+investigating issue 9: worker/forkserver processes from an earlier
+killed test run were still alive 45+ minutes later.
+
+This is distinct from the already-fixed in-process error-path leak
+(an infeasible `x0` raising `ValueError` inside the `with` block, which
+`__exit__` *does* catch and clean up after — see "Fixed on this
+branch" in `CLAUDE.md` and `tests/test_simpar_worker_lifecycle.py`).
+That fix only covers exceptions the interpreter sees; it cannot cover
+the process being killed out from under itself.
+
+**Status:** not fixed. No Python-level exception-safety mechanism
+(context manager, `atexit`, signal handler) can fully close this gap
+for an unconditional external kill (`SIGKILL` cannot be caught at all);
+a real fix likely needs the worker side to detect its parent has died
+independently (e.g. checking the parent pid, or a heartbeat) rather
+than relying solely on the parent-side cleanup path. Noted as the
+fourth multiprocessing lifecycle finding in this project
+(`docs/forkserver-hang.md`) — an argument for an executor rework, not
+a fourth independent point fix.
+
+---
+
 ## Development-history only (pre-1.0.8, no known users)
 
 ### 2. `--simpar` (parallel simulation replications)
