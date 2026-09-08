@@ -8,17 +8,40 @@ github.com/pymoso/PyMOSO (currently versioned 1.0.7 in
 necessarily agree). Each issue below states which versions it affects
 and its status specifically on this branch.
 
-If you have used PyMOSO in work leading to publication, please read
-issue 1.
+Issues are grouped by whether they affect a version anyone is known to
+have used. PyMOSO had no known users prior to 1.0.8: versions 1.0.0
+through 1.0.7 were development releases pushed to PyPI while the paper
+(Cooper & Hunter 2018) was in progress, and users arrived only after
+the preprint was archived, which was after 1.0.8 shipped. Download
+statistics from that period aren't reconstructible, so this document
+says "no known users prior to 1.0.8," not "no users" — a deliberately
+weaker claim that costs nothing here.
+
+Every entry below in the first section was re-verified directly
+against a real PyPI 1.0.8 install (`.venv-py38`, CPython 3.8), not
+reasoned from the 1.0.4 wheel most of this project's early
+investigation used or from reading the diff.
+
+If you have used PyMOSO 1.0.8 or later in work leading to publication,
+please read issue 1.
 
 ---
 
-## 1. Incorrect pseudo-random stream jump-ahead
+## Affects released, used versions (1.0.8 and later)
 
-**Affects:** all 1.x versions, including the canonical repository's
-current master. **Severity:** high — affects numerical results.
+### 1. Incorrect pseudo-random stream jump-ahead
 
-### What is wrong
+**Affects:** all 1.x versions, including 1.0.8 and the canonical
+repository's current master. **Severity:** high — affects numerical
+results.
+
+**Verified against 1.0.8:** `pymoso solve --budget=1000 ProbTPA RPERLE
+40 40` on a real 1.0.8 install reports ending seed
+`738848768 2094673920 3003824128 304680960 1844190720 1414365184` —
+all six components divisible by 256, the exact fingerprint described
+below.
+
+#### What is wrong
 
 PyMOSO's `mrg32k3a` module advances between pseudo-random streams by
 matrix multiplication modulo m1 and m2. That multiplication is performed
@@ -34,7 +57,7 @@ positions, with an error that compounds across successive jumps.
 The defect is visible in PyMOSO's own output: the six components of the
 reported end seed are, in practice, always divisible by 256.
 
-### Scope
+#### Scope
 
 The single-step generator is **not** affected. Every individual
 simulation replication draws from a correct MRG32k3a stream; this was
@@ -55,7 +78,7 @@ jump-ahead arithmetic itself; `mat333mult`/`mat311mod` are confirmed
 byte-identical to the version this was originally found against (see
 `docs/upstream-simpar.md`).
 
-### What this means for results
+#### What this means for results
 
 The stream positions used after the first jump are not the positions the
 convergence theory assumes. The affected quantity is the *independence
@@ -75,67 +98,27 @@ understate it. What can be said:
 Researchers with published results that depend on stream independence
 may wish to re-run and compare.
 
-### Status
+#### Status
 
 Confirmed present on this branch (github.com/pymoso/PyMOSO's master, not
-just the earlier fork it was first found against). A fix using exact
-integer arithmetic is queued as part of this migration but has not
-landed as of this commit; see later commits in this migration for the
-fix and the resulting golden baseline recapture.
+just the earlier fork it was first found against). Fixed on this
+branch using exact integer arithmetic (`mat333mult`/`mat311mod`); see
+`tests/test_jump_ahead.py` for the brute-force/exact-matrix-power
+equivalence tests that verify the fix independently of the golden
+end-seed suite.
 
 ---
 
-## 2. `--simpar` (parallel simulation replications)
+### 3. Silent stream overlap past the reserved iteration window
 
-**Affects:** every published 1.x version through at least PyPI 1.0.4.
-**Not affected:** github.com/pymoso/PyMOSO's current master.
-**Severity:** was high (documented feature entirely non-functional);
-now informational.
+**Affects:** all 1.x versions, including 1.0.8 and the canonical
+repository's current master. **Severity:** moderate — requires
+non-default settings to trigger.
 
-### History
-
-`Oracle.hit`'s parallel branch called `get_next_prnstream` with one
-argument where the function requires two. Any invocation with
-`--simpar` of 2 or greater raised `TypeError` on essentially the first
-estimate call, and a chain of bare `except:` clauses masked it behind a
-generic "Unable to simulate" message with no traceback. This was
-confirmed directly against a genuine install of the published PyPI
-1.0.4 wheel: `--simpar=2` reproduces the identical crash there.
-
-**Correction to an earlier version of this entry:** it previously
-stated `--simpar` "has never worked in any published version." That
-claim was based only on 1.0.4 and this fork's own history; it did not
-hold once checked against the canonical repository's actual current
-state. PyPI's published 1.0.8 (and github.com/pymoso/PyMOSO's master,
-commit `917bf06`, "improved multiprocessing for --simpar option") runs
-`--simpar=2` successfully — confirmed empirically against a fresh
-worktree of that commit, not merely by reading the diff.
-
-### What changed upstream
-
-Commit `917bf06` replaced the old per-`hit()`-call `multiprocessing.Pool`
-with a persistent worker pool created once per `solve()` call
-(`Oracle.set_simpar`/`mp_cleanup`), and gives each *replication* its own
-seed (derived via the same `crn_nextobs()` substream-jump mechanism the
-serial path already used) rather than trying to give each *worker* its
-own long-lived stream. This is why it composes correctly with CRN where
-the old design didn't: there's no second, independently-configured
-`Oracle` with its own CRN state involved. Full architectural writeup in
-`docs/upstream-simpar.md`.
-
-### Status
-
-Resolved upstream, by `917bf06`, independently of this project's work —
-not a fix produced here. Not present on this migration's base as a
-result. See `docs/upstream-simpar.md` for the design.
-
----
-
-## 3. Silent stream overlap past the reserved iteration window
-
-**Affects:** all 1.x versions, including the canonical repository's
-current master. **Severity:** moderate — requires non-default settings
-to trigger.
+**Verified against 1.0.8:** `chnutils.py` (site-packages) still has a
+bare local `max_RI = 200` used only as a `range()` bound in
+`get_testsolve_prnstreams`, with nothing checking a solver's actual RA
+iteration count against it.
 
 `testsolve` pre-instantiates pseudo-random streams for each independent
 sample path, reserving a fixed window of 200 retrospective
@@ -161,10 +144,15 @@ iteration beyond it.
 
 ---
 
-## 4. Errors reported without tracebacks
+### 4. Errors reported without tracebacks
 
-**Affects:** all 1.x versions, including the canonical repository's
-current master. **Severity:** moderate — obscures other defects.
+**Affects:** all 1.x versions, including 1.0.8 and the canonical
+repository's current master. **Severity:** moderate — obscures other
+defects.
+
+**Verified against 1.0.8:** `chnbase.py` (site-packages) still has
+bare `except:` clauses (confirmed at two live call sites) and multiple
+`sys.exit()` calls in library code.
 
 Bare `except:` clauses in `chnbase.py` catch every exception, including
 `KeyboardInterrupt` and `SystemExit`, report a generic message, and call
@@ -188,10 +176,16 @@ rather than exits.
 
 ---
 
-## 5. Misleading error for an infeasible starting point
+### 5. Misleading error for an infeasible starting point
 
-**Affects:** all 1.x versions, including the canonical repository's
-current master. **Severity:** low.
+**Affects:** all 1.x versions, including 1.0.8 and the canonical
+repository's current master. **Severity:** low.
+
+**Verified against 1.0.8:** `pymoso solve --budget=500 ProbTPA RPE 100
+100` (infeasible: `ProbTPA` is feasible on `[0,50]^2`) raises an
+unhandled `KeyError: (100, 100)` with a raw traceback; the same `x0`
+under `RPERLE` reports `RPERLE Error: Unable to run accel(). Message:
+(100, 100)`.
 
 Passing an infeasible `x0` produces an unhandled `KeyError` with a raw
 traceback under `RPE`, and "Unable to run accel()" under `RPERLE` and
@@ -208,16 +202,26 @@ message.
 
 ---
 
-## 6. Silent mis-parsing of `--seed` and `--param` on the command line
+### 6. Silent mis-parsing of `--seed` and `--param` on the command line
 
-**Affects:** all 1.x versions, including the canonical repository's
-current master (still docopt-based). **Severity:** moderate — requires
-a user mistake to trigger (a wrong `--seed` value count, or giving
-`--seed` and `--param` in an order no documented example shows), but
-produces a completed, apparently-successful run using a silently wrong
-seed and/or starting point when it does.
+**Affects:** all 1.x versions, including 1.0.8 and the canonical
+repository's current master (still docopt-based). **Severity:**
+moderate — requires a user mistake to trigger (a wrong `--seed` value
+count, or giving `--seed` and `--param` in an order no documented
+example shows), but produces a completed, apparently-successful run
+using a silently wrong seed and/or starting point when it does.
 
-### What is wrong
+**Verified against 1.0.8:** `pymoso solve --budget=200 --seed 1 2 3 4
+5 ProbTPA RPERLE 40 40` (5 seed values instead of 6) does not reject
+the malformed `--seed`. docopt silently pulled `ProbTPA` into the seed
+slot instead, confirmed by the resulting traceback:
+`ValueError: invalid literal for int() with base 10: 'ProbTPA'` —
+proof docopt handed the seed parser a token count matching what it
+expected, not what was typed. A different malformed count can just as
+easily land on valid integers throughout and produce no error at all,
+per the mechanism below.
+
+#### What is wrong
 
 The CLI's argument parser (docopt) matches positional and repeated-
 option groups by total token count across the whole command line, not by
@@ -240,7 +244,7 @@ validating each option's own values independently. Concretely:
 None of these raised an error, printed a warning, or produced an exit
 code different from a normal successful run.
 
-### Status
+#### Status
 
 Not fixed on this branch. An argparse-based CLI replacement (and the
 CLI characterization tests documenting the exact 1.x behavior above)
@@ -252,7 +256,7 @@ characterized until that migration is decided and re-applied.
 
 ---
 
-## 7. `chnutils.solve`/`chnutils.testsolve`'s documented library usage has never worked
+### 7. `chnutils.solve`/`chnutils.testsolve`'s documented library usage has never worked
 
 **Affects:** `chnutils.testsolve`'s `ranx0` gap affects all 1.x
 versions, including this fork's original base. The broader
@@ -264,7 +268,12 @@ had defaults. **Severity:** moderate — the CLI was unaffected in either
 case, since it always passes every argument explicitly; only direct
 library use was broken.
 
-### What is wrong
+**Verified against 1.0.8:** `chnutils.py` (site-packages) pops
+`budget`/`seed`/`simpar`/`crn` (in `solve`) and
+`budget`/`seed`/`isp`/`proc`/`ranx0`/`crn` (in `testsolve`) with no
+default value on any `kwargs.pop(...)` call.
+
+#### What is wrong
 
 `chnutils.solve(problem, solver, x0, **kwargs)` and
 `chnutils.testsolve(tester, solver, x0, **kwargs)` pop every one of
@@ -287,7 +296,7 @@ documented library entry point was never actually exercised by the CLI,
 the test suite, or (as far as this project's history shows) any real
 caller.
 
-### Status
+#### Status
 
 Fixed on this branch. Defaults are restored matching the CLI's own
 documented values (`budget=200`, `seed=(12345,)*6`, `simpar=1`, `isp=1`,
@@ -298,6 +307,141 @@ silently; `tests/test_kwarg_defaults.py` additionally checks the
 constants directly against docopt's own parsed defaults. Calling
 `solve`/`testsolve` exactly as the README shows now works without
 needing an undocumented keyword argument.
+
+---
+
+## Development-history only (pre-1.0.8, no known users)
+
+### 2. `--simpar` (parallel simulation replications)
+
+**Affects:** every published 1.x version through at least PyPI 1.0.4.
+**Not affected:** PyPI 1.0.8 or github.com/pymoso/PyMOSO's current
+master. **Severity:** was high (documented feature entirely
+non-functional) at the time, but no known user was ever exposed to it
+— see the "no known users prior to 1.0.8" note above. Informational
+now.
+
+**Verified against 1.0.8:** `pymoso solve --budget=1000 --simpar=2
+ProbTPA RPERLE 40 40` exits 0 and reports the identical ending seed as
+the equivalent serial (`--simpar=1`) run — matching the seed-assignment
+design described below.
+
+#### History
+
+`Oracle.hit`'s parallel branch called `get_next_prnstream` with one
+argument where the function requires two. Any invocation with
+`--simpar` of 2 or greater raised `TypeError` on essentially the first
+estimate call, and a chain of bare `except:` clauses masked it behind a
+generic "Unable to simulate" message with no traceback. This was
+confirmed directly against a genuine install of the published PyPI
+1.0.4 wheel: `--simpar=2` reproduces the identical crash there.
+
+**Correction to an earlier version of this entry:** it previously
+stated `--simpar` "has never worked in any published version." That
+claim was based only on 1.0.4 and this fork's own history; it did not
+hold once checked against the canonical repository's actual current
+state. PyPI's published 1.0.8 (and github.com/pymoso/PyMOSO's master,
+commit `917bf06`, "improved multiprocessing for --simpar option") runs
+`--simpar=2` successfully — confirmed empirically against a fresh
+worktree of that commit, and again here directly against a real 1.0.8
+install, not merely by reading the diff.
+
+#### What changed upstream
+
+Commit `917bf06` replaced the old per-`hit()`-call `multiprocessing.Pool`
+with a persistent worker pool created once per `solve()` call
+(`Oracle.set_simpar`/`mp_cleanup`), and gives each *replication* its own
+seed (derived via the same `crn_nextobs()` substream-jump mechanism the
+serial path already used) rather than trying to give each *worker* its
+own long-lived stream. This is why it composes correctly with CRN where
+the old design didn't: there's no second, independently-configured
+`Oracle` with its own CRN state involved. Full architectural writeup in
+`docs/upstream-simpar.md`.
+
+#### Status
+
+Resolved upstream, by `917bf06`, independently of this project's work —
+not a fix produced here. Not present on this migration's base, nor on
+1.0.8, as a result.
+
+---
+
+## Behavior changes introduced by this migration
+
+These aren't defects inherited from some past pymoso version — they
+don't affect 1.0.8 or any other released version at all, since the
+mechanism they describe didn't exist before this branch. Listed here
+because they change observable behavior relative to earlier commits on
+this same branch, the same way an entry above changes it relative to
+upstream.
+
+### 8. `MRG32k3a.getrandbits()` changes stream consumption for `choice`/`sample`/`randrange`
+
+**Affects:** this branch only, from the commit that added
+`MRG32k3a.getrandbits()` onward. **Severity:** low — no result this
+project's own regression suite reports as "correct" moves, but any
+code path that calls `choice()`/`sample()`/`randrange()` on an
+`MRG32k3a` instance now consumes its stream differently than it did
+one commit earlier, and a downstream user comparing results against a
+pre-getrandbits run will see different values.
+
+#### What changed
+
+Before this change, `MRG32k3a` defined `random()` but not
+`getrandbits()`, so `random.Random.__init_subclass__` bound
+`_randbelow` to `_randbelow_with_getrandbits`'s counterpart,
+`_randbelow_without_getrandbits` — every `choice()`/`sample()`/
+`randrange()` call drew one or more `.random()` floats and rejection-
+sampled in `[0, 1)` space. `getrandbits()` is now implemented directly
+(digit expansion in base `mrgm1i` with rejection — see the commit that
+added it for the derivation), which `__init_subclass__` detects at
+class-definition time and switches `_randbelow` to
+`_randbelow_with_getrandbits` instead. Same semantic contract
+(`choice`/`sample`/`randrange` still return correctly-distributed
+values), different sequence of underlying stream draws to get there.
+
+Concretely, this changes:
+
+- Any tester's `get_ranx0` (`TPATester`, `TPBTester`, `TPCTester`,
+  `SimpleSOTester`, `BSTester`, and `pymoso/examples/mytester.py`),
+  which all pick a random starting point via `rng.choice(...)`.
+  `--isp`/`testsolve` with no `<x>` given uses this path implicitly
+  (see `docs/end-seed-scope.md`) — confirmed directly: the same seed
+  under the old fallback and under `getrandbits()` pick different `x0`
+  values (`(30, 43)` vs. `(44, 1)` for `TPATester`, same seed).
+- Anything downstream of that different `x0` — a different search
+  path, different per-iteration simulation counts, and potentially a
+  different reported solution set, all confirmed to actually move for
+  this specific case (see `tests/test_solution_sensitivity.py`).
+
+Nothing else changes: `random()`, `normalvariate()`, and
+`expovariate()` (used directly by `bsprob.py`'s `g()`) all route
+through `random()` alone, untouched by this change, verified in
+`tests/test_rng_consumption.py`.
+
+#### Why the existing golden suite doesn't show this
+
+`tests/test_golden.py`'s end-seed baselines fingerprint the
+stream-*allocation* schedule (`get_next_prnstream`/`jump_substream`
+call counts), not what any individual stream actually drew — see
+`docs/end-seed-scope.md` for the full explanation, written while
+investigating this exact change. All 10 existing golden cases,
+including `testsolve_tpa` (which *does* reach `get_ranx0` via this
+mechanism), are unaffected: 0 of 10 moved. This is not evidence the
+change has no effect — `tests/test_rng_consumption.py` and
+`tests/test_solution_sensitivity.py` were added specifically because
+the existing suite is structurally blind to this class of change, and
+both do detect it.
+
+#### Status
+
+Shipped on this branch. `getrandbits()`'s own correctness (unbiased
+digit expansion, verified empirically at 5,000,000 trials with zero
+rejections observed at the `k` values this codebase actually requests)
+is not in question; this entry exists to record that its introduction
+is an observable behavior change for any caller relying on exact
+`choice`/`sample`/`randrange` output from a fixed seed, not a
+regression to fix.
 
 ---
 
