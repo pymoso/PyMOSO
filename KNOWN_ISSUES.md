@@ -342,8 +342,29 @@ Built-in problems/testers (`ProbTPA`, `TPATester`, etc.) are real,
 properly-installed submodules and are not affected — only files passed
 by path on the command line.
 
-**Status:** not fixed on this branch; diagnosis only (`docs/forkserver-hang.md`),
-per explicit instruction not to fix it yet. Forcing `ctx =
+**`--simpar` and `--proc` are not the same fix, despite the shared
+symptom.** They dispatch through structurally different mechanisms:
+
+- `solve()`'s `--simpar` path (`Oracle.set_simpar`/`hit`, raw
+  `Process`+`Queue`) sends one job per *replication*, each carrying the
+  problem *class* (plus `x`, a seed) — reconstructing a class from
+  source is tractable, and is what this branch's fix does (see below).
+- `testsolve()`'s `--proc` path (`chnutils.par_runs`,
+  `multiprocessing.Pool`) sends one job per *independent sample path*,
+  each carrying a fully-constructed, **already-seeded `Oracle`
+  instance** (live RNG state included), not a class reference.
+  Reconstructing a *live object mid-computation* from transportable
+  data is a different, harder problem than reconstructing a class from
+  its source — the class fix does not extend to it. `tests/test_multifile_transport.py::test_multifile_problem_under_proc_matches_serial`
+  documents this as reproducible (not suspected): `xfail`,
+  conditional on Python 3.14+, confirmed actually firing there
+  (30s timeout, not a hang eating the suite) before being marked as
+  such.
+
+**Status:** `solve()`/`--simpar` fixed on this branch (source-bundle
+transport, `chnbase.py`) — see the commit implementing it for the
+mechanism. `testsolve()`/`--proc` **not fixed**; still hangs on Python
+3.14+, exactly as described above. Forcing `ctx =
 get_context('fork')` would unblock this specific hang but is a
 workaround, not a fix — forking a process holding threads or locks can
 deadlock the child, which is precisely why CPython moved off `fork` as

@@ -26,6 +26,7 @@ py-spy. A detector never observed detecting isn't proven to work.
 import ast
 import re
 import subprocess
+import sys
 
 import pytest
 
@@ -115,3 +116,70 @@ def test_multifile_problem_under_simpar_matches_serial(tmp_path):
 
     assert end_seed(parallel) == end_seed(serial)
     assert solution_set(tmp_path, "parallel_run") == solution_set(tmp_path, "serial_run")
+
+
+# ---------------------------------------------------------------------------
+# testsolve()'s --proc path (KNOWN_ISSUES.md issue 9): a structurally
+# different mechanism from --simpar (chnutils.par_runs, a
+# multiprocessing.Pool dispatching one job per independent sample path,
+# each job carrying a fully-constructed, already-seeded Oracle instance
+# -- not a class reference), so the source-bundle fix in this commit
+# (which reconstructs classes) does not cover it. Documented as
+# reproducible, not suspected, with its own fixture, same discipline as
+# the --simpar test above. xfail is conditional on Python 3.14+: this
+# is the same fork-vs-forkserver split as issue 9, not a universal
+# failure -- unconditional xfail would XPASS (and fail, strict=True) on
+# 3.10-3.13, where fork's copy-on-write inheritance already makes this
+# work today.
+# ---------------------------------------------------------------------------
+
+MYTESTER_SRC = '''\
+from myproblem import MyProblem
+
+def true_g(x):
+    return (x[0]**2, (x[0] - 2)**2)
+
+def get_ranx0(rng):
+    return (rng.choice(range(-100, 101)),)
+
+class MyTester(object):
+    def __init__(self):
+        self.ranorc = MyProblem
+        self.true_g = true_g
+        self.soln = [(0,), (2,)]
+        self.get_ranx0 = get_ranx0
+
+    def metric(self, eles):
+        return 0.0
+'''
+
+
+@pytest.mark.xfail(
+    condition=sys.version_info >= (3, 14),
+    strict=True,
+    reason=(
+        "KNOWN_ISSUES.md issue 9: testsolve()'s --proc path "
+        "(chnutils.par_runs, multiprocessing.Pool) ships a "
+        "fully-constructed, already-seeded Oracle instance per job, not a "
+        "class reference -- reconstructing a live object with RNG state is "
+        "a different problem from reconstructing a class, so the "
+        "source-bundle transport fix (this commit) does not cover it. "
+        "Remove this xfail only once --proc has its own fix and its own "
+        "passing version of this test."
+    ),
+)
+def test_multifile_problem_under_proc_matches_serial(tmp_path):
+    (tmp_path / 'helper.py').write_text(HELPER_SRC)
+    (tmp_path / 'myproblem.py').write_text(PROBLEM_SRC)
+    (tmp_path / 'mytester.py').write_text(MYTESTER_SRC)
+
+    cmd = ["pymoso", "testsolve", "--budget=200", "--proc=2", "mytester.py", "RPERLE", "40"]
+    try:
+        proc = subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True,
+                               timeout=SUBPROCESS_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        pytest.fail(
+            f"{' '.join(cmd)} did not complete within {SUBPROCESS_TIMEOUT}s -- "
+            "reproduces KNOWN_ISSUES.md issue 9's --proc gap."
+        )
+    assert proc.returncode == 0, proc.stderr
