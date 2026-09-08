@@ -163,7 +163,6 @@ class MRG32k3a(random.Random):
         if not x:
             x = (12345, 12345, 12345, 12345, 12345, 12345)
         assert(len(x) == 6)
-        self.version = 2
         self.generate = mrg32k3a
         self.bsm = bsm
         super().__init__(x)
@@ -198,7 +197,17 @@ class MRG32k3a(random.Random):
         """
         assert(len(a) == 6)
         self._current_seed = a
-        super().seed(a)
+        # random.Random.seed() only accepts None/int/float/str/bytes/bytearray
+        # (a tuple raises TypeError as of Python 3.11, and was already a
+        # deprecated hash-based path before that). This call's only purpose
+        # is to satisfy that type check: the parent's C-level Mersenne state
+        # it seeds is never consulted, since random()/generate() are fully
+        # overridden below. The packing below is an arbitrary bijection, not
+        # a meaningful encoding -- nothing relies on its value or reverses it.
+        packed = 0
+        for component in a:
+            packed = (packed << 32) | component
+        super().seed(packed)
 
     def random(self):
         """
