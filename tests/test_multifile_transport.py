@@ -183,3 +183,85 @@ def test_multifile_problem_under_proc_matches_serial(tmp_path):
             "reproduces KNOWN_ISSUES.md issue 9's --proc gap."
         )
     assert proc.returncode == 0, proc.stderr
+
+
+# ---------------------------------------------------------------------------
+# Unit-level pins on chnbase's transport helpers directly, no subprocess
+# needed for these two.
+# ---------------------------------------------------------------------------
+
+def test_build_transport_descriptor_passes_builtin_classes_through_unchanged():
+    """A real, installed problem class already pickles by reference
+    correctly regardless of start method -- no bundling needed, and
+    bundling it would be wasted work (and, for a package directory,
+    would ship unrelated sibling files for no reason)."""
+    from pymoso.chnbase import build_transport_descriptor
+    from pymoso.problems.probtpa import ProbTPA
+    assert build_transport_descriptor(ProbTPA) is ProbTPA
+
+
+def test_build_transport_descriptor_raises_clear_error_for_interactive_class():
+    """A class with no locatable source (defined interactively -- a
+    REPL or notebook, not loaded from a .py file) must raise a clear
+    error naming the limitation, not silently attempt transport and
+    hang once a --simpar job is actually dispatched to it."""
+    from pymoso.chnbase import build_transport_descriptor, Oracle
+
+    ns = {}
+    exec(
+        "class Interactive(Oracle):\n"
+        "    def __init__(self, rng):\n"
+        "        self.num_obj = 1\n"
+        "        self.dim = 1\n"
+        "        super().__init__(rng)\n"
+        "    def g(self, x, rng):\n"
+        "        return True, (0.0,)\n",
+        {'Oracle': Oracle}, ns,
+    )
+    Interactive = ns['Interactive']
+    # A module name that exists nowhere in sys.modules -- simulates
+    # "no locatable source" robustly across host processes. Using
+    # '__main__' here instead would be host-dependent: under plain
+    # `python -c`, '__main__' has no __file__ (correctly triggers the
+    # error), but under pytest, '__main__' is pytest's own launcher
+    # module, which *does* have a real __file__ -- inspect.getfile
+    # would find that (unrelated) file instead of raising, so the test
+    # would pass under one host and silently not exercise the error
+    # path under another.
+    Interactive.__module__ = 'a_module_that_is_not_in_sys_modules'
+
+    with pytest.raises(ValueError) as exc_info:
+        build_transport_descriptor(Interactive)
+    msg = str(exc_info.value)
+    assert 'Interactive' in msg
+    assert 'no locatable source' in msg
+
+
+def test_reconstruct_transport_descriptor_resolves_cross_file_dependency():
+    """Pins the actual bug found while implementing this: a naive
+    "non-entry files first, entry last" execution order breaks when a
+    NON-entry file in the bundle imports the entry file (confirmed
+    directly -- pymoso/examples/mytester.py imports
+    pymoso/examples/myproblem.py, and a real fixture built from that
+    directory bundles both even when only myproblem.py is the entry
+    point, since build_transport_descriptor ships every .py file in
+    the directory). reconstruct_transport_descriptor must resolve this
+    regardless of which name sorts first."""
+    from pymoso.chnbase import reconstruct_transport_descriptor
+
+    descriptor = {
+        'files': {
+            'entry_point': 'X = 1\n',
+            'unrelated_sibling': 'from entry_point import X\nY = X + 1\n',
+        },
+        'entry': 'entry_point',
+        'class_name': 'X',
+    }
+    # A naive "every non-entry file first, then the entry file last"
+    # order (what this used to do) would try 'unrelated_sibling' before
+    # 'entry_point' unconditionally -- entry_point is always excluded
+    # from that first pass by construction -- and 'unrelated_sibling'
+    # needs entry_point already populated, so that order always fails
+    # here regardless of name sorting. The fixed-point retry resolves
+    # it by trying again once entry_point succeeds.
+    assert reconstruct_transport_descriptor(descriptor) == 1

@@ -29,6 +29,13 @@ def load_user_module(mod_name, filepath):
     permanent sys.path append is a side effect callers should not
     inherit.
 
+    Marks the module __pymoso_dynamic__ = True: nothing backs mod_name
+    as a real, independently-importable module (it only exists because
+    this function put it in sys.modules), so a class from it can't be
+    sent to a --simpar worker process by the usual pickle-by-reference
+    route -- chnbase.build_transport_descriptor checks this marker to
+    decide whether a class needs source-bundle transport instead.
+
     Parameters
     ----------
     mod_name : str
@@ -45,6 +52,7 @@ def load_user_module(mod_name, filepath):
         spec = importlib.util.spec_from_file_location(mod_name, filepath)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+        module.__pymoso_dynamic__ = True
         sys.modules[mod_name] = module
     finally:
         sys.path.remove(file_dir)

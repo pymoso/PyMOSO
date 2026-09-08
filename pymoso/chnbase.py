@@ -11,11 +11,160 @@ RASolver(MOSOSolver), class
 RLESolver(RASolver), class
 Oracle(object), class
 """
+import os
+import sys
+import types
+import inspect
 from statistics import mean, variance
 from math import sqrt, ceil, floor
 from .prng.mrg32k3a import get_next_prnstream, jump_substream, mrg32k3a, bsm
 from multiprocessing import Queue, Process
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos, MAX_RI
+
+
+def build_transport_descriptor(cls):
+    """
+    Build whatever a --simpar worker process needs to reconstruct cls,
+    once per worker rather than once per replication -- see
+    Oracle.set_simpar, the broadcast point this is built at.
+
+    A class loaded normally (built-in problems/testers, or anything
+    else genuinely importable) is returned as-is: it already pickles
+    by reference correctly regardless of multiprocessing start method,
+    since a fresh worker can just `import` it like any other
+    dependency.
+
+    A class loaded from a user-supplied file
+    (commands/basecomm.load_user_module marks its module
+    __pymoso_dynamic__ = True) has no real module backing it -- nothing
+    a worker can `import` by name, since the name only exists because
+    the CLI process put it in sys.modules. For that case, this returns
+    a source-bundle descriptor instead: every .py file's source text in
+    cls's directory, shipped as plain strings -- always picklable
+    regardless of start method, since no code or class objects are
+    involved -- reconstructed fresh in the worker
+    (reconstruct_transport_descriptor).
+
+    Ships the whole directory rather than analyzing cls's file for
+    which siblings it actually imports -- a real constraint, not an
+    oversight: a custom problem/tester's sibling imports must live flat
+    in one directory (matching commands/basecomm.load_user_module,
+    which only puts that one directory on sys.path -- a package-style
+    layout with subdirectories, or `from .sibling import x`, isn't
+    supported by either).
+
+    Parameters
+    ----------
+    cls : Oracle class
+
+    Returns
+    -------
+    cls, unchanged, or a dict source-bundle descriptor
+
+    Raises
+    ------
+    ValueError
+        cls has no locatable source at all (defined interactively, not
+        loaded from a .py file) -- --simpar cannot transport it to a
+        worker process. Raised here, at worker-creation time, rather
+        than left to surface as a hang once a job is dispatched.
+    """
+    module = sys.modules.get(cls.__module__)
+    if module is not None and getattr(module, '__pymoso_dynamic__', False):
+        return _build_source_bundle(cls, module)
+    try:
+        inspect.getfile(cls)
+    except (TypeError, OSError) as e:
+        raise ValueError(
+            f"{cls.__name__} has no locatable source file, so it cannot be "
+            "sent to a --simpar worker process. This happens for a class "
+            "defined interactively (a REPL or notebook), not loaded from a "
+            ".py file. Define it in a .py file and try again, or run "
+            "without --simpar."
+        ) from e
+    return cls
+
+
+def _build_source_bundle(cls, module):
+    filepath = module.__file__
+    directory = os.path.dirname(os.path.abspath(filepath))
+    entry_name = os.path.splitext(os.path.basename(filepath))[0]
+    files = {}
+    for fname in sorted(os.listdir(directory)):
+        if fname.endswith('.py'):
+            with open(os.path.join(directory, fname)) as f:
+                files[fname[:-3]] = f.read()
+    return {'files': files, 'entry': entry_name, 'class_name': cls.__name__}
+
+
+def reconstruct_transport_descriptor(descriptor):
+    """
+    The worker side of build_transport_descriptor: turns a
+    source-bundle dict back into a class, or passes an already-real
+    class through unchanged. Pure data in (for the bundle case) -- no
+    pickled code or class objects -- so this works identically
+    regardless of multiprocessing start method.
+
+    Execution order isn't assumed (e.g. "entry last"): the bundled
+    directory can contain files unrelated to the entry point that have
+    their own cross-imports (confirmed directly -- pymoso/examples/
+    ships both myproblem.py and mytester.py, and mytester.py imports
+    myproblem.py; a real --simpar run on a fixture built from that
+    directory bundles both even though only one is the entry point).
+    Instead, this retries whichever files raise ImportError against
+    modules not populated yet, until a full pass makes no further
+    progress -- a simple fixed-point resolution that works for any
+    acyclic dependency order among the bundled files without having to
+    guess it upfront.
+
+    Parameters
+    ----------
+    descriptor : Oracle class, or dict as built by
+        build_transport_descriptor
+
+    Returns
+    -------
+    Oracle class
+
+    Raises
+    ------
+    ImportError
+        The bundled files' cross-imports can't be resolved in any
+        order (a genuine circular import among them, or one of them
+        imports something this bundle doesn't include).
+    """
+    if not isinstance(descriptor, dict):
+        return descriptor
+    files = descriptor['files']
+    entry = descriptor['entry']
+    modules = {}
+    for name in files:
+        mod = types.ModuleType(name)
+        mod.__file__ = f'<transported:{name}.py>'
+        modules[name] = mod
+        sys.modules[name] = mod
+    pending = dict(files)
+    last_errors = {}
+    while pending:
+        progressed = False
+        for name in sorted(pending):
+            try:
+                code = compile(pending[name], f'<transported:{name}.py>', 'exec')
+                exec(code, modules[name].__dict__)
+            except ImportError as e:
+                last_errors[name] = e
+                continue
+            del pending[name]
+            progressed = True
+        if not progressed:
+            raise ImportError(
+                f"Could not resolve import order for bundled file(s) "
+                f"{sorted(pending)} while reconstructing a --simpar transport "
+                f"descriptor -- a circular import among the bundled files, or "
+                f"one of them imports something outside the bundle. Last "
+                f"error(s) seen: {last_errors}"
+            )
+    return getattr(modules[entry], descriptor['class_name'])
 
 
 def mp_replicate(orccls, x, rngcls, seed):
@@ -46,17 +195,25 @@ def mp_replicate(orccls, x, rngcls, seed):
     return isfeas, objvals
 
 
-def mp_worker(input, output):
+def mp_worker(input, output, descriptor, rngcls):
     """
-    Process an item from `input` queue and place results in `output` queue.
+    Worker loop for parallel replication. `descriptor` is reconstructed
+    into `orccls` ONCE, at worker start -- the broadcast pattern (see
+    Oracle.set_simpar) -- not re-sent per job, so per-job payloads on
+    `input` carry only (x, seed), not the problem class.
 
     Parameters
     ----------
     input : multiprocessing.Queue object
+        Yields (x, seed) tuples.
     output : multiprocessing.Queue object
+    descriptor : Oracle class or dict
+        See build_transport_descriptor/reconstruct_transport_descriptor.
+    rngcls : random.Random class
     """
-    for func, args in iter(input.get, 'STOP'):
-        result = func(*args)
+    orccls = reconstruct_transport_descriptor(descriptor)
+    for x, seed in iter(input.get, 'STOP'):
+        result = mp_replicate(orccls, x, rngcls, seed)
         output.put(result)
 
 
@@ -1068,11 +1225,13 @@ class Oracle(object):
         """
         self.simpar = simpar
         if self.simpar > 1:
+            descriptor = build_transport_descriptor(type(self))
+            rngcls = type(self.rng)
             self.req_q = Queue()
             self.res_q = Queue()
             self.proc = []
             for i in range(self.simpar):
-                p = Process(target=mp_worker, args=(self.req_q, self.res_q))
+                p = Process(target=mp_worker, args=(self.req_q, self.res_q, descriptor, rngcls))
                 p.start()
                 self.proc.append(p)
         return self
@@ -1242,13 +1401,11 @@ class Oracle(object):
             # take replications in parallel
             if self.simpar > 1:
                 for i in mr:
-                    # we will reconstruct objects within `mp_replicate` and then
-                    # compute the replications in parallel
-                    orccls = type(self)
-                    rngcls = type(self.rng)
+                    # orccls/rngcls were already sent once, at worker
+                    # start (Oracle.set_simpar) -- each job here carries
+                    # only what actually varies per replication.
                     cseed = self.rng.get_seed()
-                    proc_job = (mp_replicate, (orccls, x, rngcls, cseed))
-                    self.req_q.put(proc_job)
+                    self.req_q.put((x, cseed))
                     self.crn_nextobs()
                 for i in mr:
                     # block until parallel results are ready

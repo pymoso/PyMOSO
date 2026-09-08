@@ -314,3 +314,70 @@ motivating case for batched dispatch (submitting a worker's whole share
 of a `hit()` call's replications as one task, not one task per
 replication) in the executor rework — recorded for that work, not
 addressed by this migration.
+
+## What crosses the process boundary, updated: `orccls` is no longer always trivially picklable
+
+"What crosses the process boundary" above states `orccls` (the oracle
+*class*) is "trivially picklable" per replication. That was true for
+built-in problems/testers, and stayed unexamined for anything else
+until Python 3.14 changed the Linux default multiprocessing start
+method from `fork` to `forkserver` — a class loaded from a
+user-supplied file (`pymoso solve myproblem.py ...`) has no real
+module backing it (`commands/solve.py` registers it into `sys.modules`
+under a synthetic name that exists only in that one process), so
+pickling it by reference and unpickling in a `forkserver`-spawned
+worker fails: the worker's fresh re-import of that synthetic name
+finds nothing. `fork`'s copy-on-write inheritance masked this
+completely — it's why this went unnoticed through the whole 1.x
+history. Full mechanism, a minimal reproduction independent of pymoso,
+and the options considered: `docs/forkserver-hang.md`,
+`KNOWN_ISSUES.md` issue 9.
+
+Fixed on this branch (not upstream) by not sending `orccls` by
+reference at all when it's one of these dynamically-loaded classes.
+`Oracle.set_simpar` builds a *transport descriptor* once, before
+creating any workers: for a built-in class, the class itself
+(unchanged, still trivially picklable, still sent once per worker
+rather than once per replication — see below); for a dynamically-
+loaded class, every `.py` file's source text in its directory, shipped
+as plain strings (`chnbase.build_transport_descriptor`). Each worker
+reconstructs the class once, at start, from whichever form it got
+(`chnbase.reconstruct_transport_descriptor`) — executing bundled files
+in whatever order resolves their cross-imports, not assuming the entry
+file has no dependents among its own siblings (it can: confirmed
+directly, `pymoso/examples/mytester.py` imports
+`pymoso/examples/myproblem.py`, and a fixture built from that directory
+bundles both files even when only one is the actual entry point). A
+class with no locatable source at all (defined interactively, not
+loaded from a file) raises a clear `ValueError` at `set_simpar` time
+rather than being sent through and failing silently in a worker later.
+
+This is also the broadcast pattern "Worker lifetime, part 3" above
+names as the direction for the executor rework: `orccls`/`rngcls` now
+cross the boundary once per worker, not once per replication — per-job
+payloads on `req_q` are just `(x, seed)`. This does shrink what each
+`Queue.put`/`Queue.get` round trip carries, but it does not address
+what that section identifies as the *dominant* cost (round-trip
+*count*, set by replication count, not `simpar`) — the "roughly 2x
+slower than serial for a cheap oracle" finding should still hold after
+this change and was not re-measured to confirm; batched dispatch
+(a worker's whole share of a `hit()` call's replications as one task)
+remains the fix for that, still not attempted here.
+
+Seed derivation ("How seeds are derived and passed to workers" above)
+is entirely unaffected: `crn_nextobs()`'s sequencing runs on the parent
+exactly as before, and the set of `m` seeds handed out for a given
+`hit(x, m)` call is still exactly the same set, in exactly the same
+order, regardless of `simpar`. Only the class-transport mechanism
+changed.
+
+`testsolve()`'s `--proc` path (`chnutils.par_runs`, `multiprocessing.Pool`)
+has the same class of bug and is **not fixed** by this: it ships a
+fully-constructed, already-seeded `Oracle` *instance* per job (live RNG
+state included), not a class reference, so the class-reconstruction
+approach above doesn't extend to it — reconstructing a live object
+mid-computation from transportable data is a different, harder problem
+than reconstructing a class from source. `KNOWN_ISSUES.md` issue 9 and
+`tests/test_multifile_transport.py::test_multifile_problem_under_proc_matches_serial`
+(`xfail` on Python 3.14+, confirmed actually reproducing there) record
+this as open.
