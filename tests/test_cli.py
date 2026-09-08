@@ -23,6 +23,8 @@ import subprocess
 
 import pytest
 
+from pymoso import __version__
+
 pytestmark = pytest.mark.timeout(60)
 
 
@@ -248,7 +250,7 @@ def test_version_exits_zero_and_prints_version(flag, tmp_path):
     proc = run([flag], tmp_path)
     assert proc.returncode == 0
     assert proc.stderr == ""
-    assert proc.stdout.strip() == "1.0.7"
+    assert proc.stdout.strip() == __version__
 
 
 def test_subcommand_help_shows_its_own_options(tmp_path):
