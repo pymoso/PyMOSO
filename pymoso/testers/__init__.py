@@ -3,3 +3,4 @@ from .tpbtester import *
 from .tpctester import *
 from .simplesotester import *
 from .bstester import *
+from .expensivetester import *
