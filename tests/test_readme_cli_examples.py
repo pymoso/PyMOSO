@@ -6,9 +6,14 @@ picked up automatically, run with a small budget/isp/proc and asserted
 to exit 0.
 
 This checks invocability only -- that the command parses and the run
-completes without error -- not correctness of the result. Correctness
-of what pymoso computes is what tests/test_golden.py's end-seed
-baselines are for; this file would not notice a wrong answer.
+completes without error -- not correctness of the result. This file
+would not notice a wrong answer. tests/test_golden.py's end-seed
+baselines cover a narrower and different property for the 8 (of 20+)
+examples they happen to overlap with: that the reported run lands on
+the same stream-allocation schedule position as before, not that the
+computed solution/objective values are correct -- see
+docs/end-seed-scope.md for why those are different claims. Most of the
+examples here have no correctness check of any kind today.
 
 Parsing rule: a "real" example is a line (whether a bare fenced-block
 line or a single-backtick inline code span) that, once any markdown
