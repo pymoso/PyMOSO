@@ -48,6 +48,7 @@ a2p76 = [[1511326704.0, 3759209742.0, 1610795712.0],
 mrgnorm = 2.328306549295727688e-10
 mrgm1 = 4294967087.0
 mrgm2 = 4294944443.0
+mrgm1i = int(mrgm1)  # exact int form; getrandbits() needs integer arithmetic, not mrgnorm's float round-trip
 mrga12 = 1403580.0
 mrga13n = 810728.0
 mrga21 = 527612.0
@@ -209,6 +210,20 @@ class MRG32k3a(random.Random):
             packed = (packed << 32) | component
         super().seed(packed)
 
+    def _advance(self):
+        """
+        Step the generator once and update the state.
+
+        Returns
+        -------
+        newseed : tuple of int
+        u : float
+        """
+        seed = self._current_seed
+        newseed, u = self.generate(seed)
+        self.seed(newseed)
+        return newseed, u
+
     def random(self):
         """
         Generate a standard uniform variate and advance the generator
@@ -218,10 +233,69 @@ class MRG32k3a(random.Random):
         -------
         u : float
         """
-        seed = self._current_seed
-        newseed, u = self.generate(seed)
-        self.seed(newseed)
+        _newseed, u = self._advance()
         return u
+
+    def _next_raw(self):
+        """
+        Step the generator once and return the exact-integer combined draw,
+        skipping the float round-trip through mrgnorm that random() takes.
+
+        newseed[2] and newseed[5] are exactly the p1/p2 mrg32k3a() computes
+        internally (its newseed is (seed[1], seed[2], p1, seed[4], seed[5],
+        p2)) and u is just (p1 - p2, folded into [1, mrgm1] via +mrgm1) times
+        mrgnorm. Recomputing that fold here in integers, instead of reversing
+        u, avoids relying on float precision to recover an exact integer.
+
+        Returns
+        -------
+        int
+            Uniform over {1, ..., mrgm1i} -- mrgm1i distinct values, not a
+            power of two.
+        """
+        newseed, _u = self._advance()
+        p1 = newseed[2]
+        p2 = newseed[5]
+        return (p1 - p2 + mrgm1i) if p1 <= p2 else (p1 - p2)
+
+    def getrandbits(self, k):
+        """
+        Generate a non-negative int with k uniformly-distributed random
+        bits.
+
+        Each call to _next_raw() yields one digit uniform over
+        {1, ..., mrgm1i}, a range of size mrgm1i = 2**32 - 209 -- not a
+        power of two, so no fixed number of raw bits can be sliced out of
+        it without bias. Instead, digits are concatenated in base mrgm1i
+        until the combined range covers at least 2**k, giving an integer
+        exactly uniform over [0, mrgm1i**t); the excess above the largest
+        multiple of 2**k is then discarded by rejection (redrawing all t
+        digits) rather than reduced by a biased modulo.
+
+        Parameters
+        ----------
+        k : int
+            Number of bits requested, > 0.
+
+        Returns
+        -------
+        int
+            Uniform over [0, 2**k).
+        """
+        if k <= 0:
+            raise ValueError('number of bits must be greater than zero')
+        target = 1 << k
+        while True:
+            span = 1
+            digits = 0
+            while span < target:
+                digits = digits*mrgm1i + (self._next_raw() - 1)
+                span *= mrgm1i
+            usable = (span // target) * target
+            if digits < usable:
+                return digits % target
+            # else: digits landed in the biased remainder above the largest
+            # multiple of 2**k -- discard and redraw all t digits.
 
     def get_seed(self):
         """
