@@ -102,15 +102,29 @@ a small standalone correction (weaken the claim to match what
 end-seed matching actually establishes, and note the 8-of-20+ coverage
 gap) whenever that file is next touched.
 
-## Aside: two `docs/` references to files that don't exist on this branch
+## Aside: two `docs/` references that didn't exist on this branch (fixed in a follow-up commit)
 
 `test_jump_ahead.py`, `test_max_ri.py`, and `test_infeasible_x0.py` all
 cite `docs/phase2a-verification.md` for the original defect
-characterizations; `CLAUDE.md` cites `docs/phase3-architecture-stocktake.md`
-for "current status." Neither file exists in this branch's `docs/` —
-both were committed only on the earlier fork's history
-(`e273e14`, "Commit outstanding phase 2a/3 artifacts before migrating
-to pymoso/master") and weren't carried over when this project rebased
-onto github.com/pymoso/PyMOSO. Noted here since it surfaced during this
-audit; not otherwise related to end-seed scope, and not fixed as part
-of this change.
+characterizations; `CLAUDE.md` cited `docs/phase3-architecture-stocktake.md`
+for "current status." Neither file existed in this branch's `docs/` at
+the time this note was first written — both were committed only on the
+earlier fork's history (`old-work`, `e273e14`, "Commit outstanding phase
+2a/3 artifacts before migrating to pymoso/master") and weren't carried
+over when this project rebased onto github.com/pymoso/PyMOSO.
+
+Resolved differently for each, on the theory that porting a stale
+"current status" doc is worse than not having one, but porting a
+historical discovery record that's still cited by number from live
+tests is worth doing honestly:
+
+- `docs/phase2a-verification.md` was ported from `old-work`, with a
+  provenance header explaining its file/line references are to that
+  fork's layout, and pointing each item at whatever currently
+  re-verifies it on this branch (the permanent tests, and, for issue
+  1, a direct 1.0.8 check).
+- `docs/phase3-architecture-stocktake.md` was **not** ported —
+  it predates the docopt/argparse redo, the README layers work, and the
+  RNG fixes, so presenting it as "current status" would misinform
+  rather than help. `CLAUDE.md`'s citation was corrected instead to say
+  no single current-status document exists.
