@@ -2735,3 +2735,48 @@ exactly as `docs/end-seed-scope.md` says.
    Explicitly not sequenced relative to MRG31k3p/Philox onboarding
    (steps 5-6) — independent concerns, could land before, after, or
    between them.
+9. **[not started — scoped out of step 6b, recorded here so it doesn't
+   go undiscovered]** CRN-branch convergence: unify `crn_advance()`/
+   `_advance_replication()`/`hit()`'s own `crnflag=True` path onto
+   `_hit_via_coordinate`'s stateless, `Stream.advance()`-based mechanism
+   instead of the incremental `rng`/`_next_seed` mutation model it still
+   uses. Traced concretely while building step 6b, not a hypothetical:
+
+   - `crn_advance()`'s own coordinate formula (`_iteration*ITER_STRIDE +
+     m*REPL_STRIDE`, by induction in its own docstring) is structurally
+     identical to `_hit_via_coordinate`'s sync branch (`SYNC_ROLE_OFFSET
+     + sync*SYNC_STRIDE + replication*REPL_STRIDE`) minus the point
+     component — CRN is point-independent by construction (§2), so its
+     coordinate never needed `x` in the first place. The two branches
+     already share a shape; only the CRN branch still computes it via
+     live `rng` mutation instead of `stream_at`/`advance()`.
+   - `_advance_replication()`'s own "reset `rng` to the tracked
+     `_next_seed`, discarding whatever `g()`/an external `setstate()`
+     call left it at, then jump `REPL_STRIDE`" is exactly what
+     `Stream.advance()` already provides, *once* `_next_seed`/
+     `_iteration_baseline_seed` become tracked `Stream` objects instead
+     of raw seed tuples extracted via `get_seed()`. That representation
+     change is the actual size of this step — not a parameterization
+     like step 6b's own three fixes, a real rewrite of what those two
+     attributes *are*, comparable in shape to step 4b's own
+     `_hit_opt_in`/`hit()` convergence.
+   - Not attempted inside step 6b itself, deliberately: step 6b already
+     carries the `Stream.advance()`/`raw_consumed()` protocol additions,
+     the Philox constructor/`root_seed()` fixes, the registry, three
+     `validate_seed`s, CLI/kwarg wiring, and test rewrites — folding in
+     a rewrite that changes what `_next_seed`/`_iteration_baseline_seed`
+     mean, with several existing tests asserting on both directly
+     (`tests/test_oracle_endseed.py`, `tests/test_oracle_coordinate_
+     migration.py`), would put any failure in a diff too large to
+     isolate. Same reasoning step 4 itself was split on.
+
+   **Priority, reclassified alongside step 6c-completion's own note:**
+   this was recorded in CLAUDE.md purely as drift-risk (a second
+   parallel "replicate and aggregate" implementation, after `bump()`'s
+   removal left only these two). It is now also what blocks `--crn` and
+   `sync=` from working under any non-MRG generator at all — `set_crnflag()`
+   raises `NotImplementedError` for `crnflag=True` under Philox, and
+   `_hit_via_coordinate` raises the same for `sync=`, both naming this
+   step, precisely because neither has anywhere to route to without it.
+   Until this lands, "Philox is supported" keeps the asterisk step 6b's
+   own CLI help and README text document.
