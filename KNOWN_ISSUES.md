@@ -473,6 +473,59 @@ migration regression.
 
 ---
 
+### 14. `testsolve()`'s path-0 oracle stream and the last path's solver stream share a starting seed
+
+**Affects:** confirmed on this branch's current code; **not** checked
+against 1.0.8 or the canonical repository, unlike issue 11 above — the
+shape of `get_testsolve_prnstreams`'s solver-stream derivation loop
+(accumulate `iseed` by jumping `ITER_STRIDE` once per solver stream,
+then use the final value directly as `orc_root`) looks like it predates
+the RNG redesign rather than being introduced by it, but that is an
+inference from reading the code, not a verified historical claim the
+way issue 11's is. **Severity:** correctness — a real independence
+violation between two roles `--isp`/`testsolve()` is supposed to keep
+independent, not just a labeling issue, though its practical effect on
+any given run's reported solution depends on how much the affected
+solver's own randomness actually influences its result.
+
+**What is wrong:** `get_testsolve_prnstreams(num_trials, iseed, ...)`
+builds each solver-role stream by repeatedly jumping `iseed` forward by
+one `ITER_STRIDE` (`solprn = get_next_prnstream(iseed); iseed =
+solprn.get_seed()`), then sets `orc_root = iseed` directly once the
+loop ends. The last solver stream built (`solprn_lst[-1]`) and
+`orc_root` therefore land at the *identical* position — and
+`orcprn_lst[0] = stream_at(orc_root, 0, 0)` is a zero-jump from
+`orc_root`, so it starts from that same raw seed too. Confirmed
+directly, not inferred from reading the code alone:
+
+```
+orc_root:                    (2338701263, 1119171942, 2570676563, 317077452, 3194180850, 618832124)
+solprn_lst[-1].get_seed():   (2338701263, 1119171942, 2570676563, 317077452, 3194180850, 618832124)
+orcprn_lst[0].get_seed():    (2338701263, 1119171942, 2570676563, 317077452, 3194180850, 618832124)
+```
+
+`orcprn_lst[0]` becomes the *oracle*-role stream for `--isp` path 0
+(simulation draws via `g()`); `solprn_lst[-1]` becomes the *solver*-role
+stream for the *last* path (that solver's own algorithm-level
+randomness — sampling, iteration order, whatever it draws beyond
+simulation calls). Both are used in the same `testsolve()` run, by
+different paths and different roles, from the identical starting point
+— not the independence `--isp` paths are meant to have from each other,
+found tracing the exact seed math ahead of §12 step 6b's own generic
+(backend-agnostic) rewrite of this function, not by looking for bugs.
+Unconditional: happens for any `num_trials >= 1`, not an edge case.
+
+**Status:** not fixed. §12 step 6b's own rewrite of `get_testsolve_
+prnstreams` (generalizing it onto a selected backend) deliberately
+reproduces this exact seed math byte-for-byte rather than fixing it
+inline — a real fix moves `testsolve()`'s own `endseed` and downstream
+solution sets (a golden-affecting change, needing its own sign-off and
+regression test observed failing first, per the working agreement),
+which is out of scope for a generator-selection change. Tracked here so
+it isn't silently carried forward unrecorded.
+
+---
+
 ## Development-history only (pre-1.0.8, no known users)
 
 ### 2. `--simpar` (parallel simulation replications)
