@@ -876,17 +876,21 @@ instance.
 
 **MOCOMPASS's `self.seeds` cross-point synchronization: confirmed
 deliberate, by the author, not an artifact — corrected from an earlier
-draft of this section, which left it open.** It implements a real,
+draft of this section, which left it open.** It *intends* a real,
 different CRN policy: points sharing the same cumulative sample-effort
 level (`nx[x]`) share underlying draws, regardless of iteration or point
-identity. That is a real requirement, and §4.3 addresses it directly —
-the earlier draft's proposed port ("just pass `crn=True`") was wrong,
-and wrong in an instructive way (§4.3). The *aliasing bug* — a later
-revisit landing on a checkpoint some other point's call happened to write
-last (§4.1) — stays a separate finding: a defect in `self.seeds` being a
-mutable dict two different call sites can overwrite, not in the
-synchronization policy itself. §4.3 shows the two separate cleanly once
-coordinates are computed instead of cached: the same policy is
+identity. (§4.3 has a further correction to this paragraph, found later,
+during implementation: today's mechanism only partially achieves that
+intent, independent of the aliasing bug below — read §4.3 before taking
+"implements" at face value.) That is a real requirement, and §4.3
+addresses it directly — the earlier draft's proposed port ("just pass
+`crn=True`") was wrong, and wrong in an instructive way (§4.3). The
+*aliasing bug* — a later revisit landing on a checkpoint some other
+point's call happened to write last (§4.1) — stays a separate finding: a
+defect in `self.seeds` being a mutable dict two different call sites can
+overwrite, not in the synchronization policy itself. §4.3 shows the two
+separate cleanly once coordinates are computed instead of cached: the
+same policy is
 expressible with nothing to overwrite, because nothing is stored.
 
 **Known issues in these two files, for context — not evidence for the
@@ -968,6 +972,46 @@ originally have in view: it doesn't just make the framework's own two
 built-in policies safe, it makes an arbitrary third one the same way, for
 free, because "safe" was never about which policy — it was about giving
 up cached, mutable position-tracking at all.
+
+**Correction, found during §12 step 3's implementation, not anticipated
+here: "the identical policy the paper's algorithm wants" overstates what
+today's `self.seeds` mechanism actually achieves, so `sync=` is not
+purely preserving it.** Implementing step 3's replacement for `Oracle`'s
+CRN protocol required instrumenting the pre-step-3 code directly, and
+that turned up something this section didn't have in view: `Oracle.
+crn_nextobs()` — the method that decided where each replication's stream
+landed — always jumped from its own internally-tracked `crn_obsold`,
+never from `self.rng`'s live state, so MOCOMPASS's `rng.setstate(start_
+state)` call is honored for exactly one draw (`g()` runs before `crn_
+nextobs()` does) and ignored for every replication after the first
+within that `hit()` call, and for `end_state` itself — confirmed
+empirically, not inferred, by checking `self.crn_obsold ==
+self.rng.getstate()` at the moment `crn_nextobs()` consults it, against
+a real MOCOMPASS run (`crn_obsold` never matched). Full derivation in
+`docs/mocompass-mopbnb-known-issues.md` item 4, alongside item 3's
+aliasing bug this is distinct from — that bug corrupts an already-
+partial mechanism, it isn't the only thing standing between today's code
+and the paper's intended synchronization.
+
+Concretely, this means `self.orc.hit(x, ax, sync=nx[x])` does not
+reproduce what `self.seeds`-based MOCOMPASS actually computes today —
+it reproduces what the *paper's* policy computes, which today's
+implementation only partially achieves (correctly for each checkpoint's
+first replication, not for the rest). **Porting MOCOMPASS onto `sync=`
+is therefore a behavior change to that solver, not a refactor of it** —
+this document's own working-agreement discipline (CLAUDE.md: patching
+vs. rewriting, and reporting findings before fixing them) applies to
+that port the same way it applies to any other behavior change: MOCOMPASS's
+own golden(s) move when `sync=` lands and it's ported, for a real reason
+(closer alignment with the cited algorithm), not an incidental one, and
+that needs the same sign-off any golden move needs, not silent
+regeneration. It also means the eventual correctness review against Li
+et al. (2015) inherits an open question from here, not an assumption:
+whether the paper's synchronization, once actually implemented via
+`sync=`, changes MOCOMPASS's empirical behavior/convergence relative to
+what this branch's `self.seeds`-based version has been producing — a
+question that review needs to check directly, since this document
+cannot settle it from the interface side alone.
 
 `SYNC_ROLE_OFFSET` needs its own disjoint region of the coordinate space
 (a third value alongside `{solver, oracle}` for `role`, §3.4), not a
@@ -1170,10 +1214,15 @@ call), not folded into it:
     the direct check that `SYNC_ROLE_OFFSET` actually gives `sync` its
     own region rather than merely making collision unlikely. Also assert
     the specific property MOCOMPASS's port depends on: two `hit()` calls
-    for different `x`, same `sync` value, produce identical draws,
-    independent of call order — the operational demonstration that
-    computed coordinates give the same cross-point sharing MOCOMPASS's
-    `self.seeds` gave, without its aliasing failure mode (§4.1, §4.3).
+    for different `x`, same `sync` value, produce identical draws for
+    *every* replication, independent of call order — the operational
+    demonstration that computed coordinates give MOCOMPASS's *intended*
+    cross-point sharing (the paper's policy) in full. `self.seeds` never
+    actually did this beyond each checkpoint's first replication (§4.3,
+    docs/mocompass-mopbnb-known-issues.md item 4), independent of its
+    separate aliasing failure mode (§4.1) — so this item is checking that
+    `sync=` achieves something `self.seeds` didn't, not merely that it
+    reproduces `self.seeds` more safely.
 
 §8.1 says plainly what this buys and what remains a gap until it exists.
 
@@ -1430,7 +1479,13 @@ flag/kwarg.
   omitting both reproduces its current single-visit-per-point behavior
   exactly. A solver ported to use `sync` explicitly (MOCOMPASS, §4.3)
   gets to delete state (`self.seeds`, every `getstate`/`setstate` call),
-  not add any.
+  not add any — but, unlike every other bullet in this section, that
+  port is not a pure compatibility no-op for MOCOMPASS specifically: its
+  own numerical output moves, on purpose, because §4.3's correction
+  found `self.seeds` never gave it the paper's synchronization beyond
+  each checkpoint's first replication. This is the one item in this
+  "what breaks" section that names a genuine behavior change, not
+  reassurance that nothing does.
 
 ## 11. Open questions
 
