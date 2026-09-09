@@ -1674,6 +1674,34 @@ behavior-changing (goldens move, on purpose, with sign-off).
    switch below to already be in effect, this document would say so and
    keep step 4 whole rather than claim a separation that isn't real — it
    doesn't.
+
+   **Convergence item, found during implementation, not designed in
+   advance: `_hit_opt_in` (the method backing `visit`/`sync`) is a
+   second replication loop, structurally parallel to `hit()`'s own —
+   same shape CLAUDE.md's own working agreement already flags for
+   `bump()` ("duplicates `hit()`'s replication loop," the stated reason
+   `bump()` is being removed).** It already drifted once before landing:
+   an early version omitted `hit()`'s `m==1` special case (avoiding
+   `statistics.variance()`'s two-point minimum), caught only because a
+   test happened to call it at `m==1` (§7.1's own tests, not any
+   production path). Two independent implementations of the same
+   replication-and-aggregation logic is exactly the shape that produces
+   this class of bug — a fix to one loop's edge case not propagating to
+   the other's, silently, until something exercises the gap. Not
+   resolved here: `hit()` and `_hit_opt_in` differ only in how a
+   replication's stream is obtained (the live, advancing `rng` versus a
+   coordinate computed fresh per call), not in what happens to the
+   result once obtained (feasibility check, mean/variance aggregation,
+   `m==1` short-circuit) — that shared part should become one function
+   the two paths both call, not two copies kept in sync by discipline.
+   Whether that unification happens as part of step 4b (once the
+   default path also moves to coordinate-based computation, at which
+   point `hit()` and `_hit_opt_in` may converge on their own) or is left
+   for the executor rework (CLAUDE.md's in-flight decision, "work
+   expressed as data... seeds as computed values rather than object
+   state" — a rework that touches this exact seam) is an open call, not
+   decided here; recorded so it doesn't ship as two replication loops
+   indefinitely by default by nobody having named it.
 4b. **[behavior-changing, needs sign-off]** The switch: two changes,
    bundled, because both restructure the same schedule and regenerating
    goldens twice for overlapping reasons wastes a review pass. (a) Remove
