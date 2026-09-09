@@ -1174,13 +1174,38 @@ class Oracle(object):
     Attributes
     ----------
     rng : prng.MRG32k3a object
-    pseudo-random number generator used by the Oracle to simulate
-    objective values at feasible points
-    crnold_state : tuple
-    Tuple of length 2. The first item is a tuple of int, which is
-    an mrg32k3a seed. The second is random.Random state.
-    crn_obsold : tuple
-    Like crnold_state
+    pseudo-random number generator, handed to `g(x, rng)` for each
+    replication. hit()/bump() use it as the *live* draw source but do
+    not treat its value between calls as authoritative -- a custom
+    MOSOSolver may set it directly before calling hit() (MOCOMPASS, an
+    in-tree example, does exactly this, via rng.setstate(), as its own
+    cross-point synchronization mechanism -- see docs/mocompass-mopbnb-
+    known-issues.md and docs/rng-interface-design.md §4.2/§4.3). What
+    actually drives the framework's own stream progression is
+    _next_seed, below, not `rng` itself.
+    _iteration : int
+    Count of completed crn_advance() calls (one per RA iteration).
+    Meaningful mainly under crnflag=True, where it determines the
+    current iteration's baseline coordinate; tracked unconditionally
+    since it costs nothing and later steps (visit=/sync=) need it.
+    _iteration_baseline_seed : tuple of int
+    The current RA iteration's baseline mrg32k3a seed -- what
+    crnold_state used to hold. Under crnflag=True, hit()/bump() rewind
+    both `rng` and _next_seed to this seed at the start of every call,
+    so different points visited in the same iteration draw from the
+    same baseline (this rewind-then-walk-forward *is* what "common
+    random numbers" means here -- see §2). Under crnflag=False it is
+    tracked but never used to rewind anything.
+    _next_seed : tuple of int
+    Where the *next* replication's stream starts -- what crn_obsold
+    used to hold. Advances by exactly one 2**76 hop per replication,
+    computed from its own previous value, never from wherever `rng`
+    happened to end up (`g()`'s own draws mutate `rng`, and a solver may
+    externally overwrite it -- see `rng` above; both are irrelevant to
+    this progression, by design, the same way they were irrelevant to
+    crn_obsold's). `rng` is reset to this value immediately before every
+    jump, discarding whatever it held, so the two stay equal exactly at
+    the boundary between replications -- never assumed equal mid-call.
     crnflag : bool
     Indicates whether common random numbers is turned on or off.
     Defaults to off.
@@ -1199,9 +1224,18 @@ class Oracle(object):
 
     def __init__(self, rng):
         self.rng = rng
-        self.crnold_state = rng.getstate()
         self.crnflag = False
-        self.crn_obsold = rng.getstate()
+        self._iteration = 0
+        # Not rng.get_seed() here: commands/solve.py/testsolve.py
+        # construct a throwaway Oracle over a plain random.Random() --
+        # not MRG32k3a, no get_seed() -- purely to read .dim, and never
+        # call set_crnflag() on it. crnflag defaults to False, so
+        # _iteration_baseline_seed is never dereferenced unless
+        # set_crnflag() runs first and gives it a real value -- every
+        # real solve()/testsolve()/mp_replicate() path does exactly
+        # that before any hit()/bump()/crn_advance() call.
+        self._iteration_baseline_seed = None
+        self._next_seed = None
         super().__init__()
 
 
@@ -1257,69 +1291,68 @@ class Oracle(object):
 
     def set_crnflag(self, crnflag):
         """
-        Set the common random number (crn) flag and intialize the
-        crn states.
+        Set the common random number (crn) flag and initialize the
+        iteration baseline.
 
         Parameters
         ----------
         crnflag: bool
         """
         self.crnflag = crnflag
-        self.crnold_state = self.rng.getstate()
-
-    def set_crnold(self, old_state):
-        """
-        Set the crn rewind state.
-
-        Parameters
-        ----------
-        old_state : tuple
-        """
-        self.crnold_state = old_state
-
-    def crn_reset(self):
-        """
-        Rewind to the 'crnold_state'.
-        """
-        crn_state = self.crnold_state
-        self.rng.setstate(crn_state)
-        self.crn_setobs()
+        self._iteration = 0
+        self._iteration_baseline_seed = self.rng.get_seed()
+        self._next_seed = self.rng.get_seed()
 
     def crn_advance(self):
         """
-        Jump ahead to the new crn baseline, and set the new rewind point
+        Advance to the next RA iteration's baseline stream: under
+        crnflag=True, one 2**127 jump ahead of the *current* iteration's
+        baseline -- iteration k's baseline is `orc_root + k*2**127` by
+        induction, docs/rng-interface-design.md §2. Under crnflag=False,
+        the same unconditional 2**127 jump this method has always
+        performed, from wherever _next_seed's ongoing forward walk
+        currently sits -- part of the deliberately order-dependent
+        compatibility encoding this step preserves (§3.4/§12 step 3),
+        not a rewind. Jumps from _next_seed, never from `rng`'s live
+        value directly: by the time this runs (after every point any
+        RA iteration visits has returned from hit()/bump()), the two
+        are always equal anyway (see _next_seed's own docstring above),
+        but computing from the authoritative tracker rather than
+        `rng` keeps that invariant explicit rather than assumed.
+
+        Kept as a public method, unlike the crn_reset/crn_check/
+        crn_setobs/crn_nextobs helpers this replaces (removed -- nothing
+        outside Oracle called them): MOCOMPASS/MOPBnB, two in-tree,
+        crnflag=False-only solvers, call `orc.crn_advance()` directly,
+        once, at the end of their own solve() (see docs/mocompass-
+        mopbnb-known-issues.md and docs/rng-interface-design.md §4.2) --
+        removing the solver-facing surface entirely is a later, separate
+        step (§4.3's sync=), not this one.
         """
-        self.crn_check()
-        self.rng = get_next_prnstream(self.rng.get_seed(), self.crnflag)
-        new_oldstate = self.rng.getstate()
-        self.set_crnold(new_oldstate)
-        self.crn_obsold = new_oldstate
+        if self.crnflag:
+            self._next_seed = self._iteration_baseline_seed
+        self.rng = get_next_prnstream(self._next_seed, self.crnflag)
+        self._iteration += 1
+        self._iteration_baseline_seed = self.rng.get_seed()
+        self._next_seed = self.rng.get_seed()
         if self.crnflag:
             self.rng.generate.cache_clear()
             self.rng.bsm.cache_clear()
 
-    def crn_check(self):
-        '''
-        Reset to crn_oldstate if crnflag
-        '''
-        if self.crnflag:
-            self.crn_reset()
-
-    def crn_setobs(self):
-        '''
-        Set an intermediate rewind point for jumping correctly.
-        '''
-        state = self.rng.getstate()
-        self.crn_obsold = state
-
-    def crn_nextobs(self):
-        '''
-        Jump to the next substream from the start of the previous.
-        '''
-        state = self.crn_obsold
-        self.rng.setstate(state)
+    def _advance_replication(self):
+        """
+        Jump `rng` one 2**76 hop past the Oracle's own tracked position
+        (_next_seed), discarding whatever `rng` currently holds --
+        whatever g() itself just drew, or whatever a solver may have
+        set it to directly (see `rng`'s own docstring above) -- exactly
+        as crn_nextobs() always discarded both by resetting to
+        crn_obsold before jumping, regardless of what g() or external
+        code did to `rng` in between. _next_seed then advances to
+        match.
+        """
+        self.rng.seed(self._next_seed)
         jump_substream(self.rng)
-        self.crn_setobs()
+        self._next_seed = self.rng.get_seed()
 
     def bump(self, x, m):
         """
@@ -1351,14 +1384,16 @@ class Oracle(object):
         else:
             mr = range(m)
             feas = []
+            if self.crnflag:
+                self.rng.seed(self._iteration_baseline_seed)
+                self._next_seed = self._iteration_baseline_seed
             for i in mr:
                 oisfeas, objd = self.g(x, self.rng)
                 feas.append(oisfeas)
                 obs.append(objd)
-                self.crn_nextobs()
+                self._advance_replication()
             if all(feas):
                 isfeas = True
-        self.crn_check()
         return isfeas, obs
 
     def hit(self, x, m):
@@ -1390,11 +1425,14 @@ class Oracle(object):
         obse = []
         mr = range(m)
         assert(m >= 1)
+        if self.crnflag:
+            self.rng.seed(self._iteration_baseline_seed)
+            self._next_seed = self._iteration_baseline_seed
         if m == 1:
             isfeas, objd = self.g(x, self.rng)
             obmean = objd
             obse = [0 for o in objd]
-            self.crn_nextobs()
+            self._advance_replication()
         else:
             feas = []
             objm = []
@@ -1406,7 +1444,7 @@ class Oracle(object):
                     # only what actually varies per replication.
                     cseed = self.rng.get_seed()
                     self.req_q.put((x, cseed))
-                    self.crn_nextobs()
+                    self._advance_replication()
                 for i in mr:
                     # block until parallel results are ready
                     isfeasi, oval = self.res_q.get()
@@ -1418,13 +1456,12 @@ class Oracle(object):
                     isfeasi, oval = self.g(x, self.rng)
                     feas.append(isfeasi)
                     objm.append(oval)
-                    self.crn_nextobs()
+                    self._advance_replication()
             if all(feas):
                 isfeas = True
                 obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
                 obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
                 obse = tuple([sqrt(obvar[i]/m) for i in dr])
-        self.crn_check()
         return isfeas, obmean, obse
 
     def g(self, x, rng):
