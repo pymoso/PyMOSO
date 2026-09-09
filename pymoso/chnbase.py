@@ -337,8 +337,7 @@ class RASolver(MOSOSolver):
     -------
     resdict : dict
         """
-        seed1 = self.orc.rng.get_seed()
-        self.endseed = seed1
+        self.endseed = self.orc.get_endseed()
         lesnu = dict()
         simcalls = dict()
         lesnu[0] = set() | {self.x0}
@@ -395,7 +394,7 @@ class RASolver(MOSOSolver):
             #print('spsolve: ', phatnu[self.nu])
             simcalls[self.nu] = self.num_calls
             self.orc.crn_advance()
-            self.endseed = self.orc.rng.get_seed()
+            self.endseed = self.orc.get_endseed()
 
     def get_min(self, mcS):
         """
@@ -1254,6 +1253,17 @@ class Oracle(object):
         # contiguous block instead of restarting at 0 (MOPBnB's own
         # need, see hit()). Reset whenever the iteration advances.
         self._replications_drawn = {}
+        # §12 step 8: the oracle-role coordinate high-water mark, one
+        # past the far edge of every replication reserve actually
+        # touched via hit()/bump() (any branch) or _hit_via_coordinate,
+        # relative to `_orc_root` -- see get_endseed()'s own docstring
+        # for the full contract and its oracle-role-only scope.
+        # Monotonic for the Oracle's lifetime (reset only in
+        # set_crnflag(), matching `_iteration`'s own reset there) --
+        # never reset by crn_advance(), since every branch's coordinate
+        # formula is `_iteration`-scaled by ITER_STRIDE/SYNC_ROLE_OFFSET
+        # terms that only ever increase as `_iteration` advances.
+        self._high_water_mark = 0
         super().__init__()
 
 
@@ -1329,6 +1339,66 @@ class Oracle(object):
         # solve()/testsolve()/mp_replicate() call path.
         self._orc_root = self.rng.get_seed()
         self._replications_drawn = {}
+        self._high_water_mark = 0
+
+    def _touch_coordinate(self, one_past_end):
+        """
+        Record that oracle-role coordinates up to (but not including)
+        `one_past_end` -- relative to `_orc_root` -- have now been
+        touched. Called once per hit()/bump() replication block, from
+        every branch that computes a coordinate (§12 step 8).
+
+        `one_past_end` must already account for each replication's own
+        reserve, not just its starting position -- the exact off-by-one
+        this method exists to get right in one place rather than at
+        every call site: a block of `m` replications starting at `base`
+        with per-replication reserve `stride` occupies
+        `[base, base + m*stride)`, so the caller passes
+        `base + m*stride`, not `base + (m-1)*stride`.
+
+        Parameters
+        ----------
+        one_past_end : int
+            Non-negative.
+        """
+        if one_past_end > self._high_water_mark:
+            self._high_water_mark = one_past_end
+
+    def get_endseed(self):
+        """
+        A stream guaranteed not to overlap anything this Oracle has
+        actually handed to `g()` so far -- §8.2's high-water-mark
+        `endseed` (docs/rng-interface-design.md), replacing
+        `crn_advance()`'s own call-count-only reporting (`_iteration *
+        ITER_STRIDE`), which lost real information (confirmed
+        empirically: MOCOMPASS and MOPBnB used to report identical
+        `endseed`s for verified-different consumption).
+
+        **Oracle-role only** (§8.2's own explicit scoping, not "every
+        role" a run touches): a solver's own draws -- `RASolver`'s
+        `sprn`/`solvprn`/`xprn`, `RLESolver`'s equivalents -- are not
+        coordinate-based yet (no onboarded generator's `stream_at`
+        covers solver-role today), and are a structurally separate
+        concern from what this method can see: `solvprn` is an ordinary
+        `MRG32k3a` stream, advanced one raw draw at a time the way
+        `random.Random` always has been, so reaching the coordinate
+        region oracle-role coordinates occupy (`ITER_STRIDE = 2**127`
+        and up, per iteration) would take on the order of 2**127
+        ordinary draws -- not reachable in practice, but a real
+        limitation of this method's guarantee, not covered tracking
+        described as "every role." A caller relying on `get_endseed()`
+        to also bound solver-role consumption would be relying on
+        something this method does not actually provide.
+
+        Returns
+        -------
+        tuple of int
+            A seed at least as far as `_high_water_mark` past
+            `_orc_root` -- safe to hand to independent, unrelated work
+            (e.g. a fresh `MOSOSolver` run) without risk of overlapping
+            anything this run's oracle-role coordinates touched.
+        """
+        return jump_seed_n(self._orc_root, self._high_water_mark)
 
     def crn_advance(self):
         """
@@ -1411,6 +1481,16 @@ class Oracle(object):
         3 left it -- a caller under crnflag=False would get the old,
         order-dependent walk, not step 4b's fix.
 
+        get_endseed()'s high-water mark (§12 step 8) is only updated
+        here for crnflag=True: that branch's coordinate is still
+        `_iteration*ITER_STRIDE + replication*REPL_STRIDE`, the same
+        formula hit()'s own CRN branch uses, so it's cheap and correct
+        to fold in. The crnflag=False branch's old order-dependent walk
+        has no coordinate in the current scheme at all to report --
+        another entry on this method's already-long list of known gaps
+        (no in-tree callers is exactly why this hasn't been worth fixing
+        rather than removing bump() outright).
+
         Parameters
         ----------
         x : tuple of int
@@ -1446,6 +1526,8 @@ class Oracle(object):
                 self._advance_replication()
             if all(feas):
                 isfeas = True
+            if self.crnflag:
+                self._touch_coordinate(self._iteration * ITER_STRIDE + m * REPL_STRIDE)
         return isfeas, obs
 
     def _hit_via_coordinate(self, x, m, visit, sync, start_replication=0):
@@ -1527,6 +1609,7 @@ class Oracle(object):
             for _ in mr:
                 seeds.append(seed)
                 seed = jump_seed_n(seed, REPL_STRIDE)
+            stride = REPL_STRIDE
         else:
             W = point_width(len(x))
             base = self._iteration * ITER_STRIDE + offset_within_iteration(x, visit, start_replication, W)
@@ -1534,6 +1617,11 @@ class Oracle(object):
             for _ in mr:
                 seeds.append(seed)
                 seed = jump_seed_n(seed, REPL_RESERVE_STRIDE)
+            stride = REPL_RESERVE_STRIDE
+        # §12 step 8: this block's own replications span
+        # [base, base + m*stride) -- see _touch_coordinate's own
+        # docstring for why it's m*stride, not (m-1)*stride.
+        self._touch_coordinate(base + m * stride)
         feas = []
         objm = []
         if self.simpar > 1:
@@ -1705,6 +1793,11 @@ class Oracle(object):
                 obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
                 obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
                 obse = tuple([sqrt(obvar[i]/m) for i in dr])
+        # §12 step 8: this iteration's replications span
+        # [_iteration*ITER_STRIDE, _iteration*ITER_STRIDE + m*REPL_STRIDE)
+        # -- same "m*stride, not (m-1)*stride" reasoning as
+        # _hit_via_coordinate's own _touch_coordinate call.
+        self._touch_coordinate(self._iteration * ITER_STRIDE + m * REPL_STRIDE)
         return isfeas, obmean, obse
 
     def g(self, x, rng):

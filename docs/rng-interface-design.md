@@ -1377,7 +1377,12 @@ the working agreement, and not what this document is proposing.
 high-water mark per run: the largest coordinate index actually passed to
 `stream_at`, across every role a run touches (solver, oracle, and the
 sync range if `sync=` was used, §4.3) — updated on every `stream_at`
-call, not derived after the fact. At the end of `solve()`/`testsolve()`,
+call, not derived after the fact. **Landed differently, oracle-role
+only — see the "Wired in as of step 8 stage 1" note below** for why
+solver-role isn't covered and why that's a real, stated limitation
+rather than a gap in "every role" above; everything else in this
+section (the guarantee's shape, its caveat, the opaque-token framing)
+is unchanged from the original design. At the end of `solve()`/`testsolve()`,
 `endseed` is the seed value `stream_at(root, high_water_mark + 1)` would
 produce — computed directly from a known extent, not read off wherever
 an accumulated walk happened to stop (the concept §5/§8 already
@@ -1426,32 +1431,84 @@ MRG32k3a, whatever Philox's own shape is — and (2) users copy-paste it
 into a follow-up `--seed`, they don't interpret it. No new "readable"
 representation is being introduced.
 
-**Not wired in as of step 4b — flagged here so the gap is recorded where
-the target design lives, not only in a commit message.** This section
-settles what `endseed` *should* become; step 4b does not implement the
-high-water-mark tracking described above. `crn_advance()` still reports
-based on its own call count (`self._iteration * ITER_STRIDE`, jumped
-once per call) — real movement, but not a high-water mark of what the
-run actually consumed via `hit()`'s own coordinate computation, which
-`crn_advance()` never observes (§12 step 4b's own `_next_seed` docstring
-already says this precisely: "the *only* thing that ever advances
-[`_next_seed`/`rng`], for either crnflag value ... always by exactly one
-clean 2**127 hop"). Confirmed, not just reasoned about: MOCOMPASS and
-MOPBnB, which call `crn_advance()` exactly once regardless of how many
-replications their own `solve()` actually consumed internally, now
-report *identical* `endseed`s for identical seed/problem/budget, despite
-verified-different internal consumption (1440 replications for one case,
-a different count for the other) — the concrete, checked instance of
-this gap, not a hypothetical one. Every `crnflag=False` case currently
-reports iteration-*count* only, never point/replication consumption
-within an iteration; MOCOMPASS/MOPBnB simply make this visible in the
-starkest way, since their own count is always 1. **When this section's
-real formula is actually wired into `chnutils.py`/`RASolver.rasolve`'s
-reporting — a separate step, not yet assigned a number in §12 — every
-`crnflag=False` golden moves again**, not only the MOCOMPASS/MOPBnB
-pair: the mechanism changes for all of them, even though today's step
-4b values already reflect *something* real (`self._iteration`), just
-not the high-water mark this section actually promises.
+**Wired in as of step 8 stage 1 (`solve()`'s own path) — oracle-role
+only, a deliberate, stated scope, not "every role" above.**
+`Oracle.get_endseed()` (`pymoso/chnbase.py`) tracks `_high_water_mark`,
+updated at every call site that computes an oracle-role coordinate:
+`hit()`'s CRN branch, `bump()` under `crnflag=True` (its own
+crnflag=False branch has no coordinate in the current scheme to
+report — a documented, pre-existing gap, not new here), and
+`_hit_via_coordinate`'s offset/sync branches alike.
+`RASolver.solve()`/`rasolve()` and MOCOMPASS/MOPBnB's own `solve()`
+methods (all three, not just `RASolver` — fixing one and not the other
+two would be worse than fixing neither) now report `orc.get_endseed()`
+instead of `orc.rng.get_seed()`.
+
+**Solver-role is explicitly out of scope, and here's why that's safe in
+practice, not just unaddressed:** `RASolver`'s own `sprn`/`solvprn`
+(and `RLESolver`'s equivalents) are not coordinate-based — no onboarded
+generator's `stream_at` covers solver-role yet — so they draw as an
+ordinary, uninstrumented `MRG32k3a` stream, one raw step at a time.
+Reaching the coordinate region oracle-role's own `ITER_STRIDE`-scaled
+coordinates occupy would take on the order of `2**127` such draws —
+not reachable by anything that runs to completion, so `get_endseed()`'s
+guarantee holds *in practice* against solver-role's own draws too, but
+that's a consequence of solver-role's draw volume being astronomically
+small relative to `ITER_STRIDE`, not something this method tracks or
+checks. A caller that actually needs the guarantee to cover solver-role
+formally (not just practically) is relying on something `get_endseed()`
+does not yet provide — recorded as a real, stated limitation, not
+"every role" as the original text above claimed before this landed.
+
+**Confirmed, not assumed, that oracle-role tracking fixes the concrete
+gap this section identified before landing:** MOCOMPASS and MOPBnB,
+which used to report *identical* `endseed`s for identical
+seed/problem/budget despite verified-different internal consumption,
+now diverge — `1146796796...` vs `3809509318...` for the
+`mocompass_tpa`/`mopbnb_tpa` golden cases, checked directly.
+
+**A finding, surfaced and accepted, not forced to match a
+pre-registered expectation:** `rperle_tpa_crn` — the one CRN-branch
+golden case, expected *not* to move (the CRN branch's own coordinate
+formula was reasoned, before implementing, to already coincide with a
+true high-water mark) — moved anyway. Traced precisely: `rasolve()`'s
+loop calls `self.orc.crn_advance()` unconditionally after every
+`spsolve()`, including the final one that exhausts the budget (the
+`while` condition is only checked at the top of the loop, so this last
+`crn_advance()` runs with nothing after it). Combined with the
+pre-existing offset between `nu` and `Oracle._iteration` (iteration
+`nu`'s own `spsolve()` runs at `orc._iteration = nu - 1`;
+`crn_advance()` then bumps `_iteration` to `nu`), the old endseed
+(`orc.rng.get_seed()` after that trailing `crn_advance()`) reported
+`nu_final * ITER_STRIDE` — a full, unused `ITER_STRIDE` (`2**127`) past
+the last iteration whose replications were actually drawn
+(`(nu_final-1) * ITER_STRIDE + m * REPL_STRIDE`). Confirmed directly by
+instrumenting a real run: every `hit()` call happened at
+`orc._iteration = 6`, `m = 4`, giving a high-water mark of exactly
+`6*ITER_STRIDE + 4*REPL_STRIDE` — bit-for-bit what `get_endseed()`
+computed. **The pre-registered expectation was wrong, not the
+implementation**: it didn't account for this trailing, unconditional
+`crn_advance()` call. The new value is not a regression — it's tighter
+(reflects real consumption) while remaining provably safe (nothing ran
+at `_iteration = nu_final`, so nothing beyond the new value was ever
+touched); the old value was simply more conservative than it needed to
+be, for the CRN branch specifically. This also makes the CRN case
+consistent with every other one: every `endseed` now reflects actual
+consumption rather than a reserved position, oracle-role-wide, not just
+for the cases that already visibly collided. The trailing
+`crn_advance()` call itself is left alone deliberately — harmless now
+that `endseed` no longer depends on `rng`'s own walk position, and
+restructuring `rasolve()`'s loop to save one unused jump is churn on a
+path everything else depends on for no behavioral gain. Noted here as
+an observation, not a to-do.
+
+**Every `crnflag=False`/CRN golden moved in this pass** — not only the
+MOCOMPASS/MOPBnB pair and `rperle_tpa_crn`: the mechanism changed for
+all of them, even though the step-4b/step-8-prerequisite values already
+reflected *something* real, just not the high-water mark this section
+promises. `testsolve()`'s own end seed is unaffected by this stage —
+still `get_testsolve_prnstreams`'s reservation value, a separate piece
+of scope, staged as its own follow-on (below).
 
 **`testsolve` keeps the same logic as `solve`, deliberately, not as a
 special case.** The single high-water-mark tracked across every `isp`
@@ -2002,39 +2059,70 @@ moved — expected, and the point of that golden's existence: it is
 sensitive to consumption changes end-seed goldens cannot see at all,
 exactly as `docs/end-seed-scope.md` says.
 
-8. **[known-necessary, not yet scheduled relative to steps 5-6]** Wire
-   §8.2's real `endseed` formula — a tracked high-water mark of every
-   coordinate actually passed to `stream_at`, across every role a run
-   touches, updated on every such call — into `chnutils.py`'s
+8. **[behavior-changing, needs sign-off — stage 1 done, stage 2 a
+   follow-on]** Wire §8.2's real `endseed` formula into `chnutils.py`'s
    `solve()`/`testsolve()` and `RASolver.rasolve`'s reporting, replacing
    `crn_advance()`'s call-count-only jump (§8.2's own gap, found once
-   step 4b actually landed, not designed in advance: `endseed` currently
-   reports `self._iteration * ITER_STRIDE`'s position, which is real
-   movement but not what a run actually consumed via `hit()`'s own
-   coordinate calls — confirmed concretely, not hypothetically, since
-   MOCOMPASS and MOPBnB, which call `crn_advance()` exactly once
-   regardless of internal replication count, now report *identical*
-   `endseed`s for identical seed/problem/budget despite verified-
-   different consumption).
+   step 4b actually landed: `endseed` used to report
+   `self._iteration * ITER_STRIDE`'s position, real movement but not
+   what a run actually consumed via `hit()`'s own coordinate calls —
+   confirmed concretely, since MOCOMPASS and MOPBnB, which call
+   `crn_advance()` exactly once regardless of internal replication
+   count, used to report *identical* `endseed`s for identical
+   seed/problem/budget despite verified-different consumption). Staged
+   in two, deliberately: `solve()`'s own path first, `testsolve()`'s
+   cross-path aggregation as a separate follow-on, since the latter
+   crosses the `--proc` worker boundary — where every multiprocessing
+   bug in this project has lived — and the two stages have different
+   verification signatures (`solve()`: `mocompass_tpa`/`mopbnb_tpa`
+   diverging; `testsolve()`: the three-way `testsolve_tpa`/
+   `testsolve_mocompass`/`testsolve_mopbnb` match breaking), so checking
+   them independently is more informative than one combined
+   regeneration, and a failure tells you which half.
 
-   Needs: a running high-water-mark tracker threaded through `Oracle`
-   (updated wherever a coordinate is actually computed — `hit()`'s
-   default path and `_hit_via_coordinate`'s opt-in `visit`/`sync` calls
-   alike, across whichever roles a run touches), and the `solve()`/
-   `testsolve()`/`RASolver.rasolve` call sites that currently read
-   `self.orc.rng.get_seed()` switched to read the tracker instead.
+   **Stage 1 (`solve()`'s path) — done:** `Oracle.get_endseed()`
+   (`pymoso/chnbase.py`), **oracle-role only** — see §8.2's own "Wired
+   in as of step 8 stage 1" note for the full scoping reasoning
+   (solver-role isn't coordinate-based yet, and would need on the order
+   of `2**127` ordinary draws to reach where oracle-role begins — a
+   real, stated limitation, not "every role" covered). `RASolver.solve`/
+   `rasolve`, and MOCOMPASS/MOPBnB's own `solve()` methods, all
+   switched from `orc.rng.get_seed()` to `orc.get_endseed()` together —
+   fixing one and not the other two would be worse than fixing neither.
+   Confirmed: `mocompass_tpa`/`mopbnb_tpa` now diverge, as expected.
+   `rperle_tpa_crn` moved too, contrary to the pre-registered
+   expectation that it wouldn't — a real finding, traced to `rasolve()`'s
+   own trailing, unconditional `crn_advance()` call past the last used
+   iteration; full account, and why the new value is a correct
+   tightening rather than a regression, in §8.2. Left as an observation,
+   not a to-do: restructuring `rasolve()`'s loop to avoid that one
+   unused jump is churn on a path everything else depends on, for no
+   behavioral gain now that `endseed` no longer depends on `rng`'s walk
+   position at all.
 
-   **Every `crnflag=False` golden moves again when this lands** — not
-   only the MOCOMPASS/MOPBnB and testsolve-solver-identity cases that
-   happen to already collide today; the reporting mechanism changes for
-   all of them, even the ones whose step-4b value already reflects
-   *something* real. `tests/golden/README.md`'s own step-4b entry
-   already carries this note, so a reader of that provenance record
-   isn't relying on this document alone to know the values there are
-   intermediate.
+   **Every `crnflag=False`/CRN golden moved in this pass** — not only
+   the MOCOMPASS/MOPBnB pair; the reporting mechanism changed for all of
+   them. `tests/golden/README.md` carries the full list and reasoning.
+   `testsolve()`'s own end seed is unaffected by stage 1 — still
+   `get_testsolve_prnstreams`'s reservation value.
+
+   **Stage 2 (`testsolve()`'s cross-path aggregation) — the follow-on,
+   not yet done:** each `isp` path's own `Oracle` already tracks its own
+   `_high_water_mark` (stage 1's own mechanism, unchanged); stage 2 is
+   aggregating those across all `isp` paths — `t*ISP_STRIDE +
+   local_max` for the path with the largest local mark — replacing
+   `get_testsolve_prnstreams`'s current reservation-based "next `isp`
+   slot" value. Crosses the `--proc` worker boundary: each path's local
+   high-water mark has to come back from its own process (serial or
+   `--simpar`, already in-process; `--proc`'s own known fragility,
+   CLAUDE.md, is the reason this is staged separately rather than bundled
+   with stage 1). Verification signature: the three-way
+   `testsolve_tpa`/`testsolve_mocompass`/`testsolve_mopbnb` match
+   (currently identical, a `testsolve`-shaped analog of stage 1's
+   MOCOMPASS/MOPBnB collision) should hold or break in a way that's
+   traceable the same way stage 1's was, checked before regenerating,
+   not assumed.
 
    Explicitly not sequenced relative to MRG31k3p/Philox onboarding
    (steps 5-6) — independent concerns, could land before, after, or
-   between them. Listed here, not left as prose only in §8.2, per
-   CLAUDE.md's own caution about known-necessary work with no place in
-   a step list: that's how it gets lost.
+   between them.
