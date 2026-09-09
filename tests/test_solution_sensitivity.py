@@ -30,10 +30,10 @@ from pymoso.testers.tpatester import TPATester
 from pymoso.solvers.rperle import RPERLE
 
 EXPECTED_SOLUTIONS = {
-    0: {(20, 1)},
-    1: {(14, 7), (16, 7)},
-    2: {(9, 3)},
-    3: {(15, 15), (15, 16), (16, 16)},
+    0: {(38, 0), (41, 4)},
+    1: {(16, 6), (16, 7)},
+    2: {(5, 6), (6, 4)},
+    3: {(18, 19)},
 }
 
 
@@ -49,4 +49,4 @@ def test_testsolve_ranx0_solution_sets_match_baseline():
     assert actual == EXPECTED_SOLUTIONS
     # end seed is identical to the ranx0=False testsolve_tpa golden and
     # unaffected by which x0 was picked -- see docs/end-seed-scope.md.
-    assert end_seed == (1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063)
+    assert end_seed == (756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130)

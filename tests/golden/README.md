@@ -66,9 +66,105 @@ what every subsequent regeneration should do.
   CLI counterparts' end seeds exactly, as expected: the CLI commands
   are thin wrappers over these same functions.
 
-### Current values (post jump-ahead fix)
+**New, captured separately (MOCOMPASS/MOPBnB brought in-tree):**
+
+- Environment: `.venv-baseline`, CPython 3.10.21, same source tree.
+  Commit: `f884bf2` (parent of the commit bringing these solvers
+  in-tree). Re-run twice each, same determinism check as above.
+- `mocompass_tpa`, `mopbnb_tpa`: `ProbTPA`, `--param lb 0 --param ub 50`,
+  `x0=(40, 40)`, `--budget=1000`, matching the existing `ProbTPA` cases'
+  shape exactly. `testsolve_mocompass`, `testsolve_mopbnb`: same box,
+  `--isp=4`, mirroring `testsolve_tpa`'s shape.
+- Both `testsolve_*` cases' end seeds are identical to `testsolve_tpa`'s
+  and to each other -- expected, not a coincidence: per
+  `docs/end-seed-scope.md`, `testsolve`'s reported end seed is a pure
+  function of the stream-allocation schedule (`isp`/`MAX_RI`/`crn`/seed),
+  fixed before any solver runs, and does not depend on which solver or
+  what it actually does.
+- These two solvers' own `.sample()` calls needed a Python-3.11+
+  compatibility fix (wrapping set arguments in `sorted()`, since
+  `random.sample()` stopped accepting sets) before landing in-tree; this
+  necessarily changes the exact sequence of points sampled relative to
+  whatever these files' un-fixed, out-of-tree behavior gave under
+  Python 3.10's implicit set-iteration order. These values are captured
+  fresh against the fixed, in-tree code -- there was no prior in-tree
+  baseline to preserve continuity with. See
+  `docs/mocompass-mopbnb-known-issues.md` for detail.
+
+### Current values (post step 4b coordinate cutover)
+
+**Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
+installed editable, captured from the source tree directly. Commit:
+`18ab096` on the `pymoso-migration` branch (the step 4b cutover itself,
+the commit immediately prior to this regeneration). Command: `pytest
+tests/test_golden.py tests/test_solution_sensitivity.py -v`; also
+cross-checked against an independent capture under `.venv-dev` (CPython
+3.14) -- identical values, as expected (this arithmetic has no
+Python-version dependence).
+
+**Captured against `docs/rng-interface-design.md` §12 step 4b:**
+`MAX_RI`'s reservation walk removed from `get_testsolve_prnstreams`
+(`isp` now a direct `ISP_STRIDE`-based offset), and the `crnflag=False`
+default path cut over from the temporary running-ordinal compatibility
+encoding to `offset_within_iteration`/`point_code` -- fixing the order-
+dependence defect §2 of that document proves is a defect, not a
+characteristic to preserve. Every `crnflag=False` case below moved;
+`rperle_tpa_crn` is the one case that didn't, deliberately -- the CRN
+branch is untouched by step 4b, and its continued, unmodified value
+here is itself a regression check that the cutover didn't leak into it
+(§8.1's own point).
+
+**These values are an intermediate state, not a settled baseline --
+read this before relying on them.** `crn_advance()` currently reports
+`endseed` based only on its own call count (`self._iteration *
+ITER_STRIDE`), not a real high-water mark of what a run actually
+consumed via `hit()`'s own coordinate computation (`docs/rng-interface-
+design.md` §8.2, "settled" as a target design but not yet wired into
+`chnutils.py`/`RASolver.rasolve`'s reporting -- see §12's own step for
+that wiring, not yet scheduled relative to steps 5-6). Confirmed, not
+hypothetical: `mocompass_tpa` and `mopbnb_tpa` below report the
+*identical* end seed, and so do all three `testsolve_tpa`/
+`testsolve_mocompass`/`testsolve_mopbnb` cases -- both solvers in the
+first pair call `crn_advance()` exactly once regardless of how many
+replications they actually consumed internally (1440 for one, a
+different count for the other, checked directly), so today's endseed
+carries no information about that difference. **Every `crnflag=False`
+value below will move again** when §8.2's real formula is wired in --
+not just the two pairs that happen to already collide.
 
 | Case | End seed |
+|---|---|
+| rperle_tpa | `3003961408, 3529909391, 14538032, 3603919910, 566682685, 1235016484` |
+| rminrle_tpa | `927434978, 1593504038, 2143021818, 1749489845, 1330187821, 2371554242` |
+| rpe_tpa | `596094074, 2279636413, 3050913596, 1739649456, 2368706608, 3058697049` |
+| rspline_simpleso | `3728532268, 988545039, 1631700325, 1143954198, 2209269908, 1591407377` |
+| testsolve_tpa | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| rperle_tpa_crn | `3777646647, 1837464056, 4204654757, 664239048, 4190510072, 2959195122` |
+| rperle_tpa_seed2 | `894854942, 3096943843, 1340932684, 2817164986, 4019721871, 366681695` |
+| rperle_tpa_simpar2 | `3003961408, 3529909391, 14538032, 3603919910, 566682685, 1235016484` |
+| solve() library call | `3003961408, 3529909391, 14538032, 3603919910, 566682685, 1235016484` |
+| testsolve() library call | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| mocompass_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
+| mopbnb_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
+| testsolve_mocompass | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| testsolve_mopbnb | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+
+`rperle_tpa`/`rperle_tpa_simpar2` still match *each other*, confirmed
+explicitly, not just each against its own fresh baseline -- `--simpar`
+still doesn't enter the coordinate formula (§3.4).
+
+---
+
+## Historical: post jump-ahead-fix, pre-coordinate-cutover capture
+
+The values below are what `CASES` held between the jump-ahead fix
+landing and step 4b's coordinate cutover (the section above). Every
+`crnflag=False` value moved at that cutover, for the reason given
+above -- these are not restorable defaults; the pre-cutover non-CRN
+walk was order-dependent, which `docs/rng-interface-design.md` §2
+establishes is a defect, not a specification.
+
+| Case | Post jump-ahead-fix, pre-cutover end seed |
 |---|---|
 | rperle_tpa | `4226535370, 3918856659, 447968167, 400221883, 592996512, 2795685938` |
 | rminrle_tpa | `33132303, 325849388, 376624132, 1563924626, 293517807, 795864341` |
@@ -80,9 +176,13 @@ what every subsequent regeneration should do.
 | rperle_tpa_simpar2 | `4226535370, 3918856659, 447968167, 400221883, 592996512, 2795685938` |
 | solve() library call | `4226535370, 3918856659, 447968167, 400221883, 592996512, 2795685938` |
 | testsolve() library call | `1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063` |
+| mocompass_tpa | `1613792524, 277130510, 1927400324, 3116048775, 1439906304, 2566931280` |
+| mopbnb_tpa | `1428784311, 1122505905, 2703958324, 3312341562, 3339561538, 1282989044` |
+| testsolve_mocompass | `1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063` |
+| testsolve_mopbnb | `1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063` |
 
-None of these ten values has all six components divisible by 256 --
-confirmed directly, not just asserted -- unlike every pre-fix value
+None of these has all six components divisible by 256 -- confirmed
+directly, not just asserted -- unlike every pre-jump-ahead-fix value
 below, which does.
 
 ---
