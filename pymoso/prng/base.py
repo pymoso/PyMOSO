@@ -4,8 +4,22 @@ interface: the Stream protocol every conforming backend must satisfy
 (§3.2), the backward-compatibility adapter (§3.6) that lets a Stream be
 used anywhere a random.Random-shaped object is expected, and the
 non-CRN coordinate-assembly functions (point_code/offset_within_
-iteration, §3.4) -- pure integer arithmetic, generator-agnostic, used
-identically by every backend's crn=False branch.
+iteration, §3.4) -- pure integer positional-radix packing, generator-
+agnostic in its *logic*.
+
+Correction, §12 step 6c-completion: the packing logic is
+generator-agnostic, but the bit-width budget it packs into (module-level
+POINT_BITS/VISIT_BITS/REPL_COUNT_BITS/REPL_RESERVE_BITS below) is not --
+it is MRG-family's own 127-bit budget (sized to ITER_STRIDE=2**127),
+which only the MRG family's periods have room to absorb. point_width/
+offset_within_iteration now take that budget as parameters (defaulting
+to the constants below, so every existing MRG-only call site is
+unaffected) so a generator with a smaller native capacity -- Philox's
+own 118-bit budget, comfortably under its 128-bit counter but not under
+MRG's 127-bit stride -- can call the same packing logic with its own
+figures instead of silently reusing a budget sized for a different
+generator. See pymoso.prng.philox4x32's own point_width/
+offset_within_iteration.
 
 Stream/RandomCompatAdapter are not yet wired into any backend or into
 chnbase.py/chnutils.py -- scaffolding, built ahead of its first real
@@ -203,10 +217,10 @@ def zigzag(v):
     return 2 * v if v >= 0 else -2 * v - 1
 
 
-def point_width(dim):
+def point_width(dim, point_bits=POINT_BITS):
     """
     W: bits available per zigzagged component of a point, for a
-    problem of dimension `dim` -- POINT_BITS split evenly across
+    problem of dimension `dim` -- `point_bits` split evenly across
     `dim` components. Computed once per Oracle (from its own `dim`
     attribute), not a single fixed constant for every problem.
 
@@ -214,6 +228,18 @@ def point_width(dim):
     ----------
     dim : int
         Must be at least 1.
+    point_bits : int
+        The calling generator's own offset-budget allocation for the
+        point component (module-level `POINT_BITS` by default --
+        MRG-family's own 127-bit budget, §3.4). Not every generator
+        shares this budget: docs/rng-interface-design.md §12 step
+        6c-completion found `offset_within_iteration`/`point_width`
+        treated as "generator-agnostic, used identically by every
+        backend" when only the MRG family's periods actually have room
+        for it -- Philox's own, tighter capacity needs its own
+        `point_bits` (see `pymoso.prng.philox4x32.point_width`, which
+        calls this function with its own 72-bit figure rather than
+        redefining the packing logic).
 
     Returns
     -------
@@ -221,7 +247,7 @@ def point_width(dim):
     """
     if dim < 1:
         raise ValueError('dim must be at least 1, got {0}'.format(dim))
-    return POINT_BITS // dim
+    return point_bits // dim
 
 
 def point_code(x, W):
@@ -264,12 +290,15 @@ def point_code(x, W):
     return code
 
 
-def offset_within_iteration(x, visit, replication, W):
+def offset_within_iteration(x, visit, replication, W,
+                             visit_bits=VISIT_BITS,
+                             repl_count_bits=REPL_COUNT_BITS,
+                             repl_reserve_bits=REPL_RESERVE_BITS):
     """
     The crn=False branch's non-CRN coordinate component, within one RA
     iteration: point_code(x), `visit`, and `replication` packed into
     one integer, positionally (§3.4). `replication` is multiplied by
-    2**REPL_RESERVE_BITS, giving each replication a real reserved block
+    2**repl_reserve_bits, giving each replication a real reserved block
     -- not stride 1, which was this scheme's original defect (see
     REPL_RESERVE_BITS's own comment above): a caller drawing more than
     one raw value per replication (every built-in problem) would
@@ -284,11 +313,23 @@ def offset_within_iteration(x, visit, replication, W):
     ----------
     x : tuple of int
     visit : int
-        Non-negative, < 2**VISIT_BITS.
+        Non-negative, < 2**visit_bits.
     replication : int
-        Non-negative, < 2**REPL_COUNT_BITS.
+        Non-negative, < 2**repl_count_bits.
     W : int
-        point_width(len(x)).
+        point_width(len(x), point_bits=<this generator's own point_bits>).
+    visit_bits, repl_count_bits, repl_reserve_bits : int
+        The calling generator's own offset-budget allocation for each
+        field (module-level `VISIT_BITS`/`REPL_COUNT_BITS`/
+        `REPL_RESERVE_BITS` by default -- MRG-family's own 127-bit
+        budget). §12 step 6c-completion: the offset budget is a
+        property of the generator's own capacity (Philox's is 118
+        bits, not 127 -- comfortably under its own `COUNTER_BITS=128`,
+        not MRG-family's `ITER_STRIDE=2**127`), not shared framework
+        state that happened to fit every generator examined so far.
+        `pymoso.prng.philox4x32.offset_within_iteration` calls this
+        function with its own, tighter figures rather than redefining
+        the packing logic.
 
     Returns
     -------
@@ -299,26 +340,26 @@ def offset_within_iteration(x, visit, replication, W):
     PointCodeOverflow
         See point_code.
     VisitOverflow
-        `visit` >= 2**VISIT_BITS.
+        `visit` >= 2**visit_bits.
     ReplicationOverflow
-        `replication` >= 2**REPL_COUNT_BITS.
+        `replication` >= 2**repl_count_bits.
     """
-    if visit >= (1 << VISIT_BITS):
+    if visit >= (1 << visit_bits):
         raise VisitOverflow(
             'visit={0} does not fit in VISIT_BITS={1} (limit {2}). See '
-            'docs/rng-interface-design.md §3.4.'.format(visit, VISIT_BITS, 1 << VISIT_BITS)
+            'docs/rng-interface-design.md §3.4.'.format(visit, visit_bits, 1 << visit_bits)
         )
-    if replication >= (1 << REPL_COUNT_BITS):
+    if replication >= (1 << repl_count_bits):
         raise ReplicationOverflow(
             'replication={0} does not fit in REPL_COUNT_BITS={1} (limit '
             '{2}). See docs/rng-interface-design.md §3.4.'.format(
-                replication, REPL_COUNT_BITS, 1 << REPL_COUNT_BITS
+                replication, repl_count_bits, 1 << repl_count_bits
             )
         )
     return (
-        point_code(x, W) * (1 << (VISIT_BITS + REPL_COUNT_BITS + REPL_RESERVE_BITS))
-        + visit * (1 << (REPL_COUNT_BITS + REPL_RESERVE_BITS))
-        + replication * (1 << REPL_RESERVE_BITS)
+        point_code(x, W) * (1 << (visit_bits + repl_count_bits + repl_reserve_bits))
+        + visit * (1 << (repl_count_bits + repl_reserve_bits))
+        + replication * (1 << repl_reserve_bits)
     )
 
 

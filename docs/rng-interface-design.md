@@ -2400,6 +2400,85 @@ behavior-changing (goldens move, on purpose, with sign-off).
    Given a home here, not left as prose only in §3.9, per this
    document's own established rule about known-necessary work with no
    place in the step list.
+
+   **Correction, found preparing 6b, recorded here rather than quietly
+   folded into 6b's own scope: this step's own report overclaimed.**
+   "This step is a prerequisite for Philox specifically becoming
+   selectable for real solving" is true, but incomplete — what actually
+   landed rebuilt only the Oracle-role *bookkeeping* (`_touch_coordinate`/
+   `get_endseed`/`get_high_water_mark`/`one_past`, and `testsolve()`'s
+   cross-path aggregation) into `(stream, offset)` pairs. It did not
+   build the generator-specific *offset assembly* Philox's own module
+   already documented as settled: `philox4x32.py`'s own comment above
+   `OFFSET_CAPACITY` stated "point(72) + visit(4) + replication
+   count(30) + replication reserve(12) = 118 bits ... step 6's own
+   figures" from the moment that module landed, but nothing anywhere in
+   the codebase packed an offset against those four numbers — the only
+   `offset_within_iteration`/`point_width` that existed was
+   `pymoso.prng.base`'s, sized to MRG-family's 127-bit budget (point
+   75/visit 6/repl-count 32/repl-reserve 14, matching
+   `ITER_STRIDE=2**127`), and `chnbase.py::Oracle._hit_via_coordinate`
+   called it unconditionally, with no generator-selection argument at
+   all.
+
+   The practical consequence, checked directly rather than assumed: an
+   offset built with the 127-bit budget and handed to Philox's own
+   `stream_at` does **not** raise anything. `stream_at`'s own bounds
+   check is against `COUNTER_BITS` (2**128, the raw hardware limit),
+   not `OFFSET_CAPACITY` — an offset in `[2**118, 2**127)` is silently
+   accepted, well inside the hardware limit, quietly exceeding this
+   module's own declared capacity with no exception anywhere. Closer in
+   shape to `MAX_RI`'s original unenforced silent overlap than to a
+   merely-confusing error message.
+
+6c-completion. **[preserving, done]** Closes the gap above: `pymoso.prng.base.
+   point_width`/`offset_within_iteration` take the offset budget
+   (`point_bits`/`visit_bits`/`repl_count_bits`/`repl_reserve_bits`) as
+   parameters now, defaulting to the existing MRG-family constants — so
+   every existing call site, `chnbase.py`'s included, is byte-identical,
+   confirmed by the full suite unchanged on both venvs, no golden moved.
+   `philox4x32.py` gained its own `point_width`/`offset_within_iteration`,
+   calling the same shared packing logic with its own 72/4/30/12 figures
+   — an oversized point/visit/replication now raises the correctly-scoped
+   `PointCodeOverflow`/`VisitOverflow`/`ReplicationOverflow` at assembly
+   time, before `stream_at` ever sees it, rather than nothing at all.
+   Regression coverage in `tests/test_philox_offset_budget.py`,
+   including the pre-fix defect (`stream_at` silently accepting an
+   oversized offset) demonstrated directly with code that predates this
+   step, and the two fix-dependent assertions confirmed failing
+   (`AttributeError`, the functions not existing yet) before the fix
+   landed and passing after.
+
+   **Still not wired in — this step closes the mechanism gap, not the
+   reachability gap.** `chnbase.py::Oracle._hit_via_coordinate` still
+   calls `pymoso.prng.base.point_width`/`offset_within_iteration`
+   unconditionally; nothing anywhere in the framework calls
+   `philox4x32.point_width`/`offset_within_iteration` yet. Philox
+   remains not usable for real solving through this codebase's own
+   coordinate path — only through direct, standalone `stream_at` calls,
+   exactly as before this step. §12 step 6b (below) is what threads a
+   selected generator through `Oracle`'s own internals so this budget is
+   actually honored on a real `solve()`/`testsolve()` run; a reader
+   should not take this step alone as having made Philox usable.
+
+   **Reclassifies the CRN branch's own unmigrated-debt entry** (this
+   step's "Debt, recorded not fixed" paragraph above, and CLAUDE.md's
+   "Known open items"): that debt was recorded on drift-risk grounds
+   (a third parallel replicate-and-aggregate implementation, alongside
+   `bump()` and the `_hit_opt_in`/`hit()` convergence already resolved).
+   It is now also a hard blocker: `crn_advance()`/`_advance_replication()`
+   never moved off incremental `rng`/`_next_seed` mutation and the
+   MRG-specific `get_next_prnstream`/`jump_substream` calls that back it,
+   so there is no coordinate concept for `--crn` to route through for any
+   non-MRG generator at all — not a missing budget (this step's own
+   fix), a missing mechanism. `--generator=philox4x32` combined with
+   `--crn` has nothing to call. §12 step 6b is expected to make this
+   combination raise a clear, named error (mirroring MOCOMPASS/MOPBnB's
+   own outright `--crn` refusal) rather than silently doing something
+   wrong, and to document the limitation in `--generator`'s own CLI help
+   and the README, not only in the error a user hits after the fact —
+   CRN is the framework facility for algorithm testing (§1), so "Philox
+   is supported" carries a real asterisk without saying so up front.
 7. **[dissolved — intentionally empty, nothing dropped]** This entry is
    deliberately blank; it is not a placeholder for forgotten work. It
    originally held four decisions this step list said had to be settled

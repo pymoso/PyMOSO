@@ -56,10 +56,16 @@ Listing
 Philox4x32Stream
 philox4x32_r
 stream_at
+point_width
+offset_within_iteration
 CoordinateCapacityExceeded
 """
 
 from .mrg32k3a import bsm
+from .base import (
+    point_width as _base_point_width,
+    offset_within_iteration as _base_offset_within_iteration,
+)
 
 # Sourced from Random123's philox.h (see module docstring).
 _M0 = 0xD2511F53
@@ -86,7 +92,48 @@ KEY_BITS = 64        # Philox4x32's own native key width
 # (2**10 margin) -- step 6's own figures, restated here as the single
 # OFFSET_CAPACITY a caller needs for one_past's own offset_capacity
 # argument.
+#
+# §12 step 6c-completion, correcting step 6c's own report: these four
+# figures were documented here as "step 6's own figures" from the start,
+# but until this step nothing in the codebase actually packed an offset
+# against them -- the only offset_within_iteration/point_width that
+# existed was pymoso.prng.base's, sized to MRG-family's 127-bit budget
+# (point 75/visit 6/repl-count 32/repl-reserve 14). An offset built that
+# way and handed to this module's own stream_at raised nothing: stream_
+# at's own bounds check is against COUNTER_BITS (2**128, the raw
+# hardware limit), not OFFSET_CAPACITY -- so an offset in [2**118,
+# 2**127) silently exceeded this module's own declared capacity with no
+# exception anywhere (tests/test_philox_offset_budget.py's own
+# test_shared_base_budget_silently_exceeds_philox_own_capacity confirms
+# this directly). POINT_BITS/VISIT_BITS/REPL_COUNT_BITS/
+# REPL_RESERVE_BITS below, plus this module's own point_width/
+# offset_within_iteration, are what actually wire these four figures
+# into real checks -- point_width(dim) and offset_within_iteration(...)
+# now reject an oversized point/visit/replication with the correctly-
+# scoped PointCodeOverflow/VisitOverflow/ReplicationOverflow, at
+# assembly time, before stream_at ever sees it.
+#
+# NOT YET WIRED IN: chnbase.py's own coordinate assembly (Oracle.
+# _hit_via_coordinate) still calls pymoso.prng.base.point_width/
+# offset_within_iteration unconditionally, with no generator-selection
+# argument at all -- nothing anywhere in the framework calls this
+# module's point_width/offset_within_iteration below yet. This step
+# only builds the mechanism and proves it correct in isolation, the
+# same posture step 5/6 already established for onboarding a generator
+# ahead of its own CLI reachability. §12 step 6b (not yet landed) is
+# what threads a selected generator through Oracle's own internals so
+# this budget is actually honored on a real solve()/testsolve() run --
+# until then, Philox remains not usable for real solving through this
+# codebase's own coordinate path, only through direct, standalone
+# stream_at calls, exactly as before this step.
 OFFSET_CAPACITY = 1 << 118
+
+POINT_BITS = 72
+VISIT_BITS = 4
+REPL_COUNT_BITS = 30
+REPL_RESERVE_BITS = 12
+assert POINT_BITS + VISIT_BITS + REPL_COUNT_BITS + REPL_RESERVE_BITS == 118
+assert OFFSET_CAPACITY == 1 << (POINT_BITS + VISIT_BITS + REPL_COUNT_BITS + REPL_RESERVE_BITS)
 
 # Stream side, mirroring mrg32k3a.py's ISP_ITER_MARGIN (how many
 # iterations one isp path's own slot reserves) and SYNC_ROLE_OFFSET
@@ -101,6 +148,66 @@ OFFSET_CAPACITY = 1 << 118
 # values -- 2**16 (65,536x) of margin beyond ISP_ITER_MARGIN itself.
 ISP_ITER_MARGIN = 1 << 30
 SYNC_ROLE_OFFSET = 1 << 48
+
+
+def point_width(dim):
+    """
+    W: bits available per zigzagged component of a point, using this
+    module's own 72-bit point budget (POINT_BITS above) -- not
+    pymoso.prng.base's 75-bit MRG-family one (§12 step 6c-completion).
+    Delegates to pymoso.prng.base.point_width for the actual division;
+    only the budget passed in differs.
+
+    Parameters
+    ----------
+    dim : int
+        Must be at least 1.
+
+    Returns
+    -------
+    int
+    """
+    return _base_point_width(dim, point_bits=POINT_BITS)
+
+
+def offset_within_iteration(x, visit, replication, W):
+    """
+    This module's own offset assembly, using its own 118-bit budget
+    (VISIT_BITS/REPL_COUNT_BITS/REPL_RESERVE_BITS above) -- not
+    pymoso.prng.base's 127-bit MRG-family one (§12 step 6c-completion).
+    Delegates to pymoso.prng.base.offset_within_iteration for the
+    actual packing and overflow checks; only the budget passed in
+    differs, so an oversized point/visit/replication raises the same
+    PointCodeOverflow/VisitOverflow/ReplicationOverflow those checks
+    already provide, just scoped to this generator's real capacity
+    instead of a different generator's larger one.
+
+    Parameters
+    ----------
+    x : tuple of int
+    visit : int
+        Non-negative, < 2**VISIT_BITS.
+    replication : int
+        Non-negative, < 2**REPL_COUNT_BITS.
+    W : int
+        point_width(len(x)) -- this module's own version, above.
+
+    Returns
+    -------
+    int
+
+    Raises
+    ------
+    PointCodeOverflow
+    VisitOverflow
+    ReplicationOverflow
+    """
+    return _base_offset_within_iteration(
+        x, visit, replication, W,
+        visit_bits=VISIT_BITS,
+        repl_count_bits=REPL_COUNT_BITS,
+        repl_reserve_bits=REPL_RESERVE_BITS,
+    )
 
 
 class CoordinateCapacityExceeded(ValueError):
