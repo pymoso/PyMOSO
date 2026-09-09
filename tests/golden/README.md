@@ -91,16 +91,93 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (post replication-independence fix)
+### Current values (post §12 step 8 stage 1: Oracle.get_endseed())
+
+**Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
+installed editable, captured from the source tree directly. Commit:
+`adfc156` on the `pymoso-migration` branch (step 8 stage 1 itself, the
+commit immediately prior to this regeneration). Command: `pytest
+tests/test_golden.py tests/test_solution_sensitivity.py -v`; also
+cross-checked against an independent capture under `.venv-dev` (CPython
+3.14) -- identical values, as expected (this arithmetic has no
+Python-version dependence). `test_solution_sensitivity.py`'s
+`EXPECTED_SOLUTIONS`/`end_seed` are unaffected by this stage (not an
+oracle-role-coordinate-consuming change to any search path) and are not
+reproduced again below.
+
+**Captured against `docs/rng-interface-design.md` §12 step 8, stage 1
+(the commit immediately prior to this regeneration):**
+`Oracle.get_endseed()` -- a tracked high-water mark of every oracle-role
+coordinate actually passed to a replication, oracle-role only (§8.2's
+own explicit scope) -- wired into `RASolver.solve`/`rasolve` and
+MOCOMPASS/MOPBnB's own `solve()` methods, replacing `crn_advance()`'s
+call-count-only reporting (`self._iteration * ITER_STRIDE`). Confirmed
+before regenerating, not assumed: `mocompass_tpa`/`mopbnb_tpa` now
+diverge from each other (previously identical despite verified-
+different internal consumption -- the concrete gap this stage exists to
+close). `rperle_tpa_crn` moved too, **contrary to this document's own
+pre-registered expectation that it wouldn't** -- traced to
+`RASolver.rasolve()`'s own trailing, unconditional `crn_advance()` call
+past the last iteration that actually ran (full account in
+`docs/rng-interface-design.md` §8.2's "Wired in as of step 8 stage 1"
+note). The new value is a correct tightening (nothing beyond it was
+ever touched), not a regression -- the old value was simply more
+conservative than it needed to be for the CRN branch specifically. Every
+`crnflag=False`/CRN case moved in this pass. `testsolve_tpa`/
+`testsolve_mocompass`/`testsolve_mopbnb` and the `testsolve()` library
+case did **not** move -- unaffected by this stage, deliberately: they
+still report `get_testsolve_prnstreams`'s reservation value, which
+stage 2 (aggregating each `isp` path's own high-water mark across the
+`--proc` worker boundary, not yet landed) will replace.
+
+**These values are still an intermediate state, not a settled
+baseline.** `testsolve()`'s own end seed is still `get_testsolve_
+prnstreams`'s reservation value (unaffected by this stage, above) --
+it moves once step 8 stage 2 lands. `test_solution_sensitivity.py`'s
+values are unaffected by this stage entirely (see the capture-
+conditions note above) and are not reproduced below.
+
+| Case | End seed |
+|---|---|
+| rperle_tpa | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| rminrle_tpa | `3101702307, 2274224287, 2252695779, 2887425027, 4188880773, 159891216` |
+| rpe_tpa | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| rspline_simpleso | `2327071160, 589288757, 3791179983, 1866895284, 2094692759, 3256882931` |
+| testsolve_tpa | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| rperle_tpa_crn | `1128359308, 3860538173, 798726527, 4016157990, 1667726745, 709835043` |
+| rperle_tpa_seed2 | `2175629958, 147802191, 2425104019, 853609596, 4132240727, 4089413332` |
+| rperle_tpa_simpar2 | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| solve() library call | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| testsolve() library call | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| mocompass_tpa | `1146796796, 3308305028, 386855827, 2694500999, 2221614380, 1025642763` |
+| mopbnb_tpa | `3809509318, 1900386143, 1103642148, 1010814338, 790187922, 3654332215` |
+| testsolve_mocompass | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| testsolve_mopbnb | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+
+`rperle_tpa`/`rperle_tpa_simpar2` still match *each other* (`--simpar`
+doesn't enter the coordinate formula, §3.4), and now coincide with
+`rpe_tpa` too -- not an error, checked: a `crnflag=False` end seed
+depends only on `(Oracle._iteration, m)` at the last `hit()` call, and
+`calc_m(nu)` is the same function of `nu` for every `RASolver`-family
+solver; `rperle_tpa`/`rpe_tpa` both ended this run at `nu=13`.
+
+---
+
+## Historical: post replication-independence fix, pre-step-8-stage-1
 
 **Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
 installed editable, captured from the source tree directly. Commit:
 `1eca229` on the `pymoso-migration` branch (the replication-independence
-fix itself, the commit immediately prior to this regeneration). Command:
+fix itself, the commit immediately prior to that regeneration). Command:
 `pytest tests/test_golden.py tests/test_solution_sensitivity.py -v`;
 also cross-checked against an independent capture under `.venv-dev`
-(CPython 3.14) -- identical values, as expected (this arithmetic has no
-Python-version dependence).
+(CPython 3.14) -- identical values.
+
+**Superseded by §12 step 8 stage 1** (`Oracle.get_endseed()`, see the
+"Current values" section above) -- these values still reported
+`crn_advance()`'s call-count-only position, not a real high-water mark
+of actual consumption. Retained for provenance only, not as a target to
+restore.
 
 **Captured against `docs/rng-interface-design.md` §12's unnumbered
 prerequisite-fix entry, landed immediately before step 8:**
@@ -122,15 +199,6 @@ library call did not (their own `nu`, or `testsolve()`'s reservation-
 based end seed entirely, were unaffected). `rperle_tpa_crn` is
 unchanged, deliberately -- the CRN branch is untouched by this fix, just
 as it was untouched by step 4b.
-
-**These values are still an intermediate state, not a settled
-baseline -- read this before relying on them**, for the same reason the
-step-4b entry below already gave: `crn_advance()` still reports
-`endseed` based only on its own call count, not a real high-water mark
-of what a run actually consumed via `hit()`'s own coordinate
-computation (`docs/rng-interface-design.md` §8.2, not yet wired into
-`chnutils.py`/`RASolver.rasolve`'s reporting -- §12's own step 8).
-**Every `crnflag=False` value below will move again** when that lands.
 
 | Case | End seed |
 |---|---|
