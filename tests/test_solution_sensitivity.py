@@ -29,19 +29,18 @@ from pymoso.chnutils import testsolve
 from pymoso.testers.tpatester import TPATester
 from pymoso.solvers.rperle import RPERLE
 
-# Recaptured once, for docs/rng-interface-design.md §12's unnumbered
-# prerequisite-fix entry (immediately before step 8): offset_within_
-# iteration's replication field had stride 1, so replications sharing
-# more than one raw draw per g() call (every built-in problem,
-# including ProbTPA/TPATester here) were not actually independent --
-# fixed via a real per-replication reserve (REPL_RESERVE_BITS,
-# pymoso/prng/base.py). This is exactly the class of change this
-# golden exists to catch (its own module docstring): a solver search
-# path shifting because the underlying replications changed, invisible
-# to end-seed matching alone (docs/end-seed-scope.md). end_seed below
-# is unchanged from the prior baseline -- expected, since testsolve()'s
-# own end seed comes from get_testsolve_prnstreams's reservation
-# value, unrelated to what any path's hit() calls actually drew.
+# EXPECTED_SOLUTIONS recaptured once, for docs/rng-interface-design.md
+# §12's unnumbered prerequisite-fix entry (immediately before step 8):
+# offset_within_iteration's replication field had stride 1, so
+# replications sharing more than one raw draw per g() call (every
+# built-in problem, including ProbTPA/TPATester here) were not actually
+# independent -- fixed via a real per-replication reserve
+# (REPL_RESERVE_BITS, pymoso/prng/base.py). This is exactly the class of
+# change this golden exists to catch (its own module docstring): a
+# solver search path shifting because the underlying replications
+# changed, invisible to end-seed matching alone (docs/end-seed-scope.md).
+# end_seed (below, in the test itself) has moved separately since then,
+# for an unrelated reason -- see its own comment.
 EXPECTED_SOLUTIONS = {
     0: {(31, 6), (32, 6)},
     1: {(1, 8), (17, 7)},
@@ -60,6 +59,16 @@ def test_testsolve_ranx0_solution_sets_match_baseline():
         for path in res
     }
     assert actual == EXPECTED_SOLUTIONS
-    # end seed is identical to the ranx0=False testsolve_tpa golden and
-    # unaffected by which x0 was picked -- see docs/end-seed-scope.md.
-    assert end_seed == (756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130)
+    # end seed matches tests/test_golden.py's testsolve_tpa case exactly
+    # -- not a coincidence, and not evidence of x0-invariance: both are
+    # the identical computation (same tester/solver/budget/seed/isp/proc/
+    # crn, both ranx0=True, so the (0,) passed as x0 here is discarded
+    # the same way testsolve_tpa's own missing <x> is -- see
+    # docs/end-seed-scope.md, corrected as of docs/rng-interface-
+    # design.md §12 step 8: ranx0 CAN now affect end_seed post-stage-2,
+    # since it can change which x0 the solver actually searches from,
+    # which can change the run's own oracle-role high-water mark. This
+    # value moved from the prior baseline for that reason, not from
+    # EXPECTED_SOLUTIONS's own defect fix above (a separate, unrelated
+    # regeneration).
+    assert end_seed == (3654817394, 2187457693, 4207556677, 3585739323, 608476310, 697649114)

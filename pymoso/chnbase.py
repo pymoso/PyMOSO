@@ -346,8 +346,14 @@ class RASolver(MOSOSolver):
         self.nu = 0
         # invoke the Retrospective approximation algorithm
         self.rasolve(lesnu, simcalls, budget)
-        # name the data keys and return the results
-        resdict = {'itersoln': lesnu, 'simcalls': simcalls, 'endseed': self.endseed}
+        # name the data keys and return the results. oracle_high_water_mark
+        # (docs/rng-interface-design.md §12 step 8 stage 2) is raw material
+        # for testsolve()'s own cross-path aggregation, not a per-path
+        # seed itself -- see Oracle.get_high_water_mark()'s own docstring.
+        resdict = {
+            'itersoln': lesnu, 'simcalls': simcalls, 'endseed': self.endseed,
+            'oracle_high_water_mark': self.orc.get_high_water_mark(),
+        }
         return resdict
 
     def rasolve(self, phatnu, simcalls, budget):
@@ -1399,6 +1405,28 @@ class Oracle(object):
             anything this run's oracle-role coordinates touched.
         """
         return jump_seed_n(self._orc_root, self._high_water_mark)
+
+    def get_high_water_mark(self):
+        """
+        The raw coordinate `get_endseed()` derives its seed from --
+        `_high_water_mark`, relative to `_orc_root`. Exists for
+        `testsolve()`'s own cross-path aggregation (docs/rng-interface-
+        design.md §12 step 8 stage 2): each `isp` path's `Oracle` runs
+        in its own process under `--proc`/`--simpar`, so only picklable
+        result-dict values -- not the live `Oracle` object `get_endseed()`
+        itself needs -- survive back to the caller. `RASolver.solve`
+        (and MOCOMPASS/MOPBnB's own `solve()`) return this value in
+        their result dict for exactly that reason. Not part of any
+        per-path public seed contract on its own -- `get_endseed()`
+        remains the one meaningful seed for a single path; this is
+        raw material for combining several.
+
+        Returns
+        -------
+        int
+            Non-negative.
+        """
+        return self._high_water_mark
 
     def crn_advance(self):
         """

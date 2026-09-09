@@ -1506,18 +1506,31 @@ an observation, not a to-do.
 MOCOMPASS/MOPBnB pair and `rperle_tpa_crn`: the mechanism changed for
 all of them, even though the step-4b/step-8-prerequisite values already
 reflected *something* real, just not the high-water mark this section
-promises. `testsolve()`'s own end seed is unaffected by this stage —
-still `get_testsolve_prnstreams`'s reservation value, a separate piece
-of scope, staged as its own follow-on (below).
+promises. `testsolve()`'s own end seed was unaffected by this stage —
+still `get_testsolve_prnstreams`'s reservation value at that point, a
+separate piece of scope, staged as its own follow-on (stage 2, below).
 
 **`testsolve` keeps the same logic as `solve`, deliberately, not as a
-special case.** The single high-water-mark tracked across every `isp`
-path a `testsolve` run touches, exactly the mechanism above — the
-follow-up-run use case this exists for barely applies to `testsolve`
-(its own multi-path structure isn't typically chained the way a `solve`
-run's `endseed` is), but a second code path bought nothing here that the
-first didn't already provide, and a special case would only be a second
-thing to keep correct.
+special case — landed as stage 2.** The single high-water-mark tracked
+across every `isp` path a `testsolve` run touches, exactly the mechanism
+above: each path's own `Oracle.get_high_water_mark()` combined as
+`max(t*ISP_STRIDE + local_max_t)` (`t*ISP_STRIDE` is what makes
+different paths' coordinate ranges disjoint in the first place, §6/§12
+step 4b, so this reduces to a single `max` over `isp` terms, not a
+merge across overlapping ranges) — the follow-up-run use case this
+exists for barely applies to `testsolve` (its own multi-path structure
+isn't typically chained the way a `solve` run's `endseed` is), but a
+second code path bought nothing here that the first didn't already
+provide, and a special case would only be a second thing to keep
+correct. Confirmed, not just designed: the three-way
+`testsolve_tpa`/`testsolve_mocompass`/`testsolve_mopbnb` match — bit-
+identical before this landed, despite each running a different solver
+across the same 4 `isp` paths — now breaks, each reflecting its own
+solver's real consumption. Full account, including the `--proc` worker-
+boundary mechanism (`oracle_high_water_mark` as a new result-dict key,
+not the `Oracle` object itself, which never crosses back from a worker
+process unchanged) and a new, correct `ranx0`-sensitivity this exposes,
+in §12's own step 8 entry.
 
 ## 9. Proposed module layout
 
@@ -2059,8 +2072,8 @@ moved — expected, and the point of that golden's existence: it is
 sensitive to consumption changes end-seed goldens cannot see at all,
 exactly as `docs/end-seed-scope.md` says.
 
-8. **[behavior-changing, needs sign-off — stage 1 done, stage 2 a
-   follow-on]** Wire §8.2's real `endseed` formula into `chnutils.py`'s
+8. **[behavior-changing, both stages done]** Wire §8.2's real `endseed`
+   formula into `chnutils.py`'s
    `solve()`/`testsolve()` and `RASolver.rasolve`'s reporting, replacing
    `crn_advance()`'s call-count-only jump (§8.2's own gap, found once
    step 4b actually landed: `endseed` used to report
@@ -2100,28 +2113,49 @@ exactly as `docs/end-seed-scope.md` says.
    behavioral gain now that `endseed` no longer depends on `rng`'s walk
    position at all.
 
-   **Every `crnflag=False`/CRN golden moved in this pass** — not only
-   the MOCOMPASS/MOPBnB pair; the reporting mechanism changed for all of
-   them. `tests/golden/README.md` carries the full list and reasoning.
-   `testsolve()`'s own end seed is unaffected by stage 1 — still
-   `get_testsolve_prnstreams`'s reservation value.
+   **Every `crnflag=False`/CRN golden moved in stage 1's own pass** —
+   not only the MOCOMPASS/MOPBnB pair; the reporting mechanism changed
+   for all of them. `tests/golden/README.md` carries the full list and
+   reasoning. `testsolve()`'s own end seed was unaffected by stage 1 —
+   still `get_testsolve_prnstreams`'s reservation value at that point.
 
-   **Stage 2 (`testsolve()`'s cross-path aggregation) — the follow-on,
-   not yet done:** each `isp` path's own `Oracle` already tracks its own
-   `_high_water_mark` (stage 1's own mechanism, unchanged); stage 2 is
-   aggregating those across all `isp` paths — `t*ISP_STRIDE +
-   local_max` for the path with the largest local mark — replacing
-   `get_testsolve_prnstreams`'s current reservation-based "next `isp`
-   slot" value. Crosses the `--proc` worker boundary: each path's local
-   high-water mark has to come back from its own process (serial or
-   `--simpar`, already in-process; `--proc`'s own known fragility,
-   CLAUDE.md, is the reason this is staged separately rather than bundled
-   with stage 1). Verification signature: the three-way
-   `testsolve_tpa`/`testsolve_mocompass`/`testsolve_mopbnb` match
-   (currently identical, a `testsolve`-shaped analog of stage 1's
-   MOCOMPASS/MOPBnB collision) should hold or break in a way that's
-   traceable the same way stage 1's was, checked before regenerating,
-   not assumed.
+   **Stage 2 (`testsolve()`'s cross-path aggregation) — done.** Each
+   `isp` path's own `Oracle` already tracked its own `_high_water_mark`
+   (stage 1's own mechanism, unchanged); stage 2 adds
+   `Oracle.get_high_water_mark()` (the raw int `get_endseed()` derives
+   its seed from) and a new `'oracle_high_water_mark'` key on
+   `RASolver.solve`'s and MOCOMPASS/MOPBnB's own result dicts, so it
+   survives the `--proc` worker boundary as an ordinary picklable value
+   (the object itself never does — each `isp` path's `Oracle` runs in
+   its own process, so the caller's own reference to it never reflects
+   what the worker actually did). `chnutils.testsolve()` combines them,
+   after `par_runs()` returns every path's result: `max(t*ISP_STRIDE +
+   res[t]['oracle_high_water_mark'] for t in range(isp))`, then reports
+   `jump_seed_n(orc_root, that)` — `get_testsolve_prnstreams` now also
+   returns `orc_root` (a 5th value) for this, alongside its own
+   pre-existing reservation-based `iseed` (kept, unused by `testsolve()`
+   itself any more, for callers that only need a cheap independent seed).
+
+   Confirmed both pre-registered signatures before regenerating, not
+   assumed: `testsolve_tpa`/`testsolve_mocompass`/`testsolve_mopbnb`
+   (previously bit-identical to each other and to the `testsolve()`
+   library case — the `testsolve()`-shaped analog of stage 1's own
+   MOCOMPASS/MOPBnB collision) now diverge, each reflecting its own
+   solver's real consumption across all 4 `isp` paths; every `solve()`-
+   path case (already on the real formula since stage 1) is untouched by
+   this stage, confirmed identical to its stage-1 value, not just
+   assumed unaffected.
+
+   **A new, correct consequence, not a bug:** `endseed` can now depend
+   on `ranx0`/which `x0` a solver actually searched from — something the
+   reservation-based mechanism this replaces could never reflect (it
+   never touched `xprn`'s own consumption at all, per `docs/end-seed-
+   scope.md`'s original analysis). Confirmed directly:
+   `tests/test_solution_sensitivity.py`'s own `ranx0=True` case's
+   `end_seed` moved, for this reason specifically, not because
+   `EXPECTED_SOLUTIONS` moved again (it didn't — that was the earlier,
+   separate replication-independence-fix pass). `docs/end-seed-scope.md`
+   carries its own correction note for this.
 
    Explicitly not sequenced relative to MRG31k3p/Philox onboarding
    (steps 5-6) — independent concerns, could land before, after, or

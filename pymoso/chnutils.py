@@ -142,7 +142,7 @@ def testsolve(tester, solver, x0, **kwargs):
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
-    orcstreams, solvstreams, x0stream, endseed = get_testsolve_prnstreams(isp, seed, crn)
+    orcstreams, solvstreams, x0stream, endseed, orc_root = get_testsolve_prnstreams(isp, seed, crn)
     joblist = []
     currtest = tester()
     orclst = []
@@ -163,6 +163,21 @@ def testsolve(tester, solver, x0, **kwargs):
     res = par_runs(joblist, proc)
     for o in orclst:
         o.mp_cleanup()
+    # docs/rng-interface-design.md §12 step 8 stage 2: the real endseed,
+    # aggregated across every isp path's own oracle-role high-water mark
+    # (crossing the --proc worker boundary via each path's own result
+    # dict -- see Oracle.get_high_water_mark()'s docstring for why a
+    # dict field, not the orc objects here, which under --proc/--simpar
+    # never ran in this process at all). Path t's own coordinates are
+    # relative to `orc_root + t*ISP_STRIDE` (get_testsolve_prnstreams's
+    # own construction), so t's contribution to the combined coordinate,
+    # relative to the shared orc_root, is t*ISP_STRIDE + that path's own
+    # local high-water mark; the run's real endseed is one past the
+    # largest such value across every path actually run.
+    combined_high_water_mark = max(
+        t * ISP_STRIDE + res[t]['oracle_high_water_mark'] for t in range(isp)
+    )
+    endseed = jump_seed_n(orc_root, combined_high_water_mark)
     return res, endseed
 
 
@@ -187,7 +202,19 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
     solprn_lst : list of prng.MRG32k3a objects
     xprn : prng.MRG32k3a object
     iseed : tuple of int
-        Next independent seed with which the user can invoke PyMOSO
+        The reservation-based "next isp slot" seed -- kept for callers
+        that only need a cheap, always-available independent seed and
+        don't need it to reflect actual consumption. testsolve()'s own
+        reported endseed no longer uses this value as of docs/rng-
+        interface-design.md §12 step 8 stage 2 -- it's recomputed from
+        each path's real high-water mark after solving, using orc_root
+        below.
+    orc_root : tuple of int
+        The oracle role's own root seed, shared across every path
+        (path t's own root is `jump_seed_n(orc_root, t*ISP_STRIDE)`).
+        Exposed so a caller can combine per-path high-water marks
+        (Oracle.get_high_water_mark()) into one real endseed after
+        solving -- see testsolve()'s own use of this.
 
     Notes
     -----
@@ -220,7 +247,7 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
     # matching this function's pre-existing "next independent seed"
     # contract without needing a live walk to compute it.
     iseed = jump_seed_n(orc_root, num_trials * ISP_STRIDE)
-    return orcprn_lst, solprn_lst, xprn, iseed
+    return orcprn_lst, solprn_lst, xprn, iseed, orc_root
 
 
 def get_solv_prnstreams(iseed, crn):

@@ -3,10 +3,35 @@
 Found while implementing `getrandbits()` on `MRG32k3a` (see
 KNOWN_ISSUES.md's getrandbits entry): the end-seed baselines in
 `tests/test_golden.py` were being treated, in at least one place, as a
-general correctness check on "what pymoso computes." They are not.
-This note pins down exactly what they check, audits every prior fix on
-this branch against that narrower scope, and identifies the one place
-a stronger claim than that was actually made.
+general correctness check on "what pymoso computes." They are not, as
+of when this was written. This note pins down exactly what they check,
+audits every prior fix on this branch against that narrower scope, and
+identifies the one place a stronger claim than that was actually made.
+
+**Partially superseded by `docs/rng-interface-design.md` §12 step 8.**
+This document's central claim -- "end seed fingerprints the stream-
+allocation schedule... not... any `choice()`/`sample()`/`randrange()`-
+driven decision" -- described `get_solv_prnstreams`/`get_testsolve_
+prnstreams`'s schedule-only mechanism, accurately, at the time this was
+written. `Oracle.get_endseed()` (step 8 stage 1, `solve()`'s own path)
+and its `testsolve()` counterpart (stage 2) both replace that mechanism
+with a real oracle-role coordinate high-water mark, so as of both
+landing, an `endseed` **does** now reflect actual replication
+consumption for both `solve()` and `testsolve()` -- including an
+indirect sensitivity to `ranx0`/which `x0` a solver actually searched
+from, confirmed directly in `tests/test_solution_sensitivity.py`'s own
+`end_seed` assertion (it moved between stage 1 and stage 2, purely from
+a `ranx0=True` vs `ranx0=False` difference, something the mechanism
+this document describes could never have done). Still true, unchanged:
+this remains oracle-role only (§8.2's own scoping) -- solver-role's own
+draws (`solvprn`/`xprn`, and whatever `choice()`/`sample()` do with
+them) are still not tracked or reflected, so the "does NOT fingerprint
+a run's randomness" framing in `CLAUDE.md` is still correct in that
+narrower, remaining sense: `endseed` is a stronger signal than before,
+not a complete one. The rest of this document (the audit table, the
+`tests/test_readme_cli_examples.py` correction, both asides) describes
+the pre-step-8 mechanism and its own history accurately; read historic
+sections below with that mechanism in mind, not the current one.
 
 ## What "end seed" is
 
