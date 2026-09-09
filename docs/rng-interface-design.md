@@ -1905,11 +1905,150 @@ behavior-changing (goldens move, on purpose, with sign-off).
      `MyRAAlg.solve()`/`rasolve()` to completion, it must be marked or
      skipped with a reference to the new `KNOWN_ISSUES.md` entry as part
      of *that* change, not this one.
-5. **[new capability]** Onboard MRG31k3p: source or derive its recurrence
-   matrices (open question 4), implement on `mrg_common.py`, full §7
-   suite including the brute-force jump proof (§7 item 3) specific to
-   MRG31k3p. No existing goldens touch this generator, so nothing here
-   can move them.
+5. **[new capability — done]** Onboard MRG31k3p: source or derive its
+   recurrence matrices (open question 4), implement on `mrg_common.py`,
+   full §7 suite including the brute-force jump proof (§7 item 3)
+   specific to MRG31k3p. No existing goldens touch this generator, so
+   nothing here can move them — confirmed directly, not assumed: full
+   suite green on both venvs after landing, no `test_golden.py`/
+   `test_solution_sensitivity.py` case moved.
+
+   Landed as `pymoso/prng/mrg31k3p.py` (the `MRG31k3p` class,
+   `mrg31k3p()`'s own exact-integer single-step recurrence, `jump_seed_n`/
+   `get_next_prnstream`/`jump_substream` mirroring `mrg32k3a.py`'s own
+   structure) and `tests/test_mrg31k3p_conformance.py` (52 tests: §7
+   items 1/2/3/5/6, the cached-exponent-vs-general-path check, and the
+   deliberately-broken-backend proof, re-verified against this generator
+   specifically rather than assumed to carry over from `tests/
+   test_prng_conformance.py`'s own MRG32k3a-specific proof). Items 4 and
+   7 don't need re-testing here — see the new test file's own docstring
+   for why. `stream_at` is not the narrow "thin" stand-in step 1 used
+   (that existed only because the general jump didn't yet); MRG31k3p
+   goes straight to the real, arbitrary-coordinate `jump_seed_n`, since
+   step 2's generalized machinery already exists and needed no changes
+   to support a second generator — confirming the interface genuinely
+   fits, not just in principle.
+
+   `REPL_STRIDE`/`ITER_STRIDE` are reused directly from `mrg32k3a.py`,
+   not redefined — every coordinate constant sized against MRG32k3a's
+   period stays global, not per-generator, per the margin arithmetic
+   below. `mrg_common.py`'s `mat_pow_mod`/`jump_n` needed zero changes:
+   already parameterized on matrix and modulus, exactly as its own
+   docstring anticipated. `bsm` is reused verbatim for `normalvariate`
+   (imported, not copied) — generator-agnostic by construction, per §3.3.
+   No `REPL_RESERVE_STRIDE`-cached jump is built for MRG31k3p at this
+   step — nothing calls its replication-coordinate path yet (this
+   generator isn't wired into `chnbase.py` at all, see below), so
+   caching it now would be speculative rather than the "cache what a
+   measured regression proved matters" discipline step 2's own commit
+   established.
+
+   **Constants, sourced, not fabricated.** Primary source:
+   `MRG31k3p.java` from L'Ecuyer's own SSJ library
+   (github.com/umontreal-simul/ssj, `src/main/java/umontreal/ssj/rng/
+   MRG31k3p.java`) — executable reference code from the generator's own
+   author, cited there as L'Ecuyer & Touzin, *Fast Combined Multiple
+   Recursive Generators with Multipliers of the Form a = ±2^q ±2^r*
+   (WSC 2000). The original paper itself was not read directly (not
+   fetched); this is a real distinction from a from-the-paper citation,
+   stated plainly rather than implied away. `M1 = 2147483647` (2^31−1,
+   a Mersenne prime), `M2 = 2147462579` (2^31−21069), independently
+   corroborated by a second implementation's documentation (Theano).
+   Recurrences derived two independent ways from the same SSJ source —
+   decoding its fast bit-shift step implementation, and cross-checking
+   against its own separately-published exact one-step jump matrices —
+   both agreeing exactly:
+   ```
+   Component 1 (mod M1): x1(n) = (4194304·x1(n-2) + 129·x1(n-3)) mod M1
+   Component 2 (mod M2): x2(n) = (32768·x2(n-1) + 32769·x2(n-3)) mod M2
+   ```
+   Output `z = (x1(n) − x2(n)) mod M1`, normalized — the same
+   difference-of-components combination MRG32k3a uses. `NORM = 2**-31`
+   exactly (confirmed by direct computation against SSJ's own literal,
+   `4.656612873077392578125e-10`) — deliberately not `1/M1`, so the
+   boundary case normalizes strictly below `1.0` rather than to exactly
+   `1.0`, matching SSJ's own "must never return either 0 or 1" comment.
+
+   **A third, independent validation, done at implementation time, not
+   assumed from the sourcing above:** the companion matrices
+   `pymoso/prng/mrg31k3p.py` actually uses were checked against SSJ's own
+   published one-step jump matrices (`A1p0`/`A2p0`) via exact linear
+   algebra — SSJ's state-vector convention is the reverse of this
+   codebase's own (newest-first vs. oldest-first, matrix coefficients in
+   the first row vs. the last), so `A1p0`/`A2p0` conjugated by the
+   reversal permutation must equal this module's own `_m1_step`/
+   `_m2_step` if both are correct; computed by hand and confirmed exact
+   for both components, not merely plausible. A from-scratch
+   reimplementation of SSJ's exact bit-shift `nextValue()` (Java int32
+   semantics emulated) additionally reproduced this module's own first
+   three draws from the default seed exactly, diverging afterward from a
+   bug in that reimplementation's own incomplete overflow emulation —
+   noted rather than hidden, since the matrix-conjugation proof above
+   already settles correctness independent of that script's own defect.
+
+   **Period does not transfer from MRG32k3a, and needed its own check.**
+   SSJ's own javadoc states `ρ ≈ 2**185`, citing the same paper. A
+   separate summary described "period near 2^186, with 2 cycles near
+   2^185" — not chased down further (per instruction: the two readings
+   may both be true simultaneously, since total state space and
+   individual cycle length are different quantities, and either way
+   `2**185` is the more conservative figure and changes no downstream
+   constant). Treated as **unresolved but conservatively handled**:
+   every margin check below uses `2**185`, the smaller of the two
+   readings.
+
+   **Existing coordinate constants checked against `2**185`, not
+   reused on faith — kept global, not made per-generator.** Every
+   `ISP_STRIDE`/`SYNC_ROLE_OFFSET`/`REPL_STRIDE`/`ITER_STRIDE` value
+   (mrg32k3a.py, sized against MRG32k3a's own `2**191`) stays safely
+   under `2**185` too, computed directly:
+
+   | Constant | Value | Headroom under `2**185` |
+   |---|---|---|
+   | `REPL_STRIDE` (CRN replication spacing) | `2**76` | `2**109` replications before wrap |
+   | `ITER_STRIDE` (RA iteration spacing) | `2**127` | `2**58` iterations before wrap |
+   | `ISP_STRIDE` (isp path spacing) | `2**159` | `2**26` isp paths before wrap |
+   | `SYNC_ROLE_OFFSET` (sync zone start) | `2**175` | `2**10` (1024×) — the tightest ratio in the scheme |
+   | sync values available past `SYNC_ROLE_OFFSET` | `SYNC_STRIDE = 2**108` | `2**76` sync values |
+
+   Sanity-checked against L'Ecuyer's own chosen margins for MRG31k3p in
+   SSJ (`W = 2**72` substream, `Z = 2**134` stream, both against his own
+   stated `2**185`): `period/W = 2**113`, `period/Z = 2**51`. At the
+   tier with a rough analog (`REPL_STRIDE` ≈ his substream `W`, both
+   "one safely-isolated replication"), our margin (`2**109`) is in the
+   same range as his (`2**113`), not wildly different. At the next tier
+   (`ITER_STRIDE` vs his stream `Z`), ours is *more* generous
+   (`2**58` vs `2**51`, ~128×) — flagged per instruction rather than
+   assumed benign, but assessed as expected, not miscalibrated: our
+   `ITER_STRIDE` governs a far finer-grained, far more frequently-
+   incremented unit (one RA iteration within one run) than his "stream"
+   (typically one whole independent generator instance in SSJ's own
+   usage), so needing more headroom at that tier is the expected
+   consequence of a finer unit, not evidence the constant is too loose.
+   `SYNC_ROLE_OFFSET` has no real analog in his flatter substream/stream
+   scheme (it is pymoso's own, novel policy-zone boundary, §4.3) — its
+   `2**10` ratio is the tightest number in the table, but the absolute
+   remaining space (`2**185 − 2**175 ≈ 2**185`) and its own actual
+   downstream usage (`2**76` sync values available, dwarfing any
+   realistic MOCOMPASS-scale need, itself checked against `--budget` in
+   mrg32k3a.py's own comment) both remain enormous. **Conclusion: keep
+   every one of these constants global, not per-generator** — nothing
+   here is tight enough to need MRG31k3p-specific values, and making
+   them per-generator would change the interface's own shape (a
+   decision this finding does not call for).
+
+   **`--generator` CLI/library wiring is out of scope for this step** —
+   MRG31k3p will be real, tested code with no way for a user to select
+   it until step 6b (below) lands.
+
+   **No `validate_seed` implemented — checked, not silently skipped:**
+   §3.7 describes a generator's own `validate_seed` as part of the
+   `--seed` CLI validation story, but grepping the whole `pymoso/`
+   package confirms no such function exists anywhere yet, not even for
+   MRG32k3a — it's a CLI-layer concept tied to `--generator` selection
+   (§3.8), which is step 6b's own scope, not step 5's. Implementing it
+   for MRG31k3p alone, ahead of MRG32k3a having one, would invent an
+   inconsistent precedent; deferred to land alongside step 6b instead.
 6. **[new capability]** Onboard Philox-4x32: counter-packing `stream_at`
    (§3.4), `bsm()`-based `normalvariate` (reused as-is), full §7 suite.
    This is the step that actually tests §3.5's claim under load — if
@@ -1917,6 +2056,21 @@ behavior-changing (goldens move, on purpose, with sign-off).
    `getrandbits`/`normalvariate`, that's the signal the interface
    under-specified something, and it needs to surface here, not be
    patched around quietly.
+6b. **[new capability, not sequenced against 5/6's own landing order]**
+   Wire §3.8's already-settled generator-selection design (a `--generator`
+   CLI flag plus the matching `solve()`/`testsolve()` kwarg) into the
+   CLI and library layers, generically over whatever generators are
+   registered at the time — not hardcoded to MRG31k3p specifically, so
+   it doesn't need a second pass when Philox (step 6) lands. Given a
+   home here, not left as step 7's own prose-only "it can land whenever
+   the CLI work is scheduled" note — the same reasoning step 8 started
+   from before being promoted out of step 7's placeholder text into its
+   own step, so this doesn't go undiscovered the same way. Until this
+   lands, every generator onboarded by step 5/6 is real, tested code
+   with no way for a user to actually reach it — `solve()`/`testsolve()`
+   always construct `MRG32k3a`, the default, regardless of what else
+   exists in `pymoso/prng/`. No existing golden should move: this only
+   adds a new selection path, it doesn't touch the default's own.
 7. **[dissolved — intentionally empty, nothing dropped]** This entry is
    deliberately blank; it is not a placeholder for forgotten work. It
    originally held four decisions this step list said had to be settled
@@ -1927,8 +2081,12 @@ behavior-changing (goldens move, on purpose, with sign-off).
    - **Generator selection** (open question 6) is settled in §3.8 (a CLI
      flag plus the matching kwarg) — a CLI/testers-layer addition that
      doesn't touch `chnbase.py`'s coordinate logic at all, so it isn't
-     sequenced against steps 1-6 in any way; it can land whenever the CLI
-     work is scheduled.
+     sequenced against steps 1-6 in any way. Actually wiring it is its
+     own step, 6b above, not folded in here — corrected from an earlier
+     version of this bullet that left it as "can land whenever the CLI
+     work is scheduled" prose with no place in the step list, the exact
+     gap the `endseed` bullet below already names as a failure mode
+     worth avoiding.
    - **`endseed`** (open question 8): what it *should* become is settled
      in §8.2 (the run's tracked coordinate high-water mark, one past).
      Actually wiring that formula into `chnutils.py`/`RASolver.rasolve`'s
