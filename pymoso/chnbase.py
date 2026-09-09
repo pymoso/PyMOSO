@@ -17,7 +17,11 @@ import types
 import inspect
 from statistics import mean, variance
 from math import sqrt, ceil, floor
-from .prng.mrg32k3a import get_next_prnstream, jump_substream, mrg32k3a, bsm
+from .prng.mrg32k3a import (
+    get_next_prnstream, jump_substream, mrg32k3a, bsm, MRG32k3a, jump_seed_n,
+    ITER_STRIDE, REPL_STRIDE, SYNC_ROLE_OFFSET, SYNC_STRIDE,
+)
+from .prng.base import point_width, offset_within_iteration
 from multiprocessing import Queue, Process
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos, MAX_RI
 
@@ -1206,6 +1210,13 @@ class Oracle(object):
     crn_obsold's). `rng` is reset to this value immediately before every
     jump, discarding whatever it held, so the two stay equal exactly at
     the boundary between replications -- never assumed equal mid-call.
+    _orc_root : tuple of int
+    Fixed for the Oracle's entire lifetime (set once, in set_crnflag(),
+    never reassigned) -- the reference point hit()'s opt-in `visit`/
+    `sync` parameters compute a fresh coordinate from (§4.1/§4.3),
+    independent of `_iteration_baseline_seed`/`_next_seed`, which both
+    move. At their defaults (visit=0, sync=None) hit() never reads this
+    at all; it exists only for the explicit, opt-in paths.
     crnflag : bool
     Indicates whether common random numbers is turned on or off.
     Defaults to off.
@@ -1236,6 +1247,7 @@ class Oracle(object):
         # that before any hit()/bump()/crn_advance() call.
         self._iteration_baseline_seed = None
         self._next_seed = None
+        self._orc_root = None
         super().__init__()
 
 
@@ -1302,6 +1314,14 @@ class Oracle(object):
         self._iteration = 0
         self._iteration_baseline_seed = self.rng.get_seed()
         self._next_seed = self.rng.get_seed()
+        # Fixed for the Oracle's lifetime, unlike the three trackers
+        # above (which all move): the reference point visit=/sync=
+        # compute fresh coordinates from (docs/rng-interface-design.md
+        # §4.1/§4.3). Captured once here rather than in __init__ for the
+        # same reason _iteration_baseline_seed is -- set_crnflag() is
+        # the authoritative initialization point in every real
+        # solve()/testsolve()/mp_replicate() call path.
+        self._orc_root = self.rng.get_seed()
 
     def crn_advance(self):
         """
@@ -1396,7 +1416,72 @@ class Oracle(object):
                 isfeas = True
         return isfeas, obs
 
-    def hit(self, x, m):
+    def _hit_opt_in(self, x, m, visit, sync):
+        """
+        The explicit-coordinate path for hit()'s opt-in `visit`/`sync`
+        parameters (docs/rng-interface-design.md §4.1/§4.3). Computed
+        fresh per replication via jump_seed_n, from the Oracle's fixed
+        `_orc_root` -- never touches `rng`/`_iteration_baseline_seed`/
+        `_next_seed`, the default path's own state, at all, so calling
+        this can't perturb any ordinary hit(x, m) call before or after
+        it. Not exercised by anything in this codebase yet (RASolver/
+        RLESolver never pass either argument, and MOCOMPASS/MOPBnB
+        haven't been ported to `sync=` -- docs/mocompass-mopbnb-known-
+        issues.md item 4/§4.3's own correction, since that port changes
+        MOCOMPASS's numerical output, not just its implementation).
+
+        Parameters
+        ----------
+        x : tuple of int
+        m : int
+        visit : int
+            Non-negative. Nonzero selects an independent resample block
+            within this iteration, keyed on (x, visit) -- §4.1.
+        sync : int or None
+            Non-negative if given. The solver-controlled synchronization
+            axis (§4.3) -- `x` and `visit` are not folded into the
+            coordinate at all in this case.
+
+        Returns
+        -------
+        isfeas, obmean, obse : as hit()
+        """
+        d = self.num_obj
+        dr = range(d)
+        mr = range(m)
+        if sync is not None:
+            base = SYNC_ROLE_OFFSET + sync * SYNC_STRIDE
+            coordinate = lambda r: base + r * REPL_STRIDE
+        else:
+            W = point_width(len(x))
+            base = self._iteration * ITER_STRIDE + offset_within_iteration(x, visit, 0, W)
+            coordinate = lambda r: base + r
+        feas = []
+        objm = []
+        for r in mr:
+            seed = jump_seed_n(self._orc_root, coordinate(r))
+            stream = MRG32k3a(seed)
+            stream.set_class_cache(self.crnflag)
+            isfeasi, oval = self.g(x, stream)
+            feas.append(isfeasi)
+            objm.append(oval)
+        isfeas = False
+        obmean = []
+        obse = []
+        if all(feas):
+            isfeas = True
+            if m == 1:
+                # matches the default path's own m==1 special case:
+                # statistics.variance() requires at least two points.
+                obmean = objm[0]
+                obse = [0 for o in objm[0]]
+            else:
+                obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
+                obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
+                obse = tuple([sqrt(obvar[i]/m) for i in dr])
+        return isfeas, obmean, obse
+
+    def hit(self, x, m, visit=0, sync=None):
         """
         Generate the means and standard errors of 'm' simulation
         replications at point 'x'.
@@ -1407,6 +1492,19 @@ class Oracle(object):
     point at which to simulate
     m : int
     number of replications to simulate 'x'
+    visit : int
+    Optional, default 0. Nonzero requests an independent resample
+    block for this (x, visit) pair, bypassing the default per-point
+    continuation (docs/rng-interface-design.md §4.1). Additive: at
+    the default 0, hit()'s behavior is exactly as before this
+    parameter existed.
+    sync : int or None
+    Optional, default None. A non-negative int hands the coordinate's
+    synchronization axis to the caller entirely, excluding `x`/`visit`
+    (§4.3) -- for a solver implementing its own cross-point CRN
+    policy. Additive: at the default None, hit()'s behavior is
+    exactly as before this parameter existed. Passing both `sync` and
+    a non-default `visit` raises ValueError.
 
         Returns
         -------
@@ -1425,6 +1523,20 @@ class Oracle(object):
         obse = []
         mr = range(m)
         assert(m >= 1)
+        if sync is not None:
+            if visit != 0:
+                raise ValueError(
+                    'hit() cannot take both sync and a non-default visit -- '
+                    'sync already selects the coordinate axis; there is no '
+                    'sensible way to also apply visit\'s per-point escape '
+                    'hatch on top of it. See docs/rng-interface-design.md §4.3.'
+                )
+            if sync < 0:
+                raise ValueError('sync must be non-negative, got {0}'.format(sync))
+        if visit < 0:
+            raise ValueError('visit must be non-negative, got {0}'.format(visit))
+        if sync is not None or visit != 0:
+            return self._hit_opt_in(x, m, visit, sync)
         if self.crnflag:
             self.rng.seed(self._iteration_baseline_seed)
             self._next_seed = self._iteration_baseline_seed
