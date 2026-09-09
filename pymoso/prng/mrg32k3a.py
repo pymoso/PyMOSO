@@ -10,11 +10,20 @@ Listing
 MRG323k3a
 get_next_prnstream
 jump_substream
+jump_seed_n
 """
 
 import random
 from math import log
 import functools
+
+# mat333mult/mat311mod now live in mrg_common.py (shared, generalized
+# jump machinery); imported here, not called directly any more (see
+# jump_seed_n below), purely so `from pymoso.prng.mrg32k3a import
+# mat333mult, mat311mod` -- a real existing import path (scratch/
+# investigation scripts, KNOWN_ISSUES.md issue 1's own narrative) --
+# keeps working unchanged.
+from .mrg_common import mat333mult, mat311mod, mat_pow_mod, jump_n
 
 ## constants used in mrg32k3a and in substream generation
 ## all from:
@@ -24,6 +33,19 @@ import functools
  # P. L'Ecuyer, R. Simard, E. J. Chen, and W. D. Kelton,
  # ``An Objected-Oriented Random-Number Package with Many Long Streams and Substreams'',
  # Operations Research, 50, 6 (2002), 1073--1075
+ #
+## a1p127/a2p127/a1p76/a2p76 below are the historical pre-computed jump
+## matrices at the two fixed exponents this module has always exposed.
+## As of the generalized jump (_m1_step/_m2_step + mrg_common.mat_pow_mod,
+## below), get_next_prnstream/jump_substream no longer read these four
+## directly -- the same values are now computed on demand from the base
+## recurrence instead of transcribed twice. Left in place, unchanged,
+## because they are real public API (same import path as mat333mult/
+## mat311mod above) and because KNOWN_ISSUES.md issue 1's own narrative
+## refers to these specific names when describing the float-precision
+## defect they were involved in; tests/test_mrg_common.py checks the
+## generalized jump reproduces them exactly, so they also serve as a
+## fixed regression pin against the original, hand-transcribed values.
 
 a1p127 = [[2427906178.0, 3580155704.0, 949770784.0],
     [226153695.0, 1230515664.0, 3580155704.0],
@@ -49,10 +71,45 @@ mrgnorm = 2.328306549295727688e-10
 mrgm1 = 4294967087.0
 mrgm2 = 4294944443.0
 mrgm1i = int(mrgm1)  # exact int form; getrandbits() needs integer arithmetic, not mrgnorm's float round-trip
+mrgm2i = int(mrgm2)  # same, for the generalized jump below (mrg_common.jump_n)
 mrga12 = 1403580.0
 mrga13n = 810728.0
 mrga21 = 527612.0
 mrga23n = 1370589.0
+
+# One-step transition matrices for mrg32k3a()'s own recurrence above, in
+# the same (non-reversed) seed[0:3]/seed[3:6] component order
+# mat333mult already uses -- derived directly from mrg32k3a()'s two
+# update lines (newseed = (seed[1], seed[2], p1, seed[4], seed[5], p2)),
+# not transcribed from a second, independent source, so there is exactly
+# one place these coefficients are stated. mrg_common.mat_pow_mod raises
+# each to an arbitrary power mod mrgm1i/mrgm2i; jump_substream/
+# get_next_prnstream below become thin wrappers around jump_seed_n at
+# the two fixed exponents 2**76/2**127. Verified to reproduce a1p76/
+# a2p76/a1p127/a2p127 below exactly, not just derived and assumed --
+# see tests/test_mrg_common.py.
+_m1_step = [[0, 1, 0], [0, 0, 1], [(-int(mrga13n)) % mrgm1i, int(mrga12) % mrgm1i, 0]]
+_m2_step = [[0, 1, 0], [0, 0, 1], [(-int(mrga23n)) % mrgm2i, 0, int(mrga21) % mrgm2i]]
+
+# Computed once, at import time, not per call: jump_seed_n's two
+# hot-path exponents (2**76, 2**127 -- the only ones get_next_prnstream/
+# jump_substream ever ask for) are cached here rather than run through
+# mat_pow_mod's ~127-round binary exponentiation on every single call.
+# This is not a hypothetical optimization -- get_next_prnstream runs
+# once per RA iteration and jump_substream once per replication
+# (chnbase.py), so recomputing the full power on every call is a real,
+# measured regression: the full test suite went from ~60s to over 4
+# minutes, with one CLI end-to-end test timing out, before this caching
+# was added. Equal to a1p76/a2p76/a1p127/a2p127 above, by construction
+# (mat_pow_mod is the same general operation, at the same exponents) and
+# confirmed equal in tests/test_mrg_common.py -- computed here via the
+# general mechanism rather than reused from those four directly, so
+# jump_seed_n stays genuinely "the general jump, cached at its two known
+# exponents," not a silent fallback to the old hardcoded path.
+_jump76_p1 = mat_pow_mod(_m1_step, 2**76, mrgm1i)
+_jump76_p2 = mat_pow_mod(_m2_step, 2**76, mrgm2i)
+_jump127_p1 = mat_pow_mod(_m1_step, 2**127, mrgm1i)
+_jump127_p2 = mat_pow_mod(_m2_step, 2**127, mrgm2i)
 
 
 #constants used for approximating the inverse standard normal cdf
@@ -365,59 +422,49 @@ class MRG32k3a(random.Random):
         return sigma*z + mu
 
 
-def mat333mult(a, b):
+def jump_seed_n(seed, n):
     """
-    Multiply a 3x3 matrix with a 3x1 matrix, in exact Python integer
-    arithmetic. The row sums here reach roughly 2^62-2^63 (matrix
-    elements and seed components are each up to ~2^32), which silently
-    loses precision in float64 (53 bits of exact integer range); Python
-    ints are arbitrary precision, so casting to int before multiplying
-    is exact by construction. See docs/phase2a-verification.md, item 1.
+    Advance a full 6-component seed n steps, via the generalized
+    binary-exponentiation matrix power (mrg_common.mat_pow_mod/jump_n)
+    applied to each half independently. jump_substream/
+    get_next_prnstream below are thin wrappers around this at the two
+    fixed exponents 2**76/2**127; nothing else calls this with any other
+    `n` yet -- see docs/rng-interface-design.md §3.4/§3.5 for the later
+    step where an arbitrary coordinate does.
+
+    At those same two fixed exponents, this reuses the matrices
+    precomputed once at import time (above) instead of re-running
+    mat_pow_mod's binary exponentiation on every call -- see the comment
+    above _jump76_p1 for why that caching is load-bearing, not
+    cosmetic. Any other `n` runs the general computation directly; nothing
+    about its *result* differs between the two paths, only the cost.
 
     Parameters
     ----------
-    a : tuple of tuple of float
-        3x3 matrix
-    b : tuple of tuple if float
-        3x1 matrix
+    seed : tuple of int
+        Length must be 6.
+    n : int
+        Number of steps. Must be non-negative.
 
     Returns
     -------
-    res : list of int
-        3x1 matrix
+    tuple of int
+        The seed advanced n steps.
     """
-    res = [0, 0, 0]
-    r3 = range(3)
-    for i in r3:
-        res[i] = sum([int(a[i][j])*int(b[j]) for j in r3])
-    return res
-
-
-def mat311mod(a, b):
-    """
-    Compute moduli of a 3x1 matrix, in exact Python integer arithmetic.
-    Python's '/' between two ints is float true division, which would
-    reintroduce the same precision loss mat333mult avoids if 'a' holds
-    a large exact int; '%' on ints is exact.
-
-    Parameters
-    ----------
-    a : tuple of float
-        3x1 matrix
-    b : float
-        modulus
-
-    Returns
-    -------
-    res : tuple of int
-        3x1 matrix
-    """
-    res = [0, 0, 0]
-    r3 = range(3)
-    bi = int(b)
-    for i in r3:
-        res[i] = int(a[i]) % bi
-    return res
+    assert(len(seed) == 6)
+    s1 = seed[0:3]
+    s2 = seed[3:6]
+    if n == 2**76:
+        p1, p2 = _jump76_p1, _jump76_p2
+    elif n == 2**127:
+        p1, p2 = _jump127_p1, _jump127_p2
+    else:
+        ns1 = jump_n(s1, _m1_step, n, mrgm1i)
+        ns2 = jump_n(s2, _m2_step, n, mrgm2i)
+        return tuple(ns1 + ns2)
+    ns1 = mat311mod(mat333mult(p1, s1), mrgm1i)
+    ns2 = mat311mod(mat333mult(p2, s2), mrgm2i)
+    return tuple(ns1 + ns2)
 
 
 def get_next_prnstream(seed, use_cache):
@@ -433,17 +480,7 @@ def get_next_prnstream(seed, use_cache):
     -------
     prn : MRG32k3a object
     """
-    assert(len(seed) == 6)
-    # split the seed into 2 components of length 3
-    s1 = seed[0:3]
-    s2 = seed[3:6]
-    # A*s % m for both seed parts
-    ns1m = mat333mult(a1p127, s1)
-    ns2m = mat333mult(a2p127, s2)
-    ns1 = mat311mod(ns1m, mrgm1)
-    ns2 = mat311mod(ns2m, mrgm2)
-    # random.Random objects need a hashable seed e.g. a tuple
-    sseed = tuple(ns1 + ns2)
+    sseed = jump_seed_n(seed, 2**127)
     prn = MRG32k3a(sseed)
     prn.set_class_cache(use_cache)
     return prn
@@ -456,15 +493,4 @@ def jump_substream(prn):
     ----------
     prn : MRG32k3a object
     """
-    seed = prn.get_seed()
-    # split the seed into 2 components of length 3
-    s1 = seed[0:3]
-    s2 = seed[3:6]
-    # A*s % m for both seed parts
-    ns1m = mat333mult(a1p76, s1)
-    ns2m = mat333mult(a2p76, s2)
-    ns1 = mat311mod(ns1m, mrgm1)
-    ns2 = mat311mod(ns2m, mrgm2)
-    # random.Random objects need a hashable seed e.g. a tuple
-    sseed = tuple(ns1 + ns2)
-    prn.seed(sseed)
+    prn.seed(jump_seed_n(prn.get_seed(), 2**76))
