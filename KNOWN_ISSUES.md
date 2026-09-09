@@ -685,6 +685,45 @@ expect `OverflowError`, not a timeout, and can cite this entry.
 
 ---
 
+### 13. `Oracle.bump()` removed from the public API
+
+**Affects:** this branch only, from the commit that removed it (docs/
+rng-interface-design.md §12 step 6b). **Severity:** low for this
+codebase (no in-tree caller — confirmed directly, both real
+`MOSOSolver`s, `RASolver`/`RLESolver` and MOCOMPASS/MOPBnB, use `hit()`)
+but a real, documented-API removal: `bump()` is part of the object
+reference the original paper (Cooper & Hunter 2018) describes, so an
+out-of-tree solver written against that documentation, or against any
+released version, may call it directly.
+
+#### What changed
+
+`Oracle.bump(x, m)` simulated `m` replications at `x` and returned
+`(isfeas, obs)`, `obs` a list of the raw, per-replication objective
+values — unaggregated, unlike `hit()`'s `(isfeas, obmean, obse)`. It
+duplicated `hit()`'s own replication loop (a second, independently
+maintained implementation of the same "replicate and aggregate" logic,
+flagged as drift-risk in CLAUDE.md's working agreement well before this
+removal), was never migrated to the coordinate-based mechanism `hit()`'s
+`crnflag=False` path moved to at §12 step 4b (so a `crnflag=False`
+caller would have kept observing the pre-4b order-dependent walk,
+untouched since step 3), and had no test coverage beyond pinning that
+specific leftover behavior and its own `m<1` precondition check.
+
+#### Status
+
+Removed, not deprecated — no compatibility shim, matching this
+project's stated posture toward backwards-compatibility hacks.
+Migration for anyone calling it out of tree: `hit(x, m)` with the same
+arguments returns aggregated `(isfeas, obmean, obse)`; if raw
+per-replication values are genuinely needed, they are not currently
+available through any public method — that capability returns with the
+executor rework (CLAUDE.md's "Still in flight"), which is expected to
+expose unaggregated per-replication observations as its own return
+shape rather than reintroduce `bump()`.
+
+---
+
 ## Reporting
 
 Please open an issue at

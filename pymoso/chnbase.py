@@ -1185,7 +1185,7 @@ class Oracle(object):
     ----------
     rng : prng.MRG32k3a object
     pseudo-random number generator, handed to `g(x, rng)` for each
-    replication. hit()/bump() use it as the *live* draw source but do
+    replication. hit() uses it as the *live* draw source but does
     not treat its value between calls as authoritative -- a custom
     MOSOSolver may set it directly before calling hit() (MOCOMPASS, an
     in-tree example, does exactly this, via rng.setstate(), as its own
@@ -1200,7 +1200,7 @@ class Oracle(object):
     since it costs nothing and later steps (visit=/sync=) need it.
     _iteration_baseline_seed : tuple of int
     The current RA iteration's baseline mrg32k3a seed -- what
-    crnold_state used to hold. Under crnflag=True, hit()/bump() rewind
+    crnold_state used to hold. Under crnflag=True, hit() rewinds
     both `rng` and _next_seed to this seed at the start of every call,
     so different points visited in the same iteration draw from the
     same baseline (this rewind-then-walk-forward *is* what "common
@@ -1250,7 +1250,7 @@ class Oracle(object):
         # _iteration_baseline_seed is never dereferenced unless
         # set_crnflag() runs first and gives it a real value -- every
         # real solve()/testsolve()/mp_replicate() path does exactly
-        # that before any hit()/bump()/crn_advance() call.
+        # that before any hit()/crn_advance() call.
         self._iteration_baseline_seed = None
         self._next_seed = None
         self._orc_root = None
@@ -1262,7 +1262,7 @@ class Oracle(object):
         self._replications_drawn = {}
         # §12 step 6c/8: the oracle-role coordinate high-water mark --
         # (stream, offset), the *last* coordinate actually touched via
-        # hit()/bump() (any branch) or _hit_via_coordinate, relative to
+        # hit() (any branch) or _hit_via_coordinate, relative to
         # `_orc_root` -- see get_endseed()'s own docstring for the full
         # contract, its oracle-role-only scope, and why this tracks the
         # last touch rather than "one past" it (§3.9's stream/offset
@@ -1358,7 +1358,7 @@ class Oracle(object):
         `divmod(last_touched, ITER_STRIDE)` (§12 step 6c) -- has now
         been touched: the *last* raw position a replication's own
         reserve could actually have reached, not "one past" it. Called
-        once per hit()/bump() replication block, from every branch that
+        once per hit() replication block, from every branch that
         computes a coordinate (§12 step 8).
 
         Storing the last position touched, rather than "one past" it
@@ -1511,13 +1511,6 @@ class Oracle(object):
         term), so no continuation state from the previous iteration
         could be meaningful here even if kept.
 
-        Note: bump() (unlike hit(), as of this step) still consumes
-        `rng`/`_next_seed` directly under both crnflag values, unchanged
-        from step 3 -- deliberately left off this cutover (see bump()'s
-        own docstring) since nothing in this codebase calls it that way.
-        A real bump() caller under crnflag=False would still observe the
-        pre-step-4b order-dependent walk; nothing here currently does.
-
         Kept as a public method, unlike the crn_reset/crn_check/
         crn_setobs/crn_nextobs helpers this replaces (removed -- nothing
         outside Oracle called them): MOCOMPASS/MOPBnB, two in-tree,
@@ -1529,7 +1522,7 @@ class Oracle(object):
 
         **Debt, recorded not fixed (§12 step 6c):** this method, together
         with `_advance_replication()` and `hit()`'s own `crnflag=True`
-        branch, is a *second* implementation of the same "compute a
+        branch, is a second implementation of the same "compute a
         replication's position, aggregate the result" logic
         `_hit_via_coordinate` already provides -- incremental, stateful
         `rng`/`_next_seed` mutation here, versus a stateless
@@ -1539,17 +1532,22 @@ class Oracle(object):
         _next_seed` in `tests/test_oracle_endseed.py`) -- proven, not
         assumed, but proof of equivalence is not the same as one
         implementation, and two implementations of the same logic is
-        exactly the shape that drifts, the same lesson `bump()`'s own
-        docstring and the `_hit_opt_in`/`hit()` convergence note (§12
-        step 4a, since resolved when both became `_hit_via_coordinate`)
-        already draw from. This is the third instance of that specific
-        pattern in this codebase, not fixed here for the same reason
-        `bump()` wasn't cut over in step 4b: no real caller currently
-        needs it fixed, and unifying it would mean removing the `rng`-
-        mutation model (including its `cache_clear()` calls above) that
-        `bump()`/`crn_advance()`'s own public surface still exposes,
-        which is a real change in kind, not a relabeling -- exactly the
-        "no golden moves" boundary this step was scoped to stay inside.
+        exactly the shape that drifts, the same lesson the
+        `_hit_opt_in`/`hit()` convergence note (§12 step 4a, since
+        resolved when both became `_hit_via_coordinate`) already draws
+        from. (`bump()`, which used to make this a third instance, was
+        removed outright rather than converged -- no in-tree caller, so
+        there was nothing for a unification to preserve.) Not fixed
+        here: unifying this one would mean removing the `rng`-mutation
+        model (including its `cache_clear()` calls above) `crn_advance()`'s
+        own public surface still exposes, a real change in kind, not a
+        relabeling -- exactly the "no golden moves" boundary this step
+        was scoped to stay inside. **Reclassified, §12 step 6c-completion:**
+        this is no longer only drift-risk -- it is what blocks `--crn`
+        from working under any non-MRG generator, since nothing here
+        routes through a selected backend at all. See CLAUDE.md's
+        "Known open items" and docs/rng-interface-design.md §12 step
+        6c-completion's own entry.
         """
         if self.crnflag:
             self._next_seed = self._iteration_baseline_seed
@@ -1576,71 +1574,6 @@ class Oracle(object):
         self.rng.seed(self._next_seed)
         jump_substream(self.rng)
         self._next_seed = self.rng.get_seed()
-
-    def bump(self, x, m):
-        """
-        Simulate 'm' replications at 'x' and return the replication
-        values as a list
-
-        Deliberately NOT cut over to hit()'s coordinate-based
-        crnflag=False path (docs/rng-interface-design.md §12 step 4b):
-        bump() is being removed from the interface (CLAUDE.md's own
-        in-flight decision -- no in-tree callers, no test coverage
-        beyond the m<1 precondition check, duplicates hit()'s loop),
-        and updating it would add a second untested instance of the
-        same coordinate logic for no real caller. Still uses `rng`/
-        `_next_seed` directly, for both crnflag values, exactly as step
-        3 left it -- a caller under crnflag=False would get the old,
-        order-dependent walk, not step 4b's fix.
-
-        get_endseed()'s high-water mark (§12 step 8) is only updated
-        here for crnflag=True: that branch's coordinate is still
-        `_iteration*ITER_STRIDE + replication*REPL_STRIDE`, the same
-        formula hit()'s own CRN branch uses, so it's cheap and correct
-        to fold in. The crnflag=False branch's old order-dependent walk
-        has no coordinate in the current scheme at all to report --
-        another entry on this method's already-long list of known gaps
-        (no in-tree callers is exactly why this hasn't been worth fixing
-        rather than removing bump() outright).
-
-        Parameters
-        ----------
-        x : tuple of int
-    point at which to simulate
-    m : int
-    number of replications to simulate 'x'
-
-    Returns
-    -------
-    isfeas : bool
-    Indicates if 'x' is feasible
-    obs : list of tuple of float
-    list of length 'm' of simulated objective values
-        """
-
-        d = self.num_obj
-        dr = range(d)
-        isfeas = False
-        obs = []
-        mr = range(m)
-        if m < 1:
-            raise ValueError('Number of replications must be at least 1.')
-        else:
-            mr = range(m)
-            feas = []
-            if self.crnflag:
-                self.rng.seed(self._iteration_baseline_seed)
-                self._next_seed = self._iteration_baseline_seed
-            for i in mr:
-                oisfeas, objd = self.g(x, self.rng)
-                feas.append(oisfeas)
-                obs.append(objd)
-                self._advance_replication()
-            if all(feas):
-                isfeas = True
-            if self.crnflag:
-                self._touch_coordinate(self._iteration * ITER_STRIDE + m * REPL_STRIDE - 1)
-        return isfeas, obs
 
     def _hit_via_coordinate(self, x, m, visit, sync, start_replication=0):
         """

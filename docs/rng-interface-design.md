@@ -89,7 +89,13 @@ nothing overruns it.
 - MRG31k3p first (close sibling, cheap interface validation), then
   Philox-4x32 (counter-based, architecturally motivated). MRG32k3a stays
   default.
-- `bump()` is being removed; nothing here designs around it.
+- `bump()` is being removed; nothing here designs around it. **Done, §12
+  step 6b:** no in-tree callers, no test coverage beyond pinning its own
+  leftover behavior, duplicated `hit()`'s replication loop, and both
+  in-tree `MOSOSolver`s use `hit()`. Migration for anyone using it out
+  of tree: `hit()` with the same arguments returns aggregated stats;
+  raw per-replication access returns with the executor rework. See
+  `KNOWN_ISSUES.md`.
 - `Oracle.g(self, x, rng)`'s signature is fixed.
 
 ## 2. The central finding: CRN is already coordinate-pure; today's non-CRN *enumeration* is an artifact, not a specification
@@ -1556,10 +1562,10 @@ representation is being introduced.
 only, a deliberate, stated scope, not "every role" above.**
 `Oracle.get_endseed()` (`pymoso/chnbase.py`) tracks `_high_water_mark`,
 updated at every call site that computes an oracle-role coordinate:
-`hit()`'s CRN branch, `bump()` under `crnflag=True` (its own
-crnflag=False branch has no coordinate in the current scheme to
-report — a documented, pre-existing gap, not new here), and
-`_hit_via_coordinate`'s offset/sync branches alike.
+`hit()`'s CRN branch (at this step, `bump()` under `crnflag=True` did
+the same, sharing the mechanism — `bump()` has since been removed
+outright, §12 step 6b, not converged, since it had no in-tree caller),
+and `_hit_via_coordinate`'s offset/sync branches alike.
 `RASolver.solve()`/`rasolve()` and MOCOMPASS/MOPBnB's own `solve()`
 methods (all three, not just `RASolver` — fixing one and not the other
 two would be worse than fixing neither) now report `orc.get_endseed()`
@@ -2378,17 +2384,20 @@ behavior-changing (goldens move, on purpose, with sign-off).
    equivalent — by induction (in `crn_advance()`'s own docstring) and
    empirically (`get_endseed() == _next_seed`, `tests/test_oracle_
    endseed.py`) — but proof of equivalence is not the same as one
-   implementation: this is now the *third* instance in this codebase of
-   two implementations computing the same "replicate and aggregate"
-   logic (after `bump()`, and the `_hit_opt_in`/`hit()` duplication §12
-   step 4a found and step 4b resolved by convergence) — exactly the
-   shape CLAUDE.md's own working agreement already flags as prone to
-   drift. Not fixed here, for the same reason `bump()` wasn't cut over
-   in step 4b: unifying it means removing the `rng`-mutation model
-   (including its `cache_clear()` calls) that `bump()`'s own public
-   surface still depends on — a real behavior change, not a relabeling,
-   which would move goldens and so falls outside this step's own scope.
-   Recorded in `crn_advance()`'s own docstring, not only here.
+   implementation: two implementations computing the same "replicate
+   and aggregate" logic, the same shape as the `_hit_opt_in`/`hit()`
+   duplication §12 step 4a found and step 4b resolved by convergence
+   (and, until §12 step 6b removed it outright rather than converging
+   it — no in-tree caller, nothing to preserve — `bump()` made this a
+   third instance). Not fixed here: unifying it means removing the
+   `rng`-mutation model (including its `cache_clear()` calls) that
+   `crn_advance()`'s own public surface still depends on — a real
+   behavior change, not a relabeling, which would move goldens and so
+   falls outside this step's own scope. Recorded in `crn_advance()`'s
+   own docstring, not only here. **Reclassified, §12 step
+   6c-completion** (below): no longer only drift-risk — it is what
+   blocks `--crn` from working under any non-MRG generator, since
+   nothing here routes through a selected backend at all.
 
    **Not sequenced against 6b**: 6b (bare CLI/library selection) doesn't
    need this to land — MRG32k3a/MRG31k3p both work today with the flat

@@ -222,6 +222,11 @@ function should know it's there and not mistake it for something load
 
 ## `bump()`: unchanged
 
+**Since removed** (docs/rng-interface-design.md §12 step 6b,
+`KNOWN_ISSUES.md` issue 13) -- no in-tree caller, duplicated `hit()`'s
+loop. This section is kept as the verification snapshot it was at the
+time this rework was done, not a claim about current code.
+
 `Oracle.bump(x, m)` is byte-for-byte the same as what we verified in
 phase 2a: still purely serial (loops `self.g(x, self.rng)` directly, no
 `self.simpar` branch, no queue, no worker dispatch at all), still calls

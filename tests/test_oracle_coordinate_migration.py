@@ -5,11 +5,22 @@ replacement (§4). Two checks the golden suite doesn't directly provide
 
 - §7 item 7, the bit-identical migration proof: for a battery of
   (iteration, replication) coordinates, the CRN branch's actual stream
-  -- produced by real hit()/bump()/crn_advance() calls -- equals
+  -- produced by real hit()/crn_advance() calls -- equals
   jump_seed_n(root, iteration*ITER_STRIDE + replication*REPL_STRIDE)
   computed directly (§2's formula). This is the concrete, checked claim
   behind "CRN stays bit-identical," not an assumption riding on §2's
   proof alone. Unaffected by step 4b -- the CRN branch is untouched.
+
+  `_crn_replicate` below drives replications directly (reset to
+  `_iteration_baseline_seed`, then `g()`+`_advance_replication()` per
+  replication) rather than through `orc.hit(x, m)`: hit() only returns
+  aggregated mean/se, and several tests below check every individual
+  replication's own coordinate, not the mean. This mirrors exactly the
+  loop `Oracle.bump()` used to run before its removal (no in-tree
+  caller, duplicated hit()'s own loop -- see CLAUDE.md's "Fixed on this
+  branch") -- reproduced here, test-local, because this file's own
+  regression intent (raw per-replication coordinate correctness) needs
+  it, not because bump() itself is coming back.
 
 - §7.1 item 10, order-independence. Landed at step 3 as a strict xfail,
   run against that step's own code and confirmed FAILING: step 3
@@ -53,6 +64,20 @@ def _expected_seed0(coordinate):
     return float(jump_seed_n(ROOT, coordinate)[0])
 
 
+def _crn_replicate(orc, x, m):
+    """Drive `m` CRN replications at `x`, returning raw per-replication
+    observations -- see module docstring for why this exists instead of
+    calling the removed Oracle.bump() or the aggregating orc.hit()."""
+    orc.rng.seed(orc._iteration_baseline_seed)
+    orc._next_seed = orc._iteration_baseline_seed
+    obs = []
+    for _ in range(m):
+        isfeas, objd = orc.g(x, orc.rng)
+        obs.append(objd)
+        orc._advance_replication()
+    return obs
+
+
 # ---------------------------------------------------------------------------
 # §7 item 7: bit-identical migration proof (CRN branch)
 # ---------------------------------------------------------------------------
@@ -68,7 +93,7 @@ def _fresh_crn_oracle():
 
 def test_crn_replication_0_at_iteration_0_matches_the_root_directly():
     orc = _fresh_crn_oracle()
-    isfeas, obs = orc.bump((1,), 1)
+    obs = _crn_replicate(orc, (1,), 1)
     assert obs[0][0] == _expected_seed0(0)
 
 
@@ -78,7 +103,7 @@ def test_crn_every_replication_within_one_iteration_matches_the_coordinate_formu
     r*REPL_STRIDE (§2), for several m, checked against every
     replication returned, not just the mean."""
     orc = _fresh_crn_oracle()
-    isfeas, obs = orc.bump((7,), m)
+    obs = _crn_replicate(orc, (7,), m)
     for r in range(m):
         assert obs[r][0] == _expected_seed0(0 * ITER_STRIDE + r * REPL_STRIDE)
 
@@ -90,7 +115,7 @@ def test_crn_advance_moves_to_the_next_iteration_baseline_exactly():
     orc = _fresh_crn_oracle()
     for k in range(1, 6):
         orc.crn_advance()
-        isfeas, obs = orc.bump((k,), 1)
+        obs = _crn_replicate(orc, (k,), 1)
         assert obs[0][0] == _expected_seed0(k * ITER_STRIDE)
 
 
@@ -101,8 +126,8 @@ def test_crn_different_points_in_the_same_iteration_share_the_same_replication_s
     therefore each other."""
     orc = _fresh_crn_oracle()
     orc.crn_advance()
-    isfeas_a, obs_a = orc.bump((11,), 4)
-    isfeas_b, obs_b = orc.bump((22,), 4)
+    obs_a = _crn_replicate(orc, (11,), 4)
+    obs_b = _crn_replicate(orc, (22,), 4)
     assert [v[0] for v in obs_a] == [v[0] for v in obs_b]
     for r in range(4):
         assert obs_a[r][0] == _expected_seed0(1 * ITER_STRIDE + r * REPL_STRIDE)
@@ -118,7 +143,7 @@ def test_crn_multiple_iterations_and_replications_all_match_the_formula():
         if k > 0:
             orc.crn_advance()
         m = k + 1
-        isfeas, obs = orc.bump((100 + k,), m)
+        obs = _crn_replicate(orc, (100 + k,), m)
         for r in range(m):
             assert obs[r][0] == _expected_seed0(k * ITER_STRIDE + r * REPL_STRIDE), (
                 f"iteration {k}, replication {r}"

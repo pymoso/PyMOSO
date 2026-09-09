@@ -207,6 +207,14 @@ tracebacks captured.
 
 ## 5. `Oracle.bump()`: works correctly as documented; one real gap vs. `hit()`
 
+**Since removed** (docs/rng-interface-design.md §12 step 6b, `KNOWN_ISSUES.md`
+issue 13): no in-tree caller ever existed (this section's own "no
+in-tree caller to read as documentation" line below was already saying
+so), it duplicated `hit()`'s replication loop, and it was never
+migrated to `hit()`'s own coordinate-based `crnflag=False` path. This
+section is kept as the verification record it was at the time — a
+snapshot, not a claim about current code.
+
 **Answer:** `bump()` is not broken. Exercised directly against `hit()`
 from identical rng/CRN starting states across m∈{1,2,5,13} and
 crn∈{False,True} (`scratch/task5_bump.py`): bump()'s raw per-replication

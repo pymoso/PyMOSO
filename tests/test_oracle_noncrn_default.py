@@ -177,23 +177,3 @@ def test_different_points_do_not_collide_and_match_the_formula():
     assert a == [_expected(orc, (1, 1), r, W) for r in range(2)]
     assert b == [_expected(orc, (99, -3), r, W) for r in range(2)]
     assert set(a).isdisjoint(b)
-
-
-# ---------------------------------------------------------------------------
-# bump() is deliberately NOT cut over (its own docstring, chnbase.py) --
-# pin that explicitly, so an accidental future change to bump() doesn't
-# silently move behavior without a deliberate golden regeneration.
-# ---------------------------------------------------------------------------
-
-def test_bump_still_uses_the_old_mechanism_under_crnflag_false():
-    """bump() still consumes rng/_next_seed directly (step 3's
-    mechanism), not the coordinate-based default path -- confirmed by
-    checking its result does NOT match the offset_within_iteration
-    formula (it would, coincidentally, only if the old walk and the new
-    formula agreed, which they don't beyond replication 0 from a fresh
-    Oracle)."""
-    orc = _fresh_oracle(dim=1)
-    W = point_width(1)
-    isfeas, obs = orc.bump((5,), 3)
-    formula_predicted = [_expected(orc, (5,), r, W) for r in range(3)]
-    assert [v[0] for v in obs] != formula_predicted

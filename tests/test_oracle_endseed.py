@@ -5,7 +5,7 @@ mark, replacing crn_advance()'s own call-count-only endseed reporting.
 
 The property that matters, and the one every test below actually
 checks: get_endseed() must not collide with any raw value a run's own
-hit()/bump() calls actually drew. It would be easy to get the boundary
+hit() calls actually drew. It would be easy to get the boundary
 wrong in a way that still "looks" plausible -- one past the *start* of
 the last replication touched, rather than one past its *reserved
 end* -- since both produce a valid-looking seed and neither is
@@ -180,28 +180,6 @@ def test_endseed_reset_by_set_crnflag():
     orc.set_crnflag(False)
     assert orc._high_water_mark is None
     assert orc.get_endseed() == orc._orc_root
-
-
-# ---------------------------------------------------------------------------
-# bump()'s partial coverage (crnflag=True only, per its own docstring).
-# ---------------------------------------------------------------------------
-
-def test_bump_updates_endseed_under_crnflag_true():
-    orc = _fresh_oracle(dim=1, crnflag=True)
-    orc.bump((5,), 3)
-    expected = jump_seed_n(orc._orc_root, 0 * ITER_STRIDE + 3 * REPL_STRIDE)
-    assert orc.get_endseed() == expected
-
-
-def test_bump_does_not_update_endseed_under_crnflag_false():
-    """Documented gap (bump()'s own docstring): crnflag=False's bump()
-    still uses the pre-4b order-dependent walk, which has no coordinate
-    in the current scheme to report -- get_endseed() stays at whatever
-    it was before the call."""
-    orc = _fresh_oracle(dim=1, crnflag=False)
-    before = orc.get_endseed()
-    orc.bump((5,), 3)
-    assert orc.get_endseed() == before
 
 
 # ---------------------------------------------------------------------------

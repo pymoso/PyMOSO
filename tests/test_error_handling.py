@@ -83,31 +83,17 @@ def test_missing_sprn_or_x0_raises_typeerror():
         RSPLINE(orc)
 
 
-def test_bump_m_less_than_one_raises_valueerror():
-    rng = MRG32k3a((12345,) * 6)
-    rng.set_class_cache(False)
-
-    class TinyOracle(Oracle):
-        num_obj = 1
-        dim = 1
-
-        def g(self, x, rng):
-            return True, (x[0],)
-
-    orc = TinyOracle(rng)
-    with pytest.raises(ValueError):
-        orc.bump((1,), 0)
-
-
 def test_hit_m_less_than_one_raises_assertionerror():
     """FINDING, not part of our fix: upstream's own 917bf06 rewrite
     replaced hit()'s sys.exit() on m<1 with `assert(m >= 1)` -- a real
-    raise, unlike the old sys.exit(), but AssertionError rather than the
-    ValueError bump()'s equivalent check raises (ours, and unchanged from
-    our fork). The two checks now disagree on exception type for the
-    same precondition on sibling methods of the same class. Noting the
-    inconsistency here rather than silently reconciling it -- see the
-    migration report."""
+    raise, unlike the old sys.exit(), but AssertionError rather than a
+    ValueError, which is what every other precondition check in this
+    module raises. Noting the inconsistency here rather than silently
+    reconciling it -- see the migration report. (Previously compared
+    against Oracle.bump()'s own equivalent ValueError check on the same
+    precondition; bump() has since been removed -- see CLAUDE.md's
+    "Fixed on this branch" -- so the comparison is dropped, not the
+    finding about hit()'s own exception type.)"""
     rng = MRG32k3a((12345,) * 6)
     rng.set_class_cache(False)
 
