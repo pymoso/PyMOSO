@@ -91,22 +91,103 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (post §12 step 8 stage 1: Oracle.get_endseed())
+### Current values (post §12 step 8 stage 2: testsolve()'s aggregation -- both stages landed)
 
 **Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
 installed editable, captured from the source tree directly. Commit:
-`adfc156` on the `pymoso-migration` branch (step 8 stage 1 itself, the
+`9155674` on the `pymoso-migration` branch (step 8 stage 2 itself, the
 commit immediately prior to this regeneration). Command: `pytest
 tests/test_golden.py tests/test_solution_sensitivity.py -v`; also
 cross-checked against an independent capture under `.venv-dev` (CPython
 3.14) -- identical values, as expected (this arithmetic has no
-Python-version dependence). `test_solution_sensitivity.py`'s
-`EXPECTED_SOLUTIONS`/`end_seed` are unaffected by this stage (not an
-oracle-role-coordinate-consuming change to any search path) and are not
-reproduced again below.
+Python-version dependence).
+
+**Captured against `docs/rng-interface-design.md` §12 step 8, stage 2:**
+`chnutils.testsolve()`'s own reported `endseed` is now the real
+aggregated high-water mark across every `isp` path -- each path's own
+`RASolver.solve()`/MOCOMPASS/MOPBnB result dict carries its local
+`oracle_high_water_mark` (`Oracle.get_high_water_mark()`, crossing the
+`--proc` worker boundary as an ordinary picklable int), and `testsolve()`
+combines them as `max(t*ISP_STRIDE + local_max_t for t in
+range(isp))`, then reports `jump_seed_n(orc_root, that)` -- replacing
+`get_testsolve_prnstreams`'s reservation-based "next `isp` slot" value.
+Only `testsolve_tpa`/`testsolve_mocompass`/`testsolve_mopbnb` and the
+`testsolve()` library case moved in this pass; every `solve()`-path
+case (already on the real formula since stage 1) is untouched --
+confirmed directly, not assumed (`rperle_tpa`/`rminrle_tpa`/`rpe_tpa`/
+`rspline_simpleso`/`rperle_tpa_crn`/`rperle_tpa_seed2`/
+`rperle_tpa_simpar2`/`mocompass_tpa`/`mopbnb_tpa`/the `solve()` library
+case all identical to the stage-1 capture below). The three `testsolve_*`
+cases used to be bit-identical to each other and to the `testsolve()`
+library case -- the `testsolve()`-shaped analog of the `mocompass_tpa`/
+`mopbnb_tpa` collision stage 1 closed -- and now diverge, confirmed
+before regenerating: the three-way match breaks, each reflecting its
+own solver's real consumption across all 4 `isp` paths, as expected
+going in.
+
+`test_solution_sensitivity.py`'s `end_seed` also moved in this pass, for
+an unrelated reason worth stating precisely: not from `EXPECTED_
+SOLUTIONS` (unaffected, already regenerated in the replication-
+independence-fix pass), but because `endseed` is now sensitive to
+`ranx0`/which `x0` a solver actually searched from -- a new property as
+of step 8 (the mechanism this document's earlier passes reported could
+never see this; see `docs/end-seed-scope.md`'s own "Partially
+superseded" note). Confirmed, not coincidental: this value now equals
+`testsolve_tpa`'s own end seed exactly, because both are the identical
+computation (same tester/solver/budget/seed/isp/proc/crn, both
+`ranx0=True`).
+
+**These values are now a fully settled baseline under §12 step 8's own
+design** -- both stages are landed; nothing currently scheduled moves
+these again.
+
+| Case | End seed |
+|---|---|
+| rperle_tpa | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| rminrle_tpa | `3101702307, 2274224287, 2252695779, 2887425027, 4188880773, 159891216` |
+| rpe_tpa | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| rspline_simpleso | `2327071160, 589288757, 3791179983, 1866895284, 2094692759, 3256882931` |
+| testsolve_tpa | `3654817394, 2187457693, 4207556677, 3585739323, 608476310, 697649114` |
+| rperle_tpa_crn | `1128359308, 3860538173, 798726527, 4016157990, 1667726745, 709835043` |
+| rperle_tpa_seed2 | `2175629958, 147802191, 2425104019, 853609596, 4132240727, 4089413332` |
+| rperle_tpa_simpar2 | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| solve() library call | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| testsolve() library call | `1744404958, 3393812160, 2418775421, 509218500, 1460079748, 3249260099` |
+| mocompass_tpa | `1146796796, 3308305028, 386855827, 2694500999, 2221614380, 1025642763` |
+| mopbnb_tpa | `3809509318, 1900386143, 1103642148, 1010814338, 790187922, 3654332215` |
+| testsolve_mocompass | `2422441504, 1336929696, 2999367015, 1940896654, 3321487088, 1155700982` |
+| testsolve_mopbnb | `3460682149, 1730614318, 2650224894, 981491354, 3020985147, 1482257229` |
+
+`rperle_tpa`/`rperle_tpa_simpar2` still match *each other* (`--simpar`
+doesn't enter the coordinate formula, §3.4), and continue to coincide
+with `rpe_tpa` (a `crnflag=False` end seed depends only on
+`(Oracle._iteration, m)` at the last `hit()` call, the same for both
+solvers at the same `nu`). `test_solution_sensitivity.py`'s
+`test_testsolve_ranx0_solution_sets_match_baseline`'s `end_seed` --
+`3654817394, ...` -- is the same value as `testsolve_tpa` above, for
+the reason given above; not reproduced in this table since it isn't one
+of `test_golden.py`'s own `CASES`.
+
+---
+
+## Historical: post §12 step 8 stage 1 (Oracle.get_endseed()), pre-stage-2
+
+**Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
+installed editable, captured from the source tree directly. Commit:
+`adfc156` on the `pymoso-migration` branch (step 8 stage 1 itself, the
+commit immediately prior to that regeneration). Command: `pytest
+tests/test_golden.py tests/test_solution_sensitivity.py -v`; also
+cross-checked against an independent capture under `.venv-dev` (CPython
+3.14) -- identical values.
+
+**Superseded by §12 step 8 stage 2** (`testsolve()`'s own aggregation,
+see the "Current values" section above) for the four `testsolve_*`/
+`testsolve()`-library cases only -- every `solve()`-path value below is
+identical to the current one, unaffected by stage 2. Retained for
+provenance only, not as a target to restore.
 
 **Captured against `docs/rng-interface-design.md` §12 step 8, stage 1
-(the commit immediately prior to this regeneration):**
+(the commit immediately prior to that regeneration):**
 `Oracle.get_endseed()` -- a tracked high-water mark of every oracle-role
 coordinate actually passed to a replication, oracle-role only (§8.2's
 own explicit scope) -- wired into `RASolver.solve`/`rasolve` and

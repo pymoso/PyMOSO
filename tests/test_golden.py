@@ -9,33 +9,31 @@ from pymoso.solvers.rperle import RPERLE
 from pymoso.testers.tpatester import TPATester
 
 # Recaptured against the exact-integer jump-ahead fix (see
-# KNOWN_ISSUES.md issue 1 and the "Fix MRG32k3a jump-ahead precision
-# loss" commit), then recaptured again for every crnflag=False case
-# (docs/rng-interface-design.md §12 step 4b: MAX_RI's reservation walk
-# removed, the non-CRN default cutover to offset_within_iteration/
-# point_code), then a third time for the cases whose `nu` changed once
-# the replication-independence fix landed (§12's unnumbered prerequisite
-# entry before step 8), then a fourth time -- this capture -- for §12
-# step 8 stage 1: Oracle.get_endseed() (a tracked high-water mark of
-# actual oracle-role coordinate consumption, not iteration count)
-# wired into RASolver.solve/rasolve and MOCOMPASS/MOPBnB's own solve(),
-# replacing crn_advance()'s call-count-only reporting. Every
-# crnflag=False/CRN case moved this time, including rperle_tpa_crn --
-# a real finding, not expected going in; full trace (rasolve()'s own
-# trailing, unconditional crn_advance() past the last used iteration)
-# in docs/rng-interface-design.md §8.2. mocompass_tpa/mopbnb_tpa now
-# diverge from each other, confirming the fix this step exists for.
+# KNOWN_ISSUES.md issue 1), then again for every crnflag=False case
+# (docs/rng-interface-design.md §12 step 4b), a third time for the
+# replication-independence fix (§12's unnumbered prerequisite entry
+# before step 8), a fourth time for §12 step 8 stage 1
+# (Oracle.get_endseed() wired into RASolver.solve/rasolve and
+# MOCOMPASS/MOPBnB's own solve()), and a fifth time -- this capture --
+# for step 8 stage 2: testsolve()'s own endseed is now the real
+# aggregated high-water mark across every isp path (chnutils.testsolve,
+# after par_runs() returns each path's own oracle_high_water_mark),
+# replacing get_testsolve_prnstreams's reservation value. Only
 # testsolve_tpa/testsolve_mocompass/testsolve_mopbnb and the
-# testsolve() library case are unaffected by this stage -- still
-# get_testsolve_prnstreams's reservation value, stage 2's own scope
-# (not yet landed). All four sets of prior values are preserved in
+# testsolve() library case moved this time -- solve()'s own cases
+# (already on the real formula since stage 1) are untouched.
+# testsolve_tpa/testsolve_mocompass/testsolve_mopbnb used to be
+# bit-identical (the testsolve()-shaped analog of the mocompass_tpa/
+# mopbnb_tpa collision stage 1 fixed); the three-way match now breaks,
+# as expected going in -- each reflects its own solver's real
+# consumption. All five sets of prior values are preserved in
 # tests/golden/README.md for historical reference -- none are
 # restorable defaults; each prior mechanism (the jump-ahead bug, the
 # pre-4b order-dependence defect, the replication-collision defect,
-# and call-count-only endseed reporting) was wrong in its own way.
-# Every crnflag=False value below is still an intermediate state, not
-# a fully settled baseline, until step 8 stage 2 lands for testsolve()
-# too.
+# and call-count-only endseed reporting, at both the solve() and
+# testsolve() layers) was wrong in its own way. These values are now a
+# fully settled baseline under §12 step 8's own design -- both stages
+# are landed.
 
 SEED_RE = re.compile(r"^--\s+(?:next|ending) seed:\s+(.+)$", re.M)
 
@@ -62,10 +60,16 @@ CASES = {
         ["pymoso", "solve", "--budget=1000", "ProbSimpleSO", "RSPLINE", "40"],
         (2327071160, 589288757, 3791179983, 1866895284, 2094692759, 3256882931),
     ),
+    # testsolve_tpa/testsolve_mocompass/testsolve_mopbnb used to be
+    # bit-identical -- the testsolve()-shaped analog of the mocompass_tpa/
+    # mopbnb_tpa collision, and the concrete gap step 8 stage 2 (docs/
+    # rng-interface-design.md §12) closes: each now reflects the real
+    # aggregated oracle-role high-water mark across every isp path, so
+    # the three-way match breaks, as expected going in.
     "testsolve_tpa": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--metric",
          "TPATester", "RPERLE"],
-        (756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130),
+        (3654817394, 2187457693, 4207556677, 3585739323, 608476310, 697649114),
     ),
     # rperle_tpa_crn moved too, contrary to this golden's own long-
     # standing expectation of staying fixed while the crnflag=False
@@ -104,12 +108,12 @@ CASES = {
     "testsolve_mocompass": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--param", "lb", "0",
          "--param", "ub", "50", "TPATester", "MOCOMPASS"],
-        (756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130),
+        (2422441504, 1336929696, 2999367015, 1940896654, 3321487088, 1155700982),
     ),
     "testsolve_mopbnb": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--param", "lb", "0",
          "--param", "ub", "50", "TPATester", "MOPBnB"],
-        (756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130),
+        (3460682149, 1730614318, 2650224894, 981491354, 3020985147, 1482257229),
     ),
 }
 
@@ -150,4 +154,4 @@ def test_library_testsolve_end_seed_matches_baseline():
         TPATester, RPERLE, (40, 40),
         budget=1000, seed=(12345,) * 6, isp=4, proc=1, crn=False, ranx0=False,
     )
-    assert end_seed == (756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130)
+    assert end_seed == (1744404958, 3393812160, 2418775421, 509218500, 1460079748, 3249260099)
