@@ -29,11 +29,24 @@ from pymoso.chnutils import testsolve
 from pymoso.testers.tpatester import TPATester
 from pymoso.solvers.rperle import RPERLE
 
+# Recaptured once, for docs/rng-interface-design.md §12's unnumbered
+# prerequisite-fix entry (immediately before step 8): offset_within_
+# iteration's replication field had stride 1, so replications sharing
+# more than one raw draw per g() call (every built-in problem,
+# including ProbTPA/TPATester here) were not actually independent --
+# fixed via a real per-replication reserve (REPL_RESERVE_BITS,
+# pymoso/prng/base.py). This is exactly the class of change this
+# golden exists to catch (its own module docstring): a solver search
+# path shifting because the underlying replications changed, invisible
+# to end-seed matching alone (docs/end-seed-scope.md). end_seed below
+# is unchanged from the prior baseline -- expected, since testsolve()'s
+# own end seed comes from get_testsolve_prnstreams's reservation
+# value, unrelated to what any path's hit() calls actually drew.
 EXPECTED_SOLUTIONS = {
-    0: {(38, 0), (41, 4)},
-    1: {(16, 6), (16, 7)},
-    2: {(5, 6), (6, 4)},
-    3: {(18, 19)},
+    0: {(31, 6), (32, 6)},
+    1: {(1, 8), (17, 7)},
+    2: {(7, 4), (8, 4), (9, 3)},
+    3: {(26, 16), (26, 17)},
 }
 
 

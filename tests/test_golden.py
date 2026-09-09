@@ -13,11 +13,24 @@ from pymoso.testers.tpatester import TPATester
 # loss" commit), then recaptured again for every crnflag=False case
 # (docs/rng-interface-design.md §12 step 4b: MAX_RI's reservation walk
 # removed, the non-CRN default cutover to offset_within_iteration/
-# point_code) -- rperle_tpa_crn is the one case unchanged by the second
-# recapture, deliberately: the CRN branch is untouched by step 4b. Both
-# sets of prior values are preserved in tests/golden/README.md for
-# historical reference -- they are not restorable defaults, both the
-# jump-ahead bug and the pre-4b order-dependence defect were wrong. Per
+# point_code), then recaptured a third time for the cases whose `nu`
+# (RA iteration count at budget exhaustion) actually changed once the
+# replication-independence fix landed (§12's unnumbered prerequisite
+# entry immediately before step 8: offset_within_iteration's
+# replication field went from stride-1, colliding whenever g() drew
+# more than one raw value, to a real reserved block) -- rperle_tpa,
+# rminrle_tpa, rperle_tpa_seed2, rperle_tpa_simpar2 moved on this third
+# pass; rpe_tpa/rspline_simpleso/testsolve_*/mocompass_tpa/mopbnb_tpa
+# did not, because their own `nu` at budget=1000 happened to be
+# unaffected -- checked directly (nu before/after), not assumed, since
+# a crnflag=False end seed here is purely a function of `nu`, not of
+# what hit() actually drew (the exact scoping gap step 8 exists to
+# fix). rperle_tpa_crn is unchanged by any of the three passes,
+# deliberately: the CRN branch is untouched by both step 4b and this
+# fix. All three sets of prior values are preserved in
+# tests/golden/README.md for historical reference -- none are
+# restorable defaults; the jump-ahead bug, the pre-4b order-dependence
+# defect, and this replication-collision defect were all wrong. Per
 # tests/golden/README.md's own note: every crnflag=False value below is
 # itself an intermediate state, not a settled baseline -- it will move
 # again once docs/rng-interface-design.md §8.2's real endseed formula
@@ -30,12 +43,15 @@ SEED_RE = re.compile(r"^--\s+(?:next|ending) seed:\s+(.+)$", re.M)
 CASES = {
     "rperle_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RPERLE", "40", "40"],
-        (3003961408, 3529909391, 14538032, 3603919910, 566682685, 1235016484),
+        (596094074, 2279636413, 3050913596, 1739649456, 2368706608, 3058697049),
     ),
     "rminrle_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RMINRLE", "40", "40"],
-        (927434978, 1593504038, 2143021818, 1749489845, 1330187821, 2371554242),
+        (3224044943, 1227141655, 2220611050, 1504589054, 2829780440, 108189859),
     ),
+    # rpe_tpa is unaffected by the replication-independence fix (its own
+    # nu@budget=1000 happened to be unchanged, confirmed empirically --
+    # see the design doc's step-8-prerequisite entry) -- not moved here.
     "rpe_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RPE", "40", "40"],
         (596094074, 2279636413, 3050913596, 1739649456, 2368706608, 3058697049),
@@ -56,11 +72,11 @@ CASES = {
     "rperle_tpa_seed2": (
         ["pymoso", "solve", "--budget=1000", "--seed", "1", "2", "3", "4", "5", "6",
          "ProbTPA", "RPERLE", "40", "40"],
-        (894854942, 3096943843, 1340932684, 2817164986, 4019721871, 366681695),
+        (377212572, 86764798, 2286711681, 1003464262, 2322852652, 1042342679),
     ),
     "rperle_tpa_simpar2": (
         ["pymoso", "solve", "--budget=1000", "--simpar=2", "ProbTPA", "RPERLE", "40", "40"],
-        (3003961408, 3529909391, 14538032, 3603919910, 566682685, 1235016484),
+        (596094074, 2279636413, 3050913596, 1739649456, 2368706608, 3058697049),
     ),
     "mocompass_tpa": (
         ["pymoso", "solve", "--budget=1000", "--param", "lb", "0", "--param", "ub", "50",
@@ -113,7 +129,7 @@ def test_library_solve_end_seed_matches_baseline():
         ProbTPA, RPERLE, (40, 40),
         budget=1000, seed=(12345,) * 6, simpar=1, crn=False,
     )
-    assert end_seed == (3003961408, 3529909391, 14538032, 3603919910, 566682685, 1235016484)
+    assert end_seed == (596094074, 2279636413, 3050913596, 1739649456, 2368706608, 3058697049)
 
 
 def test_library_testsolve_end_seed_matches_baseline():

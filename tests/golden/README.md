@@ -91,12 +91,84 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (post step 4b coordinate cutover)
+### Current values (post replication-independence fix)
+
+**Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
+installed editable, captured from the source tree directly. Commit:
+`1eca229` on the `pymoso-migration` branch (the replication-independence
+fix itself, the commit immediately prior to this regeneration). Command:
+`pytest tests/test_golden.py tests/test_solution_sensitivity.py -v`;
+also cross-checked against an independent capture under `.venv-dev`
+(CPython 3.14) -- identical values, as expected (this arithmetic has no
+Python-version dependence).
+
+**Captured against `docs/rng-interface-design.md` §12's unnumbered
+prerequisite-fix entry, landed immediately before step 8:**
+`offset_within_iteration`'s `replication` field went from stride 1 (no
+reserved margin -- replications sharing more than one raw draw per
+`g()` call, which every built-in problem does, were not actually
+independent) to a real `2**REPL_RESERVE_BITS`-wide reserve per
+replication. Only the cases whose `nu` (RA iteration count at budget
+exhaustion) actually changed moved -- checked directly, not assumed: a
+`crnflag=False` end seed here is purely a function of `nu`
+(`crn_advance()`'s own call-count-only reporting, §8.2's still-open
+gap), not of what `hit()` actually drew, so a case only moves if the
+fix's changed draws fed back into that specific solver's own
+sample-driven control flow. `rperle_tpa`/`rminrle_tpa`/
+`rperle_tpa_seed2`/`rperle_tpa_simpar2` and the `solve()` library call
+moved; `rpe_tpa`/`rspline_simpleso`/`testsolve_tpa`/`mocompass_tpa`/
+`mopbnb_tpa`/`testsolve_mocompass`/`testsolve_mopbnb`/the `testsolve()`
+library call did not (their own `nu`, or `testsolve()`'s reservation-
+based end seed entirely, were unaffected). `rperle_tpa_crn` is
+unchanged, deliberately -- the CRN branch is untouched by this fix, just
+as it was untouched by step 4b.
+
+**These values are still an intermediate state, not a settled
+baseline -- read this before relying on them**, for the same reason the
+step-4b entry below already gave: `crn_advance()` still reports
+`endseed` based only on its own call count, not a real high-water mark
+of what a run actually consumed via `hit()`'s own coordinate
+computation (`docs/rng-interface-design.md` §8.2, not yet wired into
+`chnutils.py`/`RASolver.rasolve`'s reporting -- §12's own step 8).
+**Every `crnflag=False` value below will move again** when that lands.
+
+| Case | End seed |
+|---|---|
+| rperle_tpa | `596094074, 2279636413, 3050913596, 1739649456, 2368706608, 3058697049` |
+| rminrle_tpa | `3224044943, 1227141655, 2220611050, 1504589054, 2829780440, 108189859` |
+| rpe_tpa | `596094074, 2279636413, 3050913596, 1739649456, 2368706608, 3058697049` |
+| rspline_simpleso | `3728532268, 988545039, 1631700325, 1143954198, 2209269908, 1591407377` |
+| testsolve_tpa | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| rperle_tpa_crn | `3777646647, 1837464056, 4204654757, 664239048, 4190510072, 2959195122` |
+| rperle_tpa_seed2 | `377212572, 86764798, 2286711681, 1003464262, 2322852652, 1042342679` |
+| rperle_tpa_simpar2 | `596094074, 2279636413, 3050913596, 1739649456, 2368706608, 3058697049` |
+| solve() library call | `596094074, 2279636413, 3050913596, 1739649456, 2368706608, 3058697049` |
+| testsolve() library call | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| mocompass_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
+| mopbnb_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
+| testsolve_mocompass | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| testsolve_mopbnb | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+
+`rperle_tpa`/`rperle_tpa_simpar2` still match *each other*, confirmed
+explicitly, not just each against its own fresh baseline -- `--simpar`
+still doesn't enter the coordinate formula (§3.4). `rperle_tpa` and
+`rpe_tpa` now coincide too, exactly (not an error, checked): both ended
+this run at `nu=13`, and a `crnflag=False` end seed depends only on
+`nu`, not on which solver produced it.
+
+`tests/test_solution_sensitivity.py`'s `EXPECTED_SOLUTIONS` moved in
+this same pass -- expected, and the reason that golden exists: it is
+sensitive to consumption changes this fix made, which end-seed matching
+alone cannot see (`docs/end-seed-scope.md`).
+
+---
+
+## Historical: post step 4b coordinate cutover, pre-replication-reserve-fix
 
 **Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
 installed editable, captured from the source tree directly. Commit:
 `18ab096` on the `pymoso-migration` branch (the step 4b cutover itself,
-the commit immediately prior to this regeneration). Command: `pytest
+the commit immediately prior to that regeneration). Command: `pytest
 tests/test_golden.py tests/test_solution_sensitivity.py -v`; also
 cross-checked against an independent capture under `.venv-dev` (CPython
 3.14) -- identical values, as expected (this arithmetic has no
@@ -114,23 +186,17 @@ branch is untouched by step 4b, and its continued, unmodified value
 here is itself a regression check that the cutover didn't leak into it
 (§8.1's own point).
 
-**These values are an intermediate state, not a settled baseline --
-read this before relying on them.** `crn_advance()` currently reports
-`endseed` based only on its own call count (`self._iteration *
-ITER_STRIDE`), not a real high-water mark of what a run actually
-consumed via `hit()`'s own coordinate computation (`docs/rng-interface-
-design.md` §8.2, "settled" as a target design but not yet wired into
-`chnutils.py`/`RASolver.rasolve`'s reporting -- see §12's own step for
-that wiring, not yet scheduled relative to steps 5-6). Confirmed, not
-hypothetical: `mocompass_tpa` and `mopbnb_tpa` below report the
-*identical* end seed, and so do all three `testsolve_tpa`/
-`testsolve_mocompass`/`testsolve_mopbnb` cases -- both solvers in the
-first pair call `crn_advance()` exactly once regardless of how many
-replications they actually consumed internally (1440 for one, a
-different count for the other, checked directly), so today's endseed
-carries no information about that difference. **Every `crnflag=False`
-value below will move again** when §8.2's real formula is wired in --
-not just the two pairs that happen to already collide.
+**Superseded, not by §8.2's endseed-formula wiring (still not landed)
+but by a defect found in this cutover itself:** `offset_within_
+iteration`'s `replication` field was packed at stride 1, with no
+reserved margin, on the unstated assumption that a single replication
+consumes exactly one raw draw. No built-in problem's `g()` satisfies
+that, so replications sharing the same point were not actually
+independent below these values' capture -- see the "Current values"
+section above and `docs/rng-interface-design.md`'s unnumbered §12
+prerequisite entry (immediately before step 8) for the full
+reproduction and fix. These values remain here for provenance only, not
+as a target to restore.
 
 | Case | End seed |
 |---|---|
@@ -149,7 +215,7 @@ not just the two pairs that happen to already collide.
 | testsolve_mocompass | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
 | testsolve_mopbnb | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
 
-`rperle_tpa`/`rperle_tpa_simpar2` still match *each other*, confirmed
+`rperle_tpa`/`rperle_tpa_simpar2` still matched *each other*, confirmed
 explicitly, not just each against its own fresh baseline -- `--simpar`
 still doesn't enter the coordinate formula (§3.4).
 
