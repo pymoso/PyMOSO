@@ -733,6 +733,37 @@ already do conceptually:
   independent stream, counter = position within it) rather than a
   bit-split of one undifferentiated integer.
 
+**A wrong first move, corrected here rather than left standing:** the
+intuitive way to compose `isp` into this (isp selects a *sub-stream*,
+so it feels like it belongs "outside" the rest) is to treat it as an
+*outer layer* — isp's own `stream_at` call wrapping the entire rest of
+Oracle's own `(stream, offset)` reach as if it were one big `offset`.
+That reintroduces exactly the overflow this section exists to fix: at
+that outer layer, "offset" would have to hold Oracle's *entire* own
+reach, including its own `stream` component — `role`/`iteration`-or-
+`sync` folded back into one flattened number before ever reaching
+Philox's counter, the identical mistake the interface already made
+once, just moved up one layer. Checked directly, not caught by
+inspection alone: this was the first version of this section's own
+Philox sizing, and it put the total back over 128 bits.
+
+What actually works: `isp`, `role`, and `iteration`-or-`sync` are not
+layered, they compose **additively into the same `stream` value** —
+`chnutils.py`'s own isp-offset and `chnbase.py`'s own iteration/sync-
+offset add together exactly the way repeated MRG `jump_seed_n` calls
+already compose (`jump_seed_n(jump_seed_n(root,a),b) ==
+jump_seed_n(root,a+b)`). Philox's key addition (`key = (base_key +
+stream) mod 2**64`) has the identical algebraic shape, so the same
+composition holds there too — `isp*ISP_ITER_MARGIN + iteration` is one
+`stream` value, not an outer `offset` wrapping an inner one. Under this
+grouping, `offset` only ever has to hold the innermost thing —
+`point`/`visit`/`replication` — and `stream` holds everything else,
+flat, in the *same* dimension. That's what makes the two-part split fit
+Philox's own (64-bit key, 128-bit counter) split with real margin on
+both sides (§12 step 6's own sizing, corrected with this grouping) —
+not a coincidence of picking generous-enough numbers, a consequence of
+grouping the dimensions correctly in the first place.
+
 **What this would actually take is smaller than it sounds**, because the
 seam already exists: `chnbase.py`'s own call sites (`hit()`,
 `_hit_via_coordinate`, `crn_advance()`) already compute `self._iteration`
@@ -2272,9 +2303,9 @@ behavior-changing (goldens move, on purpose, with sign-off).
    exists in `pymoso/prng/`. No existing golden should move: this only
    adds a new selection path, it doesn't touch the default's own.
 6c. **[interface change, found onboarding step 6, not Philox-specific —
-   see §3.9]** Split `stream_at`'s coordinate into `(stream, offset)`:
-   `stream` selects an independent, non-overlapping stream (`isp`/
-   `iteration`/`role`/`sync`, currently the high bits of one flat
+   see §3.9 — done]** Split `stream_at`'s coordinate into `(stream,
+   offset)`: `stream` selects an independent, non-overlapping stream
+   (`isp`/`iteration`/`role`/`sync`, currently the high bits of one flat
    coordinate); `offset` selects a position within it (`point`/`visit`/
    `replication`, currently the low bits). MRG-family maps the pair
    onto the same flat-integer arithmetic it uses today
@@ -2283,7 +2314,81 @@ behavior-changing (goldens move, on purpose, with sign-off).
    maps it directly onto `(key, counter)` — no jump at all. `chnbase.py`
    already computes `self._iteration` and an offset-shaped value
    separately before flattening them today, so the change is inserting
-   a seam at an existing combination point, not a rewrite.
+   a seam at an existing combination point, not a rewrite — confirmed
+   directly, not assumed: full suite green on both venvs after landing,
+   every golden byte-identical to before, `--proc`/`--simpar` included
+   (the `(stream, offset)` pair pickles as an ordinary 2-tuple).
+
+   **Landed as:** `stream_at(seed, stream, offset)` on all three
+   generators (`mrg32k3a.py`, `mrg31k3p.py`, `philox4x32.py`);
+   `pymoso.prng.base.one_past`/`StreamFamilyExceeded` (the carry, proven
+   below); `Oracle._high_water_mark` as a `(stream, offset)` tuple (the
+   *last* coordinate touched, not "one past" it — a change from step 8's
+   own flat-integer form, so the carry's own safety could be checked
+   explicitly rather than baked unchecked into every `_touch_coordinate`
+   call site); `chnbase.py`'s `_hit_via_coordinate`/`get_endseed`/
+   `get_high_water_mark` and `chnutils.py`'s `get_testsolve_prnstreams`/
+   `testsolve` migrated to it. `RASolver.solve`/MOCOMPASS/MOPBnB needed
+   no changes — they already just forward `Oracle.get_high_water_mark()`'s
+   own return value through their result dict.
+
+   **The carry, proven before use, not assumed.** `one_past(stream,
+   offset, offset_capacity, stream_family_capacity)` raises
+   `StreamFamilyExceeded` if carrying `offset` past its own capacity
+   would push `stream + 1` outside the family that reserved it (e.g.
+   past `ISP_ITER_MARGIN`, spilling into what should be the next isp
+   path's own zone) — the same class of defect `MAX_RI`'s own unenforced
+   silent overlap was. Tested four ways, deliberately, not just the
+   common path: the generic mechanics in isolation
+   (`tests/test_stream_offset_carry.py`, including landing exactly on
+   the boundary and one past it); against Philox's own real, budget-
+   anchored constants (`tests/test_philox4x32_conformance.py`) — where
+   the boundary is actually reachable in a test, unlike MRG32k3a's own
+   `ISP_ITER_MARGIN = 2**32`; through `Oracle.get_endseed()`'s own
+   wiring, white-box (`_high_water_mark` set directly to the boundary
+   rather than run there — `tests/test_oracle_endseed.py`); and through
+   `chnutils.testsolve()`'s own, separate combination logic
+   (`tests/test_testsolve_endseed_carry.py`, `par_runs` monkeypatched to
+   return controlled per-path values) — a distinct call site with its
+   own choice of which constant to pass, not covered by any of the
+   other three. The sync zone's own family capacity is `None`
+   (unbounded) at every one of these layers, confirmed directly at a
+   stream value far beyond anything the default zone could reach, not
+   assumed safe from the shape of the constant alone.
+
+   **A pre-existing structural finding, surfaced while doing this
+   proof, not introduced by it, and not fixed here:** `SYNC_ROLE_OFFSET`
+   (`2**175`) is *larger* than `ISP_STRIDE` (`2**159`) — a single isp
+   path's own sync-zone coordinate already exceeds what should be the
+   *entire* reserved range of the next isp path. `sync=` and multi-path
+   `testsolve()` (`isp > 1`) are therefore not actually compatible in
+   the shipped scheme. This predates step 6c (the same flat arithmetic
+   already had this property; step 6c only relabels it) and is
+   unreached by anything in this codebase today — no in-tree caller
+   uses `sync=` at all, checked directly, not assumed. Recorded in
+   `mrg32k3a.py` at `SYNC_ROLE_OFFSET`'s own definition, not fixed:
+   resolving it means relocating `SYNC_ROLE_OFFSET` below `ISP_STRIDE`,
+   a real redesign of §4.3's own sizing, not a relabeling — out of this
+   step's own scope.
+
+   **Debt, recorded not fixed: the CRN branch was not migrated.**
+   `crn_advance()`/`_advance_replication()`/`hit()`'s own `crnflag=True`
+   path keep their incremental, stateful `rng`/`_next_seed` mutation
+   mechanism rather than moving to `stream_at`. This is proven
+   equivalent — by induction (in `crn_advance()`'s own docstring) and
+   empirically (`get_endseed() == _next_seed`, `tests/test_oracle_
+   endseed.py`) — but proof of equivalence is not the same as one
+   implementation: this is now the *third* instance in this codebase of
+   two implementations computing the same "replicate and aggregate"
+   logic (after `bump()`, and the `_hit_opt_in`/`hit()` duplication §12
+   step 4a found and step 4b resolved by convergence) — exactly the
+   shape CLAUDE.md's own working agreement already flags as prone to
+   drift. Not fixed here, for the same reason `bump()` wasn't cut over
+   in step 4b: unifying it means removing the `rng`-mutation model
+   (including its `cache_clear()` calls) that `bump()`'s own public
+   surface still depends on — a real behavior change, not a relabeling,
+   which would move goldens and so falls outside this step's own scope.
+   Recorded in `crn_advance()`'s own docstring, not only here.
 
    **Not sequenced against 6b**: 6b (bare CLI/library selection) doesn't
    need this to land — MRG32k3a/MRG31k3p both work today with the flat

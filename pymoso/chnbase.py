@@ -18,10 +18,11 @@ import inspect
 from statistics import mean, variance
 from math import sqrt, ceil, floor
 from .prng.mrg32k3a import (
-    get_next_prnstream, jump_substream, bsm, MRG32k3a, jump_seed_n,
+    get_next_prnstream, jump_substream, bsm, MRG32k3a, jump_seed_n, stream_at,
     ITER_STRIDE, REPL_STRIDE, REPL_RESERVE_STRIDE, SYNC_ROLE_OFFSET, SYNC_STRIDE,
+    ISP_ITER_MARGIN, SYNC_ZONE_STREAM_START,
 )
-from .prng.base import point_width, offset_within_iteration, REPL_RESERVE_BITS, ReplicationDrawOverflow
+from .prng.base import point_width, offset_within_iteration, REPL_RESERVE_BITS, ReplicationDrawOverflow, one_past
 from multiprocessing import Queue, Process
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
 
@@ -1259,17 +1260,20 @@ class Oracle(object):
         # contiguous block instead of restarting at 0 (MOPBnB's own
         # need, see hit()). Reset whenever the iteration advances.
         self._replications_drawn = {}
-        # §12 step 8: the oracle-role coordinate high-water mark, one
-        # past the far edge of every replication reserve actually
-        # touched via hit()/bump() (any branch) or _hit_via_coordinate,
-        # relative to `_orc_root` -- see get_endseed()'s own docstring
-        # for the full contract and its oracle-role-only scope.
-        # Monotonic for the Oracle's lifetime (reset only in
-        # set_crnflag(), matching `_iteration`'s own reset there) --
-        # never reset by crn_advance(), since every branch's coordinate
-        # formula is `_iteration`-scaled by ITER_STRIDE/SYNC_ROLE_OFFSET
-        # terms that only ever increase as `_iteration` advances.
-        self._high_water_mark = 0
+        # §12 step 6c/8: the oracle-role coordinate high-water mark --
+        # (stream, offset), the *last* coordinate actually touched via
+        # hit()/bump() (any branch) or _hit_via_coordinate, relative to
+        # `_orc_root` -- see get_endseed()'s own docstring for the full
+        # contract, its oracle-role-only scope, and why this tracks the
+        # last touch rather than "one past" it (§3.9's stream/offset
+        # split, not a flat integer, needs an explicit carry step to
+        # compute "one past" safely -- pymoso.prng.base.one_past).
+        # `None` means untouched. Monotonic for the Oracle's lifetime
+        # (reset only in set_crnflag(), matching `_iteration`'s own
+        # reset there) -- never reset by crn_advance(), since every
+        # branch's own `stream` value only ever increases as
+        # `_iteration` advances.
+        self._high_water_mark = None
         super().__init__()
 
 
@@ -1345,30 +1349,51 @@ class Oracle(object):
         # solve()/testsolve()/mp_replicate() call path.
         self._orc_root = self.rng.get_seed()
         self._replications_drawn = {}
-        self._high_water_mark = 0
+        self._high_water_mark = None
 
-    def _touch_coordinate(self, one_past_end):
+    def _touch_coordinate(self, last_touched):
         """
-        Record that oracle-role coordinates up to (but not including)
-        `one_past_end` -- relative to `_orc_root` -- have now been
-        touched. Called once per hit()/bump() replication block, from
-        every branch that computes a coordinate (§12 step 8).
+        Record that the oracle-role coordinate `last_touched` --
+        relative to `_orc_root`, decomposed as `(stream, offset)` via
+        `divmod(last_touched, ITER_STRIDE)` (§12 step 6c) -- has now
+        been touched: the *last* raw position a replication's own
+        reserve could actually have reached, not "one past" it. Called
+        once per hit()/bump() replication block, from every branch that
+        computes a coordinate (§12 step 8).
 
-        `one_past_end` must already account for each replication's own
-        reserve, not just its starting position -- the exact off-by-one
-        this method exists to get right in one place rather than at
-        every call site: a block of `m` replications starting at `base`
-        with per-replication reserve `stride` occupies
-        `[base, base + m*stride)`, so the caller passes
-        `base + m*stride`, not `base + (m-1)*stride`.
+        Storing the last position touched, rather than "one past" it
+        directly, is deliberate (a change from this method's own
+        earlier, flat-integer form): computing "one past" is now a
+        carry operation (`pymoso.prng.base.one_past`), done once at
+        `get_endseed()` time, where the carry's own safety can be
+        checked explicitly -- see that method's own docstring for why.
+
+        `last_touched` must already account for each replication's own
+        reserve, not just its starting position: a block of `m`
+        replications starting at `base` with per-replication reserve
+        `stride` occupies `[base, base + m*stride)`, so the caller
+        passes `base + m*stride - 1` (the last position in that range),
+        not `base` or `base + (m-1)*stride`.
+
+        Divmod against `ITER_STRIDE` applies uniformly across branches
+        by construction, not just the default one: the CRN branch's own
+        `_iteration*ITER_STRIDE + m*REPL_STRIDE - 1` decomposes exactly
+        into `(self._iteration, m*REPL_STRIDE - 1)`, since
+        `m*REPL_STRIDE - 1 < ITER_STRIDE` always; the sync branch's own
+        `SYNC_ROLE_OFFSET + sync*SYNC_STRIDE + ... - 1` decomposes into
+        a `stream` at or above `SYNC_ZONE_STREAM_START` -- correctly,
+        automatically, ordered above any default/CRN-branch touch by
+        plain tuple comparison, without this method needing to know
+        which branch called it.
 
         Parameters
         ----------
-        one_past_end : int
+        last_touched : int
             Non-negative.
         """
-        if one_past_end > self._high_water_mark:
-            self._high_water_mark = one_past_end
+        candidate = divmod(last_touched, ITER_STRIDE)
+        if self._high_water_mark is None or candidate > self._high_water_mark:
+            self._high_water_mark = candidate
 
     def get_endseed(self):
         """
@@ -1396,20 +1421,56 @@ class Oracle(object):
         to also bound solver-role consumption would be relying on
         something this method does not actually provide.
 
+        **The carry, proven safe before use, not assumed** (§12 step
+        6c): `_high_water_mark` stores the last coordinate genuinely
+        touched, as `(stream, offset)`; the seed returned must be one
+        past it -- `pymoso.prng.base.one_past(stream, offset,
+        offset_capacity, stream_family_capacity)`, which raises
+        `StreamFamilyExceeded` rather than silently landing in a
+        different, already-allocated family's own territory (the same
+        class of defect `MAX_RI`'s unenforced silent overlap was). The
+        family capacity depends on which zone the touch's own `stream`
+        falls in: below `SYNC_ZONE_STREAM_START`, it's the default/CRN
+        zone, bounded by `ISP_ITER_MARGIN` (how many iterations one isp
+        path's own slot reserves -- carrying past it would land in what
+        should be the *next* isp path's own zone); at or above it, it's
+        the sync zone, deliberately left unbounded (`None` -- §8.2's own
+        documented posture: remaining period headroom past
+        `SYNC_ROLE_OFFSET` already covers every realistic `sync` value,
+        so no separate ceiling is enforced here either). An untouched
+        Oracle (`_high_water_mark is None`) returns `_orc_root` itself,
+        with no carry computed at all -- there is nothing to be "one
+        past" yet.
+
         Returns
         -------
         tuple of int
-            A seed at least as far as `_high_water_mark` past
-            `_orc_root` -- safe to hand to independent, unrelated work
-            (e.g. a fresh `MOSOSolver` run) without risk of overlapping
-            anything this run's oracle-role coordinates touched.
+            A seed safely past everything this run's own oracle-role
+            coordinates touched -- safe to hand to independent,
+            unrelated work (e.g. a fresh `MOSOSolver` run).
+
+        Raises
+        ------
+        StreamFamilyExceeded
+            The carry would land in a different family's own reserved
+            territory (see above) -- pathological, not reachable by
+            any realistic run under MRG32k3a's own margins, but checked
+            rather than assumed.
         """
-        return jump_seed_n(self._orc_root, self._high_water_mark)
+        if self._high_water_mark is None:
+            return self._orc_root
+        stream, offset = self._high_water_mark
+        family_capacity = ISP_ITER_MARGIN if stream < SYNC_ZONE_STREAM_START else None
+        next_stream, next_offset = one_past(
+            stream, offset, offset_capacity=ITER_STRIDE, stream_family_capacity=family_capacity
+        )
+        return stream_at(self._orc_root, next_stream, next_offset).get_seed()
 
     def get_high_water_mark(self):
         """
-        The raw coordinate `get_endseed()` derives its seed from --
-        `_high_water_mark`, relative to `_orc_root`. Exists for
+        The `(stream, offset)` pair `get_endseed()` derives its seed
+        from -- `_high_water_mark`, relative to `_orc_root`, or `None`
+        if this Oracle has never touched a coordinate. Exists for
         `testsolve()`'s own cross-path aggregation (docs/rng-interface-
         design.md §12 step 8 stage 2): each `isp` path's `Oracle` runs
         in its own process under `--proc`/`--simpar`, so only picklable
@@ -1423,8 +1484,7 @@ class Oracle(object):
 
         Returns
         -------
-        int
-            Non-negative.
+        tuple of (int, int), or None
         """
         return self._high_water_mark
 
@@ -1466,6 +1526,30 @@ class Oracle(object):
         mopbnb-known-issues.md and docs/rng-interface-design.md §4.2) --
         removing the solver-facing surface entirely is a later, separate
         step (§4.3's sync=), not this one.
+
+        **Debt, recorded not fixed (§12 step 6c):** this method, together
+        with `_advance_replication()` and `hit()`'s own `crnflag=True`
+        branch, is a *second* implementation of the same "compute a
+        replication's position, aggregate the result" logic
+        `_hit_via_coordinate` already provides -- incremental, stateful
+        `rng`/`_next_seed` mutation here, versus a stateless
+        `stream_at(orc_root, stream, offset)` computation there. They
+        are proven equivalent (by induction, in this method's own
+        docstring above, and empirically, via `get_endseed() ==
+        _next_seed` in `tests/test_oracle_endseed.py`) -- proven, not
+        assumed, but proof of equivalence is not the same as one
+        implementation, and two implementations of the same logic is
+        exactly the shape that drifts, the same lesson `bump()`'s own
+        docstring and the `_hit_opt_in`/`hit()` convergence note (§12
+        step 4a, since resolved when both became `_hit_via_coordinate`)
+        already draw from. This is the third instance of that specific
+        pattern in this codebase, not fixed here for the same reason
+        `bump()` wasn't cut over in step 4b: no real caller currently
+        needs it fixed, and unifying it would mean removing the `rng`-
+        mutation model (including its `cache_clear()` calls above) that
+        `bump()`/`crn_advance()`'s own public surface still exposes,
+        which is a real change in kind, not a relabeling -- exactly the
+        "no golden moves" boundary this step was scoped to stay inside.
         """
         if self.crnflag:
             self._next_seed = self._iteration_baseline_seed
@@ -1555,7 +1639,7 @@ class Oracle(object):
             if all(feas):
                 isfeas = True
             if self.crnflag:
-                self._touch_coordinate(self._iteration * ITER_STRIDE + m * REPL_STRIDE)
+                self._touch_coordinate(self._iteration * ITER_STRIDE + m * REPL_STRIDE - 1)
         return isfeas, obs
 
     def _hit_via_coordinate(self, x, m, visit, sync, start_replication=0):
@@ -1564,7 +1648,13 @@ class Oracle(object):
         design.md §4.1/§4.3), computed fresh via jump_seed_n from the
         Oracle's fixed `_orc_root` -- never touches `rng`/
         `_iteration_baseline_seed`/`_next_seed`, the CRN branch's own
-        state, at all.
+        state, at all. The starting seed for each branch's own block is
+        reached via `stream_at(orc_root, stream, offset)` (§12 step 6c),
+        `stream`/`offset` = `divmod(base, ITER_STRIDE)` for whichever
+        `base` the branch below computes -- a relabeling of the exact
+        same arithmetic a raw `jump_seed_n(orc_root, base)` call already
+        produced, not new arithmetic (confirmed directly,
+        tests/test_stream_at_two_argument.py).
 
         Two callers, unified here on purpose (docs/rng-interface-
         design.md §12 step 4a's own convergence note): hit()'s explicit
@@ -1633,23 +1723,25 @@ class Oracle(object):
         seeds = []
         if sync is not None:
             base = SYNC_ROLE_OFFSET + sync * SYNC_STRIDE + start_replication * REPL_STRIDE
-            seed = jump_seed_n(self._orc_root, base)
-            for _ in mr:
-                seeds.append(seed)
-                seed = jump_seed_n(seed, REPL_STRIDE)
             stride = REPL_STRIDE
         else:
             W = point_width(len(x))
             base = self._iteration * ITER_STRIDE + offset_within_iteration(x, visit, start_replication, W)
-            seed = jump_seed_n(self._orc_root, base)
-            for _ in mr:
-                seeds.append(seed)
-                seed = jump_seed_n(seed, REPL_RESERVE_STRIDE)
             stride = REPL_RESERVE_STRIDE
+        # §12 step 6c: stream_at(orc_root, stream, offset), not a raw
+        # jump_seed_n(orc_root, base) call -- a relabeling of the exact
+        # same arithmetic (stream*ITER_STRIDE+offset == base, by
+        # divmod's own definition), not new arithmetic; confirmed
+        # directly, not assumed (tests/test_stream_at_two_argument.py).
+        seed = stream_at(self._orc_root, *divmod(base, ITER_STRIDE)).get_seed()
+        for _ in mr:
+            seeds.append(seed)
+            seed = jump_seed_n(seed, stride)
         # §12 step 8: this block's own replications span
         # [base, base + m*stride) -- see _touch_coordinate's own
-        # docstring for why it's m*stride, not (m-1)*stride.
-        self._touch_coordinate(base + m * stride)
+        # docstring for why the last position actually touched is
+        # base + m*stride - 1, not base + m*stride.
+        self._touch_coordinate(base + m * stride - 1)
         feas = []
         objm = []
         if self.simpar > 1:
@@ -1823,9 +1915,10 @@ class Oracle(object):
                 obse = tuple([sqrt(obvar[i]/m) for i in dr])
         # §12 step 8: this iteration's replications span
         # [_iteration*ITER_STRIDE, _iteration*ITER_STRIDE + m*REPL_STRIDE)
-        # -- same "m*stride, not (m-1)*stride" reasoning as
-        # _hit_via_coordinate's own _touch_coordinate call.
-        self._touch_coordinate(self._iteration * ITER_STRIDE + m * REPL_STRIDE)
+        # -- the last position actually touched is one less than that
+        # upper bound, same reasoning as _hit_via_coordinate's own
+        # _touch_coordinate call (§12 step 6c).
+        self._touch_coordinate(self._iteration * ITER_STRIDE + m * REPL_STRIDE - 1)
         return isfeas, obmean, obse
 
     def g(self, x, rng):

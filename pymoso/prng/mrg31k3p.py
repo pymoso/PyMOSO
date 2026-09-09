@@ -376,6 +376,34 @@ def jump_seed_n(seed, n):
     return tuple(ns1 + ns2)
 
 
+def stream_at(seed, stream, offset):
+    """
+    §3.9's two-dimensional coordinate, for MRG31k3p -- structurally
+    identical to mrg32k3a.py's own stream_at, reusing the same
+    REPL_STRIDE/ITER_STRIDE this module already imports (docs/rng-
+    interface-design.md §12 step 5's own finding: these stay global,
+    MRG31k3p's period comfortably absorbs them too).
+
+    Parameters
+    ----------
+    seed : tuple of int
+        Length 6.
+    stream : int
+        Non-negative.
+    offset : int
+        Non-negative, < `ITER_STRIDE`.
+
+    Returns
+    -------
+    MRG31k3p
+        Matches §3.1's own contract; see mrg32k3a.py's own stream_at
+        docstring for why this returns a constructed instance, not a
+        raw seed.
+    """
+    new_seed = jump_seed_n(seed, stream * ITER_STRIDE + offset)
+    return MRG31k3p(new_seed)
+
+
 def get_next_prnstream(seed, use_cache):
     """
     Instantiate a generator seeded 2^127 steps from the input seed.

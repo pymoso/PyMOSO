@@ -19,9 +19,9 @@ import pytest
 from pymoso.chnbase import Oracle
 from pymoso.prng.mrg32k3a import (
     MRG32k3a, jump_seed_n, ITER_STRIDE, REPL_STRIDE, REPL_RESERVE_STRIDE,
-    SYNC_ROLE_OFFSET, SYNC_STRIDE,
+    SYNC_ROLE_OFFSET, SYNC_STRIDE, ISP_ITER_MARGIN, SYNC_ZONE_STREAM_START,
 )
-from pymoso.prng.base import point_width, offset_within_iteration, REPL_RESERVE_BITS
+from pymoso.prng.base import point_width, offset_within_iteration, REPL_RESERVE_BITS, StreamFamilyExceeded
 
 ROOT = (12345, 12345, 12345, 12345, 12345, 12345)
 
@@ -159,7 +159,7 @@ def test_endseed_is_monotonic_across_multiple_hits_same_iteration():
     orc.hit((5,), 1)  # continuation -- its own coordinate is smaller
     marks.append(orc._high_water_mark)
     assert marks == sorted(marks)
-    assert marks[0] > 0
+    assert marks[0] is not None
 
 
 def test_endseed_advances_across_crn_advance_crn_branch():
@@ -170,15 +170,15 @@ def test_endseed_advances_across_crn_advance_crn_branch():
     orc.hit((5,), 2)
     after = orc.get_endseed()
     assert after != before
-    assert orc._high_water_mark > 0
+    assert orc._high_water_mark is not None
 
 
 def test_endseed_reset_by_set_crnflag():
     orc = _fresh_oracle(dim=1, crnflag=False)
     orc.hit((5,), 3)
-    assert orc._high_water_mark > 0
+    assert orc._high_water_mark is not None
     orc.set_crnflag(False)
-    assert orc._high_water_mark == 0
+    assert orc._high_water_mark is None
     assert orc.get_endseed() == orc._orc_root
 
 
@@ -202,3 +202,50 @@ def test_bump_does_not_update_endseed_under_crnflag_false():
     before = orc.get_endseed()
     orc.bump((5,), 3)
     assert orc.get_endseed() == before
+
+
+# ---------------------------------------------------------------------------
+# §12 step 6c: get_endseed()'s own carry, exercised through the real
+# Oracle method, not just the standalone pymoso.prng.base.one_past
+# (tests/test_stream_offset_carry.py) or Philox's own real constants
+# (tests/test_philox4x32_conformance.py). MRG32k3a's own
+# ISP_ITER_MARGIN=2**32 makes the raise practically unreachable through
+# millions of real hit()/crn_advance() calls, so these set
+# _high_water_mark directly (white-box) to the exact boundary a real
+# run would eventually reach, rather than actually running that many
+# iterations -- still a real exercise of get_endseed()'s own carry
+# logic and its own choice of family_capacity, not just of one_past in
+# isolation.
+# ---------------------------------------------------------------------------
+
+def test_get_endseed_carries_safely_within_the_default_zone_family():
+    orc = _fresh_oracle(dim=1, crnflag=False)
+    orc.set_crnflag(False)
+    orc._high_water_mark = (ISP_ITER_MARGIN - 2, ITER_STRIDE - 1)
+    expected = jump_seed_n(orc._orc_root, (ISP_ITER_MARGIN - 1) * ITER_STRIDE)
+    assert orc.get_endseed() == expected
+
+
+def test_get_endseed_raises_at_the_default_zone_family_boundary():
+    """One past (ISP_ITER_MARGIN-1, ITER_STRIDE-1) would carry to
+    stream=ISP_ITER_MARGIN, which is >= ISP_ITER_MARGIN -- exactly the
+    boundary get_endseed() must catch rather than silently landing in
+    what would be the next isp path's own reserved zone."""
+    orc = _fresh_oracle(dim=1, crnflag=False)
+    orc.set_crnflag(False)
+    orc._high_water_mark = (ISP_ITER_MARGIN - 1, ITER_STRIDE - 1)
+    with pytest.raises(StreamFamilyExceeded):
+        orc.get_endseed()
+
+
+def test_get_endseed_never_raises_in_the_sync_zone_at_any_reachable_stream():
+    """The sync zone is deliberately left unbounded (§8.2's own
+    documented posture) -- confirmed directly at a stream value far
+    beyond anything ISP_ITER_MARGIN would allow in the default zone,
+    not just at a small, unremarkable one."""
+    orc = _fresh_oracle(dim=1, crnflag=False)
+    orc.set_crnflag(False)
+    huge_sync_stream = SYNC_ZONE_STREAM_START + 10 ** 15
+    orc._high_water_mark = (huge_sync_stream, ITER_STRIDE - 1)
+    expected = jump_seed_n(orc._orc_root, (huge_sync_stream + 1) * ITER_STRIDE)
+    assert orc.get_endseed() == expected  # must not raise

@@ -33,16 +33,23 @@ exactly for a caller that needs the full random.Random surface on top
 of a bare Stream; this is that pattern's first real user, not a second,
 divergent convention.
 
-Capacity (docs/rng-interface-design.md §3.9/§12 step 6): `stream_at`'s
-single flat `coordinate` (matching the same shape the MRG-family suite
-uses -- the real (stream, offset) split is step 6c, not this step) is
-split into a 128-bit counter (low bits) and a key offset (high bits,
-added mod 2**64 to the seed-derived base key), giving a combined
-addressable space of 2**192 -- comparable to the MRG family's own
-periods once "which stream" and "position within it" are kept separate
-rather than forced through one dimension sized for the smaller of the
-two. `coordinate >= 2**192` raises `CoordinateCapacityExceeded` rather
-than silently wrapping.
+Coordinate shape (docs/rng-interface-design.md §3.9/§12 step 6c):
+`stream_at(seed, stream, offset)` maps `stream` directly onto the key
+(added, mod 2**64, to `seed`'s own base key) and `offset` directly onto
+the counter -- no jump-ahead, no flattening into one integer first.
+`OFFSET_CAPACITY` (2**118) and the stream-side family constants below
+(`ISP_ITER_MARGIN`, `SYNC_ROLE_OFFSET`, mirroring mrg32k3a.py's own
+names for the same roles) are this module's own chosen policy numbers,
+sized against budget-anchored ceilings (not period-anchored ones, since
+nothing in the framework bounds replications/iteration or
+iterations/run beyond `--budget`) -- see docs/rng-interface-design.md's
+step 6/6c entries for the full sizing account and the reasoning behind
+each figure. `stream >= 2**KEY_BITS` or `offset >= 2**COUNTER_BITS`
+raises `CoordinateCapacityExceeded` rather than silently wrapping; this
+module's own family-capacity constants exist for callers to pass to
+`pymoso.prng.base.one_past`, which enforces the *narrower*, framework-
+level boundaries (e.g. one isp path's own reserved iteration range)
+this module has no way to know about on its own.
 
 Listing
 -------
@@ -63,19 +70,48 @@ _MASK32 = 0xFFFFFFFF
 
 DEFAULT_ROUNDS = 10
 
-COUNTER_BITS = 128   # Philox4x32's native counter width
-KEY_BITS = 64        # Philox4x32's native key width
-CAPACITY_BITS = COUNTER_BITS + KEY_BITS  # 192, this module's own chosen
-                                          # combined addressable space --
-                                          # see module docstring
+COUNTER_BITS = 128   # Philox4x32's own native counter width
+KEY_BITS = 64        # Philox4x32's own native key width
+
+# ---------------------------------------------------------------------------
+# Chosen policy numbers (docs/rng-interface-design.md §12 step 6/6c) --
+# not derived, budget-anchored the same way step 6's own REPL_RESERVE_BITS/
+# REPL_COUNT_BITS were. Mirrors mrg32k3a.py's own offset_within_iteration/
+# ISP_STRIDE/SYNC_ROLE_OFFSET structure exactly, at the (stream, offset)
+# level instead of one flat integer's bit-fields.
+# ---------------------------------------------------------------------------
+
+# Offset side: point(72) + visit(4) + replication count(30) +
+# replication reserve(12) = 118 bits, comfortably under COUNTER_BITS
+# (2**10 margin) -- step 6's own figures, restated here as the single
+# OFFSET_CAPACITY a caller needs for one_past's own offset_capacity
+# argument.
+OFFSET_CAPACITY = 1 << 118
+
+# Stream side, mirroring mrg32k3a.py's ISP_ITER_MARGIN (how many
+# iterations one isp path's own slot reserves) and SYNC_ROLE_OFFSET
+# (where the sync zone begins) -- both far smaller than MRG's own
+# 2**32/2**175 equivalents, because Philox's 64-bit key is far smaller
+# than MRG's own period, not because this module needs less headroom
+# for the same realistic usage. Both still comfortably clear the
+# budget-anchored ceilings they're sized against (10**9 iterations,
+# 10,000 isp paths): ISP_ITER_MARGIN gives 2**30 (~1.07e9, >10**9
+# iterations before the next isp path's own slot begins) and
+# SYNC_ROLE_OFFSET leaves 2**64 - 2**48 ~= 2**64 of key space for sync
+# values -- 2**16 (65,536x) of margin beyond ISP_ITER_MARGIN itself.
+ISP_ITER_MARGIN = 1 << 30
+SYNC_ROLE_OFFSET = 1 << 48
 
 
 class CoordinateCapacityExceeded(ValueError):
-    """`coordinate` in stream_at(seed, coordinate) is >= 2**192 (this
-    module's own chosen combined key+counter capacity, docs/rng-
-    interface-design.md §12 step 6) -- raised, not silently wrapped mod
-    2**192, the same "fail loudly and exactly" posture point_code's own
-    overflow check established (pymoso/prng/base.py)."""
+    """`stream`/`offset` in stream_at(seed, stream, offset) don't fit
+    in this generator's own native key/counter widths -- raised, not
+    silently wrapped, the same "fail loudly and exactly" posture
+    `point_code`'s own overflow check established (pymoso/prng/base.py).
+    This is this module's own generator-level capacity check only; the
+    narrower, framework-level family boundaries (docs/rng-interface-
+    design.md §12 step 6c) are `pymoso.prng.base.one_past`'s job, using
+    `ISP_ITER_MARGIN`/`SYNC_ROLE_OFFSET` above."""
 
 
 def _mulhilo32(a, b):
@@ -306,20 +342,28 @@ def _int_to_words(n, count):
     return tuple(words)
 
 
-def stream_at(seed, coordinate):
+def stream_at(seed, stream, offset):
     """
-    §3.1's stream_at, for Philox4x32: direct (key, counter) indexing,
-    no jump-ahead computed at all -- confirming §3.5's own claim under
-    a genuinely different generator construction (MRG32k3a/MRG31k3p
-    reach a coordinate by computing how far to jump from a fixed start;
-    this reaches it by indexing directly).
+    §3.9's two-dimensional coordinate, for Philox4x32: `stream` maps
+    directly onto the key (added, mod 2**64, to `seed`'s own base key);
+    `offset` maps directly onto the counter. No jump-ahead computed at
+    all -- confirming §3.5's own claim under a genuinely different
+    generator construction (MRG32k3a/MRG31k3p reach a coordinate by
+    computing how far to jump from a fixed start; this reaches it by
+    indexing directly). `stream`/`offset` are added via exact modular
+    arithmetic, not a hash, so distinct pairs within capacity yield
+    distinct (key, counter) pairs by construction -- the same "exact,
+    collision-free by construction" posture `point_code` established.
 
-    `coordinate`'s low 128 bits become the starting counter; its
-    remaining high bits are added, mod 2**64, to `seed`'s own base key
-    -- an exact positional split (§3.9), not a hash, so distinct
-    coordinates within capacity yield distinct (key, counter) pairs by
-    construction. `coordinate >= 2**192` raises CoordinateCapacityExceeded
-    rather than silently wrapping (module docstring).
+    `offset >= OFFSET_CAPACITY` (2**128, the counter's own native
+    width) or `stream >= 2**KEY_BITS` (this generator's own ultimate
+    key capacity) raises `CoordinateCapacityExceeded` rather than
+    silently wrapping. This is a generator-level safety net only --
+    it does not know about, or enforce, the *framework*-level family
+    boundaries (e.g. how many iterations one isp path reserves); that
+    is `pymoso.prng.base.one_past`'s own job, checked by the caller
+    before `stream` ever reaches this function (docs/rng-interface-
+    design.md §12 step 6c).
 
     Parameters
     ----------
@@ -328,8 +372,11 @@ def stream_at(seed, coordinate):
         generator-shaped seed (§3.7): 2 non-negative ints, not a
         6-tuple, since nothing about this generator's own structure
         calls for one.
-    coordinate : int
-        Non-negative, < 2**192 (CAPACITY_BITS).
+    stream : int
+        Non-negative, < 2**64 (KEY_BITS).
+    offset : int
+        Non-negative, < 2**128 (COUNTER_BITS, this generator's own
+        `OFFSET_CAPACITY`).
 
     Returns
     -------
@@ -338,24 +385,28 @@ def stream_at(seed, coordinate):
     Raises
     ------
     ValueError
-        `coordinate` is negative.
+        `stream` or `offset` is negative.
     CoordinateCapacityExceeded
-        `coordinate` >= 2**192.
+        `stream >= 2**64` or `offset >= 2**128`.
     """
-    if coordinate < 0:
-        raise ValueError('coordinate must be non-negative, got {0}'.format(coordinate))
-    if coordinate >= (1 << CAPACITY_BITS):
+    if stream < 0:
+        raise ValueError('stream must be non-negative, got {0}'.format(stream))
+    if offset < 0:
+        raise ValueError('offset must be non-negative, got {0}'.format(offset))
+    if offset >= (1 << COUNTER_BITS):
         raise CoordinateCapacityExceeded(
-            'coordinate={0} does not fit in this module\'s chosen capacity '
-            'of 2**{1} (a 2**{2}-bit counter plus a 2**{3}-bit key offset). '
-            'See docs/rng-interface-design.md §12 step 6.'.format(
-                coordinate, CAPACITY_BITS, COUNTER_BITS, KEY_BITS
-            )
+            'offset={0} does not fit in this generator\'s own counter '
+            'width of 2**{1}. See docs/rng-interface-design.md §12 '
+            'step 6c.'.format(offset, COUNTER_BITS)
         )
-    counter_int = coordinate & ((1 << COUNTER_BITS) - 1)
-    key_offset = coordinate >> COUNTER_BITS
+    if stream >= (1 << KEY_BITS):
+        raise CoordinateCapacityExceeded(
+            'stream={0} does not fit in this generator\'s own key width '
+            'of 2**{1}. See docs/rng-interface-design.md §12 step '
+            '6c.'.format(stream, KEY_BITS)
+        )
     base_key_int = (seed[0] << 32) | seed[1]
-    eff_key_int = (base_key_int + key_offset) & ((1 << KEY_BITS) - 1)
+    eff_key_int = (base_key_int + stream) & ((1 << KEY_BITS) - 1)
     key = _int_to_words(eff_key_int, 2)
-    counter = _int_to_words(counter_int, 4)
+    counter = _int_to_words(offset, 4)
     return Philox4x32Stream(key, counter)

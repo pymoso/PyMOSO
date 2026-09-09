@@ -320,3 +320,82 @@ def offset_within_iteration(x, visit, replication, W):
         + visit * (1 << (REPL_COUNT_BITS + REPL_RESERVE_BITS))
         + replication * (1 << REPL_RESERVE_BITS)
     )
+
+
+# ---------------------------------------------------------------------------
+# stream_at's coordinate is two-dimensional (§3.9, docs/rng-interface-
+# design.md §12 step 6c): `stream` selects an independent, non-overlapping
+# stream; `offset` selects a position within it. Every generator's
+# stream_at(seed, stream, offset) maps this pair onto its own mechanism
+# (flat-integer arithmetic for the MRG family, direct (key, counter)
+# indexing for Philox) -- this module holds only the one piece of that
+# story that's genuinely generator-agnostic: comparing and advancing
+# (stream, offset) pairs themselves.
+# ---------------------------------------------------------------------------
+
+class StreamFamilyExceeded(ValueError):
+    """Advancing `offset` past its own capacity carries into `stream + 1`
+    -- safe only if `stream + 1` still belongs to the same reserved
+    family (e.g. the same isp path's own reserved run of iteration
+    values). Raised, not silently landed in adjacent, already-allocated
+    territory -- the same class of defect MAX_RI's unenforced silent
+    overlap was (KNOWN_ISSUES.md issue 3): a boundary that looks safe
+    only because nothing has reached it. `stream_family_capacity=None`
+    means the caller has deliberately chosen not to bound this family
+    (documented per call site, e.g. MRG's own sync axis relies on
+    remaining period headroom instead, §8.2) -- one_past never raises
+    in that case."""
+
+
+def one_past(stream, offset, offset_capacity, stream_family_capacity):
+    """
+    The high-water-mark pair one past `(stream, offset)` -- §8.2's "one
+    past the maximum coordinate touched," generalized from a flat
+    integer to a `(stream, offset)` pair. `offset + 1` is returned
+    directly unless it would reach `offset_capacity` (this stream's own
+    width), in which case it carries to `(stream + 1, 0)` -- exactly
+    the carry a flat integer's own `+1` already does automatically
+    (`stream*STRIDE + offset + 1` rolling over into `(stream+1)*STRIDE`
+    when `offset+1 == STRIDE`), made explicit here since there is no
+    single flat integer to carry within any more.
+
+    The carry is checked, not assumed safe: `stream + 1` must still be
+    less than `stream_family_capacity` (how many `stream` values this
+    family reserves -- e.g. how many iterations one isp path's own
+    slot holds) or this raises `StreamFamilyExceeded` rather than
+    silently returning a pair that lands in adjacent, differently-
+    owned territory.
+
+    Parameters
+    ----------
+    stream : int
+        Non-negative.
+    offset : int
+        Non-negative, < `offset_capacity`.
+    offset_capacity : int
+        Positive. This stream's own offset width.
+    stream_family_capacity : int or None
+        Positive, or `None` to skip the carry-target check entirely
+        (the caller has its own reason the family is unbounded here,
+        stated at the call site).
+
+    Returns
+    -------
+    tuple of int
+        `(stream, offset)`, advanced by one.
+
+    Raises
+    ------
+    StreamFamilyExceeded
+        The carry would produce `stream + 1 >= stream_family_capacity`.
+    """
+    if offset + 1 < offset_capacity:
+        return stream, offset + 1
+    if stream_family_capacity is not None and stream + 1 >= stream_family_capacity:
+        raise StreamFamilyExceeded(
+            'advancing past (stream={0}, offset={1}) would carry to '
+            'stream={2}, which does not fit in this family\'s own '
+            'capacity of {3}. See docs/rng-interface-design.md §12 '
+            'step 6c.'.format(stream, offset, stream + 1, stream_family_capacity)
+        )
+    return stream + 1, 0

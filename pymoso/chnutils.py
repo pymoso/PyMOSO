@@ -38,7 +38,11 @@ from itertools import product, filterfalse
 from math import ceil, floor, sqrt
 import multiprocessing as mp
 from statistics import mean, variance
-from .prng.mrg32k3a import MRG32k3a, get_next_prnstream, jump_seed_n, ISP_STRIDE
+from .prng.mrg32k3a import (
+    MRG32k3a, get_next_prnstream, jump_seed_n, stream_at,
+    ISP_STRIDE, ISP_ITER_MARGIN, ITER_STRIDE, SYNC_ZONE_STREAM_START,
+)
+from .prng.base import one_past
 
 # MAX_RI (a reserved 200-RA-iteration substream window per independent
 # sample path, and the RuntimeError RASolver.rasolve raised past it) is
@@ -163,21 +167,47 @@ def testsolve(tester, solver, x0, **kwargs):
     res = par_runs(joblist, proc)
     for o in orclst:
         o.mp_cleanup()
-    # docs/rng-interface-design.md §12 step 8 stage 2: the real endseed,
-    # aggregated across every isp path's own oracle-role high-water mark
-    # (crossing the --proc worker boundary via each path's own result
-    # dict -- see Oracle.get_high_water_mark()'s docstring for why a
-    # dict field, not the orc objects here, which under --proc/--simpar
-    # never ran in this process at all). Path t's own coordinates are
-    # relative to `orc_root + t*ISP_STRIDE` (get_testsolve_prnstreams's
-    # own construction), so t's contribution to the combined coordinate,
-    # relative to the shared orc_root, is t*ISP_STRIDE + that path's own
-    # local high-water mark; the run's real endseed is one past the
-    # largest such value across every path actually run.
-    combined_high_water_mark = max(
-        t * ISP_STRIDE + res[t]['oracle_high_water_mark'] for t in range(isp)
-    )
-    endseed = jump_seed_n(orc_root, combined_high_water_mark)
+    # docs/rng-interface-design.md §12 step 8 stage 2 / §12 step 6c: the
+    # real endseed, aggregated across every isp path's own oracle-role
+    # high-water mark (crossing the --proc worker boundary via each
+    # path's own result dict -- see Oracle.get_high_water_mark()'s
+    # docstring for why a dict field, not the orc objects here, which
+    # under --proc/--simpar never ran in this process at all).
+    #
+    # Path t's own Oracle stream is relative to `orc_root + t*ISP_STRIDE`
+    # (get_testsolve_prnstreams's own construction); since
+    # ISP_STRIDE == ISP_ITER_MARGIN*ITER_STRIDE exactly, path t's own
+    # (oracle_stream, oracle_offset) composes additively into the shared
+    # root's own stream units: t*ISP_ITER_MARGIN + oracle_stream,
+    # oracle_offset unchanged -- the same composition Oracle.get_endseed()
+    # itself relies on, one level up. Reduces to exactly the same flat
+    # value the pre-split code computed (t*ISP_STRIDE + oracle_flat), so
+    # this is a relabeling here too, not new arithmetic.
+    #
+    # The "+1 with carry" (base.one_past) happens once, at the very end,
+    # against the *winning* path's own raw oracle_stream/family capacity
+    # -- not against the combined value -- for the same reason
+    # Oracle.get_endseed() itself carries against its own local stream:
+    # the family boundary (ISP_ITER_MARGIN, or unbounded in the sync
+    # zone) is a property of that one Oracle's own coordinate space, not
+    # of the combined isp-relative value.
+    touches = []
+    for t in range(isp):
+        hwm = res[t]['oracle_high_water_mark']
+        if hwm is None:
+            continue
+        oracle_stream, oracle_offset = hwm
+        touches.append((t * ISP_ITER_MARGIN + oracle_stream, oracle_offset, t, oracle_stream))
+    if not touches:
+        endseed = orc_root
+    else:
+        _, offset, t, oracle_stream = max(touches)
+        family_capacity = ISP_ITER_MARGIN if oracle_stream < SYNC_ZONE_STREAM_START else None
+        carried_stream, carried_offset = one_past(
+            oracle_stream, offset, offset_capacity=ITER_STRIDE, stream_family_capacity=family_capacity
+        )
+        overall_stream = t * ISP_ITER_MARGIN + carried_stream
+        endseed = stream_at(orc_root, overall_stream, carried_offset).get_seed()
     return res, endseed
 
 
@@ -211,7 +241,9 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
         below.
     orc_root : tuple of int
         The oracle role's own root seed, shared across every path
-        (path t's own root is `jump_seed_n(orc_root, t*ISP_STRIDE)`).
+        (path t's own root is `stream_at(orc_root, t*ISP_ITER_MARGIN, 0)`,
+        §12 step 6c -- the same position `jump_seed_n(orc_root,
+        t*ISP_STRIDE)` always reached).
         Exposed so a caller can combine per-path high-water marks
         (Oracle.get_high_water_mark()) into one real endseed after
         solving -- see testsolve()'s own use of this.
@@ -237,8 +269,13 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
     # unchanged from before this step.
     orc_root = iseed
     for t in range(num_trials):
-        orc_seed = jump_seed_n(orc_root, t * ISP_STRIDE)
-        orcprn = MRG32k3a(orc_seed)
+        # §12 step 6c: stream_at(orc_root, t*ISP_ITER_MARGIN, 0), not a
+        # raw jump_seed_n(orc_root, t*ISP_STRIDE) call -- a relabeling
+        # of the exact same arithmetic (ISP_STRIDE ==
+        # ISP_ITER_MARGIN*ITER_STRIDE exactly, so
+        # t*ISP_ITER_MARGIN*ITER_STRIDE + 0 == t*ISP_STRIDE), not new
+        # arithmetic; confirmed directly, not assumed.
+        orcprn = stream_at(orc_root, t * ISP_ITER_MARGIN, 0)
         orcprn.set_class_cache(crn)
         orcprn_lst.append(orcprn)
     # The next independent stream past every path actually reserved --

@@ -1,8 +1,10 @@
 """
-docs/rng-interface-design.md §12 step 6: the §7 conformance suite run
+docs/rng-interface-design.md §12 step 6/6c: the §7 conformance suite run
 against Philox4x32-10 -- the interface's real test, since Philox has no
 recurrence, no state to advance, and no jump-ahead at all (§3.5).
-`stream_at` reaches a position by direct (key, counter) indexing.
+`stream_at(seed, stream, offset)` reaches a position by direct
+(key, counter) indexing: `stream` maps onto the key, `offset` onto the
+counter (§3.9).
 
 Item 3 (§7's "exact-integer brute-force jump validation") has no jump
 to validate for a counter-based generator, so it's reinterpreted as two
@@ -13,9 +15,9 @@ exactly where it should, not "close enough"):
   answer-test vectors (github.com/DEShawResearch/random123, tests/
   kat_vectors) -- an external reference, not derived from this
   codebase at all.
-- stream_at's own (key, counter) splitting arithmetic, against an
-  independent reimplementation of that split (restated here, not
-  imported from pymoso/prng/philox4x32.py's own helpers).
+- stream_at's own (key, counter) construction, against an independent
+  reimplementation (restated here, not imported from
+  pymoso/prng/philox4x32.py's own helpers).
 
 Two §7 items are not re-tested here, deliberately:
 - Item 4 (bsm monotonicity) is already covered by
@@ -24,6 +26,11 @@ Two §7 items are not re-tested here, deliberately:
   copied) by every generator in this codebase.
 - Item 7 (bit-identical migration proof) doesn't apply: Philox has no
   "old stateful walk" to compare against.
+
+The broken-backend proof at the bottom includes two cases specific to
+the two-argument shape (a swapped-arguments backend, a dropped-argument
+backend) that a suite written against a flat coordinate would have no
+way to catch, since there was only ever one argument to get wrong.
 """
 import multiprocessing
 
@@ -31,8 +38,9 @@ import pytest
 
 from pymoso.prng.philox4x32 import (
     philox4x32_r, stream_at, Philox4x32Stream, CoordinateCapacityExceeded,
-    COUNTER_BITS, KEY_BITS, CAPACITY_BITS,
+    COUNTER_BITS, KEY_BITS, OFFSET_CAPACITY, ISP_ITER_MARGIN,
 )
+from pymoso.prng.base import one_past, StreamFamilyExceeded
 
 pytestmark = pytest.mark.timeout(60)
 
@@ -47,23 +55,24 @@ SEEDS = [
 # ---------------------------------------------------------------------------
 # Reusable checks -- same shape as the other §7 conformance suites in this
 # project, restated here rather than imported, same self-containment
-# reasoning as tests/test_mrg31k3p_conformance.py.
+# reasoning as tests/test_mrg31k3p_conformance.py. Now two-argument.
 # ---------------------------------------------------------------------------
 
-def check_determinism(stream_at_fn, seed, coordinate, n_draws=5):
-    draws1 = [stream_at_fn(seed, coordinate).random() for _ in range(n_draws)]
-    draws2 = [stream_at_fn(seed, coordinate).random() for _ in range(n_draws)]
+def check_determinism(stream_at_fn, seed, stream, offset, n_draws=5):
+    draws1 = [stream_at_fn(seed, stream, offset).random() for _ in range(n_draws)]
+    draws2 = [stream_at_fn(seed, stream, offset).random() for _ in range(n_draws)]
     assert draws1 == draws2, (
-        f"stream_at({seed}, {coordinate}) produced different draws across "
-        f"two independent calls: {draws1} != {draws2}"
+        f"stream_at({seed}, {stream}, {offset}) produced different draws "
+        f"across two independent calls: {draws1} != {draws2}"
     )
 
 
 def check_distinctness(stream_at_fn, seed, coordinates, n_draws=5):
+    """`coordinates` is a list of (stream, offset) pairs."""
     firsts = {}
     states = {}
     for c in coordinates:
-        s = stream_at_fn(seed, c)
+        s = stream_at_fn(seed, *c)
         firsts[c] = s.random()
         states[c] = s.get_seed()
     coords = list(coordinates)
@@ -82,22 +91,25 @@ def check_distinctness(stream_at_fn, seed, coordinates, n_draws=5):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("seed", SEEDS)
-@pytest.mark.parametrize("coordinate", [0, 1, 5, 100, 2 ** 128, 2 ** 191])
-def test_determinism(seed, coordinate):
-    check_determinism(stream_at, seed, coordinate)
+@pytest.mark.parametrize("stream,offset", [
+    (0, 0), (0, 1), (1, 0), (5, 100), (2 ** 63, 2 ** 127), (0, 2 ** 100),
+])
+def test_determinism(seed, stream, offset):
+    check_determinism(stream_at, seed, stream, offset)
 
 
 # ---------------------------------------------------------------------------
-# Item 2: distinctness / non-overlap, including adjacent coordinates and
-# coordinates straddling the counter/key boundary (2**128)
+# Item 2: distinctness / non-overlap -- across streams (offset fixed),
+# across offsets (stream fixed), and mixed pairs.
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("seed", SEEDS)
 def test_distinctness_across_a_coordinate_battery(seed):
     check_distinctness(
         stream_at, seed,
-        [0, 1, 2, 3, 4, 5, 100, 101, 1000,
-         2 ** 128 - 1, 2 ** 128, 2 ** 128 + 1, 2 ** 191],
+        [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (2, 0),
+         (100, 0), (101, 0), (0, 1000),
+         (2 ** 32, 0), (2 ** 63 - 1, 2 ** 127 - 1)],
     )
 
 
@@ -131,61 +143,100 @@ def test_stream_random_sequence_matches_the_kat_vectors_word_order():
     would still pass the block-level check above by coincidence."""
     rounds, ctr, key, expected = KAT_VECTORS[0]
     seed = (key[0], key[1])
-    # Reconstruct via stream_at's own documented packing (low 128 bits =
-    # counter, most-significant-word-first) rather than poking internals.
-    counter_int = (ctr[0] << 96) | (ctr[1] << 64) | (ctr[2] << 32) | ctr[3]
-    s = stream_at(seed, counter_int)
+    # Reconstruct via stream_at's own documented packing (offset = the
+    # counter directly, most-significant-word-first) rather than
+    # poking internals.
+    offset = (ctr[0] << 96) | (ctr[1] << 64) | (ctr[2] << 32) | ctr[3]
+    s = stream_at(seed, 0, offset)
     got = [s.random() for _ in range(4)]
     assert got == [w / 4294967296.0 for w in expected]
 
 
 # ---------------------------------------------------------------------------
-# Item 3b: stream_at's own (key, counter) splitting arithmetic, against
-# an independent reimplementation (not imported from
+# Item 3b: stream_at's own (key, counter) construction, against an
+# independent reimplementation (not imported from
 # pymoso/prng/philox4x32.py's own _int_to_words/stream_at).
 # ---------------------------------------------------------------------------
 
-def _reference_split(seed, coordinate):
-    counter_int = coordinate & ((1 << 128) - 1)
-    key_offset = coordinate >> 128
+def _reference_construction(seed, stream, offset):
     base_key = (seed[0] << 32) | seed[1]
-    eff_key = (base_key + key_offset) & ((1 << 64) - 1)
+    eff_key = (base_key + stream) & ((1 << 64) - 1)
     key = (eff_key >> 32, eff_key & 0xFFFFFFFF)
-    counter = tuple((counter_int >> (32 * i)) & 0xFFFFFFFF for i in (3, 2, 1, 0))
+    counter = tuple((offset >> (32 * i)) & 0xFFFFFFFF for i in (3, 2, 1, 0))
     return key, counter
 
 
 @pytest.mark.parametrize("seed", SEEDS)
-@pytest.mark.parametrize("coordinate", [
-    0, 1, 2 ** 32, 2 ** 64, 2 ** 100,
-    2 ** 128 - 1, 2 ** 128, 2 ** 128 + 2 ** 40, 2 ** 191,
+@pytest.mark.parametrize("stream,offset", [
+    (0, 0), (1, 0), (0, 1), (2 ** 32, 0), (2 ** 63, 0),
+    (0, 2 ** 100), (2 ** 32, 2 ** 40), (2 ** 63 - 1, 2 ** 127 - 1),
 ])
-def test_stream_at_matches_independent_key_counter_split(seed, coordinate):
-    s = stream_at(seed, coordinate)
-    expected_key, expected_counter = _reference_split(seed, coordinate)
+def test_stream_at_matches_independent_key_counter_construction(seed, stream, offset):
+    s = stream_at(seed, stream, offset)
+    expected_key, expected_counter = _reference_construction(seed, stream, offset)
     _key, counter, _buffer = s.get_seed()
     assert _key == expected_key
     assert counter == expected_counter
 
 
 # ---------------------------------------------------------------------------
-# Capacity boundary: coordinate >= 2**192 must raise, not silently wrap
-# (docs/rng-interface-design.md §12 step 6 / §3.9) -- confirmed reachable
-# in both directions, not just asserted.
+# Capacity boundary: stream >= 2**64 or offset >= 2**128 must raise, not
+# silently wrap (docs/rng-interface-design.md §12 step 6/6c) -- confirmed
+# reachable in both directions, not just asserted.
 # ---------------------------------------------------------------------------
 
-def test_capacity_exceeded_raises():
+def test_stream_capacity_exceeded_raises():
     with pytest.raises(CoordinateCapacityExceeded):
-        stream_at(DEFAULT_SEED, 1 << CAPACITY_BITS)
+        stream_at(DEFAULT_SEED, 1 << KEY_BITS, 0)
 
 
-def test_capacity_at_the_boundary_does_not_raise():
-    stream_at(DEFAULT_SEED, (1 << CAPACITY_BITS) - 1)  # must not raise
+def test_stream_capacity_at_the_boundary_does_not_raise():
+    stream_at(DEFAULT_SEED, (1 << KEY_BITS) - 1, 0)  # must not raise
 
 
-def test_negative_coordinate_raises():
+def test_offset_capacity_exceeded_raises():
+    with pytest.raises(CoordinateCapacityExceeded):
+        stream_at(DEFAULT_SEED, 0, 1 << COUNTER_BITS)
+
+
+def test_offset_capacity_at_the_boundary_does_not_raise():
+    stream_at(DEFAULT_SEED, 0, (1 << COUNTER_BITS) - 1)  # must not raise
+
+
+def test_negative_stream_raises():
     with pytest.raises(ValueError):
-        stream_at(DEFAULT_SEED, -1)
+        stream_at(DEFAULT_SEED, -1, 0)
+
+
+def test_negative_offset_raises():
+    with pytest.raises(ValueError):
+        stream_at(DEFAULT_SEED, 0, -1)
+
+
+# ---------------------------------------------------------------------------
+# one_past's carry, exercised with THIS module's own real constants --
+# reachable in a test precisely because Philox's own strides are
+# budget-anchored rather than absurd (docs/rng-interface-design.md §12
+# step 6), unlike MRG32k3a's own ISP_ITER_MARGIN=2**32. The generic
+# mechanics are proven in tests/test_stream_offset_carry.py; this
+# confirms the real, shipped OFFSET_CAPACITY/ISP_ITER_MARGIN values
+# behave the same way, and that stream_at accepts the carry's own
+# output without raising when it's supposed to succeed.
+# ---------------------------------------------------------------------------
+
+def test_carry_with_real_constants_stays_safe_and_stream_at_accepts_it():
+    stream, offset = ISP_ITER_MARGIN - 2, OFFSET_CAPACITY - 1
+    new_stream, new_offset = one_past(
+        stream, offset, offset_capacity=OFFSET_CAPACITY, stream_family_capacity=ISP_ITER_MARGIN
+    )
+    assert (new_stream, new_offset) == (ISP_ITER_MARGIN - 1, 0)
+    stream_at(DEFAULT_SEED, new_stream, new_offset)  # must not raise
+
+
+def test_carry_with_real_constants_raises_at_the_family_boundary():
+    stream, offset = ISP_ITER_MARGIN - 1, OFFSET_CAPACITY - 1
+    with pytest.raises(StreamFamilyExceeded):
+        one_past(stream, offset, offset_capacity=OFFSET_CAPACITY, stream_family_capacity=ISP_ITER_MARGIN)
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +255,7 @@ def _generous_chi_square_threshold(df):
 def test_getrandbits_unbiasedness_smoke_test(k, n_draws):
     """k=40 exercises the multi-word concatenation path (k > 32),
     unique to this generator among the ones in this codebase."""
-    rng = stream_at(DEFAULT_SEED, 0)
+    rng = stream_at(DEFAULT_SEED, 0, 0)
     n_buckets = 1 << min(k, 8)  # bucket on the low 8 bits for k=40 -- a
                                 # 2**40-bucket histogram isn't practical
     counts = [0] * n_buckets
@@ -224,66 +275,67 @@ def test_getrandbits_unbiasedness_smoke_test(k, n_draws):
 # Item 6: cross-process reproducibility under forkserver
 # ---------------------------------------------------------------------------
 
-def _worker_stream_draws(seed, coordinate, n_draws, queue):
-    s = stream_at(seed, coordinate)
+def _worker_stream_draws(seed, stream, offset, n_draws, queue):
+    s = stream_at(seed, stream, offset)
     draws = [s.random() for _ in range(n_draws)]
     queue.put((s.get_seed(), draws))
 
 
 def test_cross_process_reproducibility_under_forkserver():
     seed = DEFAULT_SEED
-    coordinate = 3
+    stream, offset = 3, 7
     n_draws = 5
     ctx = multiprocessing.get_context("forkserver")
     q = ctx.Queue()
-    p = ctx.Process(target=_worker_stream_draws, args=(seed, coordinate, n_draws, q))
+    p = ctx.Process(target=_worker_stream_draws, args=(seed, stream, offset, n_draws, q))
     p.start()
     try:
         child_seed, child_draws = q.get(timeout=30)
     finally:
         p.join(timeout=30)
-    parent_stream = stream_at(seed, coordinate)
+    parent_stream = stream_at(seed, stream, offset)
     parent_draws = [parent_stream.random() for _ in range(n_draws)]
     assert child_seed == parent_stream.get_seed()
     assert child_draws == parent_draws
 
 
 # ---------------------------------------------------------------------------
-# Proof the checks above have teeth against this generator specifically.
+# Proof the checks above have teeth against this generator specifically,
+# including two cases the two-argument shape introduces that a flat-
+# coordinate suite would have no way to catch.
 # ---------------------------------------------------------------------------
 
-def _broken_stream_at_wrong_offset(seed, coordinate):
-    """Off-by-one in the split: shifts by 127, not 128 -- a plausible
-    boundary-constant typo. Targets check_exact-style checks (here,
-    the independent-split test above catches this directly); included
-    in the broken-backend proof for check_distinctness too, since a
-    wrong shift still produces *a* deterministic, coordinate-dependent
-    stream, just the wrong one."""
-    counter_int = coordinate & ((1 << 127) - 1)
-    key_offset = coordinate >> 127
-    base_key = (seed[0] << 32) | seed[1]
-    eff_key = (base_key + key_offset) & ((1 << 64) - 1)
-    from pymoso.prng.philox4x32 import _int_to_words
-    key = _int_to_words(eff_key, 2)
-    counter = _int_to_words(counter_int, 4)
-    return Philox4x32Stream(key, counter)
+def _broken_stream_at_ignores_offset(seed, stream, offset):
+    """`offset` silently ignored -- targets check_distinctness across
+    offsets specifically (still varies correctly across streams, so a
+    check that only varied `stream` would miss this)."""
+    return stream_at(seed, stream, 0)
 
 
-def _broken_stream_at_ignores_coordinate(seed, coordinate):
-    """`coordinate` silently ignored -- targets check_distinctness."""
-    from pymoso.prng.philox4x32 import _int_to_words
-    base_key = (seed[0] << 32) | seed[1]
-    key = _int_to_words(base_key, 2)
-    return Philox4x32Stream(key, (0, 0, 0, 0))
+def _broken_stream_at_swapped_arguments(seed, stream, offset):
+    """stream/offset swapped -- a plausible call-site typo now that
+    there are two positional arguments instead of one. Produces *a*
+    deterministic, coordinate-dependent stream, just the wrong one."""
+    return stream_at(seed, offset, stream)
+
+
+def _broken_stream_at_ignores_stream(seed, stream, offset):
+    """`stream` silently ignored -- the complementary case to ignoring
+    offset: still varies correctly across offsets, so a check that only
+    varied `offset` would miss this."""
+    return stream_at(seed, 0, offset)
 
 
 def test_conformance_checks_detect_a_broken_backend():
     seed = DEFAULT_SEED
+    # Ignoring offset: distinct only in the offset dimension.
     with pytest.raises(AssertionError):
-        check_distinctness(_broken_stream_at_ignores_coordinate, seed, [0, 1, 2])
-    # The wrong-shift backend diverges from the real split as soon as a
-    # coordinate exceeds the (wrong) 127-bit boundary it uses --
-    # confirmed to actually diverge, not assumed.
-    real = stream_at(seed, 1 << 127).get_seed()
-    broken = _broken_stream_at_wrong_offset(seed, 1 << 127).get_seed()
+        check_distinctness(_broken_stream_at_ignores_offset, seed, [(5, 0), (5, 1), (5, 2)])
+    # Ignoring stream: distinct only in the stream dimension.
+    with pytest.raises(AssertionError):
+        check_distinctness(_broken_stream_at_ignores_stream, seed, [(0, 5), (1, 5), (2, 5)])
+    # Swapped arguments: diverges from the real construction as soon as
+    # stream != offset -- confirmed to actually diverge, not assumed.
+    real = stream_at(seed, 3, 7).get_seed()
+    broken = _broken_stream_at_swapped_arguments(seed, 3, 7).get_seed()
     assert real != broken

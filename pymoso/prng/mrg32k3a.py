@@ -200,6 +200,29 @@ ISP_STRIDE = ITER_STRIDE * ISP_ITER_MARGIN  # 2**159
 ISP_MAX_MARGIN = 2 ** 16
 SYNC_ROLE_OFFSET = ISP_MAX_MARGIN * ISP_STRIDE  # 2**175
 
+# §12 step 6c: the stream value (ITER_STRIDE units, via divmod) at which
+# the sync zone begins -- exact, since SYNC_ROLE_OFFSET is an exact
+# multiple of ITER_STRIDE (2**175 / 2**127 = 2**48). Used by
+# chnbase.py's Oracle.get_endseed() and chnutils.py's testsolve() to
+# decide which family a touched stream belongs to for the high-water-
+# mark carry (base.one_past): below this, the default/CRN zone,
+# bounded by ISP_ITER_MARGIN; at or above it, the sync zone, left
+# unbounded (§8.2's own documented posture).
+#
+# Found while wiring this through both call sites, not fixed here: this
+# offset (2**175) is *larger* than ISP_STRIDE (2**159) -- a single isp
+# path's own sync-zone coordinate already exceeds what should be the
+# next isp path's own entire reserved range. sync= and multi-path
+# testsolve() (isp > 1) are therefore not actually compatible in the
+# shipped scheme, pre-existing (not introduced by step 6c, which only
+# relabels the same arithmetic), and unreached by anything in this
+# codebase today -- no in-tree caller uses sync= at all (checked,
+# tests/test_oracle_visit_sync.py and grep confirm zero non-test
+# callers). Tracked in docs/rng-interface-design.md, not fixed here:
+# resolving it would mean relocating SYNC_ROLE_OFFSET below ISP_STRIDE,
+# a real redesign, not a relabeling.
+SYNC_ZONE_STREAM_START = SYNC_ROLE_OFFSET // ITER_STRIDE
+
 # SYNC_STRIDE holds one sync value's own replication range. §4.3's own
 # formula is `SYNC_ROLE_OFFSET + sync*SYNC_STRIDE + replication*
 # REPL_STRIDE` -- replication*REPL_STRIDE, the *same* REPL_STRIDE the
@@ -588,6 +611,42 @@ def jump_seed_n(seed, n):
     ns1 = _mat311mod(_mat333mult(p1, s1), mrgm1i)
     ns2 = _mat311mod(_mat333mult(p2, s2), mrgm2i)
     return tuple(ns1 + ns2)
+
+
+def stream_at(seed, stream, offset):
+    """
+    §3.9's two-dimensional coordinate, for MRG32k3a: `stream` selects
+    an independent, non-overlapping stream; `offset` selects a
+    position within it. Maps onto exactly the same flat-integer
+    arithmetic `jump_seed_n(seed, stream*ITER_STRIDE + offset)` already
+    computes -- MRG32k3a's own period (~2**191) comfortably absorbs
+    flattening the two dimensions into one, so this is a relabeling of
+    existing arithmetic (docs/rng-interface-design.md §12 step 6c),
+    not new arithmetic. Every caller that migrates to this produces the
+    identical seed it did before, checked directly, not assumed.
+
+    Parameters
+    ----------
+    seed : tuple of int
+        Length 6.
+    stream : int
+        Non-negative.
+    offset : int
+        Non-negative, < `ITER_STRIDE` (this generator's own offset
+        capacity for one stream, §12 step 6c).
+
+    Returns
+    -------
+    MRG32k3a
+        Matches §3.1's own contract (`stream_at(base_seed, coordinate)
+        -> Stream`) -- callers that need the raw seed (chnbase.py's own
+        migration, which still advances within one stream via repeated
+        small jumps rather than repeated stream_at calls) get it via
+        `.get_seed()`, the same way they already do for any other
+        constructed instance.
+    """
+    new_seed = jump_seed_n(seed, stream * ITER_STRIDE + offset)
+    return MRG32k3a(new_seed)
 
 
 def get_next_prnstream(seed, use_cache):
