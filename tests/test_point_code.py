@@ -17,7 +17,8 @@ import pytest
 
 from pymoso.prng.base import (
     zigzag, point_width, point_code, offset_within_iteration,
-    PointCodeOverflow, REPL_BITS, VISIT_BITS,
+    PointCodeOverflow, VisitOverflow, ReplicationOverflow,
+    REPL_COUNT_BITS, REPL_RESERVE_BITS, VISIT_BITS,
 )
 
 
@@ -84,19 +85,23 @@ def test_point_code_round_trip_decodes_exactly():
 
 def test_offset_within_iteration_round_trip_recovers_point_code_visit_replication():
     """Decode offset_within_iteration back into (point_code, visit,
-    replication) and confirm it recovers exactly what was encoded."""
+    replication) and confirm it recovers exactly what was encoded.
+    `replication` is packed at 2**REPL_RESERVE_BITS spacing (the
+    per-replication reserve, docs/rng-interface-design.md's step 8
+    prerequisite writeup) -- not stride 1 -- so decoding divides it out
+    first."""
     W = point_width(2)
     for x, visit, replication in [
         ((0, 0), 0, 0),
         ((5, 5), 0, 41),
         ((5, 5), 3, 41),
         ((-5, 5), 1, 0),
-        ((40, 40), (1 << VISIT_BITS) - 1, (1 << REPL_BITS) - 1),
+        ((40, 40), (1 << VISIT_BITS) - 1, (1 << REPL_COUNT_BITS) - 1),
     ]:
         pc = point_code(x, W)
         offset = offset_within_iteration(x, visit, replication, W)
-        recovered_replication = offset % (1 << REPL_BITS)
-        remainder = offset // (1 << REPL_BITS)
+        recovered_replication = (offset // (1 << REPL_RESERVE_BITS)) % (1 << REPL_COUNT_BITS)
+        remainder = offset // (1 << (REPL_COUNT_BITS + REPL_RESERVE_BITS))
         recovered_visit = remainder % (1 << VISIT_BITS)
         recovered_pc = remainder // (1 << VISIT_BITS)
         assert (recovered_pc, recovered_visit, recovered_replication) == (pc, visit, replication)

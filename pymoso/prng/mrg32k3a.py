@@ -17,6 +17,8 @@ import random
 from math import log
 import functools
 
+from .base import REPL_RESERVE_BITS
+
 # mat333mult/mat311mod/mat_pow_mod/jump_n now live in mrg_common.py
 # (shared, generalized jump machinery) and are used here only
 # internally (see jump_seed_n below) -- imported under private aliases,
@@ -109,22 +111,37 @@ _m2_step = [[0, 1, 0], [0, 0, 1], [(-int(mrga23n)) % mrgm2i, 0, int(mrga21) % mr
 REPL_STRIDE = 2 ** 76
 ITER_STRIDE = 2 ** 127
 
-# Computed once, at import time, not per call: jump_seed_n's two
-# hot-path exponents (REPL_STRIDE, ITER_STRIDE -- the only ones
-# get_next_prnstream/jump_substream ever ask for) are cached here rather
-# than run through mat_pow_mod's ~127-round binary exponentiation on
-# every single call. This is not a hypothetical optimization --
-# get_next_prnstream runs once per RA iteration and jump_substream once
-# per replication (chnbase.py), so recomputing the full power on every
-# call is a real, measured regression: the full test suite went from
-# ~60s to over 4 minutes, with one CLI end-to-end test timing out,
-# before this caching was added. Equal to a1p76/a2p76/a1p127/a2p127
-# above, by construction (mat_pow_mod is the same general operation, at
-# the same exponents) and confirmed equal in tests/test_mrg_common.py --
+# The offset_within_iteration branch's own per-replication reserve
+# (docs/rng-interface-design.md's step 8 prerequisite writeup, base.py's
+# REPL_RESERVE_BITS): a third hot-path exponent, alongside REPL_STRIDE/
+# ITER_STRIDE below, needed once chnbase.py's _hit_via_coordinate
+# advances replication-to-replication by a real jump instead of a raw
+# mrg32k3a() step (that stride-1 packing was the defect this constant
+# fixes).
+REPL_RESERVE_STRIDE = 1 << REPL_RESERVE_BITS
+
+# Computed once, at import time, not per call: jump_seed_n's three
+# hot-path exponents (REPL_RESERVE_STRIDE, REPL_STRIDE, ITER_STRIDE --
+# the only ones chnbase.py's coordinate mechanism ever asks for) are
+# cached here rather than run through mat_pow_mod's ~127-round binary
+# exponentiation on every single call. This is not a hypothetical
+# optimization -- get_next_prnstream runs once per RA iteration and
+# jump_substream/the offset branch's replication advance once per
+# replication (chnbase.py), so recomputing the full power on every call
+# is a real, measured regression: the full test suite went from ~60s to
+# over 4 minutes, with one CLI end-to-end test timing out, before this
+# caching was added (for REPL_STRIDE/ITER_STRIDE originally; the same
+# risk applies identically to REPL_RESERVE_STRIDE, now that the offset
+# branch's replication advance is a real jump too). REPL_STRIDE/
+# ITER_STRIDE's own values are equal to a1p76/a2p76/a1p127/a2p127 above,
+# by construction (mat_pow_mod is the same general operation, at the
+# same exponents) and confirmed equal in tests/test_mrg_common.py --
 # computed here via the general mechanism rather than reused from those
 # four directly, so jump_seed_n stays genuinely "the general jump,
-# cached at its two known exponents," not a silent fallback to the old
+# cached at its known exponents," not a silent fallback to the old
 # hardcoded path.
+_jump_replreserve_p1 = _mat_pow_mod(_m1_step, REPL_RESERVE_STRIDE, mrgm1i)
+_jump_replreserve_p2 = _mat_pow_mod(_m2_step, REPL_RESERVE_STRIDE, mrgm2i)
 _jump76_p1 = _mat_pow_mod(_m1_step, REPL_STRIDE, mrgm1i)
 _jump76_p2 = _mat_pow_mod(_m2_step, REPL_STRIDE, mrgm2i)
 _jump127_p1 = _mat_pow_mod(_m1_step, ITER_STRIDE, mrgm1i)
@@ -186,17 +203,19 @@ SYNC_ROLE_OFFSET = ISP_MAX_MARGIN * ISP_STRIDE  # 2**175
 # SYNC_STRIDE holds one sync value's own replication range. §4.3's own
 # formula is `SYNC_ROLE_OFFSET + sync*SYNC_STRIDE + replication*
 # REPL_STRIDE` -- replication*REPL_STRIDE, the *same* REPL_STRIDE the
-# CRN branch uses (2**76), not offset_within_iteration's smaller
-# 2**REPL_BITS. That's structural, not incidental: sync mode doesn't
-# fold x into the coordinate at all (§4.3 -- "x and visit are not
-# folded in", the whole point of supplying sync), so unlike offset_
-# within_iteration it is never competing with x for bits, and can use
+# CRN branch uses (2**76), not offset_within_iteration's own, narrower
+# per-replication reserve (base.REPL_RESERVE_BITS). That's structural,
+# not incidental: sync mode doesn't fold x into the coordinate at all
+# (§4.3 -- "x and visit are not folded in", the whole point of
+# supplying sync), so unlike offset_within_iteration it is never
+# competing with x (or with a per-draw reserve) for bits, and can use
 # the same wide, bit-identity-grade spacing the CRN branch already does
 # rather than inventing a second, narrower one. SYNC_STRIDE therefore
 # needs to hold `replication`'s own realistic range (the same margin
-# REPL_BITS=32 already established against the calc_m table above, not
-# base.REPL_BITS's smaller field) at REPL_STRIDE spacing:
-SYNC_REPL_MARGIN = 2 ** 32  # same figure REPL_BITS uses, same reasoning
+# base.REPL_COUNT_BITS=32 already established against the calc_m table
+# above, not base's own, separately-budgeted field) at REPL_STRIDE
+# spacing:
+SYNC_REPL_MARGIN = 2 ** 32  # same figure REPL_COUNT_BITS uses, same reasoning
 SYNC_STRIDE = SYNC_REPL_MARGIN * REPL_STRIDE  # 2**108
 
 # Headroom check, computed: SYNC_ROLE_OFFSET (2**175) leaves
@@ -528,15 +547,16 @@ def jump_seed_n(seed, n):
     Advance a full 6-component seed n steps, via the generalized
     binary-exponentiation matrix power (mrg_common.mat_pow_mod/jump_n)
     applied to each half independently. jump_substream/
-    get_next_prnstream below are thin wrappers around this at the two
-    fixed exponents 2**76/2**127; nothing else calls this with any other
-    `n` yet -- see docs/rng-interface-design.md §3.4/§3.5 for the later
-    step where an arbitrary coordinate does.
+    get_next_prnstream below are thin wrappers around this at the fixed
+    exponent 2**127 (get_next_prnstream) and 2**76 (jump_substream);
+    chnbase.py's _hit_via_coordinate also calls this directly, at
+    arbitrary coordinates and, on its replication-advance hot path, at
+    the fixed exponent REPL_RESERVE_STRIDE.
 
-    At those same two fixed exponents, this reuses the matrices
+    At those three fixed exponents, this reuses the matrices
     precomputed once at import time (above) instead of re-running
     mat_pow_mod's binary exponentiation on every call -- see the comment
-    above _jump76_p1 for why that caching is load-bearing, not
+    above _jump_replreserve_p1 for why that caching is load-bearing, not
     cosmetic. Any other `n` runs the general computation directly; nothing
     about its *result* differs between the two paths, only the cost.
 
@@ -555,7 +575,9 @@ def jump_seed_n(seed, n):
     assert(len(seed) == 6)
     s1 = seed[0:3]
     s2 = seed[3:6]
-    if n == REPL_STRIDE:
+    if n == REPL_RESERVE_STRIDE:
+        p1, p2 = _jump_replreserve_p1, _jump_replreserve_p2
+    elif n == REPL_STRIDE:
         p1, p2 = _jump76_p1, _jump76_p2
     elif n == ITER_STRIDE:
         p1, p2 = _jump127_p1, _jump127_p2

@@ -99,15 +99,57 @@ class RandomCompatAdapter(random.Random):
 # Non-CRN coordinate assembly (§3.4). Exact, collision-free by
 # construction -- not a hash, not probabilistic (see §3.4's "what does
 # work, exactly, with no probability involved" for why a hash-based
-# scheme was ruled out). Sizing: ITER_STRIDE (2**127) is split three
-# ways -- REPL_BITS for replication, VISIT_BITS for visit, the rest
-# (POINT_BITS) for the point itself, adaptively divided across a
-# problem's own dimension as W bits per component.
+# scheme was ruled out). Sizing: ITER_STRIDE (2**127) is split four
+# ways -- REPL_RESERVE_BITS + REPL_COUNT_BITS for replication,
+# VISIT_BITS for visit, the rest (POINT_BITS) for the point itself,
+# adaptively divided across a problem's own dimension as W bits per
+# component.
+#
+# REPL_RESERVE_BITS exists to fix a defect found ahead of §12 step 8
+# (docs/rng-interface-design.md's step 8 prerequisite writeup carries
+# the full reproduction): replication used to be packed with stride 1
+# (consecutive replications one raw recurrence step apart), under the
+# assumption that a single replication consumes exactly one raw draw.
+# No built-in g() satisfies that -- ProbTPA/ProbTPB/ProbTPC each draw
+# 3 normalvariate()s per replication, BSProb draws ~1000 expovariate()s
+# (tau=100, lambd=10 -> Poisson(1000) arrivals) -- so replication i's
+# stream ran into positions replication i-1's own g() call had already
+# consumed, and replications were not independent. REPL_RESERVE_BITS
+# is the fix: each replication now gets a real 2**REPL_RESERVE_BITS-
+# wide block, honored as an actual stride in offset_within_iteration,
+# the same way REPL_STRIDE (2**76) already was for the CRN/sync
+# branches (chnbase.py's _hit_via_coordinate). A g() that draws more
+# than 2**REPL_RESERVE_BITS raw values overruns its reserve and must
+# raise (chnbase.py's _hit_via_coordinate enforces this at the call
+# site, where the actual draw count is observable) rather than
+# silently collide with the next replication's block.
 # ---------------------------------------------------------------------------
 
-REPL_BITS = 32
-VISIT_BITS = 20
-POINT_BITS = 127 - REPL_BITS - VISIT_BITS  # 75
+REPL_RESERVE_BITS = 14  # 16384 raw draws/replication -- ~16x BSProb's own
+                        # ~1000-draw workload, the heaviest built-in g();
+                        # exceeding it raises (chnbase.py) rather than
+                        # silently overlapping the next replication's block
+REPL_COUNT_BITS = 32    # replication index < 2**32 -- unchanged from the
+                        # original REPL_BITS: calc_m(200) = 379,810,553
+                        # (~2**28.5, checked directly, not assumed -- see
+                        # docs/rng-interface-design.md), ~5.6x margin here.
+                        # calc_m/calc_b's own float overflow (nu ~7440/
+                        # ~3882 respectively -- KNOWN_ISSUES.md issue 12)
+                        # makes headroom beyond calc_m(200)'s scale moot:
+                        # a solver ever reaching a larger m already fails
+                        # via that overflow before hit() sees it
+VISIT_BITS = 6          # visit < 2**6 (64) -- shrunk from the original 20 to
+                        # make room for REPL_RESERVE_BITS above (the total
+                        # non-CRN budget is fixed at 127 bits, shared with
+                        # ITER_STRIDE); still zero in-tree callers pass
+                        # visit != 0 (§4.1), so this is headroom for a
+                        # currently-hypothetical opt-in use, not a measured
+                        # requirement like the other three fields -- revisit
+                        # if a real caller needs more than 64 independent
+                        # resample generations for one point in one iteration
+POINT_BITS = 127 - REPL_RESERVE_BITS - REPL_COUNT_BITS - VISIT_BITS  # 75,
+                        # unchanged -- BSProb (dim=9, the tightest built-in
+                        # problem) still gets W = 75 // 9 = 8
 
 
 class PointCodeOverflow(ValueError):
@@ -116,6 +158,33 @@ class PointCodeOverflow(ValueError):
     reduced mod something -- fail loudly and exactly, the same posture
     MAX_RI moved to when it became a checked constant (KNOWN_ISSUES.md
     issue 3), per §3.4."""
+
+
+class VisitOverflow(ValueError):
+    """`visit` doesn't fit in VISIT_BITS. Same posture as
+    PointCodeOverflow -- found during the same audit that found the
+    replication-stride defect above (docs/rng-interface-design.md's
+    step 8 prerequisite writeup): visit's own bound was documented
+    ("Non-negative, < 2**VISIT_BITS") but never enforced, so a caller
+    exceeding it would have silently overflowed into point_code's
+    zone instead of raising."""
+
+
+class ReplicationOverflow(ValueError):
+    """`replication` doesn't fit in REPL_COUNT_BITS. Same posture and
+    same audit as VisitOverflow above -- an unenforced bound that would
+    have silently overflowed into visit's zone."""
+
+
+class ReplicationDrawOverflow(ValueError):
+    """A single replication's g() call drew more than
+    2**REPL_RESERVE_BITS raw values, overrunning the block reserved
+    for it and running into the next replication's own starting
+    position -- the defect REPL_RESERVE_BITS exists to prevent (see
+    its own comment above). Raised by chnbase.py's
+    _hit_via_coordinate, the only place that observes how many raw
+    values a replication actually drew; not raised here, since this
+    module only assembles coordinates."""
 
 
 def zigzag(v):
@@ -198,10 +267,18 @@ def point_code(x, W):
 def offset_within_iteration(x, visit, replication, W):
     """
     The crn=False branch's non-CRN coordinate component, within one RA
-    iteration: point_code(x) and `visit` and `replication` packed into
-    one integer, positionally, at fixed VISIT_BITS/REPL_BITS widths
-    (§3.4). Not yet wired into chnbase.py (that's step 4a/4b); this is
-    the pure-function layer §7.1 items 8-9 test directly.
+    iteration: point_code(x), `visit`, and `replication` packed into
+    one integer, positionally (§3.4). `replication` is multiplied by
+    2**REPL_RESERVE_BITS, giving each replication a real reserved block
+    -- not stride 1, which was this scheme's original defect (see
+    REPL_RESERVE_BITS's own comment above): a caller drawing more than
+    one raw value per replication (every built-in problem) would
+    otherwise run its own consumption into the next replication's
+    starting position. Exceeding the reserve is `chnbase.py`'s
+    `_hit_via_coordinate`'s responsibility to catch (it's the only
+    place that observes how many raw values a replication actually
+    drew); this function only ever assembles coordinates, so it cannot
+    detect that case itself.
 
     Parameters
     ----------
@@ -209,7 +286,7 @@ def offset_within_iteration(x, visit, replication, W):
     visit : int
         Non-negative, < 2**VISIT_BITS.
     replication : int
-        Non-negative, < 2**REPL_BITS.
+        Non-negative, < 2**REPL_COUNT_BITS.
     W : int
         point_width(len(x)).
 
@@ -221,9 +298,25 @@ def offset_within_iteration(x, visit, replication, W):
     ------
     PointCodeOverflow
         See point_code.
+    VisitOverflow
+        `visit` >= 2**VISIT_BITS.
+    ReplicationOverflow
+        `replication` >= 2**REPL_COUNT_BITS.
     """
+    if visit >= (1 << VISIT_BITS):
+        raise VisitOverflow(
+            'visit={0} does not fit in VISIT_BITS={1} (limit {2}). See '
+            'docs/rng-interface-design.md §3.4.'.format(visit, VISIT_BITS, 1 << VISIT_BITS)
+        )
+    if replication >= (1 << REPL_COUNT_BITS):
+        raise ReplicationOverflow(
+            'replication={0} does not fit in REPL_COUNT_BITS={1} (limit '
+            '{2}). See docs/rng-interface-design.md §3.4.'.format(
+                replication, REPL_COUNT_BITS, 1 << REPL_COUNT_BITS
+            )
+        )
     return (
-        point_code(x, W) * (1 << (VISIT_BITS + REPL_BITS))
-        + visit * (1 << REPL_BITS)
-        + replication
+        point_code(x, W) * (1 << (VISIT_BITS + REPL_COUNT_BITS + REPL_RESERVE_BITS))
+        + visit * (1 << (REPL_COUNT_BITS + REPL_RESERVE_BITS))
+        + replication * (1 << REPL_RESERVE_BITS)
     )

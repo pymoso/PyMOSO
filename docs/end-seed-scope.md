@@ -128,3 +128,48 @@ tests is worth doing honestly:
   RNG fixes, so presenting it as "current status" would misinform
   rather than help. `CLAUDE.md`'s citation was corrected instead to say
   no single current-status document exists.
+
+## A second instance of the same failure mode
+
+Found while planning `docs/rng-interface-design.md`'s §12 step 8, in a
+different test file: `tests/test_oracle_noncrn_default.py`'s
+`LoggingOracle.g()` reads `rng.get_seed()[0]` and returns -- it never
+calls `random()`/`normalvariate()`/`getrandbits()`, so it never
+actually draws from the stream `hit()` hands it. That file's
+disjointness assertions compare *starting coordinates* across
+replications, which genuinely are distinct by construction (that's
+what `offset_within_iteration` guarantees). What they were being read
+as backing -- that replications don't collide -- is a claim about
+*drawn values*, not starting coordinates, and nothing in that test
+suite ever checked that.
+
+It doesn't, for any real `g()`: `offset_within_iteration` packed
+`replication` at stride 1 (no reserved margin), and every built-in
+problem's `g()` draws more than one raw value per replication
+(`ProbTPA`/`ProbTPB`/`ProbTPC`: 3 `normalvariate()` calls; `BSProb`:
+~1000 `expovariate()` calls). Confirmed directly: replication 1's
+first two draws were bit-identical to replication 0's second and third
+-- two supposedly independent replications sharing 2 of 3 raw values.
+Fixed by giving `replication` a real reserve
+(`pymoso/prng/base.py`'s `REPL_RESERVE_BITS`, enforced at the call site
+in `chnbase.py`'s `_hit_via_coordinate`, which raises
+`ReplicationDrawOverflow` rather than silently overlapping if a `g()`
+draws past its reserve) -- see `docs/rng-interface-design.md`'s §12
+step 8 prerequisite writeup and `tests/test_replication_independence.py`,
+whose `MultiDrawOracle` double calls `normalvariate()` for real and
+checks disjointness of the *values drawn*, the property that actually
+matters.
+
+This is the same shape as this file's own finding, not a coincidence:
+a test that is real, passes honestly, and asserts something true --
+just not the thing its own coverage is being relied on for. Two
+occurrences in the same body of RNG work is enough to name as a
+pattern worth watching for generally, not just in these two files:
+**a test double that doesn't exercise the mechanism under test proves
+nothing about that mechanism**, however plausible its assertions read.
+Concretely, for any future RNG-interface test: a stub `g()`/stream
+handed to the code under test has to call the actual draw-producing
+methods (`random`/`getrandbits`/`normalvariate`) if the test means to
+say anything about what gets drawn -- reading positional/state
+attributes instead (`get_seed()`, an `iseed` local, ...) only ever
+proves something about scheduling, never about consumption.

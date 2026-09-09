@@ -84,7 +84,7 @@ def test_iteration_and_replication_never_overflow_one_isp_stride_block():
     REPL_STRIDE must stay strictly under ISP_STRIDE for every iteration
     ISP_ITER_MARGIN was sized to cover -- checked directly, not assumed,
     at the boundary and comfortably beyond the old MAX_RI=200."""
-    max_replication = (1 << 32) - 1  # REPL_BITS' own established headroom
+    max_replication = (1 << 32) - 1  # REPL_COUNT_BITS' own established headroom (base.py)
     for iteration in [0, 1, 200, 1_000, 1_000_000, ISP_ITER_MARGIN - 1]:
         remainder = iteration * ITER_STRIDE + max_replication * REPL_STRIDE
         assert remainder < ISP_STRIDE, f"iteration={iteration} overflows one ISP_STRIDE block"
@@ -128,7 +128,7 @@ def test_sync_role_offset_exceeds_any_default_path_coordinate():
     replication*REPL_STRIDE, isp omitted at step 4a -- deferred to 4b,
     see docs/rng-interface-design.md §12 step 4a's own note) never
     reaches SYNC_ROLE_OFFSET for any iteration/replication ISP_ITER_
-    MARGIN/REPL_BITS were sized to cover."""
+    MARGIN/REPL_COUNT_BITS (base.py) were sized to cover."""
     max_replication = (1 << 32) - 1
     max_default_coordinate = (ISP_ITER_MARGIN - 1) * ITER_STRIDE + max_replication * REPL_STRIDE
     assert max_default_coordinate < SYNC_ROLE_OFFSET

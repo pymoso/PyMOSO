@@ -18,10 +18,10 @@ import inspect
 from statistics import mean, variance
 from math import sqrt, ceil, floor
 from .prng.mrg32k3a import (
-    get_next_prnstream, jump_substream, mrg32k3a, bsm, MRG32k3a, jump_seed_n,
-    ITER_STRIDE, REPL_STRIDE, SYNC_ROLE_OFFSET, SYNC_STRIDE,
+    get_next_prnstream, jump_substream, bsm, MRG32k3a, jump_seed_n,
+    ITER_STRIDE, REPL_STRIDE, REPL_RESERVE_STRIDE, SYNC_ROLE_OFFSET, SYNC_STRIDE,
 )
-from .prng.base import point_width, offset_within_iteration
+from .prng.base import point_width, offset_within_iteration, REPL_RESERVE_BITS, ReplicationDrawOverflow
 from multiprocessing import Queue, Process
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
 
@@ -1466,18 +1466,36 @@ class Oracle(object):
         `start_replication` tracked automatically by hit() itself, per
         `(x, visit)`, across calls within one iteration, §4.1).
 
-        Advances via the cheapest correct primitive per branch, not a
-        fresh jump_seed_n call per replication (the expensive, ~127-
+        Advances via a real per-replication jump on both branches, not
+        a fresh jump_seed_n call per replication (the expensive, ~127-
         round binary exponentiation step 2's own commit found and fixed
         as a regression, paid here once per hit() call): the sync
         branch's replication term is `replication*REPL_STRIDE` (§4.3's
         own formula -- the same spacing the CRN branch uses), so
         consecutive replications are one jump_seed_n(seed, REPL_STRIDE)
         apart -- cached, O(1) (step 2). The visit/offset_within_
-        iteration branch packs `replication` as its coordinate's lowest-
-        order field with no stride multiplier at all (§3.4), so
-        consecutive replications are exactly one raw recurrence step
-        apart -- a single mrg32k3a() call, cheaper still, no jump at all.
+        iteration branch's replication term is `replication*
+        2**REPL_RESERVE_BITS` (base.py's offset_within_iteration), so
+        consecutive replications are one jump_seed_n(seed,
+        REPL_RESERVE_STRIDE) apart -- also cached, O(1) (mrg32k3a.py's
+        jump_seed_n). This branch used to advance via a single raw
+        mrg32k3a() step instead (no reserve at all) -- a defect found
+        ahead of §12 step 8 (docs/rng-interface-design.md's step 8
+        prerequisite writeup): a g() call drawing more than one raw
+        value (every built-in problem) ran its own consumption into the
+        position reserved for the next replication, so replications
+        were not actually independent. The serial branch below now also
+        enforces the reserve at runtime -- raising ReplicationDrawOverflow
+        if a single replication draws more than 2**REPL_RESERVE_BITS raw
+        values, rather than silently colliding with the next
+        replication's block, matching this project's established
+        posture toward this class of defect (point_code's own overflow
+        check, §3.4). Not enforced under simpar>1 (the coordinate fix
+        itself still applies there -- only the runtime draw-count check
+        does not, since a worker process draws in a different process
+        than this one and there is no cheap way to observe its count
+        here; --proc/--simpar's own known fragility, see CLAUDE.md, is
+        reason enough not to add cross-process bookkeeping for this).
 
         Parameters
         ----------
@@ -1492,6 +1510,12 @@ class Oracle(object):
         Returns
         -------
         isfeas, obmean, obse : as hit()
+
+        Raises
+        ------
+        ReplicationDrawOverflow
+            A single replication (serial path only) drew more raw
+            values than its reserved block holds.
         """
         d = self.num_obj
         dr = range(d)
@@ -1509,7 +1533,7 @@ class Oracle(object):
             seed = jump_seed_n(self._orc_root, base)
             for _ in mr:
                 seeds.append(seed)
-                seed, _u = mrg32k3a(seed)
+                seed = jump_seed_n(seed, REPL_RESERVE_STRIDE)
         feas = []
         objm = []
         if self.simpar > 1:
@@ -1522,10 +1546,30 @@ class Oracle(object):
                 feas.append(isfeasi)
                 objm.append(oval)
         else:
+            reserve = 1 << REPL_RESERVE_BITS
             for s in seeds:
                 stream = MRG32k3a(s)
                 stream.set_class_cache(self.crnflag)
+                if sync is None:
+                    # Only the offset/default branch has a finite
+                    # per-replication reserve to overrun -- the sync
+                    # branch's REPL_STRIDE (2**76) is the same
+                    # essentially-unbounded margin the CRN branch
+                    # relies on, so it isn't instrumented here.
+                    draws = [0]
+                    base_generate = stream.generate
+                    def _counting_generate(seed, _base=base_generate, _draws=draws):
+                        _draws[0] += 1
+                        return _base(seed)
+                    stream.generate = _counting_generate
                 isfeasi, oval = self.g(x, stream)
+                if sync is None and draws[0] > reserve:
+                    raise ReplicationDrawOverflow(
+                        'a single replication of x={0} drew {1} raw values, '
+                        'exceeding its reserved block of {2} (2**REPL_RESERVE_BITS) '
+                        '-- it overran the next replication\'s starting position. '
+                        'See docs/rng-interface-design.md §3.4.'.format(x, draws[0], reserve)
+                    )
                 feas.append(isfeasi)
                 objm.append(oval)
         isfeas = False

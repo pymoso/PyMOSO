@@ -447,6 +447,23 @@ offset_within_iteration(x, visit, replication) =
     + replication
 ```
 
+**Landed differently, corrected here rather than left standing** (a
+defect found while planning §12 step 8, not at this design stage):
+`replication` above is packed at stride 1, i.e. one raw recurrence step
+per replication. That's wrong — it silently assumes a single
+replication consumes exactly one raw draw, which no built-in problem's
+`g()` does. The landed split instead reserves real headroom per
+replication: `REPL_RESERVE_BITS = 14` (16,384 draws/replication,
+enforced at runtime — exceeding it raises rather than silently
+overlapping the next replication), `REPL_COUNT_BITS = 32` (unchanged
+from the `REPL_BITS` figure/reasoning above), `VISIT_BITS = 6` (shrunk
+from 20 to make room for the reserve within the fixed 127-bit budget —
+`POINT_BITS = 75` is unchanged, so `W` below is unaffected), with
+`replication` itself now multiplied by `2**REPL_RESERVE_BITS` in the
+formula. Full reasoning, the empirical reproduction, and which goldens
+moved are in §12's unnumbered prerequisite-fix entry, right before step
+8 (the step whose planning surfaced this).
+
 `self.dim` is already an `Oracle` attribute every problem sets — the
 adaptive `W` needs no new interface surface. Checked against every
 built-in problem's actual feasible range, not assumed: `ProbSimpleSO`/
@@ -1870,6 +1887,121 @@ behavior-changing (goldens move, on purpose, with sign-off).
    reader who reaches step 7 and finds it empty can confirm that on
    purpose, from this entry itself, rather than wonder whether a step
    went missing.
+**Prerequisite fix, found while planning step 8, landed before it —
+kept unnumbered for the same reason step 7 above is: not renumbering
+steps 5/6/8 and everything that cross-references them by number.**
+Planning step 8's high-water-mark tracker required reasoning precisely
+about what coordinate each replication actually occupies — which
+surfaced a real defect in step 4b's already-landed, already-regenerated
+default (`crnflag=False`) path, not anything about step 8 itself:
+`offset_within_iteration` (§3.4) packed `replication` at stride 1 (no
+reserved margin), on the unstated assumption that a single replication
+consumes exactly one raw draw. No built-in `g()` satisfies that —
+`ProbTPA`/`ProbTPB`/`ProbTPC` each draw 3 `normalvariate()`s per
+replication, `BSProb` draws ~1000 `expovariate()`s (`tau=100`,
+`lambd=10` → Poisson(1000) arrivals) — so replication *i*'s stream ran
+into positions replication *i-1*'s own `g()` call had already consumed.
+Confirmed directly: replication 1's first two draws were bit-identical
+to replication 0's second and third. Replications under the default
+path were not independent, and `obse` (driving RA's sample-size
+decisions) was computed from correlated, not i.i.d., draws.
+
+Not a step-8 blocker in the sense of blocking design work, but a
+correctness bug that had to be fixed *before* step 8, not folded into
+it: step 8's high-water-mark tracker would otherwise have tracked a
+scheme with no real per-replication reserve to measure "one past" of
+(see the "sync branch" REPL_STRIDE-margin note below).
+
+**Root cause, precisely:** REPL_BITS (§3.4) was sized as a replication-
+*count* budget (calc_m(200) headroom, checked directly:
+calc_m(200) = 379,810,553 ≈ 2**28.5), never as a per-replication
+*draw* reserve — nothing in its derivation claimed the latter, and
+`offset_within_iteration`'s stride-1 packing of `replication` silently
+assumed it anyway. The CRN and `sync` branches don't share this defect:
+both advance replication-to-replication by the same `REPL_STRIDE`
+(2**76) the CRN branch has always used — astronomically larger than any
+realistic draw count, so `rperle_tpa_crn` (the CRN golden) is confirmed
+unaffected by this fix.
+
+**Fix, sized with the same rigor as step 4a's own constants** (figures
+checked directly, not assumed): the non-CRN coordinate budget is fixed
+at 127 bits (shared with `ITER_STRIDE`, §3.4), so a real per-replication
+reserve has to come out of the existing three-way split, not be added
+on top.
+
+- `REPL_RESERVE_BITS = 14` (16,384 raw draws/replication) — ~16x
+  margin over BSProb's own ~1000-draw workload, the heaviest built-in
+  `g()`. Enforced at runtime, not just assumed: `chnbase.py`'s
+  `_hit_via_coordinate` counts each replication's actual raw draws
+  (wrapping the stream's `generate` hook) and raises
+  `ReplicationDrawOverflow` — not a silent overlap — if a `g()` exceeds
+  it. This was the user's explicit choice over a "generous enough that
+  nothing realistic exceeds it, and hope" posture: exceeding a finite
+  reserve must fail loudly (the same posture `point_code`'s own
+  overflow check already established), because a reserve sized against
+  today's built-in problems cannot bound an arbitrary custom `g()`.
+- `REPL_COUNT_BITS = 32` — unchanged from the original `REPL_BITS`.
+  calc_m(200) ≈ 2**28.5 still leaves ~5.6x margin. Headroom beyond
+  calc_m(200)'s scale is moot regardless: `calc_m`'s own float overflow
+  (nu≈7440) is preceded by `calc_b`'s (nu≈3882, KNOWN_ISSUES.md issue
+  12) for every RASolver-family case checked, so a run reaching a
+  larger `m` than `REPL_COUNT_BITS` covers already fails via that
+  overflow before `hit()` ever sees it — the same reasoning step 4a
+  applied when sizing the original `REPL_BITS` against calc_m(200)
+  rather than the unbounded case.
+- `VISIT_BITS = 6` (64 values) — shrunk from the original 20 to make
+  room for `REPL_RESERVE_BITS` within the fixed 127-bit budget. Unlike
+  the other three figures here, this one isn't a measured requirement:
+  no in-tree caller passes `visit != 0` today (§4.1's own continuation
+  default handles every current caller), so 64 is headroom for a
+  currently-hypothetical future use, not a checked bound. Revisit if a
+  real caller ever needs more than 64 independent resample generations
+  for one point within one iteration.
+- `POINT_BITS = 75` — unchanged; still `W = 75 // 9 = 8` for BSProb
+  (dim=9, the tightest built-in problem).
+
+**Same audit found two related, smaller gaps, fixed alongside:**
+neither `visit >= 2**VISIT_BITS` nor `replication >= 2**REPL_COUNT_BITS`
+was ever checked at runtime — both would have silently overflowed into
+the neighboring positional field instead of raising, the exact failure
+mode `point_code`'s own overflow check was written to prevent (§3.4).
+`offset_within_iteration` now raises `VisitOverflow`/
+`ReplicationOverflow` respectively. The `sync` branch and `ISP_STRIDE`
+(the other coordinate-assembly constants in this document) were also
+checked against this same failure mode — both already honor their
+own computed widths as real strides (`REPL_STRIDE`, `ISP_STRIDE`), so
+neither had this specific defect.
+
+**This is the second instance, in this RNG work, of a test verifying
+the property it names rather than the property that matters** — the
+first is this document's own `docs/end-seed-scope.md` (end-seed
+goldens don't fingerprint consumption). `tests/test_oracle_noncrn_
+default.py`'s `LoggingOracle.g()` never actually drew from the stream
+it was handed (it read `rng.get_seed()[0]` and returned), so its
+disjointness assertions checked *starting coordinates* — genuinely
+distinct by construction — never *drawn values*, which is the property
+that actually matters and the one this defect violated. See
+`docs/end-seed-scope.md`'s own new section for the general lesson;
+`tests/test_replication_independence.py` is the fix's regression
+coverage, built specifically to exercise real draws instead.
+
+**Goldens affected:** only the ones whose `nu` (RA iteration count at
+budget exhaustion) actually changed — confirmed empirically, not
+assumed, since the CLI's reported end seed is `crn_advance()`-derived
+and depends only on `nu`, not on what `hit()` drew inside an iteration
+(the same scoping gap step 8 itself exists to fix). Checked directly:
+RPE's `nu` was unchanged (13 → 13, golden unaffected); RPERLE's `nu`
+changed (12 → 13, golden moved) because its sample-driven upsample/
+neighbor decisions are sensitive to which raw values got drawn.
+`rperle_tpa`/`rminrle_tpa`/`rperle_tpa_seed2`/`rperle_tpa_simpar2` (and
+the library-level `rperle_tpa`-equivalent) moved on this basis;
+`rpe_tpa`/`rspline_simpleso`/`mocompass_tpa`/`mopbnb_tpa`/`testsolve_*`
+did not, and `rperle_tpa_crn` is unaffected by construction (CRN branch
+untouched). `test_solution_sensitivity.py`'s `EXPECTED_SOLUTIONS` also
+moved — expected, and the point of that golden's existence: it is
+sensitive to consumption changes end-seed goldens cannot see at all,
+exactly as `docs/end-seed-scope.md` says.
+
 8. **[known-necessary, not yet scheduled relative to steps 5-6]** Wire
    §8.2's real `endseed` formula — a tracked high-water mark of every
    coordinate actually passed to `stream_at`, across every role a run
