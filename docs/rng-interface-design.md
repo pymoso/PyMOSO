@@ -668,6 +668,96 @@ interchangeable), so a run's own record of what it did is incomplete,
 and misleading in a way that looks complete, without saying which
 generator consumed the seed.
 
+### 3.9 `stream_at`'s coordinate is two-dimensional, not flat — found onboarding Philox (§12 step 6)
+
+§3.1 already left room for this ("`coordinate` is a non-negative integer
+(**or a small tuple the backend folds into one**)") without ever working
+out why a tuple might actually be needed. Philox's own onboarding
+(§12 step 6) forced the question, but the gap it exposes isn't
+Philox-specific — it's present in every generator this document has
+onboarded so far, MRG32k3a included, just absorbed silently because
+MRG32k3a's period is large enough to not need calling it out.
+
+**Every generator this document has looked at already has two distinct
+kinds of movement, not one.** MRG32k3a's own two named jumps say this
+directly: `get_next_prnstream` (2**127) reaches a *new, independent
+stream*; `jump_substream` (2**76) moves to a *new position within the
+current one*. `chnbase.py`'s own coordinate assembly already computes
+these as two separate quantities — `self._iteration` (which stream) and
+`offset_within_iteration(x, visit, replication, W)` (where within it) —
+before ever combining them into one flat integer
+(`self._iteration * ITER_STRIDE + offset_within_iteration(...)`). The
+flattening is real work the framework does, not a natural shape
+`coordinate` already had. It goes unnoticed for MRG32k3a/MRG31k3p only
+because their periods (`2**191`/`2**185`) comfortably absorb a flat
+integer built by multiplying a "which stream" count by a "within-stream"
+stride — there is enough room that the two dimensions never need
+separate treatment.
+
+Philox doesn't have that room to spare *in one dimension* — §12 step 6's
+own sizing found iteration-count alone (one `isp` path's own history,
+before `isp` multiplicity or `sync` ever enter it) overruns the 128-bit
+counter by 20 bits at budget-anchored ceilings, not period-anchored
+ones. But Philox's *combined* (key, counter) capacity, once "which
+stream" and "position within it" are kept as the two separate
+quantities they already are, is comparable to the MRG family's own
+periods — the mismatch isn't a lack of capacity, it's that the existing
+interface flattens two dimensions with different natural homes
+(counter: within-stream position, comfortably `<2**128`; key: which
+stream, comfortably `<2**64`) into one dimension sized for whichever is
+larger, and Philox's "larger" (the counter) is smaller than either MRG
+period.
+
+**The fix is not a Philox-specific branch.** `stream_at`'s own signature
+should carry the two dimensions it already implicitly has:
+
+```python
+def stream_at(base_seed, stream, offset) -> Stream
+```
+
+`stream` selects an independent, non-overlapping stream (the `isp`/
+`iteration`/`role`/`sync` dimensions currently folded into the high bits
+of one flat coordinate); `offset` selects a position within it (`point`/
+`visit`/`replication`, currently the low bits). Each backend maps the
+pair onto its own mechanism, exactly as the two existing MRG jumps
+already do conceptually:
+
+- **MRG-family**: `stream_at(seed, stream, offset) = jump_seed_n(seed,
+  stream * ITER_STRIDE + offset)` — the *same* arithmetic as today,
+  since a flat integer was always a valid (if unlabeled) MRG mechanism.
+  No existing golden moves under this change; it relabels an existing
+  computation, it doesn't alter it.
+- **Philox**: `stream_at(seed, stream, offset) = Philox4x32(key =
+  key_from(seed, stream), counter = offset)` — direct indexing on both
+  halves, no jump at all, the natural Random123 usage (key = which
+  independent stream, counter = position within it) rather than a
+  bit-split of one undifferentiated integer.
+
+**What this would actually take is smaller than it sounds**, because the
+seam already exists: `chnbase.py`'s own call sites (`hit()`,
+`_hit_via_coordinate`, `crn_advance()`) already compute `self._iteration`
+and an offset-shaped value separately, immediately before combining
+them into today's flat coordinate. The change is inserting a seam at
+the point that combination already happens — passing the two values
+through instead of pre-flattening them — not a rewrite of how
+coordinates get computed in the first place.
+
+**Sequencing relative to step 6b (`--generator` CLI/library wiring):**
+6b does not depend on this split to land. Selecting MRG32k3a (the
+default) or MRG31k3p works today with the flat coordinate exactly as
+it stands — nothing about *choosing which generator class to
+construct* requires the split. But Philox will not be genuinely
+selectable *for real solving* (as opposed to standalone conformance
+testing, which is all step 6 itself delivers) until this split exists:
+`chnbase.py`'s coordinate assembly has nowhere to hand Philox a
+(key, counter) pair as long as it only ever produces one flat integer.
+So: 6b can be built and land against today's flat coordinate now; this
+split is a prerequisite for Philox specifically becoming usable through
+6b's own selection mechanism, not for 6b to exist at all. Recorded as
+its own step (§12, step 6c) rather than left as prose only here, per
+this document's own established rule about known-necessary work with
+no place in the step list.
+
 ## 4. What replaces the CRN protocol
 
 Every method in §0's table existed to manage one shared, mutable `rng`
@@ -2049,13 +2139,123 @@ behavior-changing (goldens move, on purpose, with sign-off).
    (§3.8), which is step 6b's own scope, not step 5's. Implementing it
    for MRG31k3p alone, ahead of MRG32k3a having one, would invent an
    inconsistent precedent; deferred to land alongside step 6b instead.
-6. **[new capability]** Onboard Philox-4x32: counter-packing `stream_at`
+6. **[new capability — done]** Onboard Philox-4x32: counter-packing `stream_at`
    (§3.4), `bsm()`-based `normalvariate` (reused as-is), full §7 suite.
    This is the step that actually tests §3.5's claim under load — if
    Philox needs anything from the interface beyond `stream_at`/`random`/
    `getrandbits`/`normalvariate`, that's the signal the interface
    under-specified something, and it needs to surface here, not be
-   patched around quietly.
+   patched around quietly. It did — see §3.9, added by this step.
+
+   Landed as `pymoso/prng/philox4x32.py` (`philox4x32_r`, the round
+   function; `Philox4x32Stream`, deliberately *not* a `random.Random`
+   subclass — the first real user of `base.RandomCompatAdapter`'s own
+   stated purpose, rather than a second, divergent convention; `stream_at`)
+   and `tests/test_philox4x32_conformance.py` (60 tests). Validated more
+   strongly than step 5 could be: the round function matches Random123's
+   own published known-answer-test vectors (`tests/kat_vectors` in that
+   repository) bit-for-bit at three independent inputs, not just
+   internal self-consistency — an external ground truth, not a
+   from-scratch reimplementation checked against itself. Confirmed
+   directly, not assumed: full suite green on both venvs after landing,
+   no existing golden or test moved.
+
+   **Constants, sourced, not fabricated.** Primary: Random123's own
+   `philox.h` (github.com/DEShawResearch/random123, mirrored at
+   thesalmons.org — John Salmon, the paper's own author). Corroborated
+   independently by the C++ standardization proposal P2075 ("Philox as
+   an extension of the C++ RNG engines"), which states the same
+   constants and a checkable test vector.
+   ```
+   M0 = 0xD2511F53, M1 = 0xCD9E8D57   (round multipliers)
+   W0 = 0x9E3779B9, W1 = 0xBB67AE85   (Weyl/key-bump constants)
+   ```
+   Round function (ctr = 4×uint32, key = 2×uint32), read directly from
+   the source: `hi0,lo0 = mulhilo32(M0,ctr[0])`; `hi1,lo1 =
+   mulhilo32(M1,ctr[2])`; `ctr' = (hi1^ctr[1]^key[0], lo1,
+   hi0^ctr[3]^key[1], lo0)`. Key bump: `key' = (key[0]+W0, key[1]+W1)
+   mod 2**32`. Round 1 uses the unbumped key; each later round bumps
+   first, then applies the round function. Both multipliers are odd
+   (checked, not assumed) — the round function's invertibility for a
+   fixed key, which the "distinct coordinates → non-overlapping
+   streams" guarantee rests on, depends on that.
+
+   **Round count: 10**, `PHILOX4x32_DEFAULT_ROUNDS` in the same source —
+   the library default, not the statistical minimum (Salmon et al. 2011
+   report BigCrush passing at 7 rounds). Using 10 because that's what
+   "Philox4x32" means in the ecosystem (numpy, PyTorch, the C++
+   proposal all default to it), not a stronger claim than "matches
+   established practice."
+
+   **The capacity question (carried from §8.2), resolved into §3.9's
+   finding, not a Philox-only fix.** Sized against budget-anchored
+   ceilings, not period-anchored ones, per instruction, since RASolver's
+   own `calc_m`/`calc_b` are that solver's schedule only — nothing in
+   the framework bounds replications-per-iteration or iterations-per-run
+   for an arbitrary `MOSOSolver`, only `--budget` does, loosely (each
+   replication costs at least one unit of it). Chosen ceilings, recorded
+   as policy, not derived:
+   - **Replications/iteration and iterations/run**: `10**9` each —
+     "implausible" defined against this project's own precedent
+     (`mrg32k3a.py`'s own comment: nothing in this project's docs/
+     README/tests has ever budgeted past 400,000; `10**9` is ~2500×
+     beyond that). 30 bits each.
+   - **Per-replication reserve**: 4096 counter positions (16,384 raw
+     words) — the same ~16× BSProb-margin reasoning `REPL_RESERVE_BITS`
+     already used, expressed in counter units (4 words/counter
+     increment). 12 bits.
+   - **isp count**: 10,000 paths, absurd against real `--isp` usage
+     (single/double-digit in practice). 14 bits.
+   - **Point/visit**: unchanged reasoning from §3.4 (BSProb's dim=9
+     floor for point bits; minimal nonzero headroom for visit, no real
+     caller yet).
+
+   Even at these tight ceilings, one `isp` path's own full history
+   (iteration count × one iteration's own point/visit/replication
+   width) is 148 bits — **20 bits over Philox's 128-bit counter before
+   `isp` multiplicity or `sync` ever enter it.** Not a margin problem:
+   one iteration's own width alone (118 bits) fits with `2**10` to
+   spare, so shrinking the tight layers further doesn't recover the 20
+   bits without breaking something real (point bits are already at
+   BSProb's floor). What resolves it is §3.9's stream/offset split, not
+   a smaller number anywhere in this list — recorded there, not
+   duplicated here, since it isn't specific to this step's own
+   constants.
+
+   Every constant in the table above — `REPL_STRIDE`/`ITER_STRIDE`
+   included, unchanged from `mrg32k3a.py` — has always been a *chosen*
+   policy number, not a derived one, and this document is correcting
+   itself on that point rather than leaving the earlier framing to
+   stand: `ITER_STRIDE = 2**127` was inherited from L'Ecuyer's own
+   illustrative substream-spacing example (his package's own convention
+   for "how far apart to space independent streams"), not derived from
+   any pymoso-specific requirement — the calc_m(200)/period-margin
+   arguments made for it elsewhere in this document were real headroom
+   checks, but checks *of* a chosen number, not derivations of one.
+   Recorded here so a future reader doesn't mistake "checked against
+   calc_m(200)" for "provably correct" the way `MAX_RI` once was mistaken
+   for a real ceiling.
+
+   **`stream_at` implemented as direct counter indexing, not iterated
+   jumping** — no jump-ahead computation at all for Philox, confirming
+   §3.5's own claim under load: `MRG31k3p`/`MRG32k3a` reach a coordinate
+   by computing how far to jump from a fixed start; Philox reaches it by
+   indexing directly into (key, counter), the native operation the
+   construction is built around. Full §7 conformance suite, every
+   reference value derived independently for Philox (not ported from
+   the MRG-family suites), including its own deliberately-broken-backend
+   proof. `getrandbits` is simpler here than for the MRG family, and
+   provably unbiased without rejection: Philox's own output is 32-bit
+   words directly, so any `k<=32`-bit slice of one word is exactly
+   uniform (a power-of-two range sliced from a power-of-two range is
+   still exactly uniform — no `mrgm1i`-style non-power-of-two remainder
+   to reject). `bsm` reused verbatim for `normalvariate` (imported, not
+   copied) — generator-agnostic per §3.3.
+
+   No existing golden should move: this step implements the generator
+   only, matching step 5's own scope — not wired into `chnbase.py`'s
+   coordinate machinery or any CLI/library selection surface. Confirmed
+   directly, not assumed, once landed.
 6b. **[new capability, not sequenced against 5/6's own landing order]**
    Wire §3.8's already-settled generator-selection design (a `--generator`
    CLI flag plus the matching `solve()`/`testsolve()` kwarg) into the
@@ -2071,6 +2271,30 @@ behavior-changing (goldens move, on purpose, with sign-off).
    always construct `MRG32k3a`, the default, regardless of what else
    exists in `pymoso/prng/`. No existing golden should move: this only
    adds a new selection path, it doesn't touch the default's own.
+6c. **[interface change, found onboarding step 6, not Philox-specific —
+   see §3.9]** Split `stream_at`'s coordinate into `(stream, offset)`:
+   `stream` selects an independent, non-overlapping stream (`isp`/
+   `iteration`/`role`/`sync`, currently the high bits of one flat
+   coordinate); `offset` selects a position within it (`point`/`visit`/
+   `replication`, currently the low bits). MRG-family maps the pair
+   onto the same flat-integer arithmetic it uses today
+   (`stream*ITER_STRIDE + offset`) — no existing golden moves, this
+   relabels a computation already being done, not a new one. Philox
+   maps it directly onto `(key, counter)` — no jump at all. `chnbase.py`
+   already computes `self._iteration` and an offset-shaped value
+   separately before flattening them today, so the change is inserting
+   a seam at an existing combination point, not a rewrite.
+
+   **Not sequenced against 6b**: 6b (bare CLI/library selection) doesn't
+   need this to land — MRG32k3a/MRG31k3p both work today with the flat
+   coordinate, and 6b can be built and shipped against that as-is. This
+   step is a prerequisite for Philox specifically becoming selectable
+   *for real solving* through 6b's own mechanism (as opposed to the
+   standalone conformance testing step 6 itself delivers) — `chnbase.py`
+   has nowhere to hand Philox a `(key, counter)` pair until this lands.
+   Given a home here, not left as prose only in §3.9, per this
+   document's own established rule about known-necessary work with no
+   place in the step list.
 7. **[dissolved — intentionally empty, nothing dropped]** This entry is
    deliberately blank; it is not a placeholder for forgotten work. It
    originally held four decisions this step list said had to be settled
