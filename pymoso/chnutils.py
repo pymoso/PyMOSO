@@ -38,14 +38,15 @@ from itertools import product, filterfalse
 from math import ceil, floor, sqrt
 import multiprocessing as mp
 from statistics import mean, variance
-from .prng.mrg32k3a import MRG32k3a, get_next_prnstream
+from .prng.mrg32k3a import MRG32k3a, get_next_prnstream, jump_seed_n, ISP_STRIDE
 
-# Number of retrospective-approximation iterations' worth of substream
-# headroom reserved per independent sample path in get_testsolve_prnstreams.
-# An RA solver that runs past this many iterations walks into the next
-# sample path's reserved streams (see docs/phase2a-verification.md #3);
-# RASolver.rasolve enforces this bound at runtime.
-MAX_RI = 200
+# MAX_RI (a reserved 200-RA-iteration substream window per independent
+# sample path, and the RuntimeError RASolver.rasolve raised past it) is
+# removed as of docs/rng-interface-design.md §12 step 4b: each path's
+# oracle stream is now computed directly from `isp` via ISP_STRIDE
+# (get_testsolve_prnstreams below), so there is no reservation to
+# overrun and nothing left to guard. See KNOWN_ISSUES.md issue 3 for the
+# defect this originally fixed, and its current status note.
 
 # Defaults for solve()/testsolve()'s keyword arguments, matching the CLI's
 # documented values (pymoso/cli.py's --budget/--simpar/--isp/--proc
@@ -187,6 +188,15 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
     xprn : prng.MRG32k3a object
     iseed : tuple of int
         Next independent seed with which the user can invoke PyMOSO
+
+    Notes
+    -----
+    Each path's oracle stream is computed directly from `isp` via
+    ISP_STRIDE (docs/rng-interface-design.md §6/§12 step 4b) -- no
+    per-path reservation walk (formerly MAX_RI-sized) exists to overrun,
+    so deriving path 5's stream costs the same O(log(index)) matrix-
+    power work whether path 5 is requested first, last, or alone,
+    regardless of how many iterations any other path used.
     """
     xprn = MRG32k3a(iseed)
     orcprn_lst = []
@@ -195,13 +205,21 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
         solprn = get_next_prnstream(iseed, False)
         iseed = solprn.get_seed()
         solprn_lst.append(solprn)
+    # `iseed` here (post-solprn loop) is the oracle role's own root --
+    # solver-role and oracle-role streams stay structurally separated,
+    # unchanged from before this step.
+    orc_root = iseed
     for t in range(num_trials):
-        orcprn = get_next_prnstream(iseed, crn)
-        iseed = orcprn.get_seed()
+        orc_seed = jump_seed_n(orc_root, t * ISP_STRIDE)
+        orcprn = MRG32k3a(orc_seed)
+        orcprn.set_class_cache(crn)
         orcprn_lst.append(orcprn)
-        for i in range(MAX_RI):
-            newprn = get_next_prnstream(iseed, crn)
-            iseed = newprn.get_seed()
+    # The next independent stream past every path actually reserved --
+    # path `num_trials` would be the next one derived by this same
+    # formula, so its seed is the natural "next" value to report,
+    # matching this function's pre-existing "next independent seed"
+    # contract without needing a live walk to compute it.
+    iseed = jump_seed_n(orc_root, num_trials * ISP_STRIDE)
     return orcprn_lst, solprn_lst, xprn, iseed
 
 

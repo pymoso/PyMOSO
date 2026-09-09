@@ -608,6 +608,83 @@ regression to fix.
 
 ---
 
+### 12. The README's `MyRAAlg` template's failure mode changed, and became less legible
+
+**Affects:** this branch only, from the commit that removed
+`RASolver.rasolve`'s `nu > MAX_RI` guard (docs/rng-interface-design.md
+§12 step 4b, open question 9). **Severity:** low — `MyRAAlg`
+(`pymoso/examples/myraalg.py`) is documented in the README as
+illustrative only, deliberately non-terminating as written, not a
+usable solver; nothing in this codebase's own test suite calls its
+`solve()`/`rasolve()` to completion (checked directly, both before and
+after this change — see "Status" below).
+
+#### What changed
+
+`MyRAAlg`'s `spsolve` never calls `self.estimate`, so `self.num_calls`
+never advances and `RASolver.rasolve`'s `while self.num_calls < budget`
+loop can never exit via budget exhaustion, for any budget. Before this
+branch's RNG redesign, `rasolve`'s `nu > MAX_RI` guard (a check that
+existed for an unrelated reason — stream-headroom reservation in
+`testsolve`, see issue 3) happened to also stop this loop, after 201
+fast, simulation-free iterations, with a clear `RuntimeError` naming
+`MAX_RI`.
+
+That guard is now removed entirely (its collision-avoidance reason no
+longer exists once stream coordinates are computed directly rather than
+reserved — see docs/rng-interface-design.md §6), and no replacement
+runaway-loop guard was added: a solver that never progresses is a
+defect in that solver, not something this layer should paper over with
+an arbitrary iteration ceiling. With the guard gone, `MyRAAlg`'s `nu`
+keeps incrementing until something else stops it — **not** an indefinite
+hang, corrected here against the actual behavior rather than assumed in
+advance: `RASolver.calc_b(nu) = ceil(bconst*(dim-1)*1.2**nu)` overflows
+Python's float range around `nu≈3882` (`calc_m`'s own `1.1**nu` would
+overflow later, around `nu≈7449`, but `calc_b` runs first each
+iteration), and `ceil(float('inf'))` raises `OverflowError`. Confirmed
+directly: `nu=3882`, reached in 0.03 seconds.
+
+So the concrete change is from one fast, clearly-labeled failure to a
+different fast, unlabeled one:
+
+| | Before | After |
+|---|---|---|
+| Exception | `RuntimeError` | `OverflowError` |
+| Message | Names `MAX_RI`, explains the reservation-overrun risk, and how to proceed | `cannot convert float infinity to integer` — names neither `MyRAAlg` nor the real cause |
+| Iterations reached | 201 | ~3882 |
+| Time | Fast | Fast (0.03s, measured) |
+
+Both terminate quickly; neither reaches a normal budget-exhausted stop
+(the README's own "Template RA Solver" prose already says as much, and
+was updated to describe the new failure rather than imply the process
+hangs). The regression, such as it is, is legibility: a user who
+actually copies this template and hits this case now gets a stack trace
+pointing at `calc_b`'s arithmetic, with no indication `MyRAAlg`'s own
+missing `self.estimate` call is the actual cause — worse than before,
+where `MAX_RI`'s message at least named the mechanism that stopped it,
+even though that mechanism's real purpose was unrelated (stream
+reservation, not solver correctness).
+
+#### Status
+
+Not fixed, and not a case of "someday": the actual fix is `MyRAAlg`
+calling `self.estimate` as the README's own prose already says a real
+implementation must — `MyRAAlg` is deliberately illustrative/non-
+terminating, not something this entry proposes changing. Checked
+directly against the tree as it stands, not assumed: no test in this
+suite calls `MyRAAlg.solve()`/`rasolve()` to completion, before or after
+this change — `tests/test_readme_examples.py::test_myraalg_spsolve_
+runs_directly` calls `spsolve` directly (never enters `rasolve`'s loop)
+and `test_algorithm_snippets_run_against_a_live_solver` `exec`s the
+README's algorithm snippets directly against a solver instance (also
+never calls `rasolve`); neither is affected by the guard's removal, and
+neither would have caught a hang via `pytest-timeout` even if the
+failure mode had turned out to be one. If a future test is ever added
+that does call `MyRAAlg.solve()`/`rasolve()` to completion, it should
+expect `OverflowError`, not a timeout, and can cite this entry.
+
+---
+
 ## Reporting
 
 Please open an issue at

@@ -1087,9 +1087,17 @@ solver, not something the framework should paper over with a magic
 number. One concrete consequence, not a hypothetical one: `RASolver`
 has no bound on `nu` left at all after this step, so a solver whose
 `spsolve` never calls `self.estimate` — the README's own "Template RA
-Solver," `MyRAAlg`, exactly matches this shape (§12 step 4b) — no longer
-fails after 201 fast iterations, it hangs. That's tracked as part of
-step 4b's own deliverables, not a gap discovered later.
+Solver," `MyRAAlg`, exactly matches this shape (§12 step 4b) — no
+longer fails cleanly after 201 iterations. **Not an indefinite hang**,
+corrected against the actual landed code rather than predicted in
+advance: `calc_b`'s `1.2**nu` term overflows to a Python float `inf`
+around `nu≈3882` (`calc_m`'s own `1.1**nu` would overflow later, around
+`nu≈7449`, but `calc_b` runs first each iteration and gets there
+sooner), and `ceil(inf)` raises `OverflowError` — confirmed by running
+it directly, `nu=3882` reached in 0.03s. So the actual failure mode is
+a fast (well under a second), confusing crash naming neither `MyRAAlg`
+nor the real cause, not a hang — tracked as part of step 4b's own
+deliverables, not a gap discovered later.
 
 ## 7. Conformance test suite
 
@@ -1400,6 +1408,33 @@ it only changes how the value is computed. Its only two properties are
 MRG32k3a, whatever Philox's own shape is — and (2) users copy-paste it
 into a follow-up `--seed`, they don't interpret it. No new "readable"
 representation is being introduced.
+
+**Not wired in as of step 4b — flagged here so the gap is recorded where
+the target design lives, not only in a commit message.** This section
+settles what `endseed` *should* become; step 4b does not implement the
+high-water-mark tracking described above. `crn_advance()` still reports
+based on its own call count (`self._iteration * ITER_STRIDE`, jumped
+once per call) — real movement, but not a high-water mark of what the
+run actually consumed via `hit()`'s own coordinate computation, which
+`crn_advance()` never observes (§12 step 4b's own `_next_seed` docstring
+already says this precisely: "the *only* thing that ever advances
+[`_next_seed`/`rng`], for either crnflag value ... always by exactly one
+clean 2**127 hop"). Confirmed, not just reasoned about: MOCOMPASS and
+MOPBnB, which call `crn_advance()` exactly once regardless of how many
+replications their own `solve()` actually consumed internally, now
+report *identical* `endseed`s for identical seed/problem/budget, despite
+verified-different internal consumption (1440 replications for one case,
+a different count for the other) — the concrete, checked instance of
+this gap, not a hypothetical one. Every `crnflag=False` case currently
+reports iteration-*count* only, never point/replication consumption
+within an iteration; MOCOMPASS/MOPBnB simply make this visible in the
+starkest way, since their own count is always 1. **When this section's
+real formula is actually wired into `chnutils.py`/`RASolver.rasolve`'s
+reporting — a separate step, not yet assigned a number in §12 — every
+`crnflag=False` golden moves again**, not only the MOCOMPASS/MOPBnB
+pair: the mechanism changes for all of them, even though today's step
+4b values already reflect *something* real (`self._iteration`), just
+not the high-water mark this section actually promises.
 
 **`testsolve` keeps the same logic as `solve`, deliberately, not as a
 special case.** The single high-water-mark tracked across every `isp`
@@ -1727,31 +1762,48 @@ behavior-changing (goldens move, on purpose, with sign-off).
    as part of that review, not just each against a fresh baseline.
 
    **Also part of this step, not a follow-on:** (c)'s guard removal
-   changes `MyRAAlg` (README's "Template RA Solver," `pymoso/examples/
-   myraalg.py`) from a bounded failure into an unbounded hang — checked
-   directly: `spsolve` never calls `self.estimate`, so `self.num_calls`
-   never advances, and today that loop is stopped only by the guard this
-   step deletes, confirmed by `test_readme_examples.py`'s own
-   `test_myraalg_spsolve_runs_directly` docstring ("it now hits the
-   MAX_RI guard after 201 fast, simulation-free iterations, for any
-   budget"). Three concrete actions, all landing here:
+   changes what stops `MyRAAlg` (README's "Template RA Solver,"
+   `pymoso/examples/myraalg.py`) -- checked directly: `spsolve` never
+   calls `self.estimate`, so `self.num_calls` never advances, and today
+   that loop is stopped only by the guard this step deletes, confirmed
+   by `test_readme_examples.py`'s own `test_myraalg_spsolve_runs_
+   directly` docstring ("it now hits the MAX_RI guard after 201 fast,
+   simulation-free iterations, for any budget"). **Not an indefinite
+   hang** -- an earlier draft of this section predicted one, corrected
+   here against the actual landed code rather than left standing: run
+   directly, `RASolver.rasolve`'s own `calc_b(nu) = ceil(bconst*(dim-1)*
+   1.2**nu)` overflows to a Python float `inf` around `nu≈3882` (`calc_m`'s
+   `1.1**nu` would overflow later, ~7449, but `calc_b` runs first each
+   iteration and gets there sooner), and `ceil(inf)` raises
+   `OverflowError` -- confirmed empirically, `nu=3882` reached in 0.03s.
+   So the actual change is from one fast, clearly-labeled failure
+   (`RuntimeError` naming `MAX_RI`, after 201 iterations) to a different
+   fast, confusing one (`OverflowError` naming neither `MyRAAlg` nor the
+   real cause, after ~3882) -- both terminate quickly; neither reaches a
+   normal budget-exhausted stop. Three concrete actions, all landing
+   here:
    - Add a `KNOWN_ISSUES.md` entry (next number after 11, alongside
      issue 8 in the "Behavior changes introduced by this migration"
      section — the same category, since this isn't inherited from any
      released version either) stating the change precisely: before this
-     step, `MyRAAlg` run via `solve()` raises `RuntimeError` after 201
-     iterations; after, it hangs indefinitely, with no error at all. Not
-     written before this step lands — the condition it describes isn't
-     true until then (working agreement: state things accurately, not
-     in advance of being true).
+     step, `MyRAAlg` run via `solve()` raises `RuntimeError` naming
+     `MAX_RI` after 201 iterations; after, it raises `OverflowError`
+     from `calc_b` after ~3882 iterations, naming neither `MyRAAlg` nor
+     the actual cause. Not written before this step lands — the
+     condition it describes isn't true until then (working agreement:
+     state things accurately, not in advance of being true, and not
+     predicted instead of checked).
    - Update README's "Template RA Solver" prose (currently: "this
      template never terminates when run via `solve()`, at any budget...
      the retrospective-approximation loop cannot reach a normal
-     budget-exhausted stop") — accurate before this step only loosely
-     (the loop does terminate today, via the guard's `RuntimeError`, just
-     not via budget exhaustion); becomes literally true only once this
-     step lands, and the annotation should say so plainly rather than
-     leave a reader to infer which failure mode is current.
+     budget-exhausted stop") — the second clause stays true before and
+     after this step (neither failure mode is a budget-exhausted stop);
+     the first clause ("never terminates") was never literally true
+     either way (both a `RuntimeError` and an `OverflowError` are
+     terminations) and shouldn't imply the process hangs. Reword to name
+     the actual post-step-4b behavior (an unrelated-looking crash after
+     thousands of fast iterations) rather than leave a reader to infer
+     it, and to stop implying "never terminates" means "hangs."
    - Checked now, not assumed: **nothing in the test suite currently
      needs marking or skipping.** `test_myraalg_spsolve_runs_directly`
      calls `spsolve` directly (never enters `rasolve`'s loop) and
@@ -1759,10 +1811,13 @@ behavior-changing (goldens move, on purpose, with sign-off).
      README's algorithm snippets directly against a solver instance
      (also never calls `rasolve`) — both were already written to avoid
      the full loop, specifically because of the guard's existing
-     behavior. Neither is affected by the guard's removal. If a future
-     test is ever added that does call `MyRAAlg.solve()`/`rasolve()` to
-     completion, it must be marked or skipped with a reference to the
-     new `KNOWN_ISSUES.md` entry as part of *that* change, not this one.
+     behavior. Neither is affected by the guard's removal (and even if
+     they were, the actual behavior is a fast crash, not a hang, so
+     pytest-timeout would not have been the mechanism that caught it
+     either way). If a future test is ever added that does call
+     `MyRAAlg.solve()`/`rasolve()` to completion, it must be marked or
+     skipped with a reference to the new `KNOWN_ISSUES.md` entry as part
+     of *that* change, not this one.
 5. **[new capability]** Onboard MRG31k3p: source or derive its recurrence
    matrices (open question 4), implement on `mrg_common.py`, full §7
    suite including the brute-force jump proof (§7 item 3) specific to
@@ -1787,10 +1842,16 @@ behavior-changing (goldens move, on purpose, with sign-off).
      doesn't touch `chnbase.py`'s coordinate logic at all, so it isn't
      sequenced against steps 1-6 in any way; it can land whenever the CLI
      work is scheduled.
-   - **`endseed`** (open question 8) is settled in §8.2 (the run's
-     tracked coordinate high-water mark, one past) — likewise doesn't
-     change what steps 1-6 do internally, only what gets reported at the
-     end of a run.
+   - **`endseed`** (open question 8): what it *should* become is settled
+     in §8.2 (the run's tracked coordinate high-water mark, one past).
+     Actually wiring that formula into `chnutils.py`/`RASolver.rasolve`'s
+     reporting is not part of steps 1-6 either, but — corrected here,
+     found only once step 4b actually landed — it is not a no-op the way
+     generator selection is: step 4b's own `crn_advance()` reports based
+     on its call count only, confirmed to lose real information (§8.2's
+     own note, e.g. MOCOMPASS/MOPBnB now reporting identical `endseed`s
+     despite verified-different consumption). That wiring is its own
+     step, below, not folded in here.
    - **`REPL_BITS`/`VISIT_BITS`/`ISP_STRIDE` sizing** (open question 5)
      turned out to need no separate decision once open question 9 was
      settled — with no `nu` ceiling left to size a margin against, it
@@ -1809,3 +1870,39 @@ behavior-changing (goldens move, on purpose, with sign-off).
    reader who reaches step 7 and finds it empty can confirm that on
    purpose, from this entry itself, rather than wonder whether a step
    went missing.
+8. **[known-necessary, not yet scheduled relative to steps 5-6]** Wire
+   §8.2's real `endseed` formula — a tracked high-water mark of every
+   coordinate actually passed to `stream_at`, across every role a run
+   touches, updated on every such call — into `chnutils.py`'s
+   `solve()`/`testsolve()` and `RASolver.rasolve`'s reporting, replacing
+   `crn_advance()`'s call-count-only jump (§8.2's own gap, found once
+   step 4b actually landed, not designed in advance: `endseed` currently
+   reports `self._iteration * ITER_STRIDE`'s position, which is real
+   movement but not what a run actually consumed via `hit()`'s own
+   coordinate calls — confirmed concretely, not hypothetically, since
+   MOCOMPASS and MOPBnB, which call `crn_advance()` exactly once
+   regardless of internal replication count, now report *identical*
+   `endseed`s for identical seed/problem/budget despite verified-
+   different consumption).
+
+   Needs: a running high-water-mark tracker threaded through `Oracle`
+   (updated wherever a coordinate is actually computed — `hit()`'s
+   default path and `_hit_via_coordinate`'s opt-in `visit`/`sync` calls
+   alike, across whichever roles a run touches), and the `solve()`/
+   `testsolve()`/`RASolver.rasolve` call sites that currently read
+   `self.orc.rng.get_seed()` switched to read the tracker instead.
+
+   **Every `crnflag=False` golden moves again when this lands** — not
+   only the MOCOMPASS/MOPBnB and testsolve-solver-identity cases that
+   happen to already collide today; the reporting mechanism changes for
+   all of them, even the ones whose step-4b value already reflects
+   *something* real. `tests/golden/README.md`'s own step-4b entry
+   already carries this note, so a reader of that provenance record
+   isn't relying on this document alone to know the values there are
+   intermediate.
+
+   Explicitly not sequenced relative to MRG31k3p/Philox onboarding
+   (steps 5-6) — independent concerns, could land before, after, or
+   between them. Listed here, not left as prose only in §8.2, per
+   CLAUDE.md's own caution about known-necessary work with no place in
+   a step list: that's how it gets lost.

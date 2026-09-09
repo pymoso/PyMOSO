@@ -169,11 +169,13 @@ def test_myaccel_instantiates_and_runs():
 def test_myraalg_spsolve_runs_directly():
     """MyRAAlg cannot reach a normal solve() completion as written: its
     spsolve never calls self.estimate, so self.num_calls never advances
-    and the RA loop cannot terminate on its own (it now hits the
-    MAX_RI guard after 201 fast, simulation-free iterations, for any
-    budget -- see README's "Template RA Solver" prose). Test the actual
-    contract instead: spsolve is callable and returns its input
-    unchanged."""
+    and the RA loop cannot terminate via budget exhaustion (as of
+    docs/rng-interface-design.md §12 step 4b, it instead runs ~3882
+    fast, simulation-free iterations before RASolver.rasolve's own
+    calc_b overflows Python's float range and raises OverflowError --
+    KNOWN_ISSUES.md's MyRAAlg entry, see README's "Template RA Solver"
+    prose). Test the actual contract instead: spsolve is callable and
+    returns its input unchanged."""
     from pymoso.prng.mrg32k3a import MRG32k3a
     from pymoso.problems.probtpa import ProbTPA
     from myraalg import MyRAAlg

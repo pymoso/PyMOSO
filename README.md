@@ -197,6 +197,8 @@ The default installation of PyMOSO includes a selection of solvers, testers, and
 
 Solver                         Description                   
 ************************       ************************      
+MOCOMPASS                      MO-COMPASS solver for multi-objective discrete optimization via simulation.
+MOPBnB                         MOPBnB solver for Pareto-optimal approximation via probabilistic branch and bound.
 RMINRLE                        A solver using R-MinRLE for integer-ordered MOSO.
 RPE                            R-Pe solver for bi-objective simulation optimization.
 RPERLE                         R-PERLE solver for bi-objective simulation optimization.
@@ -314,6 +316,19 @@ Finally, users may specify any number of options in one invocation. However, all
 | `radius`       |   1           |`RPERLE`, `RMINRLE`, `RPE`, `RSPLINE` | Sets radius that determines a point's neighborhood. |  
 | `betadel` | `0.5` | `RPERLE`, `RMINRLE` | Roughly, affects how likely it is for RLE to keep its given solution. |  
 | `betaeps` | `0.5` | `RPERLE`, `RPE` | Roughly, affects how likely PE will perform a search from a point. |   
+| `lb`       | *(required)*  | `MOCOMPASS`, `MOPBnB` | Lower bound each feasible point's components may take. |
+| `ub`       | *(required)*  | `MOCOMPASS`, `MOPBnB` | Upper bound each feasible point's components may take. |
+| `numsamples` | `8` | `MOCOMPASS` | Number of feasible points to sample per iteration. |
+| `subregions` | `2` | `MOPBnB` | Number of subregions to branch each region into. |
+| `alpha`    | `0.05`        | `MOPBnB` | Overall confidence parameter. |
+| `delta`    | `0.1`         | `MOPBnB` | Sampling ratio used for subregion elimination. |
+| `R0`       | `20`          | `MOPBnB` | Initial number of replications taken per point. |
+
+`MOCOMPASS` and `MOPBnB` are compatibility-only example solvers — their
+algorithmic behavior has not been validated against the papers they
+implement, and neither currently supports `--crn`. See
+[`docs/mocompass-mopbnb-known-issues.md`](docs/mocompass-mopbnb-known-issues.md)
+and each solver's own docstring for the full citation and disclaimer.
 
 
 ### The `testsolve` Command  
@@ -568,7 +583,7 @@ class MyAccel(RLESolver):
 In the second category, algorithm designers can quickly implement any RA algorithm by sub-classing `RASolver` and implementing the `spsolve` function, as shown in the [RA solver template](#template-ra-solver). The algorithm can be a single-objective algorithm. PyMOSO cannot guarantee the convergence of such algorithms. The template is technically valid in PyMOSO but is probably not effective.  
 
 #### Template RA Solver
-As written below, this template never terminates when run via `solve()`, at any budget: `spsolve` never calls `self.estimate`, so `self.num_calls` never advances past 0, and the retrospective-approximation loop cannot reach a normal budget-exhausted stop. A real implementation must call `self.estimate` (directly, or via `self.upsample`/`self.spline`) to make progress against the budget.
+As written below, this template cannot reach a normal budget-exhausted stop when run via `solve()`, at any budget: `spsolve` never calls `self.estimate`, so `self.num_calls` never advances past 0. It does not run forever, though -- the retrospective-approximation loop's own iteration-dependent sample-size formula (`calc_b`) eventually overflows Python's float range and raises `OverflowError` (thousands of fast, simulation-free iterations in, not immediately, and naming neither this template nor the real cause). A real implementation must call `self.estimate` (directly, or via `self.upsample`/`self.spline`) to make progress against the budget; see KNOWN_ISSUES.md for the exact failure this produces as written.
 
 ```python
 from pymoso.chnbase import RASolver

@@ -1,5 +1,5 @@
 """
-docs/rng-interface-design.md §12 step 3: Oracle's CRN-protocol
+docs/rng-interface-design.md §12 steps 3-4b: Oracle's CRN-protocol
 replacement (§4). Two checks the golden suite doesn't directly provide
 (§8.1's own gap analysis):
 
@@ -9,18 +9,20 @@ replacement (§4). Two checks the golden suite doesn't directly provide
   jump_seed_n(root, iteration*ITER_STRIDE + replication*REPL_STRIDE)
   computed directly (§2's formula). This is the concrete, checked claim
   behind "CRN stays bit-identical," not an assumption riding on §2's
-  proof alone.
+  proof alone. Unaffected by step 4b -- the CRN branch is untouched.
 
-- §7.1 item 10, order-independence, run against *this step's own code*
-  and confirmed still failing: step 3 deliberately keeps the old
-  order-dependent walk for crnflag=False (the temporary compatibility
-  encoding, §3.4's note), so a point's draw still depends on which
-  other points were visited first this iteration -- exactly the defect
-  §2 names. xfail(strict=True): once step 4b switches the default
-  crnflag=False coordinate to offset_within_iteration/point_code, this
-  starts passing, and strict=True turns that into a loud failure here
-  (XPASS) as a forcing function to update this file, rather than a
-  silent, unnoticed fix.
+- §7.1 item 10, order-independence. Landed at step 3 as a strict xfail,
+  run against that step's own code and confirmed FAILING: step 3
+  deliberately kept the old order-dependent walk for crnflag=False (the
+  temporary compatibility encoding, §3.4's note), so a point's draw
+  depended on which other points were visited first that iteration --
+  exactly the defect §2 names. The xfail marker is removed here, at
+  step 4b, the moment the cutover to offset_within_iteration/point_code
+  made it start passing (observed directly as an XPASS under the old
+  strict marker, not assumed) -- the test itself, and the discipline of
+  observing it fail before relying on it, are the working agreement's
+  own proof that the cutover fixed what it claims to, not just that
+  goldens moved.
 """
 import pytest
 
@@ -140,17 +142,13 @@ def _run_in_order(order):
     return results
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Expected to fail at step 3: crnflag=False deliberately keeps the "
-        "old order-dependent compatibility encoding (docs/rng-interface-"
-        "design.md §3.4's note) until step 4b switches the default "
-        "coordinate to offset_within_iteration/point_code. strict=True: a "
-        "silent pass here means step 4b landed without updating this test."
-    ),
-)
 def test_order_independence_within_one_iteration_crnflag_false():
+    """§7.1 item 10, required to pass as of step 4b: confirmed FAILING
+    against step 3/4a's own code (strict xfail, observed XPASS the
+    moment the cutover landed here, and removed only then) -- the proof
+    the cutover actually fixed the order-dependence defect §2 names,
+    not just that goldens moved. See docs/rng-interface-design.md §12
+    step 4b."""
     point_a, point_b = (1,), (2,)
     forward = _run_in_order([point_a, point_b])
     backward = _run_in_order([point_b, point_a])
