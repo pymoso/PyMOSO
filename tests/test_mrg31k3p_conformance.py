@@ -53,7 +53,6 @@ def stream_at(seed, coordinate):
     if coordinate < 0:
         raise ValueError("coordinate must be non-negative")
     prn = MRG31k3p(jump_seed_n(seed, coordinate))
-    prn.set_class_cache(False)
     return prn
 
 
@@ -207,7 +206,6 @@ def _generous_chi_square_threshold(df):
 @pytest.mark.parametrize("k,n_draws", [(4, 32000), (8, 128000)])
 def test_getrandbits_unbiasedness_smoke_test(k, n_draws):
     rng = MRG31k3p(DEFAULT_SEED)
-    rng.set_class_cache(False)
     n_buckets = 1 << k
     counts = [0] * n_buckets
     for _ in range(n_draws):
@@ -257,14 +255,13 @@ def test_cross_process_reproducibility_under_forkserver():
 
 def test_get_next_prnstream_matches_jump_seed_n_at_iter_stride():
     seed = DEFAULT_SEED
-    prn = get_next_prnstream(seed, False)
+    prn = get_next_prnstream(seed)
     assert prn.get_seed() == jump_seed_n(seed, 2 ** 127)
 
 
 def test_jump_substream_matches_jump_seed_n_at_repl_stride():
     seed = DEFAULT_SEED
     prn = MRG31k3p(seed)
-    prn.set_class_cache(False)
     jump_substream(prn)
     assert prn.get_seed() == jump_seed_n(seed, REPL_STRIDE)
 
@@ -280,14 +277,12 @@ def _broken_stream_at_wrong_jump_size(seed, coordinate):
     """Reuses the 2**127 jump where the general jump_seed_n should be
     used -- targets check_exact_matrix_power."""
     prn = MRG31k3p(jump_seed_n(seed, 2 ** 127))
-    prn.set_class_cache(False)
     return prn
 
 
 def _broken_stream_at_ignores_coordinate(seed, coordinate):
     """`coordinate` silently ignored -- targets check_distinctness."""
     prn = MRG31k3p(seed)
-    prn.set_class_cache(False)
     return prn
 
 

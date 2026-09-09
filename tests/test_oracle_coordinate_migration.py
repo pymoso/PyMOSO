@@ -84,7 +84,6 @@ def _crn_replicate(orc, x, m):
 
 def _fresh_crn_oracle():
     rng = MRG32k3a(ROOT)
-    rng.set_class_cache(False)
     orc = SeedRecordingOracle(rng)
     orc.set_crnflag(True)
     orc.simpar = 1
@@ -156,7 +155,6 @@ def test_crn_multiple_iterations_and_replications_all_match_the_formula():
 
 def _run_in_order(order):
     rng = MRG32k3a(ROOT)
-    rng.set_class_cache(False)
     orc = SeedRecordingOracle(rng)
     orc.set_crnflag(False)
     orc.simpar = 1

@@ -57,7 +57,6 @@ class LoggingOracle(Oracle):
 
 def _fresh_oracle(dim=1):
     rng = MRG32k3a(ROOT)
-    rng.set_class_cache(False)
     orc = LoggingOracle(rng, dim=dim)
     orc.set_crnflag(False)
     orc.simpar = 1

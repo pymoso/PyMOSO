@@ -60,7 +60,7 @@ def test_get_next_prnstream_2_127_matches_exact_matrix_power(seed):
     """get_next_prnstream (2^127) must match the same independent exact
     reference."""
     exact = _exact_jump_n(seed, 2**127)
-    prn = get_next_prnstream(seed, False)
+    prn = get_next_prnstream(seed)
     assert prn.get_seed() == exact
 
 

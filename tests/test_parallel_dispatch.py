@@ -58,7 +58,7 @@ def run_solve(simpar, budget=BUDGET, seed=SEED):
     (simcalls, not just the final solution/endseed) is available to
     assert on.
     """
-    orcstream, solvstream = get_solv_prnstreams(seed, False)
+    orcstream, solvstream = get_solv_prnstreams(seed)
     orc = ProbExpensiveModerate(orcstream)
     orc.set_crnflag(False)
     with orc.set_simpar(simpar):

@@ -73,7 +73,6 @@ def thin_stream_at(seed, coordinate):
     if coordinate < 0:
         raise ValueError("coordinate must be non-negative")
     prn = MRG32k3a(seed)
-    prn.set_class_cache(False)
     for _ in range(coordinate):
         jump_substream(prn)
     return prn
@@ -242,7 +241,6 @@ def _generous_chi_square_threshold(df):
 @pytest.mark.parametrize("k,n_draws", [(4, 32000), (8, 128000)])
 def test_getrandbits_unbiasedness_smoke_test(k, n_draws):
     rng = MRG32k3a(DEFAULT_SEED)
-    rng.set_class_cache(False)
     n_buckets = 1 << k
     counts = [0] * n_buckets
     for _ in range(n_draws):
@@ -303,9 +301,8 @@ def _broken_stream_at_wrong_jump_size(seed, coordinate):
     check_exact_matrix_power, which compares against the true 2**76
     magnitude and would."""
     prn = MRG32k3a(seed)
-    prn.set_class_cache(False)
     for _ in range(coordinate):
-        prn = get_next_prnstream(prn.get_seed(), False)
+        prn = get_next_prnstream(prn.get_seed())
     return prn
 
 

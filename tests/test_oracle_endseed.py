@@ -38,7 +38,6 @@ class SimpleOracle(Oracle):
 
 def _fresh_oracle(dim=1, crnflag=False):
     rng = MRG32k3a(ROOT)
-    rng.set_class_cache(False)
     orc = SimpleOracle(rng, dim=dim)
     orc.set_crnflag(crnflag)
     orc.simpar = 1
@@ -77,7 +76,6 @@ def test_endseed_does_not_collide_with_any_touched_coordinate_offset_branch():
             return True, (vals[0],)
 
     rng = MRG32k3a(ROOT)
-    rng.set_class_cache(False)
     orc = FillingOracle(rng)
     orc.set_crnflag(False)
     orc.simpar = 1
@@ -86,7 +84,6 @@ def test_endseed_does_not_collide_with_any_touched_coordinate_offset_branch():
     all_drawn = set(orc.log[0]) | set(orc.log[1])
     endseed = orc.get_endseed()
     endstream = MRG32k3a(endseed)
-    endstream.set_class_cache(False)
     assert endstream.random() not in all_drawn
 
     # Demonstrate the specific off-by-one: "one past the last
@@ -97,7 +94,6 @@ def test_endseed_does_not_collide_with_any_touched_coordinate_offset_branch():
     base = 0 * ITER_STRIDE + offset_within_iteration((5,), 0, 0, W)
     wrong_endseed = jump_seed_n(orc._orc_root, base + 1 * reserve)
     wrong_stream = MRG32k3a(wrong_endseed)
-    wrong_stream.set_class_cache(False)
     assert wrong_stream.random() == orc.log[1][0]  # exactly replication 1's own first draw
     assert wrong_endseed != endseed
 

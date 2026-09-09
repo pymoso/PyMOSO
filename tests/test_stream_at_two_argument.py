@@ -70,7 +70,6 @@ def check_distinctness(stream_at_fn, seed, coordinates, n_draws=5):
     firsts, states = {}, {}
     for c in coordinates:
         s = stream_at_fn(seed, *c)
-        s.set_class_cache(False)
         firsts[c] = s.random()
         states[c] = s.get_seed()
     coords = list(coordinates)

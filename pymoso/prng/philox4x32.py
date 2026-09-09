@@ -58,6 +58,8 @@ philox4x32_r
 stream_at
 point_width
 offset_within_iteration
+validate_seed
+DEFAULT_SEED
 CoordinateCapacityExceeded
 """
 
@@ -78,6 +80,57 @@ DEFAULT_ROUNDS = 10
 
 COUNTER_BITS = 128   # Philox4x32's own native counter width
 KEY_BITS = 64        # Philox4x32's own native key width
+
+# §3.7/§12 step 6b: this generator's own default seed -- 2 integers,
+# this module's own base-key shape (§3.7's "MRG31k3p's and Philox-4x32's
+# own defaults are undetermined here -- folded into their onboarding
+# steps"). Proposed and approved as (12345, 12345): same reasoning as
+# MRG31k3p's own default -- consistency/memorability across every
+# registered generator's default, and avoids (0, 0) reading like an
+# uninitialized/null seed if copied as a real example.
+DEFAULT_SEED = (12345, 12345)
+
+
+def validate_seed(tokens):
+    """
+    §3.2/§3.7: validate raw --seed tokens against Philox4x32's own
+    shape -- exactly 2 integers, each in [0, 2**32) (the base key's own
+    two 32-bit words, §3.7's own "whatever shape you specify" example
+    for this generator). Not 6 integers like the MRG family; a token
+    from one generator passed to a run using another must fail clearly
+    (§3.7), not be silently reinterpreted.
+
+    Parameters
+    ----------
+    tokens : sequence of str or int
+
+    Returns
+    -------
+    tuple of int, length 2
+
+    Raises
+    ------
+    ValueError
+        Wrong count, a non-integer token, or a component outside
+        [0, 2**32) -- named against this generator specifically
+        ("philox4x32 expects 2 integers, got 6"), per §3.7.
+    """
+    tokens = tuple(tokens)
+    if len(tokens) != 2:
+        raise ValueError('philox4x32 expects 2 integers, got {0}.'.format(len(tokens)))
+    try:
+        ints = tuple(int(t) for t in tokens)
+    except (TypeError, ValueError):
+        raise ValueError(
+            'philox4x32 expects 2 integers, got non-integer token(s) in {0!r}.'.format(tokens)
+        )
+    for v in ints:
+        if not (0 <= v < (1 << 32)):
+            raise ValueError(
+                'philox4x32 seed components must each be in [0, 2**32), got {0}.'.format(ints)
+            )
+    return ints
+
 
 # ---------------------------------------------------------------------------
 # Chosen policy numbers (docs/rng-interface-design.md §12 step 6/6c) --
@@ -135,6 +188,15 @@ REPL_RESERVE_BITS = 12
 assert POINT_BITS + VISIT_BITS + REPL_COUNT_BITS + REPL_RESERVE_BITS == 118
 assert OFFSET_CAPACITY == 1 << (POINT_BITS + VISIT_BITS + REPL_COUNT_BITS + REPL_RESERVE_BITS)
 
+# §12 step 6b: the per-replication stride chnbase.py's _hit_via_
+# coordinate looks up generically as `backend.REPL_RESERVE_STRIDE` (the
+# MRG family's own cached-jump-ahead distance) -- for Philox this needs
+# no caching at all, since Stream.advance() is exact counter addition
+# (no jump computation), but the *name* is still required so chnbase.py
+# doesn't need a backend-specific branch just to find this generator's
+# own per-replication counter reserve.
+REPL_RESERVE_STRIDE = 1 << REPL_RESERVE_BITS
+
 # Stream side, mirroring mrg32k3a.py's ISP_ITER_MARGIN (how many
 # iterations one isp path's own slot reserves) and SYNC_ROLE_OFFSET
 # (where the sync zone begins) -- both far smaller than MRG's own
@@ -148,6 +210,17 @@ assert OFFSET_CAPACITY == 1 << (POINT_BITS + VISIT_BITS + REPL_COUNT_BITS + REPL
 # values -- 2**16 (65,536x) of margin beyond ISP_ITER_MARGIN itself.
 ISP_ITER_MARGIN = 1 << 30
 SYNC_ROLE_OFFSET = 1 << 48
+
+# §12 step 6b: the uniform, backend-agnostic name chnbase.py looks up
+# to decide which "zone" a touched stream falls in (Oracle.get_endseed's
+# own family_capacity choice) -- mrg32k3a.py's own SYNC_ZONE_STREAM_
+# START is SYNC_ROLE_OFFSET // ITER_STRIDE (a flat-integer coordinate
+# divided down into stream units); Philox's own `stream` dimension
+# already *is* the key, native stream-space, with no flattening or
+# division involved at all, so SYNC_ROLE_OFFSET is already the stream
+# value the sync zone begins at -- this is that same value under the
+# name chnbase.py looks up generically, not a second constant.
+SYNC_ZONE_STREAM_START = SYNC_ROLE_OFFSET
 
 
 def point_width(dim):
@@ -315,16 +388,36 @@ class Philox4x32Stream:
 
     Parameters
     ----------
-    key : tuple of int, length 2
-    counter : tuple of int, length 4
-        Both entries in [0, 2**32) per component; the starting counter
-        block this stream draws from first.
+    seed : tuple
+        `(key, counter)` -- key a length-2, counter a length-4 tuple of
+        int, both in [0, 2**32) per component; the starting counter
+        block this stream draws from first. Also accepts the 3-tuple
+        `(key, counter, buffer)` get_seed() itself returns (full state,
+        buffer included) -- §12 step 6b: a single-argument constructor,
+        matching MRG32k3a/MRG31k3p's own `Generator(seed)` shape, is
+        what --simpar's worker-process reconstruction needs
+        (`rngcls(seed)`, one positional argument, the same call for
+        every registered generator) -- accepting exactly what get_seed()
+        returns, for every backend, is the uniform contract that makes
+        it work generically rather than needing a second calling
+        convention for this generator alone.
     """
 
-    def __init__(self, key, counter):
+    def __init__(self, seed):
+        if len(seed) == 3:
+            key, counter, buffer = seed
+        else:
+            key, counter = seed
+            buffer = ()
         self._key = tuple(key)
         self._counter = list(counter)
-        self._buffer = []
+        self._buffer = list(buffer)
+        # §12 step 6b: how many counter positions (refills) this
+        # instance has consumed since construction -- see raw_consumed()
+        # below. Resets to 0 here regardless of which seed shape was
+        # given, the same "constructing is starting fresh" posture
+        # MRG32k3a/MRG31k3p's own seed()/__init__ take.
+        self._refill_count = 0
 
     def _increment_counter(self):
         for i in range(4):
@@ -342,6 +435,7 @@ class Philox4x32Stream:
     def _refill(self):
         self._buffer = list(philox4x32_r(DEFAULT_ROUNDS, tuple(self._counter), self._key))
         self._increment_counter()
+        self._refill_count += 1
 
     def _next_word(self):
         """One raw, exactly-uniform 32-bit word."""
@@ -426,6 +520,85 @@ class Philox4x32Stream:
         tuple
         """
         return (self._key, tuple(self._counter), tuple(self._buffer))
+
+    def root_seed(self):
+        """
+        §12 step 6b: the value to pass as `stream_at`'s own `base_seed`
+        for further coordinate lookups relative to this stream's
+        current position -- NOT the same as get_seed() here, unlike
+        the MRG family: get_seed()'s full state (key, counter, buffer)
+        is what --simpar's wire protocol and the conformance suite's
+        own "landed state" comparison need, but stream_at's own `seed`
+        parameter for Philox is exactly the 2-tuple base key alone
+        (`stream_at`'s own `base_key_int = (seed[0]<<32)|seed[1]`) --
+        handing it get_seed()'s 3-tuple would fail with a TypeError,
+        confirmed directly (Oracle.set_crnflag()'s own `_orc_root`
+        assignment, before this method existed). chnbase.py's
+        Oracle.set_crnflag() calls this, not get_seed(), for
+        `_orc_root` specifically, so the same call works uniformly
+        across backends.
+
+        Returns
+        -------
+        tuple of int, length 2
+        """
+        return self._key
+
+    def raw_consumed(self):
+        """
+        §12 step 6b: how many counter positions (refills) this stream
+        has consumed since construction -- the same units stream_at's
+        own `offset` addresses (one counter position = one 4-word
+        block), which is what lets chnbase.py's replication-reserve
+        overrun check compare it directly against this module's own
+        REPL_RESERVE_BITS (4096 counter positions = 16384 raw words --
+        not MRG's 16384 raw *recurrence steps*, a different unit; see
+        REPL_RESERVE_BITS's own comment above for the sizing account).
+        Replaces the removed set_class_cache()/.generate monkeypatch
+        instrumentation, which this class never had an equivalent
+        attribute for in the first place -- counting refills here is
+        this generator's own natural analog of MRG's raw-step count.
+
+        Returns
+        -------
+        int
+        """
+        return self._refill_count
+
+    def advance(self, delta):
+        """
+        §12 step 6b: the stream `delta` offset-units past this one --
+        see MRG32k3a.advance for the general contract. For Philox this
+        is exact integer addition on the counter, mod 2**COUNTER_BITS
+        -- no jump computation at all, cheaper than MRG's own cached
+        jump, since stream_at's own `offset` parameter already *is* the
+        counter directly (§3.9: Philox reaches a coordinate by indexing,
+        not by computing how far to jump).
+
+        Only meaningful called on a stream that hasn't drawn yet --
+        chnbase.py's own usage, computing the next replication's
+        starting position before either stream has been drawn from. If
+        this stream has already consumed raw words, `delta` is added to
+        wherever the counter has already advanced to (post-refill), not
+        to the position stream_at originally reached -- the same
+        caveat MRG's own advance() has no need to state, since MRG's
+        jump_seed_n takes the *seed* (already reflecting whatever
+        draws happened), never an initial-vs-current distinction.
+
+        Parameters
+        ----------
+        delta : int
+            Non-negative.
+
+        Returns
+        -------
+        Philox4x32Stream
+        """
+        counter_int = 0
+        for word in self._counter:
+            counter_int = (counter_int << 32) | word
+        new_counter_int = (counter_int + delta) & ((1 << COUNTER_BITS) - 1)
+        return Philox4x32Stream((self._key, _int_to_words(new_counter_int, 4)))
 
 
 def _int_to_words(n, count):
@@ -516,4 +689,4 @@ def stream_at(seed, stream, offset):
     eff_key_int = (base_key_int + stream) & ((1 << KEY_BITS) - 1)
     key = _int_to_words(eff_key_int, 2)
     counter = _int_to_words(offset, 4)
-    return Philox4x32Stream(key, counter)
+    return Philox4x32Stream((key, counter))

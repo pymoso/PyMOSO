@@ -181,7 +181,6 @@ def test_myraalg_spsolve_runs_directly():
     from myraalg import MyRAAlg
 
     rng = MRG32k3a((12345,) * 6)
-    rng.set_class_cache(False)
     orc = ProbTPA(rng)
     orc.set_crnflag(False)
     orc.simpar = 1
@@ -235,7 +234,6 @@ def test_algorithm_snippets_run_against_a_live_solver():
     from myraalg import MyRAAlg
 
     rng = MRG32k3a((12345,) * 6)
-    rng.set_class_cache(False)
     orc = ProbTPC(rng)
     orc.set_crnflag(False)
     orc.simpar = 1

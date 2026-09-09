@@ -17,12 +17,8 @@ import types
 import inspect
 from statistics import mean, variance
 from math import sqrt, ceil, floor
-from .prng.mrg32k3a import (
-    get_next_prnstream, jump_substream, bsm, MRG32k3a, jump_seed_n, stream_at,
-    ITER_STRIDE, REPL_STRIDE, REPL_RESERVE_STRIDE, SYNC_ROLE_OFFSET, SYNC_STRIDE,
-    ISP_ITER_MARGIN, SYNC_ZONE_STREAM_START,
-)
-from .prng.base import point_width, offset_within_iteration, REPL_RESERVE_BITS, ReplicationDrawOverflow, one_past
+from .prng import registry
+from .prng.base import ReplicationDrawOverflow, one_past
 from multiprocessing import Queue, Process
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
 
@@ -1254,6 +1250,13 @@ class Oracle(object):
         self._iteration_baseline_seed = None
         self._next_seed = None
         self._orc_root = None
+        # §12 step 6b: the selected generator's own canonical NAME
+        # (a string, not the module itself -- see the `_backend`
+        # property below for why), resolved from type(self.rng) the
+        # first time set_crnflag() runs (same "not dereferenced until a
+        # real path sets it" posture as the three seed attributes
+        # above) -- see registry.backend_for_stream.
+        self._backend_name = None
         # crnflag=False continuation tracking (§4.1) -- how many
         # replications hit() has already drawn for (x, visit) within
         # the current iteration, so a repeat call gets the next
@@ -1276,6 +1279,21 @@ class Oracle(object):
         self._high_water_mark = None
         super().__init__()
 
+    @property
+    def _backend(self):
+        """
+        The selected generator's own module (registry.GENERATORS
+        lookup from `_backend_name`) -- a property, not a plain
+        attribute, specifically so the stored state (`_backend_name`,
+        a string) stays picklable. `testsolve`'s own `--proc` path
+        ships fully-constructed Oracle instances across a process
+        boundary (KNOWN_ISSUES.md issue 9's own pre-existing fragility)
+        -- storing the module object directly here broke that pickling
+        outright (`TypeError: cannot pickle 'module' object`, confirmed
+        directly when this was first tried), not a hypothetical
+        concern.
+        """
+        return registry.GENERATORS[self._backend_name]
 
     def set_simpar(self, simpar):
         """
@@ -1332,11 +1350,41 @@ class Oracle(object):
         Set the common random number (crn) flag and initialize the
         iteration baseline.
 
+        §12 step 6b: also resolves and caches `self._backend` (the
+        selected generator's own module, from `type(self.rng)`) --
+        set_crnflag() is already this class's own authoritative
+        initialization point (see `_orc_root`'s own comment below), so
+        this is the natural place to fail loudly and immediately if
+        `crnflag=True` was requested under a generator whose own CRN
+        branch doesn't exist (Philox: no jump-ahead, no
+        get_next_prnstream/jump_substream at all -- §12 step
+        6c-completion's own reclassification of this debt), rather than
+        reaching a confusing AttributeError deep inside crn_advance()'s
+        first real call.
+
         Parameters
         ----------
         crnflag: bool
+
+        Raises
+        ------
+        NotImplementedError
+            `crnflag` is True and the selected generator has no
+            get_next_prnstream (only the MRG family does).
         """
         self.crnflag = crnflag
+        backend = registry.backend_for_stream(self.rng)
+        self._backend_name = registry.GENERATOR_NAMES[backend]
+        if crnflag and not hasattr(backend, 'get_next_prnstream'):
+            raise NotImplementedError(
+                '--crn is not supported under {0}: its own CRN branch '
+                '(crn_advance()/_advance_replication()) depends on '
+                'get_next_prnstream()/jump_substream(), which only the '
+                'MRG family provides. Select mrg32k3a or mrg31k3p '
+                'instead, or omit --crn. See docs/rng-interface-'
+                'design.md §12 and CLAUDE.md\'s "Known open '
+                'items".'.format(self._backend_name)
+            )
         self._iteration = 0
         self._iteration_baseline_seed = self.rng.get_seed()
         self._next_seed = self.rng.get_seed()
@@ -1347,19 +1395,38 @@ class Oracle(object):
         # same reason _iteration_baseline_seed is -- set_crnflag() is
         # the authoritative initialization point in every real
         # solve()/testsolve()/mp_replicate() call path.
-        self._orc_root = self.rng.get_seed()
+        #
+        # root_seed(), not get_seed(): the value _hit_via_coordinate
+        # passes as stream_at's own base_seed (§12 step 6b) -- for the
+        # MRG family these are identical (a raw seed already is a valid
+        # stream_at base), but not for Philox, whose get_seed() returns
+        # its own full (key, counter, buffer) state, not the 2-tuple
+        # base key stream_at expects. See root_seed()'s own docstring
+        # on each backend's Stream class.
+        self._orc_root = self.rng.root_seed()
         self._replications_drawn = {}
         self._high_water_mark = None
 
-    def _touch_coordinate(self, last_touched):
+    def _touch_coordinate(self, stream, offset):
         """
-        Record that the oracle-role coordinate `last_touched` --
-        relative to `_orc_root`, decomposed as `(stream, offset)` via
-        `divmod(last_touched, ITER_STRIDE)` (§12 step 6c) -- has now
-        been touched: the *last* raw position a replication's own
-        reserve could actually have reached, not "one past" it. Called
-        once per hit() replication block, from every branch that
-        computes a coordinate (§12 step 8).
+        Record that the oracle-role coordinate `(stream, offset)` --
+        relative to `_orc_root` -- has now been touched: the *last* raw
+        position a replication's own reserve could actually have
+        reached, not "one past" it. Called once per hit() replication
+        block, from every branch that computes a coordinate (§12 step 8).
+
+        §12 step 6b: takes `(stream, offset)` directly now, computed by
+        the caller against the selected backend's own `OFFSET_CAPACITY`
+        -- not a flat integer this method itself divmods by a hardcoded
+        `ITER_STRIDE`, which only the MRG family has at all (§3.9:
+        Philox's own coordinate is two-dimensional natively, no
+        flattening step to invert). Every caller already computes
+        `(stream, offset)` this way now (`_hit_via_coordinate`'s own
+        `divmod(offset + m*stride - 1, backend.OFFSET_CAPACITY)`, and
+        `hit()`'s CRN branch's `(self._iteration, m*REPL_STRIDE - 1)`
+        directly, since `self._iteration*ITER_STRIDE` is already an
+        exact multiple of `ITER_STRIDE` by construction) -- this method
+        only ever compares and stores the pair.
 
         Storing the last position touched, rather than "one past" it
         directly, is deliberate (a change from this method's own
@@ -1368,30 +1435,19 @@ class Oracle(object):
         `get_endseed()` time, where the carry's own safety can be
         checked explicitly -- see that method's own docstring for why.
 
-        `last_touched` must already account for each replication's own
-        reserve, not just its starting position: a block of `m`
-        replications starting at `base` with per-replication reserve
-        `stride` occupies `[base, base + m*stride)`, so the caller
-        passes `base + m*stride - 1` (the last position in that range),
-        not `base` or `base + (m-1)*stride`.
-
-        Divmod against `ITER_STRIDE` applies uniformly across branches
-        by construction, not just the default one: the CRN branch's own
-        `_iteration*ITER_STRIDE + m*REPL_STRIDE - 1` decomposes exactly
-        into `(self._iteration, m*REPL_STRIDE - 1)`, since
-        `m*REPL_STRIDE - 1 < ITER_STRIDE` always; the sync branch's own
-        `SYNC_ROLE_OFFSET + sync*SYNC_STRIDE + ... - 1` decomposes into
-        a `stream` at or above `SYNC_ZONE_STREAM_START` -- correctly,
-        automatically, ordered above any default/CRN-branch touch by
-        plain tuple comparison, without this method needing to know
-        which branch called it.
+        The sync branch's own `stream` (at or above
+        `backend.SYNC_ZONE_STREAM_START`) sorts correctly, automatically,
+        above any default/CRN-branch touch by plain tuple comparison,
+        without this method needing to know which branch called it.
 
         Parameters
         ----------
-        last_touched : int
+        stream : int
+            Non-negative.
+        offset : int
             Non-negative.
         """
-        candidate = divmod(last_touched, ITER_STRIDE)
+        candidate = (stream, offset)
         if self._high_water_mark is None or candidate > self._high_water_mark:
             self._high_water_mark = candidate
 
@@ -1460,11 +1516,12 @@ class Oracle(object):
         if self._high_water_mark is None:
             return self._orc_root
         stream, offset = self._high_water_mark
-        family_capacity = ISP_ITER_MARGIN if stream < SYNC_ZONE_STREAM_START else None
+        backend = self._backend
+        family_capacity = backend.ISP_ITER_MARGIN if stream < backend.SYNC_ZONE_STREAM_START else None
         next_stream, next_offset = one_past(
-            stream, offset, offset_capacity=ITER_STRIDE, stream_family_capacity=family_capacity
+            stream, offset, offset_capacity=backend.OFFSET_CAPACITY, stream_family_capacity=family_capacity
         )
-        return stream_at(self._orc_root, next_stream, next_offset).get_seed()
+        return backend.stream_at(self._orc_root, next_stream, next_offset).get_seed()
 
     def get_high_water_mark(self):
         """
@@ -1539,10 +1596,10 @@ class Oracle(object):
         removed outright rather than converged -- no in-tree caller, so
         there was nothing for a unification to preserve.) Not fixed
         here: unifying this one would mean removing the `rng`-mutation
-        model (including its `cache_clear()` calls above) `crn_advance()`'s
-        own public surface still exposes, a real change in kind, not a
-        relabeling -- exactly the "no golden moves" boundary this step
-        was scoped to stay inside. **Reclassified, §12 step 6c-completion:**
+        model `crn_advance()`'s own public surface still exposes, a
+        real change in kind, not a relabeling -- exactly the "no golden
+        moves" boundary this step was scoped to stay inside.
+        **Reclassified, §12 step 6c-completion:**
         this is no longer only drift-risk -- it is what blocks `--crn`
         from working under any non-MRG generator, since nothing here
         routes through a selected backend at all. See CLAUDE.md's
@@ -1551,14 +1608,28 @@ class Oracle(object):
         """
         if self.crnflag:
             self._next_seed = self._iteration_baseline_seed
-        self.rng = get_next_prnstream(self._next_seed, self.crnflag)
-        self._iteration += 1
-        self._iteration_baseline_seed = self.rng.get_seed()
-        self._next_seed = self.rng.get_seed()
+        # §12 step 6b: crn_advance() is called every RA iteration
+        # regardless of crnflag (RASolver.rasolve()'s own loop, and
+        # MOCOMPASS/MOPBnB's own once-at-the-end call) -- but under
+        # crnflag=False, self.rng/_next_seed/_iteration_baseline_seed
+        # are never read again for anything that matters
+        # (_hit_via_coordinate's default branch never touches self.rng
+        # at all, and hit()'s CRN branch -- the only other reader -- is
+        # unreachable under crnflag=False). set_crnflag() already blocks
+        # crnflag=True for any backend without get_next_prnstream, so
+        # this check only ever matters for crnflag=False here -- for
+        # every MRG-family backend (crnflag True or False), this branch
+        # always runs, so behavior there is unchanged from before this
+        # step. Confirmed directly, not assumed: full suite unchanged
+        # on both venvs, no golden moved.
+        if hasattr(self._backend, 'get_next_prnstream'):
+            self.rng = self._backend.get_next_prnstream(self._next_seed)
+            self._iteration += 1
+            self._iteration_baseline_seed = self.rng.get_seed()
+            self._next_seed = self.rng.get_seed()
+        else:
+            self._iteration += 1
         self._replications_drawn = {}
-        if self.crnflag:
-            self.rng.generate.cache_clear()
-            self.rng.bsm.cache_clear()
 
     def _advance_replication(self):
         """
@@ -1572,22 +1643,36 @@ class Oracle(object):
         match.
         """
         self.rng.seed(self._next_seed)
-        jump_substream(self.rng)
+        self._backend.jump_substream(self.rng)
         self._next_seed = self.rng.get_seed()
 
     def _hit_via_coordinate(self, x, m, visit, sync, start_replication=0):
         """
         The explicit-coordinate replication path (docs/rng-interface-
-        design.md §4.1/§4.3), computed fresh via jump_seed_n from the
-        Oracle's fixed `_orc_root` -- never touches `rng`/
-        `_iteration_baseline_seed`/`_next_seed`, the CRN branch's own
-        state, at all. The starting seed for each branch's own block is
-        reached via `stream_at(orc_root, stream, offset)` (§12 step 6c),
-        `stream`/`offset` = `divmod(base, ITER_STRIDE)` for whichever
-        `base` the branch below computes -- a relabeling of the exact
-        same arithmetic a raw `jump_seed_n(orc_root, base)` call already
-        produced, not new arithmetic (confirmed directly,
-        tests/test_stream_at_two_argument.py).
+        design.md §4.1/§4.3), computed fresh from the Oracle's fixed
+        `_orc_root` via the selected backend's own `stream_at`/`advance`
+        -- never touches `rng`/`_iteration_baseline_seed`/`_next_seed`,
+        the CRN branch's own state, at all.
+
+        §12 step 6b: generalized off the MRG-only mechanism step 6c left
+        in place (raw jump_seed_n chaining on a bare seed tuple, then
+        constructing `MRG32k3a(s)` directly per replication -- both
+        MRG-shaped, neither expressible for Philox, which has no
+        jump-ahead and builds its stream from `(key, counter)`, not a
+        flat seed). The offset/default branch (`sync is None` --
+        every ordinary `hit()` call, visit!=0 included: `visit` is just
+        a parameter of `offset_within_iteration`, not a separate
+        formula) now computes `stream = self._iteration`, `offset =
+        self._backend.offset_within_iteration(...)` directly -- no
+        flattening through an `ITER_STRIDE`-sized `base` integer at all,
+        since `stream`/`offset` were always the two dimensions §3.9
+        already named; the flattening was legacy structure from before
+        that split existed, not something intrinsic to the computation.
+        The sync branch keeps the old flat-then-divmod formula, MRG-
+        family only (see the explicit check below) -- see docs/rng-
+        interface-design.md §12's CRN-convergence step for what a
+        genuinely two-dimensional sync coordinate would need, scoped
+        out of this step (no in-tree caller exercises `sync=` at all).
 
         Two callers, unified here on purpose (docs/rng-interface-
         design.md §12 step 4a's own convergence note): hit()'s explicit
@@ -1599,36 +1684,40 @@ class Oracle(object):
         `start_replication` tracked automatically by hit() itself, per
         `(x, visit)`, across calls within one iteration, §4.1).
 
-        Advances via a real per-replication jump on both branches, not
-        a fresh jump_seed_n call per replication (the expensive, ~127-
-        round binary exponentiation step 2's own commit found and fixed
-        as a regression, paid here once per hit() call): the sync
+        Advances via a real per-replication `Stream.advance(stride)`
+        call on both branches, not a fresh `stream_at` call per
+        replication (the expensive, ~127-round binary exponentiation
+        step 2's own commit found and fixed as a regression for MRG,
+        and would be for any backend -- `advance`'s own contract exists
+        specifically so this stays O(1) per replication generically,
+        not just for MRG's own cached jump_seed_n fast path; timed
+        directly against this step's own before/after, not assumed --
+        see docs/rng-interface-design.md §12 step 6b). The sync
         branch's replication term is `replication*REPL_STRIDE` (§4.3's
-        own formula -- the same spacing the CRN branch uses), so
-        consecutive replications are one jump_seed_n(seed, REPL_STRIDE)
-        apart -- cached, O(1) (step 2). The visit/offset_within_
-        iteration branch's replication term is `replication*
-        2**REPL_RESERVE_BITS` (base.py's offset_within_iteration), so
-        consecutive replications are one jump_seed_n(seed,
-        REPL_RESERVE_STRIDE) apart -- also cached, O(1) (mrg32k3a.py's
-        jump_seed_n). This branch used to advance via a single raw
-        mrg32k3a() step instead (no reserve at all) -- a defect found
-        ahead of §12 step 8 (docs/rng-interface-design.md's step 8
-        prerequisite writeup): a g() call drawing more than one raw
-        value (every built-in problem) ran its own consumption into the
-        position reserved for the next replication, so replications
-        were not actually independent. The serial branch below now also
-        enforces the reserve at runtime -- raising ReplicationDrawOverflow
-        if a single replication draws more than 2**REPL_RESERVE_BITS raw
-        values, rather than silently colliding with the next
-        replication's block, matching this project's established
-        posture toward this class of defect (point_code's own overflow
-        check, §3.4). Not enforced under simpar>1 (the coordinate fix
-        itself still applies there -- only the runtime draw-count check
-        does not, since a worker process draws in a different process
-        than this one and there is no cheap way to observe its count
-        here; --proc/--simpar's own known fragility, see CLAUDE.md, is
-        reason enough not to add cross-process bookkeeping for this).
+        own formula -- the same spacing the CRN branch uses); the
+        offset/default branch's is `replication*2**REPL_RESERVE_BITS`
+        (base.py's offset_within_iteration) -- this branch used to
+        advance via a single raw mrg32k3a() step instead (no reserve at
+        all), a defect found ahead of §12 step 8 (docs/rng-interface-
+        design.md's step 8 prerequisite writeup): a g() call drawing
+        more than one raw value (every built-in problem) ran its own
+        consumption into the position reserved for the next
+        replication, so replications were not actually independent.
+        The serial branch below still enforces the reserve at runtime
+        -- raising ReplicationDrawOverflow if a single replication
+        draws more than 2**REPL_RESERVE_BITS raw values (this
+        generator's own REPL_RESERVE_BITS, per §12 step 6c-completion's
+        own finding that this check was comparing against a hardcoded,
+        MRG-shaped budget regardless of which backend was selected) --
+        via `Stream.raw_consumed()` now (§12 step 6b), replacing the
+        removed set_class_cache()/.generate monkeypatch, which reached
+        into an MRG-only attribute no other backend has. Not enforced
+        under simpar>1 (the coordinate fix itself still applies there
+        -- only the runtime draw-count check does not, since a worker
+        process draws in a different process than this one and there
+        is no cheap way to observe its count here; --proc/--simpar's
+        own known fragility, see CLAUDE.md, is reason enough not to add
+        cross-process bookkeeping for this).
 
         Parameters
         ----------
@@ -1649,67 +1738,70 @@ class Oracle(object):
         ReplicationDrawOverflow
             A single replication (serial path only) drew more raw
             values than its reserved block holds.
+        NotImplementedError
+            `sync` is not None, and the selected backend has no
+            `ITER_STRIDE` -- see this method's own docstring above.
         """
+        backend = self._backend
         d = self.num_obj
         dr = range(d)
         mr = range(m)
-        seeds = []
         if sync is not None:
-            base = SYNC_ROLE_OFFSET + sync * SYNC_STRIDE + start_replication * REPL_STRIDE
-            stride = REPL_STRIDE
+            if not hasattr(backend, 'ITER_STRIDE'):
+                raise NotImplementedError(
+                    'sync= is not supported under {0} -- only the MRG '
+                    'family has the flat-coordinate machinery this '
+                    'branch still uses; a genuinely two-dimensional '
+                    'sync coordinate is real, undone work (docs/rng-'
+                    'interface-design.md §12\'s CRN-convergence step). '
+                    'No in-tree caller uses sync= today.'.format(
+                        registry.GENERATOR_NAMES.get(backend, backend)
+                    )
+                )
+            base = backend.SYNC_ROLE_OFFSET + sync * backend.SYNC_STRIDE + start_replication * backend.REPL_STRIDE
+            stride = backend.REPL_STRIDE
+            stream, offset = divmod(base, backend.ITER_STRIDE)
         else:
-            W = point_width(len(x))
-            base = self._iteration * ITER_STRIDE + offset_within_iteration(x, visit, start_replication, W)
-            stride = REPL_RESERVE_STRIDE
-        # §12 step 6c: stream_at(orc_root, stream, offset), not a raw
-        # jump_seed_n(orc_root, base) call -- a relabeling of the exact
-        # same arithmetic (stream*ITER_STRIDE+offset == base, by
-        # divmod's own definition), not new arithmetic; confirmed
-        # directly, not assumed (tests/test_stream_at_two_argument.py).
-        seed = stream_at(self._orc_root, *divmod(base, ITER_STRIDE)).get_seed()
-        for _ in mr:
-            seeds.append(seed)
-            seed = jump_seed_n(seed, stride)
+            W = backend.point_width(len(x))
+            stream = self._iteration
+            offset = backend.offset_within_iteration(x, visit, start_replication, W)
+            stride = backend.REPL_RESERVE_STRIDE
+        streams = [backend.stream_at(self._orc_root, stream, offset)]
+        for _ in range(m - 1):
+            streams.append(streams[-1].advance(stride))
         # §12 step 8: this block's own replications span
-        # [base, base + m*stride) -- see _touch_coordinate's own
-        # docstring for why the last position actually touched is
-        # base + m*stride - 1, not base + m*stride.
-        self._touch_coordinate(base + m * stride - 1)
+        # [offset, offset + m*stride) relative to `stream` -- see
+        # _touch_coordinate's own docstring for why the last position
+        # actually touched is offset + m*stride - 1, not offset +
+        # m*stride. Carried into `stream + extra_stream` generically via
+        # this backend's own OFFSET_CAPACITY (ITER_STRIDE for the MRG
+        # family; Philox's own, smaller, real capacity), not a
+        # hardcoded ITER_STRIDE -- the same per-generator-budget fix
+        # §12 step 6c-completion made for offset_within_iteration
+        # itself.
+        extra_stream, last_offset = divmod(offset + m * stride - 1, backend.OFFSET_CAPACITY)
+        self._touch_coordinate(stream + extra_stream, last_offset)
         feas = []
         objm = []
         if self.simpar > 1:
             # Same broadcast shape as hit()'s own simpar branch: raw
             # seeds queued for workers, no stream object built here.
-            for s in seeds:
-                self.req_q.put((x, s))
+            for s in streams:
+                self.req_q.put((x, s.get_seed()))
             for _ in mr:
                 isfeasi, oval = self.res_q.get()
                 feas.append(isfeasi)
                 objm.append(oval)
         else:
-            reserve = 1 << REPL_RESERVE_BITS
-            for s in seeds:
-                stream = MRG32k3a(s)
-                stream.set_class_cache(self.crnflag)
-                if sync is None:
-                    # Only the offset/default branch has a finite
-                    # per-replication reserve to overrun -- the sync
-                    # branch's REPL_STRIDE (2**76) is the same
-                    # essentially-unbounded margin the CRN branch
-                    # relies on, so it isn't instrumented here.
-                    draws = [0]
-                    base_generate = stream.generate
-                    def _counting_generate(seed, _base=base_generate, _draws=draws):
-                        _draws[0] += 1
-                        return _base(seed)
-                    stream.generate = _counting_generate
-                isfeasi, oval = self.g(x, stream)
-                if sync is None and draws[0] > reserve:
+            reserve = 1 << backend.REPL_RESERVE_BITS
+            for s in streams:
+                isfeasi, oval = self.g(x, s)
+                if sync is None and s.raw_consumed() > reserve:
                     raise ReplicationDrawOverflow(
                         'a single replication of x={0} drew {1} raw values, '
                         'exceeding its reserved block of {2} (2**REPL_RESERVE_BITS) '
                         '-- it overran the next replication\'s starting position. '
-                        'See docs/rng-interface-design.md §3.4.'.format(x, draws[0], reserve)
+                        'See docs/rng-interface-design.md §3.4.'.format(x, s.raw_consumed(), reserve)
                     )
                 feas.append(isfeasi)
                 objm.append(oval)
@@ -1847,11 +1939,19 @@ class Oracle(object):
                 obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
                 obse = tuple([sqrt(obvar[i]/m) for i in dr])
         # §12 step 8: this iteration's replications span
-        # [_iteration*ITER_STRIDE, _iteration*ITER_STRIDE + m*REPL_STRIDE)
-        # -- the last position actually touched is one less than that
-        # upper bound, same reasoning as _hit_via_coordinate's own
-        # _touch_coordinate call (§12 step 6c).
-        self._touch_coordinate(self._iteration * ITER_STRIDE + m * REPL_STRIDE - 1)
+        # [0, m*REPL_STRIDE) within stream=_iteration -- the last
+        # position actually touched is one less than that upper bound,
+        # same reasoning as _hit_via_coordinate's own _touch_coordinate
+        # call (§12 step 6c). `self._iteration*ITER_STRIDE` was always
+        # an exact multiple of ITER_STRIDE, so `(self._iteration,
+        # m*REPL_STRIDE - 1)` is the same (stream, offset) pair
+        # `divmod(self._iteration*ITER_STRIDE + m*REPL_STRIDE - 1,
+        # ITER_STRIDE)` always computed -- direct now (§12 step 6b),
+        # not routed through a flat integer only the MRG family has an
+        # ITER_STRIDE to divide by (the CRN branch stays MRG-only
+        # regardless -- see set_crnflag()'s own guard -- so
+        # self._backend.REPL_STRIDE/ITER_STRIDE are always defined here).
+        self._touch_coordinate(self._iteration, m * self._backend.REPL_STRIDE - 1)
         return isfeas, obmean, obse
 
     def g(self, x, rng):

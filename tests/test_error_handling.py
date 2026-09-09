@@ -95,7 +95,6 @@ def test_hit_m_less_than_one_raises_assertionerror():
     "Fixed on this branch" -- so the comparison is dropped, not the
     finding about hit()'s own exception type.)"""
     rng = MRG32k3a((12345,) * 6)
-    rng.set_class_cache(False)
 
     class TinyOracle(Oracle):
         num_obj = 1

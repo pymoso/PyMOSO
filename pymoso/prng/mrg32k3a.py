@@ -11,13 +11,24 @@ MRG323k3a
 get_next_prnstream
 jump_substream
 jump_seed_n
+stream_at
+point_width
+offset_within_iteration
+validate_seed
+DEFAULT_SEED
 """
 
 import random
 from math import log
-import functools
 
-from .base import REPL_RESERVE_BITS
+from .base import REPL_RESERVE_BITS, point_width, offset_within_iteration
+# point_width/offset_within_iteration re-exported directly, not wrapped
+# (contrast philox4x32.py's own versions): base.py's *default* budget
+# (POINT_BITS=75/VISIT_BITS=6/REPL_COUNT_BITS=32/REPL_RESERVE_BITS=14)
+# already *is* MRG-family's own budget -- chnbase.py looks these up as
+# `backend.point_width`/`backend.offset_within_iteration` uniformly
+# (§12 step 6b), so this module needs the names in its own namespace,
+# not different behavior.
 
 # mat333mult/mat311mod/mat_pow_mod/jump_n now live in mrg_common.py
 # (shared, generalized jump machinery) and are used here only
@@ -110,6 +121,17 @@ _m2_step = [[0, 1, 0], [0, 0, 1], [(-int(mrga23n)) % mrgm2i, 0, int(mrga21) % mr
 # than repeating the literals.
 REPL_STRIDE = 2 ** 76
 ITER_STRIDE = 2 ** 127
+
+# §12 step 6b: the uniform, backend-agnostic name chnbase.py looks up
+# for "how many offset-units fit under one stream" (pymoso.prng.base.
+# one_past's own offset_capacity argument) -- ITER_STRIDE already plays
+# this role for the MRG family (offset_within_iteration's own budget is
+# sized to fit under it); Philox's own module defines OFFSET_CAPACITY
+# directly under this same name, since its budget (2**118) isn't its
+# ITER_STRIDE equivalent at all (it has none -- §3.9). An alias, not a
+# second concept: chnbase.py never reads ITER_STRIDE for this purpose
+# directly once it's threaded on a selected backend.
+OFFSET_CAPACITY = ITER_STRIDE
 
 # The offset_within_iteration branch's own per-replication reserve
 # (docs/rng-interface-design.md's step 8 prerequisite writeup, base.py's
@@ -341,6 +363,48 @@ def bsm(u):
     return z
 
 
+# §3.7/§12 step 6b: this generator's own default seed, part of the
+# required surface validate_seed belongs to. Unchanged from
+# chnutils.DEFAULT_SEED's own long-standing value (now sourced from
+# here instead of duplicated there) -- every existing golden and README
+# example that omits --seed depends on landing on this exact default.
+DEFAULT_SEED = (12345, 12345, 12345, 12345, 12345, 12345)
+
+
+def validate_seed(tokens):
+    """
+    §3.2/§3.7: validate raw --seed tokens (strings, from the CLI, or
+    already-int values from the library path) against MRG32k3a's own
+    shape -- exactly 6 integers. Division of responsibility: argparse
+    parses --seed generically (nargs='+', no type= coercion); this is
+    the generator-specific check that runs once selection resolves.
+
+    Parameters
+    ----------
+    tokens : sequence of str or int
+
+    Returns
+    -------
+    tuple of int, length 6
+
+    Raises
+    ------
+    ValueError
+        Wrong count, or a token that isn't an integer -- named against
+        this generator specifically ("mrg32k3a expects 6 integers, got
+        4"), per §3.7, not a generic arity error.
+    """
+    tokens = tuple(tokens)
+    if len(tokens) != 6:
+        raise ValueError('mrg32k3a expects 6 integers, got {0}.'.format(len(tokens)))
+    try:
+        return tuple(int(t) for t in tokens)
+    except (TypeError, ValueError):
+        raise ValueError(
+            'mrg32k3a expects 6 integers, got non-integer token(s) in {0!r}.'.format(tokens)
+        )
+
+
 class MRG32k3a(random.Random):
     """
     Implements mrg32k3a as the generator for a random.Random object
@@ -362,57 +426,68 @@ class MRG32k3a(random.Random):
 
     def __init__(self, x=None):
         if not x:
-            x = (12345, 12345, 12345, 12345, 12345, 12345)
+            x = DEFAULT_SEED
         assert(len(x) == 6)
-        self.generate = mrg32k3a
-        self.bsm = bsm
         super().__init__(x)
 
-    def set_class_cache(self, cache_flag):
+    def _sync_parent_state(self, a):
         """
-        Sets whether to use an LRU cache for both the random function and the
-        bsm function.
+        Update _current_seed and the parent random.Random's own state to
+        match -- shared by seed() and _advance(), which differ only in
+        whether raw_consumed() resets (a genuine re-seed to a caller-
+        supplied position vs. one more internal step forward).
+
+        random.Random.seed() only accepts None/int/float/str/bytes/
+        bytearray (a tuple raises TypeError as of Python 3.11, and was
+        already a deprecated hash-based path before that). This call's
+        only purpose is to satisfy that type check: the parent's C-level
+        Mersenne state it seeds is never consulted by anything in this
+        class (random()/getrandbits()/normalvariate() are fully
+        overridden), but getstate() below includes super().getstate()
+        in its own return, so it must stay in sync on every step, not
+        just on an explicit seed() call -- a caller reading getstate()
+        right after a draw (MOCOMPASS's own end-of-hit() pattern, see
+        docs/mocompass-mopbnb-known-issues.md) would otherwise see a
+        stale parent-state component. The packing below is an arbitrary
+        bijection, not a meaningful encoding -- nothing relies on its
+        value or reverses it.
 
         Parameters
         ----------
-        cache_flag : bool
-
-        See also
-        --------
-        functools.lru_cache
+        a : tuple of int
         """
-        if not cache_flag:
-            self.generate = mrg32k3a
-            self.bsm = bsm
-        else:
-            self.generate = functools.lru_cache(maxsize=None)(mrg32k3a)
-            self.bsm = functools.lru_cache(maxsize=None)(bsm)
+        self._current_seed = a
+        packed = 0
+        for component in a:
+            packed = (packed << 32) | component
+        super().seed(packed)
 
     def seed(self, a):
         """
         Set the seed of mrg32k3a and update the generator state.
+
+        Re-seeding is "starting fresh from a new position" -- resets
+        raw_consumed() to 0, the same way a freshly-constructed instance
+        would report it.
 
         Parameters
         ----------
         a : tuple of int
         """
         assert(len(a) == 6)
-        self._current_seed = a
-        # random.Random.seed() only accepts None/int/float/str/bytes/bytearray
-        # (a tuple raises TypeError as of Python 3.11, and was already a
-        # deprecated hash-based path before that). This call's only purpose
-        # is to satisfy that type check: the parent's C-level Mersenne state
-        # it seeds is never consulted, since random()/generate() are fully
-        # overridden below. The packing below is an arbitrary bijection, not
-        # a meaningful encoding -- nothing relies on its value or reverses it.
-        packed = 0
-        for component in a:
-            packed = (packed << 32) | component
-        super().seed(packed)
+        self._sync_parent_state(a)
+        self._raw_consumed = 0
 
     def _advance(self):
         """
-        Step the generator once and update the state.
+        Step the generator once and update the state. The single choke
+        point every raw draw funnels through (random()'s own single
+        step, and getrandbits()'s rejection-sampling loop, both call
+        this) -- raw_consumed() is incremented here, once per raw step,
+        rather than at either public call site, so it counts identically
+        regardless of which one triggered the step (§12 step 6b,
+        replacing the removed set_class_cache()/.generate monkeypatch
+        instrumentation with this method directly).
 
         Returns
         -------
@@ -420,8 +495,9 @@ class MRG32k3a(random.Random):
         u : float
         """
         seed = self._current_seed
-        newseed, u = self.generate(seed)
-        self.seed(newseed)
+        newseed, u = mrg32k3a(seed)
+        self._sync_parent_state(newseed)
+        self._raw_consumed += 1
         return newseed, u
 
     def random(self):
@@ -508,6 +584,25 @@ class MRG32k3a(random.Random):
         """
         return self._current_seed
 
+    def root_seed(self):
+        """
+        §12 step 6b: the value to pass as `stream_at`'s own `base_seed`
+        for further coordinate lookups relative to this stream's
+        current position -- identical to get_seed() for the MRG family
+        (a raw seed *is* a valid stream_at base), but a distinct method
+        because it isn't for Philox (get_seed()'s own full-state return
+        there includes the counter/buffer, not just the base key
+        stream_at's `seed` parameter expects -- see
+        Philox4x32Stream.root_seed's own docstring). chnbase.py's
+        Oracle.set_crnflag() calls this, not get_seed(), for `_orc_root`
+        specifically, so the same call works uniformly across backends.
+
+        Returns
+        -------
+        tuple of int
+        """
+        return self.get_seed()
+
     def getstate(self):
         """
         Return the state of the generator.
@@ -561,8 +656,58 @@ class MRG32k3a(random.Random):
 
         """
         u = self.random()
-        z = self.bsm(u)
+        z = bsm(u)
         return sigma*z + mu
+
+    def raw_consumed(self):
+        """
+        §12 step 6b: how many raw steps this instance has taken since
+        construction or its last seed() call -- the same quantity the
+        removed set_class_cache()/.generate monkeypatch instrumentation
+        used to count externally, now tracked internally by the one
+        choke point every draw funnels through (_advance(), called by
+        both random() and getrandbits()'s rejection loop). In the same
+        units stream_at's own `offset` addresses (one raw step = one
+        offset unit), which is what lets chnbase.py's replication-reserve
+        overrun check compare it directly against REPL_RESERVE_BITS.
+
+        Returns
+        -------
+        int
+        """
+        return self._raw_consumed
+
+    def advance(self, delta):
+        """
+        §12 step 6b: the stream `delta` offset-units past this one, in
+        the same family stream_at originally placed it in -- the cheap,
+        O(1) per-replication step chnbase.py's _hit_via_coordinate uses
+        instead of raw seed-tuple manipulation (§3.2's own "seed
+        representation stays internal to the generator" posture).
+        `delta` is always one of this project's own cached exponents
+        (REPL_STRIDE/REPL_RESERVE_STRIDE) in practice, so this hits
+        jump_seed_n's existing O(1) fast path -- not a fresh binary
+        exponentiation per call (confirmed by timing, not assumed; see
+        docs/rng-interface-design.md §12 step 6b).
+
+        Byte-identical to stream_at(base_seed, stream, offset + delta)
+        for any (base_seed, stream, offset) this stream was itself
+        reached from, by the same composition law step 6c already
+        established for jump_seed_n (jump_seed_n(jump_seed_n(root, a),
+        b) == jump_seed_n(root, a + b)) -- this just wraps that call
+        behind the Stream protocol instead of chnbase.py doing it
+        directly on a bare seed tuple.
+
+        Parameters
+        ----------
+        delta : int
+            Non-negative.
+
+        Returns
+        -------
+        MRG32k3a
+        """
+        return MRG32k3a(jump_seed_n(self.get_seed(), delta))
 
 
 def jump_seed_n(seed, n):
@@ -649,23 +794,20 @@ def stream_at(seed, stream, offset):
     return MRG32k3a(new_seed)
 
 
-def get_next_prnstream(seed, use_cache):
+def get_next_prnstream(seed):
     """
     Instantiate a generator seeded 2^127 steps from the input seed.
 
     Parameters
     ----------
     seed : tuple of int
-    crn : bool
 
     Returns
     -------
     prn : MRG32k3a object
     """
     sseed = jump_seed_n(seed, ITER_STRIDE)
-    prn = MRG32k3a(sseed)
-    prn.set_class_cache(use_cache)
-    return prn
+    return MRG32k3a(sseed)
 
 def jump_substream(prn):
     """

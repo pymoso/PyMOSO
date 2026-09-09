@@ -82,7 +82,6 @@ class MultiDrawOracle(Oracle):
 
 def _fresh_oracle(dim=1, draws_per_rep=3):
     rng = MRG32k3a(ROOT)
-    rng.set_class_cache(False)
     orc = MultiDrawOracle(rng, dim=dim)
     orc.draws_per_rep = draws_per_rep
     orc.set_crnflag(False)
@@ -145,7 +144,6 @@ class OverflowOracle(Oracle):
 
 def test_exceeding_the_replication_reserve_raises():
     rng = MRG32k3a(ROOT)
-    rng.set_class_cache(False)
     orc = OverflowOracle(rng)
     orc.set_crnflag(False)
     orc.simpar = 1
@@ -169,7 +167,6 @@ def test_exceeding_the_replication_reserve_by_exactly_the_reserve_does_not_raise
             return True, (0.0,)
 
     rng = MRG32k3a(ROOT)
-    rng.set_class_cache(False)
     orc = ExactOracle(rng)
     orc.set_crnflag(False)
     orc.simpar = 1

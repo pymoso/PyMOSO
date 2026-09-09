@@ -98,9 +98,7 @@ def solve(problem, solver, x0, **kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
     ## generate all prn streams
-    solvstream = MRG32k3a(seed)
-    orcstream = get_next_prnstream(seed, crn)
-    orcstream, solvstream = get_solv_prnstreams(seed, crn)
+    orcstream, solvstream = get_solv_prnstreams(seed)
     ## generate the experiment list
     paramlst = [('solvprn', solvstream), ('x0', x0), ]
     orc = problem(orcstream)
@@ -146,7 +144,7 @@ def testsolve(tester, solver, x0, **kwargs):
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
-    orcstreams, solvstreams, x0stream, endseed, orc_root = get_testsolve_prnstreams(isp, seed, crn)
+    orcstreams, solvstreams, x0stream, endseed, orc_root = get_testsolve_prnstreams(isp, seed)
     joblist = []
     currtest = tester()
     orclst = []
@@ -211,7 +209,7 @@ def testsolve(tester, solver, x0, **kwargs):
     return res, endseed
 
 
-def get_testsolve_prnstreams(num_trials, iseed, crn):
+def get_testsolve_prnstreams(num_trials, iseed):
     """
     Create the set of random number stream generators with which to test
     a MOSO algorithm.
@@ -223,8 +221,6 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
         algorithm
     iseed : tuple of int
         Starting seed from which to create the generators
-    crn : bool
-        Indicate whether CRN is on or off
 
     Returns
     -------
@@ -261,7 +257,7 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
     orcprn_lst = []
     solprn_lst = []
     for t in range(num_trials):
-        solprn = get_next_prnstream(iseed, False)
+        solprn = get_next_prnstream(iseed)
         iseed = solprn.get_seed()
         solprn_lst.append(solprn)
     # `iseed` here (post-solprn loop) is the oracle role's own root --
@@ -276,7 +272,6 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
         # t*ISP_ITER_MARGIN*ITER_STRIDE + 0 == t*ISP_STRIDE), not new
         # arithmetic; confirmed directly, not assumed.
         orcprn = stream_at(orc_root, t * ISP_ITER_MARGIN, 0)
-        orcprn.set_class_cache(crn)
         orcprn_lst.append(orcprn)
     # The next independent stream past every path actually reserved --
     # path `num_trials` would be the next one derived by this same
@@ -287,7 +282,7 @@ def get_testsolve_prnstreams(num_trials, iseed, crn):
     return orcprn_lst, solprn_lst, xprn, iseed, orc_root
 
 
-def get_solv_prnstreams(iseed, crn):
+def get_solv_prnstreams(iseed):
     """
     Create a random number stream for the algorithm to use and an
     independent one to do simulations.
@@ -296,8 +291,6 @@ def get_solv_prnstreams(iseed, crn):
     ----------
     iseed : tuple of int
         Starting seed to create the generators
-    crn : bool
-        Indicates whether CRN will be used
 
     Returns
     -------
@@ -305,7 +298,7 @@ def get_solv_prnstreams(iseed, crn):
     solvstream : prng.MRG32k3a object
     """
     solvstream = MRG32k3a(iseed)
-    orcstream = get_next_prnstream(iseed, crn)
+    orcstream = get_next_prnstream(iseed)
     return orcstream, solvstream
 
 

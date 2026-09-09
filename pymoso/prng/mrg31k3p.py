@@ -28,20 +28,26 @@ this module never touches in float form either -- jump_seed_n below is
 mrg_common.mat_pow_mod end to end, exact integers throughout, same as
 mrg32k3a.py's own generalized jump).
 
-REPL_STRIDE/ITER_STRIDE are reused directly from mrg32k3a.py, not
-redefined here: docs/rng-interface-design.md's step 5 entry works out
-that every existing coordinate constant (sized against MRG32k3a's
-period, ~2**191) stays safely under MRG31k3p's own, much smaller period
-(~2**185) -- confirmed by direct computation, not assumed, so these
-stay global constants rather than becoming per-generator ones.
+REPL_STRIDE/ITER_STRIDE/OFFSET_CAPACITY/ISP_ITER_MARGIN/ISP_STRIDE/
+SYNC_ROLE_OFFSET/SYNC_ZONE_STREAM_START/SYNC_STRIDE are all reused
+directly from mrg32k3a.py, not redefined here: docs/rng-interface-
+design.md's step 5 entry works out that every existing coordinate
+constant (sized against MRG32k3a's period, ~2**191) stays safely under
+MRG31k3p's own, much smaller period (~2**185) -- confirmed by direct
+computation, not assumed, so these stay global constants rather than
+becoming per-generator ones. Re-exported under this module's own name
+(§12 step 6b) so chnbase.py can look them up uniformly as
+`backend.CONSTANT` regardless of which MRG-family generator is
+selected, without needing to know they happen to be the same object.
 
-This module does not wire MRG31k3p into chnbase.py's coordinate
-machinery (still MRG32k3a-only) or into any CLI/library selection
-surface -- that is step 6b (docs/rng-interface-design.md §12), not this
-step. There is deliberately no REPL_RESERVE_STRIDE-cached jump here
-either: nothing calls this generator's replication-coordinate path yet,
-so caching it now would be speculative, not the "cache what step 2's
-own regression proved matters" discipline the two jumps below follow.
+This module did not originally wire MRG31k3p into chnbase.py's
+coordinate machinery or into any CLI/library selection surface -- that
+landed at step 6b (docs/rng-interface-design.md §12), not this step,
+and includes REPL_RESERVE_STRIDE's own cached matrices below (added at
+6b, once chnbase.py's _hit_via_coordinate actually called this
+generator's replication-coordinate path -- see that constant's own
+comment for why adding it speculatively, ahead of a real caller, would
+have been premature at this step).
 
 Listing
 -------
@@ -50,12 +56,20 @@ mrg31k3p
 get_next_prnstream
 jump_substream
 jump_seed_n
+stream_at
+point_width
+offset_within_iteration
+validate_seed
+DEFAULT_SEED
 """
 
 import random
-import functools
 
-from .mrg32k3a import bsm, REPL_STRIDE, ITER_STRIDE
+from .mrg32k3a import (
+    bsm, REPL_STRIDE, ITER_STRIDE, REPL_RESERVE_BITS, REPL_RESERVE_STRIDE,
+    OFFSET_CAPACITY, ISP_ITER_MARGIN, ISP_STRIDE, SYNC_ROLE_OFFSET,
+    SYNC_ZONE_STREAM_START, SYNC_STRIDE, point_width, offset_within_iteration,
+)
 from .mrg_common import (
     mat333mult as _mat333mult,
     mat311mod as _mat311mod,
@@ -86,10 +100,24 @@ _m2_step = [[0, 1, 0], [0, 0, 1], [32769, 0, 32768]]
 # Computed once, at import time -- same regression this module's sibling
 # guards against (mrg32k3a.py's own comment above _jump_replreserve_p1
 # explains the measured cost of not doing this).
+#
+# §12 step 6b: REPL_RESERVE_STRIDE's own cached matrices, added here --
+# absent until this step (see module docstring's original "There is
+# deliberately no REPL_RESERVE_STRIDE-cached jump here" note), because
+# nothing called this generator's replication-coordinate path before
+# step 6b actually threaded a selected backend through chnbase.py's
+# _hit_via_coordinate. Uncached, MRG31k3p.advance(REPL_RESERVE_STRIDE)
+# (the default/offset branch's own per-replication step) would fall
+# through jump_seed_n's general binary-exponentiation path on every
+# replication -- the same O(log n)-per-call shape step 2's own
+# regression was, reproduced here for this generator specifically had
+# this not been added; timed directly, not assumed, once threaded in.
 _jump76_p1 = _mat_pow_mod(_m1_step, REPL_STRIDE, mrg31m1)
 _jump76_p2 = _mat_pow_mod(_m2_step, REPL_STRIDE, mrg31m2)
 _jump127_p1 = _mat_pow_mod(_m1_step, ITER_STRIDE, mrg31m1)
 _jump127_p2 = _mat_pow_mod(_m2_step, ITER_STRIDE, mrg31m2)
+_jump_replreserve_p1 = _mat_pow_mod(_m1_step, REPL_RESERVE_STRIDE, mrg31m1)
+_jump_replreserve_p2 = _mat_pow_mod(_m2_step, REPL_RESERVE_STRIDE, mrg31m2)
 
 
 def mrg31k3p(seed):
@@ -118,6 +146,47 @@ def mrg31k3p(seed):
     return newseed, u
 
 
+# §3.7/§12 step 6b: this generator's own default seed -- proposed and
+# approved as (12345,)*6, the same value/shape as MRG32k3a's own
+# default: nothing about MRG31k3p calls for a different one, and this
+# keeps every registered generator's default recognizable from the
+# same example number.
+DEFAULT_SEED = (12345, 12345, 12345, 12345, 12345, 12345)
+
+
+def validate_seed(tokens):
+    """
+    §3.2/§3.7: validate raw --seed tokens against MRG31k3p's own shape
+    -- exactly 6 integers, the same shape as MRG32k3a's (see that
+    module's own validate_seed for the full division-of-responsibility
+    rationale).
+
+    Parameters
+    ----------
+    tokens : sequence of str or int
+
+    Returns
+    -------
+    tuple of int, length 6
+
+    Raises
+    ------
+    ValueError
+        Wrong count, or a token that isn't an integer -- named against
+        this generator specifically ("mrg31k3p expects 6 integers, got
+        4"), per §3.7.
+    """
+    tokens = tuple(tokens)
+    if len(tokens) != 6:
+        raise ValueError('mrg31k3p expects 6 integers, got {0}.'.format(len(tokens)))
+    try:
+        return tuple(int(t) for t in tokens)
+    except (TypeError, ValueError):
+        raise ValueError(
+            'mrg31k3p expects 6 integers, got non-integer token(s) in {0!r}.'.format(tokens)
+        )
+
+
 class MRG31k3p(random.Random):
     """
     Implements MRG31k3p as the generator for a random.Random object --
@@ -142,53 +211,49 @@ class MRG31k3p(random.Random):
 
     def __init__(self, x=None):
         if not x:
-            x = (12345, 12345, 12345, 12345, 12345, 12345)
+            x = DEFAULT_SEED
         assert(len(x) == 6)
-        self.generate = mrg31k3p
-        self.bsm = bsm
         super().__init__(x)
 
-    def set_class_cache(self, cache_flag):
+    def _sync_parent_state(self, a):
         """
-        Sets whether to use an LRU cache for both the random function and the
-        bsm function.
+        Update _current_seed and the parent random.Random's own state to
+        match -- shared by seed() and _advance(), which differ only in
+        whether raw_consumed() resets. See MRG32k3a._sync_parent_state
+        for the full rationale (identical here).
 
         Parameters
         ----------
-        cache_flag : bool
-
-        See also
-        --------
-        functools.lru_cache
+        a : tuple of int
         """
-        if not cache_flag:
-            self.generate = mrg31k3p
-            self.bsm = bsm
-        else:
-            self.generate = functools.lru_cache(maxsize=None)(mrg31k3p)
-            self.bsm = functools.lru_cache(maxsize=None)(bsm)
+        self._current_seed = a
+        packed = 0
+        for component in a:
+            packed = (packed << 32) | component
+        super().seed(packed)
 
     def seed(self, a):
         """
         Set the seed of MRG31k3p and update the generator state.
+
+        Re-seeding is "starting fresh from a new position" -- resets
+        raw_consumed() to 0, the same way a freshly-constructed instance
+        would report it.
 
         Parameters
         ----------
         a : tuple of int
         """
         assert(len(a) == 6)
-        self._current_seed = a
-        # Same rationale as MRG32k3a.seed(): satisfies random.Random's
-        # own seed() type check only, its C-level state is never
-        # consulted (random()/generate() are fully overridden below).
-        packed = 0
-        for component in a:
-            packed = (packed << 32) | component
-        super().seed(packed)
+        self._sync_parent_state(a)
+        self._raw_consumed = 0
 
     def _advance(self):
         """
-        Step the generator once and update the state.
+        Step the generator once and update the state. See
+        MRG32k3a._advance for why raw_consumed() is incremented here
+        specifically (the one choke point every raw draw funnels
+        through).
 
         Returns
         -------
@@ -196,8 +261,9 @@ class MRG31k3p(random.Random):
         u : float
         """
         seed = self._current_seed
-        newseed, u = self.generate(seed)
-        self.seed(newseed)
+        newseed, u = mrg31k3p(seed)
+        self._sync_parent_state(newseed)
+        self._raw_consumed += 1
         return newseed, u
 
     def random(self):
@@ -278,6 +344,18 @@ class MRG31k3p(random.Random):
         """
         return self._current_seed
 
+    def root_seed(self):
+        """
+        §12 step 6b: see MRG32k3a.root_seed -- identical contract, and
+        identical to get_seed() here for the same reason (a raw MRG
+        seed is already a valid stream_at base).
+
+        Returns
+        -------
+        tuple of int
+        """
+        return self.get_seed()
+
     def getstate(self):
         """
         Return the state of the generator.
@@ -333,8 +411,34 @@ class MRG31k3p(random.Random):
             A normal variate from the specified distribution
         """
         u = self.random()
-        z = self.bsm(u)
+        z = bsm(u)
         return sigma*z + mu
+
+    def raw_consumed(self):
+        """
+        §12 step 6b: see MRG32k3a.raw_consumed -- identical contract.
+
+        Returns
+        -------
+        int
+        """
+        return self._raw_consumed
+
+    def advance(self, delta):
+        """
+        §12 step 6b: see MRG32k3a.advance -- identical contract, using
+        this generator's own jump_seed_n.
+
+        Parameters
+        ----------
+        delta : int
+            Non-negative.
+
+        Returns
+        -------
+        MRG31k3p
+        """
+        return MRG31k3p(jump_seed_n(self.get_seed(), delta))
 
 
 def jump_seed_n(seed, n):
@@ -363,7 +467,9 @@ def jump_seed_n(seed, n):
     assert(len(seed) == 6)
     s1 = seed[0:3]
     s2 = seed[3:6]
-    if n == REPL_STRIDE:
+    if n == REPL_RESERVE_STRIDE:
+        p1, p2 = _jump_replreserve_p1, _jump_replreserve_p2
+    elif n == REPL_STRIDE:
         p1, p2 = _jump76_p1, _jump76_p2
     elif n == ITER_STRIDE:
         p1, p2 = _jump127_p1, _jump127_p2
@@ -404,23 +510,20 @@ def stream_at(seed, stream, offset):
     return MRG31k3p(new_seed)
 
 
-def get_next_prnstream(seed, use_cache):
+def get_next_prnstream(seed):
     """
     Instantiate a generator seeded 2^127 steps from the input seed.
 
     Parameters
     ----------
     seed : tuple of int
-    use_cache : bool
 
     Returns
     -------
     prn : MRG31k3p object
     """
     sseed = jump_seed_n(seed, ITER_STRIDE)
-    prn = MRG31k3p(sseed)
-    prn.set_class_cache(use_cache)
-    return prn
+    return MRG31k3p(sseed)
 
 
 def jump_substream(prn):
