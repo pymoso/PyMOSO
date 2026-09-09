@@ -17,13 +17,24 @@ import random
 from math import log
 import functools
 
-# mat333mult/mat311mod now live in mrg_common.py (shared, generalized
-# jump machinery); imported here, not called directly any more (see
-# jump_seed_n below), purely so `from pymoso.prng.mrg32k3a import
-# mat333mult, mat311mod` -- a real existing import path (scratch/
-# investigation scripts, KNOWN_ISSUES.md issue 1's own narrative) --
-# keeps working unchanged.
-from .mrg_common import mat333mult, mat311mod, mat_pow_mod, jump_n
+# mat333mult/mat311mod/mat_pow_mod/jump_n now live in mrg_common.py
+# (shared, generalized jump machinery) and are used here only
+# internally (see jump_seed_n below) -- imported under private aliases,
+# deliberately not re-exported as `pymoso.prng.mrg32k3a.mat333mult`/
+# `mat311mod` any more. That import path had exactly one real consumer,
+# scratch/task1_mechanism.py, checked directly (grepped the whole repo,
+# tracked and untracked) rather than assumed -- a one-off diagnostic
+# script from the original float-precision-defect investigation
+# (KNOWN_ISSUES.md issue 1), hardcoding an absolute personal path, whose
+# findings are already captured in docs/phase2a-verification.md; nothing
+# else imports either name from this module. Not carrying a compatibility
+# re-export for a script that won't run again.
+from .mrg_common import (
+    mat333mult as _mat333mult,
+    mat311mod as _mat311mod,
+    mat_pow_mod as _mat_pow_mod,
+    jump_n as _jump_n,
+)
 
 ## constants used in mrg32k3a and in substream generation
 ## all from:
@@ -40,12 +51,12 @@ from .mrg_common import mat333mult, mat311mod, mat_pow_mod, jump_n
 ## below), get_next_prnstream/jump_substream no longer read these four
 ## directly -- the same values are now computed on demand from the base
 ## recurrence instead of transcribed twice. Left in place, unchanged,
-## because they are real public API (same import path as mat333mult/
-## mat311mod above) and because KNOWN_ISSUES.md issue 1's own narrative
-## refers to these specific names when describing the float-precision
-## defect they were involved in; tests/test_mrg_common.py checks the
-## generalized jump reproduces them exactly, so they also serve as a
-## fixed regression pin against the original, hand-transcribed values.
+## and still public (unlike mat333mult/mat311mod above): KNOWN_ISSUES.md
+## issue 1's own tracked narrative refers to these specific names when
+## describing the float-precision defect they were involved in, and
+## tests/test_mrg_common.py -- a real, permanent, tracked consumer,
+## not a throwaway script -- imports all four directly as a regression
+## pin confirming the generalized jump reproduces them exactly.
 
 a1p127 = [[2427906178.0, 3580155704.0, 949770784.0],
     [226153695.0, 1230515664.0, 3580155704.0],
@@ -106,10 +117,10 @@ _m2_step = [[0, 1, 0], [0, 0, 1], [(-int(mrga23n)) % mrgm2i, 0, int(mrga21) % mr
 # general mechanism rather than reused from those four directly, so
 # jump_seed_n stays genuinely "the general jump, cached at its two known
 # exponents," not a silent fallback to the old hardcoded path.
-_jump76_p1 = mat_pow_mod(_m1_step, 2**76, mrgm1i)
-_jump76_p2 = mat_pow_mod(_m2_step, 2**76, mrgm2i)
-_jump127_p1 = mat_pow_mod(_m1_step, 2**127, mrgm1i)
-_jump127_p2 = mat_pow_mod(_m2_step, 2**127, mrgm2i)
+_jump76_p1 = _mat_pow_mod(_m1_step, 2**76, mrgm1i)
+_jump76_p2 = _mat_pow_mod(_m2_step, 2**76, mrgm2i)
+_jump127_p1 = _mat_pow_mod(_m1_step, 2**127, mrgm1i)
+_jump127_p2 = _mat_pow_mod(_m2_step, 2**127, mrgm2i)
 
 
 #constants used for approximating the inverse standard normal cdf
@@ -459,11 +470,11 @@ def jump_seed_n(seed, n):
     elif n == 2**127:
         p1, p2 = _jump127_p1, _jump127_p2
     else:
-        ns1 = jump_n(s1, _m1_step, n, mrgm1i)
-        ns2 = jump_n(s2, _m2_step, n, mrgm2i)
+        ns1 = _jump_n(s1, _m1_step, n, mrgm1i)
+        ns2 = _jump_n(s2, _m2_step, n, mrgm2i)
         return tuple(ns1 + ns2)
-    ns1 = mat311mod(mat333mult(p1, s1), mrgm1i)
-    ns2 = mat311mod(mat333mult(p2, s2), mrgm2i)
+    ns1 = _mat311mod(_mat333mult(p1, s1), mrgm1i)
+    ns2 = _mat311mod(_mat333mult(p2, s2), mrgm2i)
     return tuple(ns1 + ns2)
 
 

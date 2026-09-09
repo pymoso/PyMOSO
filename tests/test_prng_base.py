@@ -6,6 +6,22 @@ step 2 groups this module with mrg_common.py's generalized jump, not
 with any consumer) -- these tests check the new module on its own
 terms: the protocol matches structurally, and the adapter actually
 delegates rather than reimplementing anything.
+
+Warning for anyone writing another Stream double against this interface,
+found while writing this file's own: a getrandbits(k) that ignores k and
+returns a fixed value can hang, not fail loudly. random.Random's
+_randbelow_with_getrandbits (behind choice()/sample()/shuffle() once a
+class defines getrandbits, as RandomCompatAdapter and MRG32k3a both do)
+rejection-samples -- it keeps redrawing while the result is >= the
+caller's n, discarding and asking again. FakeStream below originally
+returned a fixed 7 regardless of k; that is a valid getrandbits(k) value
+for k >= 3, but adapter.choice() on a 3-element sequence asks for
+getrandbits(2) (range [0, 4)), 7 is never < 3, and the loop never
+terminates -- no assertion, no traceback, just a hang, caught only
+because test_adapter_provides_the_full_random_random_surface_for_free
+below timed out rather than passed or failed cleanly. Fixed by making
+the fake return 0, which is valid for every k >= 1, not by special-
+casing k in the fake.
 """
 from pymoso.prng.base import Stream, RandomCompatAdapter
 from pymoso.prng.mrg32k3a import MRG32k3a
