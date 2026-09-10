@@ -22,6 +22,7 @@ from pymoso.chnutils import testsolve, get_testsolve_prnstreams
 from pymoso.problems.probtpa import ProbTPA
 from pymoso.solvers.rperle import RPERLE
 from pymoso.testers.tpatester import TPATester
+from pymoso.prng import mrg32k3a as mrg32k3a_backend
 from pymoso.prng.mrg32k3a import ITER_STRIDE, ISP_ITER_MARGIN, jump_seed_n
 from pymoso.prng.base import StreamFamilyExceeded
 
@@ -48,7 +49,7 @@ def test_combined_endseed_matches_the_winning_paths_own_touch(monkeypatch):
     hwm_per_path = {0: (3, 100), 1: (5, 200)}
     monkeypatch.setattr(chnutils, 'par_runs', _fake_par_runs_returning(hwm_per_path))
     _res, endseed = testsolve(TPATester, RPERLE, (40, 40), budget=1000, seed=SEED, isp=2, proc=1, crn=False)
-    _orcstreams, _solvstreams, _x0stream, _iseed, orc_root = get_testsolve_prnstreams(2, SEED)
+    _orcstreams, _solvstreams, _x0stream, _iseed, orc_root = get_testsolve_prnstreams(2, SEED, mrg32k3a_backend)
     expected_stream = 1 * ISP_ITER_MARGIN + 5
     expected = jump_seed_n(orc_root, expected_stream * ITER_STRIDE + 201)  # offset+1, no carry
     assert endseed == expected
@@ -58,7 +59,7 @@ def test_combined_endseed_carries_safely_within_a_paths_own_family(monkeypatch):
     hwm_per_path = {0: (0, 0), 1: (ISP_ITER_MARGIN - 2, ITER_STRIDE - 1)}
     monkeypatch.setattr(chnutils, 'par_runs', _fake_par_runs_returning(hwm_per_path))
     _res, endseed = testsolve(TPATester, RPERLE, (40, 40), budget=1000, seed=SEED, isp=2, proc=1, crn=False)
-    _orcstreams, _solvstreams, _x0stream, _iseed, orc_root = get_testsolve_prnstreams(2, SEED)
+    _orcstreams, _solvstreams, _x0stream, _iseed, orc_root = get_testsolve_prnstreams(2, SEED, mrg32k3a_backend)
     expected_stream = 1 * ISP_ITER_MARGIN + (ISP_ITER_MARGIN - 1)
     expected = jump_seed_n(orc_root, expected_stream * ITER_STRIDE)  # offset carried to 0
     assert endseed == expected
@@ -80,5 +81,5 @@ def test_combined_endseed_falls_back_to_orc_root_when_no_path_touched_anything(m
     hwm_per_path = {0: None, 1: None}
     monkeypatch.setattr(chnutils, 'par_runs', _fake_par_runs_returning(hwm_per_path))
     _res, endseed = testsolve(TPATester, RPERLE, (40, 40), budget=1000, seed=SEED, isp=2, proc=1, crn=False)
-    _orcstreams, _solvstreams, _x0stream, _iseed, orc_root = get_testsolve_prnstreams(2, SEED)
+    _orcstreams, _solvstreams, _x0stream, _iseed, orc_root = get_testsolve_prnstreams(2, SEED, mrg32k3a_backend)
     assert endseed == orc_root

@@ -38,10 +38,7 @@ from itertools import product, filterfalse
 from math import ceil, floor, sqrt
 import multiprocessing as mp
 from statistics import mean, variance
-from .prng.mrg32k3a import (
-    MRG32k3a, get_next_prnstream, jump_seed_n, stream_at,
-    ISP_STRIDE, ISP_ITER_MARGIN, ITER_STRIDE, SYNC_ZONE_STREAM_START,
-)
+from .prng import registry
 from .prng.base import one_past
 
 # MAX_RI (a reserved 200-RA-iteration substream window per independent
@@ -63,7 +60,12 @@ from .prng.base import one_past
 # defaults directly, so a change to either side that isn't mirrored in
 # the other is caught rather than silently drifting.
 DEFAULT_BUDGET = 200
-DEFAULT_SEED = (12345, 12345, 12345, 12345, 12345, 12345)
+DEFAULT_GENERATOR = registry.DEFAULT_GENERATOR
+# Sourced from the default generator's own module (§3.7: each
+# generator's default seed is a per-generator constant), not a second
+# literal copy -- mrg32k3a.DEFAULT_SEED and this name must never drift
+# apart, so there's exactly one place the value lives.
+DEFAULT_SEED = registry.GENERATORS[DEFAULT_GENERATOR].DEFAULT_SEED
 DEFAULT_SIMPAR = 1
 DEFAULT_ISP = 1
 DEFAULT_PROC = 1
@@ -86,11 +88,14 @@ def solve(problem, solver, x0, **kwargs):
     -------
     tuple
         Length is 2, first item is a set of feasible points and second
-        is a tuple of int of length 6
+        is a tuple of int of length 6 for the default generator (whatever
+        shape the selected `generator` returns for its own seed otherwise)
     """
 
     budget = kwargs.pop('budget', DEFAULT_BUDGET)
-    seed = kwargs.pop('seed', DEFAULT_SEED)
+    generator = kwargs.pop('generator', DEFAULT_GENERATOR)
+    backend = registry.get_generator(generator)
+    seed = kwargs.pop('seed', backend.DEFAULT_SEED)
     simpar = kwargs.pop('simpar', DEFAULT_SIMPAR)
     crn = kwargs.pop('crn', DEFAULT_CRN)
     paramtups = []
@@ -98,7 +103,7 @@ def solve(problem, solver, x0, **kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
     ## generate all prn streams
-    orcstream, solvstream = get_solv_prnstreams(seed)
+    orcstream, solvstream = get_solv_prnstreams(seed, backend)
     ## generate the experiment list
     paramlst = [('solvprn', solvstream), ('x0', x0), ]
     orc = problem(orcstream)
@@ -135,7 +140,9 @@ def testsolve(tester, solver, x0, **kwargs):
     """
 
     budget = kwargs.pop('budget', DEFAULT_BUDGET)
-    seed = kwargs.pop('seed', DEFAULT_SEED)
+    generator = kwargs.pop('generator', DEFAULT_GENERATOR)
+    backend = registry.get_generator(generator)
+    seed = kwargs.pop('seed', backend.DEFAULT_SEED)
     isp = kwargs.pop('isp', DEFAULT_ISP)
     proc = kwargs.pop('proc', DEFAULT_PROC)
     ranx0 = kwargs.pop('ranx0', DEFAULT_RANX0)
@@ -144,7 +151,7 @@ def testsolve(tester, solver, x0, **kwargs):
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
-    orcstreams, solvstreams, x0stream, endseed, orc_root = get_testsolve_prnstreams(isp, seed)
+    orcstreams, solvstreams, x0stream, endseed, orc_root = get_testsolve_prnstreams(isp, seed, backend)
     joblist = []
     currtest = tester()
     orclst = []
@@ -195,21 +202,21 @@ def testsolve(tester, solver, x0, **kwargs):
         if hwm is None:
             continue
         oracle_stream, oracle_offset = hwm
-        touches.append((t * ISP_ITER_MARGIN + oracle_stream, oracle_offset, t, oracle_stream))
+        touches.append((t * backend.ISP_ITER_MARGIN + oracle_stream, oracle_offset, t, oracle_stream))
     if not touches:
         endseed = orc_root
     else:
         _, offset, t, oracle_stream = max(touches)
-        family_capacity = ISP_ITER_MARGIN if oracle_stream < SYNC_ZONE_STREAM_START else None
+        family_capacity = backend.ISP_ITER_MARGIN if oracle_stream < backend.SYNC_ZONE_STREAM_START else None
         carried_stream, carried_offset = one_past(
-            oracle_stream, offset, offset_capacity=ITER_STRIDE, stream_family_capacity=family_capacity
+            oracle_stream, offset, offset_capacity=backend.OFFSET_CAPACITY, stream_family_capacity=family_capacity
         )
-        overall_stream = t * ISP_ITER_MARGIN + carried_stream
-        endseed = stream_at(orc_root, overall_stream, carried_offset).get_seed()
+        overall_stream = t * backend.ISP_ITER_MARGIN + carried_stream
+        endseed = backend.stream_at(orc_root, overall_stream, carried_offset).get_seed()
     return res, endseed
 
 
-def get_testsolve_prnstreams(num_trials, iseed):
+def get_testsolve_prnstreams(num_trials, iseed, backend):
     """
     Create the set of random number stream generators with which to test
     a MOSO algorithm.
@@ -220,13 +227,18 @@ def get_testsolve_prnstreams(num_trials, iseed):
         Number of independent sample paths of Oracles to test an
         algorithm
     iseed : tuple of int
-        Starting seed from which to create the generators
+        Starting seed from which to create the generators, in the
+        selected `backend`'s own shape (§3.7)
+    backend : module
+        The selected generator's own module (registry.get_generator),
+        §12 step 6b -- was hardcoded to pymoso.prng.mrg32k3a before
+        this step.
 
     Returns
     -------
-    orcprn_lst : list of prng.MRG32k3a objects
-    solprn_lst : list of prng.MRG32k3a objects
-    xprn : prng.MRG32k3a object
+    orcprn_lst : list of Stream objects
+    solprn_lst : list of Stream objects
+    xprn : Stream object
     iseed : tuple of int
         The reservation-based "next isp slot" seed -- kept for callers
         that only need a cheap, always-available independent seed and
@@ -252,17 +264,38 @@ def get_testsolve_prnstreams(num_trials, iseed):
     so deriving path 5's stream costs the same O(log(index)) matrix-
     power work whether path 5 is requested first, last, or alone,
     regardless of how many iterations any other path used.
+
+    **KNOWN_ISSUES.md issue 14, reproduced here deliberately, not
+    fixed:** `orc_root` (below) lands at the identical position as
+    `solprn_lst[-1]`'s own starting seed -- the solver-role stream for
+    the *last* path and the oracle-role stream for path 0
+    (`orcprn_lst[0] = stream_at(orc_root, 0, 0)`, a zero-jump from
+    `orc_root`) therefore share a raw seed. Predates §12 step 6b's own
+    generalization of this function onto a selected backend; this step
+    reproduces the exact seed math byte-for-byte (§12 step 6b's own
+    "no golden moves" scope), not a place to fix it inline -- a real
+    fix changes `testsolve()`'s own `endseed` and downstream solution
+    sets and needs its own sign-off.
     """
-    xprn = MRG32k3a(iseed)
+    xprn = backend.stream_at(iseed, 0, 0)
     orcprn_lst = []
     solprn_lst = []
     for t in range(num_trials):
-        solprn = get_next_prnstream(iseed)
-        iseed = solprn.get_seed()
+        # §12 step 6b: stream_at(iseed, 1, 0), not backend.
+        # get_next_prnstream(iseed) -- identical for the MRG family
+        # (confirmed directly: get_next_prnstream(seed) ==
+        # stream_at(seed, 1, 0), since "jump ITER_STRIDE" and "move to
+        # stream=1" are the same operation), and unlike
+        # get_next_prnstream, stream_at exists on every backend
+        # (Philox has no jump-ahead, so no get_next_prnstream at all --
+        # this construction doesn't need it, CRN-capability aside).
+        solprn = backend.stream_at(iseed, 1, 0)
+        iseed = solprn.root_seed()
         solprn_lst.append(solprn)
     # `iseed` here (post-solprn loop) is the oracle role's own root --
     # solver-role and oracle-role streams stay structurally separated,
-    # unchanged from before this step.
+    # unchanged from before this step. (See KNOWN_ISSUES.md issue 14
+    # above: this coincides with solprn_lst[-1]'s own position.)
     orc_root = iseed
     for t in range(num_trials):
         # §12 step 6c: stream_at(orc_root, t*ISP_ITER_MARGIN, 0), not a
@@ -270,19 +303,26 @@ def get_testsolve_prnstreams(num_trials, iseed):
         # of the exact same arithmetic (ISP_STRIDE ==
         # ISP_ITER_MARGIN*ITER_STRIDE exactly, so
         # t*ISP_ITER_MARGIN*ITER_STRIDE + 0 == t*ISP_STRIDE), not new
-        # arithmetic; confirmed directly, not assumed.
-        orcprn = stream_at(orc_root, t * ISP_ITER_MARGIN, 0)
+        # arithmetic; confirmed directly, not assumed. `backend.
+        # ISP_ITER_MARGIN`, not a hardcoded import (§12 step 6b) --
+        # this generator's own margin, e.g. Philox's own 2**30, not
+        # MRG's 2**32.
+        orcprn = backend.stream_at(orc_root, t * backend.ISP_ITER_MARGIN, 0)
         orcprn_lst.append(orcprn)
     # The next independent stream past every path actually reserved --
     # path `num_trials` would be the next one derived by this same
     # formula, so its seed is the natural "next" value to report,
     # matching this function's pre-existing "next independent seed"
-    # contract without needing a live walk to compute it.
-    iseed = jump_seed_n(orc_root, num_trials * ISP_STRIDE)
+    # contract without needing a live walk to compute it. §12 step 6b:
+    # stream_at(orc_root, num_trials*ISP_ITER_MARGIN, 0), not
+    # jump_seed_n(orc_root, num_trials*ISP_STRIDE) -- identical for the
+    # MRG family (confirmed directly), and Philox has no ISP_STRIDE (no
+    # flat coordinate to jump within) or jump_seed_n at all.
+    iseed = backend.stream_at(orc_root, num_trials * backend.ISP_ITER_MARGIN, 0).root_seed()
     return orcprn_lst, solprn_lst, xprn, iseed, orc_root
 
 
-def get_solv_prnstreams(iseed):
+def get_solv_prnstreams(iseed, backend):
     """
     Create a random number stream for the algorithm to use and an
     independent one to do simulations.
@@ -290,15 +330,28 @@ def get_solv_prnstreams(iseed):
     Parameters
     ----------
     iseed : tuple of int
-        Starting seed to create the generators
+        Starting seed to create the generators, in the selected
+        `backend`'s own shape (§3.7)
+    backend : module
+        The selected generator's own module (registry.get_generator),
+        §12 step 6b -- was hardcoded to pymoso.prng.mrg32k3a before
+        this step.
 
     Returns
     -------
-    orcstream : prng.MRG32k3a object
-    solvstream : prng.MRG32k3a object
+    orcstream : Stream object
+    solvstream : Stream object
     """
-    solvstream = MRG32k3a(iseed)
-    orcstream = get_next_prnstream(iseed)
+    # §12 step 6b: stream_at(iseed, 0, 0)/stream_at(iseed, 1, 0), not
+    # backend.MRG32k3a(iseed)/backend.get_next_prnstream(iseed) --
+    # identical for the MRG family (confirmed directly: stream_at(seed,
+    # 0, 0) == the class constructed directly on that seed, and
+    # stream_at(seed, 1, 0) == get_next_prnstream(seed)), and stream_at
+    # is the one operation every backend actually has (Philox has
+    # neither a raw-seed constructor nor get_next_prnstream/jump-ahead
+    # at all).
+    solvstream = backend.stream_at(iseed, 0, 0)
+    orcstream = backend.stream_at(iseed, 1, 0)
     return orcstream, solvstream
 
 

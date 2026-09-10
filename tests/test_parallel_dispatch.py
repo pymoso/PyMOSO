@@ -41,6 +41,7 @@ import pytest
 from pymoso import chnbase as chnbase_module
 from pymoso import chnutils as chnutils_module
 from pymoso.chnutils import get_solv_prnstreams, isp_run, testsolve
+from pymoso.prng import mrg32k3a as mrg32k3a_backend
 from pymoso.problems.probexpensive import ProbExpensiveModerate
 from pymoso.solvers.rspline import RSPLINE
 from pymoso.testers.expensivetester import ExpensiveTester
@@ -58,7 +59,7 @@ def run_solve(simpar, budget=BUDGET, seed=SEED):
     (simcalls, not just the final solution/endseed) is available to
     assert on.
     """
-    orcstream, solvstream = get_solv_prnstreams(seed)
+    orcstream, solvstream = get_solv_prnstreams(seed, mrg32k3a_backend)
     orc = ProbExpensiveModerate(orcstream)
     orc.set_crnflag(False)
     with orc.set_simpar(simpar):

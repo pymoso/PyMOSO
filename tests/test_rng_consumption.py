@@ -52,7 +52,6 @@ from pymoso.solvers.rperle import RPERLE
 from pymoso.problems.probtpa import ProbTPA
 from pymoso.problems.bsprob import BSProb
 import pymoso.prng.mrg32k3a as mrg32k3a_module
-import pymoso.chnutils as chnutils_module
 
 
 class RecordingMRG32k3a(MRG32k3a):
@@ -108,10 +107,13 @@ def test_normalvariate_and_expovariate_route_through_random():
 # ---------------------------------------------------------------------------
 # Candidate D, part 2: the actual consumption-sensitive regression. This is
 # the getrandbits() path (choice(), via TPATester.get_ranx0), captured
-# through testsolve()'s real, unmodified call sequence -- both
-# construction sites (chnutils.MRG32k3a and prng.mrg32k3a.MRG32k3a; see
-# get_testsolve_prnstreams and get_next_prnstream) are patched so every
-# stream testsolve() creates in-process is a RecordingMRG32k3a.
+# through testsolve()'s real, unmodified call sequence -- patching
+# prng.mrg32k3a.MRG32k3a is enough on its own (§12 step 6b:
+# chnutils.get_testsolve_prnstreams constructs every stream via
+# backend.stream_at, which is defined in, and reads MRG32k3a from,
+# prng.mrg32k3a itself -- one real construction site now, not the two
+# separate chnutils.MRG32k3a/prng.mrg32k3a.MRG32k3a names step 6b
+# removed the first of).
 #
 # Verified this actually catches the getrandbits change before trusting
 # it (a detector never observed detecting is not proven to work -- same
@@ -131,7 +133,6 @@ def test_getrandbits_draw_sequence_matches_baseline(monkeypatch):
         return RecordingMRG32k3a(x, sink=sink)
 
     monkeypatch.setattr(mrg32k3a_module, 'MRG32k3a', make)
-    monkeypatch.setattr(chnutils_module, 'MRG32k3a', make)
 
     testsolve(
         TPATester, RPERLE, (0,),

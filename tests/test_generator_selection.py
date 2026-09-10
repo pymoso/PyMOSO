@@ -1,9 +1,11 @@
 """
 docs/rng-interface-design.md §12 step 6b: MRG31k3p and Philox4x32 both
 become real-solving-capable for non-CRN runs through Oracle's own
-internals, not just standalone conformance testing -- this file is the
-direct evidence, not the CLI/library wiring (tests/test_cli.py and
-tests/test_kwarg_defaults.py cover that layer).
+internals, not just standalone conformance testing. Also covers the
+library-level `generator=` kwarg on chnutils.solve()/testsolve()
+end to end -- tests/test_cli.py covers the CLI flag itself
+(--generator, argparse choices=, --seed's own nargs='+'/validate_seed
+wiring), a distinct layer this file doesn't touch.
 
 Structured to mirror tests/test_oracle_noncrn_default.py's own rigor
 (formula checks, not just "it runs") for each non-default backend, plus
@@ -12,9 +14,13 @@ the registry/guard mechanics those tests don't touch at all.
 import pytest
 
 from pymoso.chnbase import Oracle
+from pymoso.chnutils import solve, testsolve
 from pymoso.prng import registry
 from pymoso.prng.mrg31k3p import MRG31k3p, jump_seed_n as mrg31_jump_seed_n, ITER_STRIDE as MRG31_ITER_STRIDE
 from pymoso.prng.philox4x32 import stream_at as philox_stream_at
+from pymoso.problems.probtpa import ProbTPA
+from pymoso.solvers.rperle import RPERLE
+from pymoso.testers.tpatester import TPATester
 
 
 class LoggingOracle(Oracle):
@@ -251,3 +257,48 @@ def test_backend_for_stream_unrelated_object_raises_named_error():
     import random
     with pytest.raises(KeyError):
         registry.backend_for_stream(random.Random())
+
+
+# ---------------------------------------------------------------------------
+# chnutils.solve()/testsolve()'s own generator= kwarg, end to end through
+# a real in-tree solver -- the library layer step 6b's CLI flag sits on
+# top of. tests/test_cli.py covers --generator itself.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("generator", ["mrg31k3p", "philox4x32"])
+def test_solve_accepts_non_default_generator(generator):
+    res, endseed = solve(ProbTPA, RPERLE, (40, 40), generator=generator, budget=500)
+    assert res is not None
+    assert endseed is not None
+
+
+@pytest.mark.parametrize("generator", ["mrg31k3p", "philox4x32"])
+def test_testsolve_accepts_non_default_generator(generator):
+    res, endseed = testsolve(TPATester, RPERLE, (40, 40), generator=generator, budget=500)
+    assert res is not None
+    assert endseed is not None
+
+
+def test_solve_unknown_generator_raises_named_error():
+    with pytest.raises(KeyError):
+        solve(ProbTPA, RPERLE, (40, 40), generator='not-a-real-generator', budget=500)
+
+
+def test_solve_crn_under_philox_raises_through_the_library_layer():
+    with pytest.raises(NotImplementedError, match='philox4x32'):
+        solve(ProbTPA, RPERLE, (40, 40), generator='philox4x32', crn=True, budget=500)
+
+
+def test_testsolve_crn_under_philox_raises_through_the_library_layer():
+    with pytest.raises(NotImplementedError, match='philox4x32'):
+        testsolve(TPATester, RPERLE, (40, 40), generator='philox4x32', crn=True, budget=500)
+
+
+def test_solve_with_no_generator_still_uses_mrg32k3a_default():
+    """No golden should move: omitting generator= entirely must still
+    resolve to the same default this project has always used."""
+    from pymoso.chnutils import DEFAULT_GENERATOR
+    from pymoso.prng.mrg32k3a import DEFAULT_SEED as mrg32k3a_default_seed
+    from pymoso.chnutils import DEFAULT_SEED as chnutils_default_seed
+    assert DEFAULT_GENERATOR == 'mrg32k3a'
+    assert chnutils_default_seed == mrg32k3a_default_seed == (12345,) * 6
