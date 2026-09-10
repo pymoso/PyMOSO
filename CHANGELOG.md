@@ -85,9 +85,14 @@ out incidentally from this release's version boundary. See
 `KNOWN_ISSUES.md` issue 13.
 
 **Documentation.** Ten documentation defects in example code are
-fixed; README code blocks, CLI help text, and the `listitems` output
-are now generated from and tested byte-identical against live source,
-so they can't drift silently. `docs/end-seed-scope.md` explains
+fixed, plus one found separately: a pre-existing `TabError` in
+`pymoso/examples/mytester.py` (mixed tabs and spaces, blocking any
+Python 3 import of the file at all) that turns out to block the
+published paper's own documented Figure 6/7 replication command from
+running, on the peer-reviewed archive itself — see `KNOWN_ISSUES.md`
+issue 14. README code blocks, CLI help text, and the `listitems`
+output are now generated from and tested byte-identical against live
+source, so they can't drift silently. `docs/end-seed-scope.md` explains
 precisely what a reported end seed does and does not guarantee (it
 fingerprints the stream-allocation schedule, not what any stream
 actually drew — a distinction with real consequences for anyone trying
