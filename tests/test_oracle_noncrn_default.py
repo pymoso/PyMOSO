@@ -3,11 +3,13 @@ docs/rng-interface-design.md §12 step 4b: direct, formula-based coverage
 of the crnflag=False *default* path's cutover to offset_within_iteration/
 point_code -- the specific gap identified before regenerating goldens
 (§8.1's own "goldens can't verify what they encode" point, extended:
-test_solution_sensitivity.py and test_mocompass_mopbnb_compat.py are
-real, valuable integration checks, but both compare against baselines
-that get regenerated to match whatever this step's code produces, so
-neither is independent verification once that happens, and neither
-directly isolates continuation from any other change).
+test_solution_sensitivity.py is a real, valuable integration check
+(tests/test_mocompass_mopbnb_compat.py would be too, on branches where
+MOCOMPASS/MOPBnB ship -- not this one, see KNOWN_ISSUES.md issue 13),
+but it compares against baselines that get regenerated to match
+whatever this step's code produces, so it isn't independent
+verification once that happens, and doesn't directly isolate
+continuation from any other change).
 
 Existing coverage this file does NOT duplicate:
 - tests/test_oracle_coordinate_migration.py's order-independence test
@@ -28,8 +30,7 @@ replications (§4.1) -- the property this file checks directly and
 operationally, not just via an integration baseline that would still
 pass if continuation were silently broken (e.g. always restarting at
 replication 0): a serial-vs-parallel or serial-vs-proc consistency
-check (tests/test_mocompass_mopbnb_compat.py's actual coverage) would
-still hold even if both paths shared the identical bug.
+check would still hold even if both paths shared the identical bug.
 """
 from pymoso.chnbase import Oracle
 from pymoso.prng.mrg32k3a import MRG32k3a, jump_seed_n, ITER_STRIDE
