@@ -41,12 +41,15 @@ specifically, a direct re-check against a real PyPI 1.0.8 install:
 - Item 4 (infeasible x0): re-verified by tests/test_infeasible_x0.py,
   and by KNOWN_ISSUES.md issue 5's direct 1.0.8 behavioral check
   (same KeyError/"Unable to run accel()" outputs reproduced live).
-- Item 5 (Oracle.bump()): not independently re-verified on this branch
-  by any permanent test as of this porting, and subsequently overtaken
-  entirely -- `bump()` was removed outright (docs/rng-interface-design.md
-  §12 step 6b, no in-tree caller, no compatibility shim). The body
-  below describing it as working correctly is historical only; see
-  KNOWN_ISSUES.md issue 13 for the removal and migration path.
+- Item 5 (Oracle.bump()): not independently re-verified on this
+  branch by any permanent test as of this porting; read as historical
+  only unless re-checked. (On `pymoso-migration`, `bump()` was later
+  removed outright -- §12 step 6b, past this release's own `b637a3e`
+  boundary -- but that removal is not part of `release-1.1.0`:
+  `Oracle.bump()` is still present and unchanged here. Don't assume
+  `pymoso-migration`'s KNOWN_ISSUES.md issue numbering applies on this
+  branch either -- this branch's own issue 13 is the unrelated
+  MOCOMPASS/MOPBnB exclusion.)
 
 Body below is otherwise unedited from old-work.
 -->
