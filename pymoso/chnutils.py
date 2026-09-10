@@ -39,7 +39,7 @@ from math import ceil, floor, sqrt
 import multiprocessing as mp
 from statistics import mean, variance
 from .prng import registry
-from .prng.base import one_past
+from .prng.base import one_past, ensure_random_compatible
 
 # MAX_RI (a reserved 200-RA-iteration substream window per independent
 # sample path, and the RuntimeError RASolver.rasolve raised past it) is
@@ -237,8 +237,15 @@ def get_testsolve_prnstreams(num_trials, iseed, backend):
     Returns
     -------
     orcprn_lst : list of Stream objects
-    solprn_lst : list of Stream objects
-    xprn : Stream object
+        Unwrapped -- each becomes a path's own Oracle.rng, and
+        Oracle.set_crnflag()'s own backend_for_stream lookup needs the
+        real backend instance.
+    solprn_lst : list of random.Random
+        Each wrapped with ensure_random_compatible if not already one
+        -- handed to a path's solver as `sprn`/`solvprn` (§3.6).
+    xprn : random.Random
+        Wrapped with ensure_random_compatible if not already one --
+        handed to a tester's own get_ranx0(rng) (§3.6).
     iseed : tuple of int
         The reservation-based "next isp slot" seed -- kept for callers
         that only need a cheap, always-available independent seed and
@@ -277,7 +284,11 @@ def get_testsolve_prnstreams(num_trials, iseed, backend):
     fix changes `testsolve()`'s own `endseed` and downstream solution
     sets and needs its own sign-off.
     """
-    xprn = backend.stream_at(iseed, 0, 0)
+    # ensure_random_compatible: xprn is handed straight to a tester's
+    # own get_ranx0(rng) (§3.6, "an rng-shaped object") -- every
+    # built-in tester's get_ranx0 calls rng.choice(...), which a raw
+    # Philox stream doesn't have (§12 step 6b).
+    xprn = ensure_random_compatible(backend.stream_at(iseed, 0, 0))
     orcprn_lst = []
     solprn_lst = []
     for t in range(num_trials):
@@ -290,8 +301,13 @@ def get_testsolve_prnstreams(num_trials, iseed, backend):
         # (Philox has no jump-ahead, so no get_next_prnstream at all --
         # this construction doesn't need it, CRN-capability aside).
         solprn = backend.stream_at(iseed, 1, 0)
+        # root_seed() needs the *unwrapped* solprn (RandomCompatAdapter
+        # doesn't forward it) -- iseed's own chain must use the real
+        # backend instance; only the list entry handed to solver code
+        # (MOCOMPASS/MOPBnB's own sprn.sample(...) calls, §3.6) is
+        # wrapped.
         iseed = solprn.root_seed()
-        solprn_lst.append(solprn)
+        solprn_lst.append(ensure_random_compatible(solprn))
     # `iseed` here (post-solprn loop) is the oracle role's own root --
     # solver-role and oracle-role streams stay structurally separated,
     # unchanged from before this step. (See KNOWN_ISSUES.md issue 14
@@ -340,7 +356,15 @@ def get_solv_prnstreams(iseed, backend):
     Returns
     -------
     orcstream : Stream object
-    solvstream : Stream object
+        Unwrapped -- becomes the Oracle's own `self.rng`, and
+        Oracle.set_crnflag()'s own backend_for_stream lookup needs the
+        real backend instance, not an adapter.
+    solvstream : random.Random
+        Wrapped with ensure_random_compatible if the backend's own
+        Stream isn't already one -- handed to the solver as `sprn`/
+        `solvprn`, documented only as "an rng-shaped object" (§3.6);
+        MOCOMPASS/MOPBnB's own `self.sprn.sample(...)` calls need the
+        full surface, which a raw Philox stream doesn't have.
     """
     # §12 step 6b: stream_at(iseed, 0, 0)/stream_at(iseed, 1, 0), not
     # backend.MRG32k3a(iseed)/backend.get_next_prnstream(iseed) --
@@ -350,7 +374,7 @@ def get_solv_prnstreams(iseed, backend):
     # is the one operation every backend actually has (Philox has
     # neither a raw-seed constructor nor get_next_prnstream/jump-ahead
     # at all).
-    solvstream = backend.stream_at(iseed, 0, 0)
+    solvstream = ensure_random_compatible(backend.stream_at(iseed, 0, 0))
     orcstream = backend.stream_at(iseed, 1, 0)
     return orcstream, solvstream
 

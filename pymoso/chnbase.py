@@ -18,7 +18,7 @@ import inspect
 from statistics import mean, variance
 from math import sqrt, ceil, floor
 from .prng import registry
-from .prng.base import ReplicationDrawOverflow, one_past
+from .prng.base import ReplicationDrawOverflow, one_past, ensure_random_compatible
 from multiprocessing import Queue, Process
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
 
@@ -192,7 +192,13 @@ def mp_replicate(orccls, x, rngcls, seed):
     rng = rngcls(seed)
     orc = orccls(rng)
     orc.set_crnflag(False)
-    isfeas, objvals = orc.g(x, rng)
+    # ensure_random_compatible, not rng directly: g(x, rng) is
+    # documented only as "an rng-shaped object" (§3.6) -- BSProb's own
+    # g() calls expovariate(), which a raw Philox4x32Stream doesn't
+    # have (§12 step 6b) -- but the *unwrapped* rng already went into
+    # orccls(rng)/set_crnflag() above, which need the real backend
+    # instance for backend_for_stream's own isinstance check.
+    isfeas, objvals = orc.g(x, ensure_random_compatible(rng))
     return isfeas, objvals
 
 
@@ -1795,7 +1801,14 @@ class Oracle(object):
         else:
             reserve = 1 << backend.REPL_RESERVE_BITS
             for s in streams:
-                isfeasi, oval = self.g(x, s)
+                # ensure_random_compatible(s), not s directly: g(x, rng)
+                # is documented only as "an rng-shaped object" (§3.6) --
+                # BSProb's own g() calls expovariate(), which a raw
+                # Philox4x32Stream doesn't have (§12 step 6b). s itself
+                # (unwrapped) is still what raw_consumed() below reads
+                # -- the adapter delegates to the same underlying
+                # stream, so wrapping doesn't affect the count.
+                isfeasi, oval = self.g(x, ensure_random_compatible(s))
                 if sync is None and s.raw_consumed() > reserve:
                     raise ReplicationDrawOverflow(
                         'a single replication of x={0} drew {1} raw values, '

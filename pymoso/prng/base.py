@@ -84,9 +84,17 @@ class RandomCompatAdapter(random.Random):
     shuffle, ...) gets it for free, backed by `self._stream`, exactly as
     it does today from MRG32k3a's own random.Random subclassing.
 
-    Not yet used by MRG32k3a itself (see module docstring) -- this class
-    exists so the pattern is written down and testable ahead of that
-    wiring, not because anything constructs one yet.
+    Not used by MRG32k3a/MRG31k3p themselves -- both already subclass
+    random.Random directly, so they already have the full surface
+    natively. §12 step 6b found its first real caller: Philox4x32Stream
+    is deliberately *not* a random.Random subclass (its own module
+    docstring), so a built-in problem/tester calling `rng.expovariate()`
+    (BSProb's own `g()`) or `rng.choice()` (every built-in tester's own
+    `get_ranx0`) on a raw Philox stream raises AttributeError -- confirmed
+    directly, not hypothetical, running `pymoso testsolve --generator
+    philox4x32 ...` with no `<x>` (which exercises `get_ranx0`).
+    `ensure_random_compatible` below is what chnbase.py now calls before
+    handing any generator's stream to such code.
     """
 
     def __init__(self, stream: Stream):
@@ -99,6 +107,28 @@ class RandomCompatAdapter(random.Random):
         # own super().seed() call.
         super().__init__(0)
 
+    def __reduce__(self):
+        """
+        §12 step 6b: found needing this the moment this class got a
+        real caller (testsolve()'s own --proc path pickles a fully-
+        constructed Oracle/solver, including whatever `sprn`/`solvprn`
+        it holds -- KNOWN_ISSUES.md issue 9's own pattern). Without
+        this override, random.Random's own inherited __reduce__
+        reconstructs via `self.__class__()` -- zero arguments -- then
+        applies state; RandomCompatAdapter.__init__ requires `stream`,
+        so that call fails outright. Confirmed directly: `pickle.
+        dumps(RandomCompatAdapter(stream))` raised "__init__() missing
+        1 required positional argument: 'stream'" before this existed.
+        Reconstructing via the real constructor, passing `self._stream`
+        itself (picklable the same way any other Stream instance is,
+        e.g. as a --simpar job payload), is the direct fix.
+
+        Returns
+        -------
+        tuple
+        """
+        return (RandomCompatAdapter, (self._stream,))
+
     def random(self) -> float:
         return self._stream.random()
 
@@ -109,6 +139,33 @@ class RandomCompatAdapter(random.Random):
         return self._stream.normalvariate(mu, sigma)
 
 
+def ensure_random_compatible(stream):
+    """
+    §12 step 6b: `stream` if it already provides the full random.Random
+    surface (MRG32k3a/MRG31k3p, both real subclasses), otherwise
+    `RandomCompatAdapter(stream)` (Philox4x32Stream, or any future
+    backend that similarly implements only the minimal §3.2 protocol).
+
+    Callers: chnbase.py wraps with this immediately before handing a
+    stream to `g(x, rng)`/`get_ranx0(rng)` -- code documented only as
+    "an rng-shaped object" (§3.6) that may call `expovariate`/`choice`/
+    `sample`/... -- never before its own internal coordinate machinery
+    (`advance`/`raw_consumed`/`root_seed`/`backend_for_stream`'s own
+    `isinstance` check all need the *unwrapped* backend-native
+    instance; wrapping is a presentation-layer step for the code the
+    stream is handed to, not a replacement for the object itself).
+
+    Parameters
+    ----------
+    stream : Stream
+
+    Returns
+    -------
+    random.Random
+    """
+    if isinstance(stream, random.Random):
+        return stream
+    return RandomCompatAdapter(stream)
 # ---------------------------------------------------------------------------
 # Non-CRN coordinate assembly (§3.4). Exact, collision-free by
 # construction -- not a hash, not probabilistic (see §3.4's "what does

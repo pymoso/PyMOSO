@@ -16,11 +16,15 @@ import pytest
 from pymoso.chnbase import Oracle
 from pymoso.chnutils import solve, testsolve
 from pymoso.prng import registry
+from pymoso.prng.base import RandomCompatAdapter, ensure_random_compatible
 from pymoso.prng.mrg31k3p import MRG31k3p, jump_seed_n as mrg31_jump_seed_n, ITER_STRIDE as MRG31_ITER_STRIDE
+from pymoso.prng.mrg32k3a import MRG32k3a
 from pymoso.prng.philox4x32 import stream_at as philox_stream_at
 from pymoso.problems.probtpa import ProbTPA
+from pymoso.problems.bsprob import BSProb
 from pymoso.solvers.rperle import RPERLE
 from pymoso.testers.tpatester import TPATester
+from pymoso.testers.bstester import BSTester
 
 
 class LoggingOracle(Oracle):
@@ -302,3 +306,74 @@ def test_solve_with_no_generator_still_uses_mrg32k3a_default():
     from pymoso.chnutils import DEFAULT_SEED as chnutils_default_seed
     assert DEFAULT_GENERATOR == 'mrg32k3a'
     assert chnutils_default_seed == mrg32k3a_default_seed == (12345,) * 6
+
+
+# ---------------------------------------------------------------------------
+# ensure_random_compatible/RandomCompatAdapter: found needing both while
+# actually exercising Philox end to end through testsolve() (not
+# hypothetical -- every one of these failed before the fix, confirmed
+# directly by running the exact commands below).
+#
+# Philox4x32Stream is deliberately not a random.Random subclass (its own
+# module docstring) -- built-in problem/tester code documented only as
+# "an rng-shaped object" (§3.6) and calling the full surface
+# (BSProb.g()'s own expovariate(), every built-in tester's own
+# get_ranx0 calling choice(), MOCOMPASS/MOPBnB's own sprn.sample())
+# raises AttributeError on a raw Philox stream. RandomCompatAdapter
+# (§3.6, unused until this step) is the fix -- but RandomCompatAdapter
+# itself didn't pickle (random.Random's own inherited __reduce__
+# reconstructs via `cls()`, zero arguments, then applies state;
+# RandomCompatAdapter.__init__ requires `stream`), which testsolve()'s
+# own --proc path needs (KNOWN_ISSUES.md issue 9's own "ships fully-
+# constructed... Oracle instances" pattern) -- confirmed directly:
+# pickling a bare RandomCompatAdapter raised before __reduce__ existed.
+# ---------------------------------------------------------------------------
+
+def test_ensure_random_compatible_leaves_a_random_random_subclass_alone():
+    rng = MRG32k3a((12345,) * 6)
+    assert ensure_random_compatible(rng) is rng
+
+
+def test_ensure_random_compatible_wraps_a_bare_stream():
+    stream = philox_stream_at((12345, 12345), 0, 0)
+    wrapped = ensure_random_compatible(stream)
+    assert isinstance(wrapped, RandomCompatAdapter)
+    assert isinstance(wrapped, __import__('random').Random)
+
+
+def test_random_compat_adapter_exposes_the_full_random_surface():
+    stream = philox_stream_at((12345, 12345), 0, 0)
+    wrapped = ensure_random_compatible(stream)
+    # Would raise AttributeError on the raw stream -- confirmed
+    # directly before ensure_random_compatible existed.
+    wrapped.choice([1, 2, 3])
+    wrapped.sample([1, 2, 3], 2)
+    wrapped.expovariate(1.0)
+
+
+def test_random_compat_adapter_pickles_and_reconstructs_correctly():
+    import pickle
+    stream = philox_stream_at((12345, 12345), 0, 0)
+    wrapped = RandomCompatAdapter(stream)
+    restored = pickle.loads(pickle.dumps(wrapped))
+    assert restored.random() == wrapped.random()
+
+
+def test_testsolve_bstester_under_philox_runs_to_completion():
+    """Exercises BSTester's own get_ranx0 (choice()) and BSProb's own
+    g() (expovariate()) together, with no <x> given -- the exact
+    scenario that failed with AttributeError before ensure_random_
+    compatible existed."""
+    res, endseed = testsolve(BSTester, RPERLE, (0,), generator='philox4x32', budget=500, ranx0=True)
+    assert res is not None
+
+
+def test_testsolve_philox_with_multiple_isp_and_proc_paths():
+    """--proc's own pickling path (KNOWN_ISSUES.md issue 9) is what
+    surfaced RandomCompatAdapter's own missing __reduce__ -- exercised
+    directly here with isp>1/proc>1, not just isp=1."""
+    res, endseed = testsolve(
+        TPATester, RPERLE, (40, 40), generator='philox4x32', budget=300, isp=3, proc=2,
+    )
+    assert res is not None
+    assert len(res) == 3
