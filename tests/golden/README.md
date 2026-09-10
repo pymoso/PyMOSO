@@ -88,8 +88,10 @@ what every subsequent regeneration should do.
   whatever these files' un-fixed, out-of-tree behavior gave under
   Python 3.10's implicit set-iteration order. These values are captured
   fresh against the fixed, in-tree code -- there was no prior in-tree
-  baseline to preserve continuity with. See
-  `docs/mocompass-mopbnb-known-issues.md` for detail.
+  baseline to preserve continuity with. (MOCOMPASS/MOPBnB themselves
+  are excluded from this release -- see KNOWN_ISSUES.md -- though the
+  design documentation discussing this fix ships regardless, as
+  development documentation.)
 
 ### Current values (post §12 step 8 stage 2: testsolve()'s aggregation -- both stages landed)
 

@@ -685,6 +685,52 @@ expect `OverflowError`, not a timeout, and can cite this entry.
 
 ---
 
+### 13. MOCOMPASS and MOPBnB are excluded from this release
+
+**Affects:** this branch (`release-1.1.0`) only. **Severity:** n/a —
+scope decision, not a defect.
+
+#### What changed
+
+`pymoso/solvers/mocompass.py` and `mopbnb.py` — ports of two other
+groups' published algorithms — are not part of this release. They are
+absent from the tree at this branch's point of divergence (`b637a3e`
+on `pymoso-migration`): never committed on any branch, though
+`README.md` and `tests/test_golden.py` had already picked up
+references to them as if they were in-tree, an inconsistency this
+branch also corrects (see below).
+
+Shipping implementations of two other groups' algorithms whose
+correctness has not been reviewed against their source papers is a
+deliberate 2.0.0 decision, not something that should fall out
+incidentally from where the 1.1.0 version line happened to be cut.
+Bringing them in-tree, reviewing them against their source papers, and
+documenting their known algorithmic caveats is deferred to 2.0.0.
+
+#### What this branch does about it
+
+A single commit on top of `b637a3e` removes every reference that had
+already crept in on `pymoso-migration` ahead of the solvers
+themselves actually landing: the README's listitems lines and
+parameter-table rows for both solvers, the four MOCOMPASS/MOPBnB
+golden cases in `tests/test_golden.py` (their values remain in
+`tests/golden/README.md`'s historical record), and
+`docs/mocompass-mopbnb-known-issues.md` (the document tracking their
+algorithmic caveats, which has no subject to describe on this branch).
+`pymoso/solvers/__init__.py` never registered either solver at this
+branch point, so there was nothing to remove there.
+
+`docs/rng-interface-design.md` is unaffected and ships unchanged: it
+is development documentation about the RNG redesign, not
+solver-specific, and citing it does not imply MOCOMPASS/MOPBnB ship.
+
+#### Status
+
+Not a defect to fix on this branch — the solvers, their review against
+source papers, and their known-issues documentation are 2.0.0 scope.
+
+---
+
 ## Reporting
 
 Please open an issue at

@@ -197,8 +197,6 @@ The default installation of PyMOSO includes a selection of solvers, testers, and
 
 Solver                         Description                   
 ************************       ************************      
-MOCOMPASS                      MO-COMPASS solver for multi-objective discrete optimization via simulation.
-MOPBnB                         MOPBnB solver for Pareto-optimal approximation via probabilistic branch and bound.
 RMINRLE                        A solver using R-MinRLE for integer-ordered MOSO.
 RPE                            R-Pe solver for bi-objective simulation optimization.
 RPERLE                         R-PERLE solver for bi-objective simulation optimization.
@@ -316,19 +314,6 @@ Finally, users may specify any number of options in one invocation. However, all
 | `radius`       |   1           |`RPERLE`, `RMINRLE`, `RPE`, `RSPLINE` | Sets radius that determines a point's neighborhood. |  
 | `betadel` | `0.5` | `RPERLE`, `RMINRLE` | Roughly, affects how likely it is for RLE to keep its given solution. |  
 | `betaeps` | `0.5` | `RPERLE`, `RPE` | Roughly, affects how likely PE will perform a search from a point. |   
-| `lb`       | *(required)*  | `MOCOMPASS`, `MOPBnB` | Lower bound each feasible point's components may take. |
-| `ub`       | *(required)*  | `MOCOMPASS`, `MOPBnB` | Upper bound each feasible point's components may take. |
-| `numsamples` | `8` | `MOCOMPASS` | Number of feasible points to sample per iteration. |
-| `subregions` | `2` | `MOPBnB` | Number of subregions to branch each region into. |
-| `alpha`    | `0.05`        | `MOPBnB` | Overall confidence parameter. |
-| `delta`    | `0.1`         | `MOPBnB` | Sampling ratio used for subregion elimination. |
-| `R0`       | `20`          | `MOPBnB` | Initial number of replications taken per point. |
-
-`MOCOMPASS` and `MOPBnB` are compatibility-only example solvers — their
-algorithmic behavior has not been validated against the papers they
-implement, and neither currently supports `--crn`. See
-[`docs/mocompass-mopbnb-known-issues.md`](docs/mocompass-mopbnb-known-issues.md)
-and each solver's own docstring for the full citation and disclaimer.
 
 
 ### The `testsolve` Command  

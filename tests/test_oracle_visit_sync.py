@@ -162,13 +162,13 @@ def test_default_and_sync_coordinates_pairwise_distinct_across_a_battery():
 
 
 def test_two_points_same_sync_produce_identical_draws_for_every_replication_independent_of_order():
-    """The specific property MOCOMPASS's port depends on (§4.3):
-    two hit() calls for *different* x, same sync value, produce
-    identical draws at every replication, independent of call order --
-    the operational demonstration that computed coordinates give
-    MOCOMPASS's intended cross-point sharing in full, which self.seeds
-    never did beyond each checkpoint's first replication (§4.3,
-    docs/mocompass-mopbnb-known-issues.md item 4)."""
+    """The specific property MOCOMPASS's own port depends on (not
+    included in this release -- see KNOWN_ISSUES.md): two hit() calls
+    for *different* x, same sync value, produce identical draws at
+    every replication, independent of call order -- the operational
+    demonstration that computed coordinates give MOCOMPASS's intended
+    cross-point sharing in full, which its own prior mechanism never
+    did beyond each checkpoint's first replication."""
     orc = _fresh_oracle(dim=2)
     isfeas_a, obs_a, se_a = orc.hit((1, 1), 4, sync=7)
     isfeas_b, obs_b, se_b = orc.hit((99, -3), 4, sync=7)
