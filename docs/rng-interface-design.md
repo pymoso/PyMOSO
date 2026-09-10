@@ -1,5 +1,18 @@
 # RNG interface design: decoupling from `random.Random`
 
+**Version-boundary note:** 1.1.0 was released from `release-1.1.0`,
+branched at `b637a3e` — §12 step 6c-completion (Philox's own
+offset-assembly budget) and everything before it in this document's
+own step list. Everything from step 6b (`--generator` CLI/library
+selection, `Oracle.bump()`'s removal, the `--seed` comma-token syntax
+change) onward, plus the still-open CRN-branch convergence step and the
+`crn_*` solver-facing-surface removal `release-1.1.0` never reached, is
+2.0.0 development on this branch (`pymoso-migration`, now at
+`2.0.0.dev0`). `release-1.1.0` also excludes MOCOMPASS/MOPBnB
+entirely — see `CLAUDE.md`'s "Version boundary" section for the full
+account, including why the branches differ in content, not just
+version.
+
 Status: design only, nothing implemented. Written against `pymoso-migration`
 at `f884bf2`. Scope is the pseudo-random generator interface and what
 replaces the CRN protocol in `chnbase.py`/`chnutils.py`. Onboarding
