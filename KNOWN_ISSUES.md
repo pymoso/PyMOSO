@@ -276,9 +276,13 @@ with `error: argument --param: expected 2 arguments`. Neither silently
 completes a run with a wrong seed or starting point. This entry
 previously said `pymoso/cli.py` was "still docopt-based here" — stale,
 written in `39fe2b7` before the docopt→argparse migration landed and
-never revisited after. `tests/test_cli_characterization.py` keeps the
-1.x docopt behavior above as a frozen historical record; it is not live
-code.
+never revisited after. `tests/test_cli_characterization.py` used to
+keep the 1.x docopt behavior above as a frozen historical record, via a
+live `docopt` import; deleted -- that import was an undeclared
+test-time dependency (a clean clone's `pytest` run failed at collection
+without `docopt` manually installed), and everything it demonstrated is
+already recorded here, verified against a real PyPI 1.0.8 install,
+which needs no such dependency.
 
 ---
 

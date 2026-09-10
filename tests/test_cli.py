@@ -1,12 +1,14 @@
 """
 Live, ongoing end-to-end contract for the pymoso CLI, independent of
-which argument-parsing library backs it. This is what
-tests/test_cli_characterization.py's docopt-specific tests were split
-into once pymoso/cli.py moved to argparse: the subprocess-level checks
-here describe how the real `pymoso` command behaves today, and should
-be updated deliberately (with the reason recorded) whenever that
-behavior legitimately changes -- unlike test_cli_characterization.py,
-which is a frozen historical record and should not change at all.
+which argument-parsing library backs it. Originally split off from
+tests/test_cli_characterization.py's docopt-specific tests once
+pymoso/cli.py moved to argparse; that file was later deleted (it was
+the only thing in this suite with a live `docopt` import, an
+undeclared test-time dependency -- see docs/phase2c-cli-migration.md
+and KNOWN_ISSUES.md issue 6, which preserve what it demonstrated). The
+subprocess-level checks here describe how the real `pymoso` command
+behaves today, and should be updated deliberately (with the reason
+recorded) whenever that behavior legitimately changes.
 
 See docs/phase2c-cli-migration.md for the full, reasoned list of
 differences from the pre-migration (docopt) behavior that this file's
@@ -335,10 +337,10 @@ def test_param_option_after_other_options_still_accepted(tmp_path):
 
 def test_seed_and_param_interleaved_out_of_order_now_parses_correctly(tmp_path):
     """This is the actual fix for the silent-misparse bug documented in
-    test_cli_characterization.py: --seed and --param no longer compete
-    for each other's tokens when given in an order no example shows,
-    because argparse treats each optional's nargs independently of the
-    others, not as one shared token stream."""
+    KNOWN_ISSUES.md issue 6 and docs/phase2c-cli-migration.md: --seed
+    and --param no longer compete for each other's tokens when given in
+    an order no example shows, because argparse treats each optional's
+    nargs independently of the others, not as one shared token stream."""
     proc = run([
         "solve", "--param", "radius", "3", "--seed",
         "1,2,3,4,5,6", "ProbTPA", "RPERLE", "4", "14",

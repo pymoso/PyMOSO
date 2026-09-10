@@ -56,9 +56,9 @@ from .prng.base import one_past, ensure_random_compatible
 # basecomm.py already imports chnutils -- the reverse import would be
 # circular. The CLI layer imports these same names for its own Python-
 # level defaults instead of hardcoding a second copy; tests/test_kwarg_
-# defaults.py additionally checks the values against docopt's own parsed
-# defaults directly, so a change to either side that isn't mirrored in
-# the other is caught rather than silently drifting.
+# defaults.py additionally checks the values against argparse's own
+# parsed defaults directly, so a change to either side that isn't
+# mirrored in the other is caught rather than silently drifting.
 DEFAULT_BUDGET = 200
 DEFAULT_GENERATOR = registry.DEFAULT_GENERATOR
 # Sourced from the default generator's own module (§3.7: each
