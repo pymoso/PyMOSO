@@ -12,6 +12,7 @@ Run `pymoso --help` for the top-level command list, or e.g.
 import argparse
 from inspect import getmembers, isclass
 from . import __version__ as VERSION
+from .prng import registry
 
 
 EPILOG = """
@@ -19,7 +20,7 @@ Examples:
   pymoso listitems
   pymoso solve ProbTPA RPERLE 4 14
   pymoso solve --budget=100000 --odir=test1  ProbTPB RMINRLE 3 12
-  pymoso solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 5 5 5
+  pymoso solve --seed 12345,32123,5322,2,9543,666666666 ProbTPC RPERLE 5 5 5
   pymoso solve --simpar=4 --param betaeps 0.4 ProbTPA RPERLE 30 30
   pymoso solve --param radius 3 ProbTPA RPERLE 45 45
   pymoso testsolve --isp=16 --proc=4 TPATester RPERLE
@@ -64,9 +65,34 @@ def _add_common_options(subp):
     subp.add_argument('--odir', default='testrun',
                        help='Set the output file directory name. [default: testrun]')
     subp.add_argument('--crn', action='store_true',
-                       help='Set if common random numbers are desired.')
-    subp.add_argument('--seed', nargs=6, type=int, metavar='<s>',
-                       help='Set the random number seed with 6 spaced integers.')
+                       help='Set if common random numbers are desired. Only mrg32k3a and '
+                            'mrg31k3p support --crn; philox4x32 does not (see --generator).')
+    # §3.7/§12 step 6b: one comma-separated token, not nargs='+' -- an
+    # unbounded nargs='+' greedily consumes every following argv token,
+    # including the required <problem>/<solver>/<x> positionals,
+    # whenever --seed precedes them (confirmed directly: "pymoso solve
+    # --seed 1 2 3 4 5 6 ProbTPA RPERLE 4 14" failed parsing entirely
+    # under nargs='+', the exact form this project's own examples have
+    # always used). A single token can never swallow a neighboring
+    # positional regardless of position, so --seed stays order-
+    # independent like every other option. Arity is still generator-
+    # specific (6 integers for the MRG family, 2 for philox4x32), and
+    # argparse parses before --generator's own selection is known, so
+    # it cannot validate arity itself -- the selected generator's own
+    # validate_seed does that, once selection resolves (commands/
+    # solve.py, commands/testsolve.py) -- a bad --seed still fails
+    # before any simulation work starts, just not inside argparse.
+    subp.add_argument('--seed', metavar='<s>',
+                       help='Set the random number seed, as comma-separated integers with no '
+                            'spaces -- 6 for mrg32k3a/mrg31k3p, 2 for philox4x32 (see '
+                            '--generator), e.g. --seed 12345,32123,5322,2,9543,666666666. '
+                            'Arity and content are validated against whichever generator is '
+                            'selected.')
+    subp.add_argument('--generator', choices=sorted(registry.GENERATORS), default=registry.DEFAULT_GENERATOR,
+                       help='Set the pseudo-random number generator [default: {0}]. Only '
+                            'mrg32k3a and mrg31k3p support --crn; philox4x32 does not (its own '
+                            'CRN mechanism does not exist yet -- see '
+                            'docs/rng-interface-design.md).'.format(registry.DEFAULT_GENERATOR))
     subp.add_argument('--param', nargs=2, action='append', metavar=('<param>', '<val>'),
                        help='Specify a solver-specific parameter <param> <val>. Repeatable.')
 
@@ -126,8 +152,9 @@ def _options_for_solve(args):
         '--odir': args.odir,
         '--crn': args.crn,
         '--simpar': args.simpar,
+        '--generator': args.generator,
         '--seed': args.seed is not None,
-        '<s>': args.seed if args.seed is not None else [],
+        '<s>': args.seed.split(',') if args.seed is not None else [],
         '<problem>': args.problem,
         '<solver>': args.solver,
         '<x>': args.x,
@@ -146,8 +173,9 @@ def _options_for_testsolve(args):
         '--isp': args.isp,
         '--proc': args.proc,
         '--metric': args.metric,
+        '--generator': args.generator,
         '--seed': args.seed is not None,
-        '<s>': args.seed if args.seed is not None else [],
+        '<s>': args.seed.split(',') if args.seed is not None else [],
         '<tester>': args.tester,
         '<solver>': args.solver,
         '<x>': args.x,

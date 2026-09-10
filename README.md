@@ -121,7 +121,7 @@ Examples:
   pymoso listitems
   pymoso solve ProbTPA RPERLE 4 14
   pymoso solve --budget=100000 --odir=test1  ProbTPB RMINRLE 3 12
-  pymoso solve --seed 12345 32123 5322 2 9543 666666666 ProbTPC RPERLE 5 5 5
+  pymoso solve --seed 12345,32123,5322,2,9543,666666666 ProbTPC RPERLE 5 5 5
   pymoso solve --simpar=4 --param betaeps 0.4 ProbTPA RPERLE 30 30
   pymoso solve --param radius 3 ProbTPA RPERLE 45 45
   pymoso testsolve --isp=16 --proc=4 TPATester RPERLE
@@ -132,9 +132,9 @@ Help:
   test problems.
 
 $ pymoso solve --help
-usage: pymoso solve [-h] [--budget BUDGET] [--odir ODIR] [--crn]
-                    [--seed <s> <s> <s> <s> <s> <s>] [--param <param> <val>]
-                    [--simpar SIMPAR]
+usage: pymoso solve [-h] [--budget BUDGET] [--odir ODIR] [--crn] [--seed <s>]
+                    [--generator {mrg31k3p,mrg32k3a,philox4x32}]
+                    [--param <param> <val>] [--simpar SIMPAR]
                     <problem> <solver> <x> [<x> ...]
 
 positional arguments:
@@ -146,9 +146,19 @@ options:
   -h, --help            show this help message and exit
   --budget BUDGET       Set the simulation budget [default: 200]
   --odir ODIR           Set the output file directory name. [default: testrun]
-  --crn                 Set if common random numbers are desired.
-  --seed <s> <s> <s> <s> <s> <s>
-                        Set the random number seed with 6 spaced integers.
+  --crn                 Set if common random numbers are desired. Only
+                        mrg32k3a and mrg31k3p support --crn; philox4x32 does
+                        not (see --generator).
+  --seed <s>            Set the random number seed, as comma-separated
+                        integers with no spaces -- 6 for mrg32k3a/mrg31k3p, 2
+                        for philox4x32 (see --generator), e.g. --seed
+                        12345,32123,5322,2,9543,666666666. Arity and content
+                        are validated against whichever generator is selected.
+  --generator {mrg31k3p,mrg32k3a,philox4x32}
+                        Set the pseudo-random number generator [default:
+                        mrg32k3a]. Only mrg32k3a and mrg31k3p support --crn;
+                        philox4x32 does not (its own CRN mechanism does not
+                        exist yet -- see docs/rng-interface-design.md).
   --param <param> <val>
                         Specify a solver-specific parameter <param> <val>.
                         Repeatable.
@@ -157,7 +167,8 @@ options:
 
 $ pymoso testsolve --help
 usage: pymoso testsolve [-h] [--budget BUDGET] [--odir ODIR] [--crn]
-                        [--seed <s> <s> <s> <s> <s> <s>]
+                        [--seed <s>]
+                        [--generator {mrg31k3p,mrg32k3a,philox4x32}]
                         [--param <param> <val>] [--isp ISP] [--proc PROC]
                         [--metric]
                         <tester> <solver> [<x> ...]
@@ -171,9 +182,19 @@ options:
   -h, --help            show this help message and exit
   --budget BUDGET       Set the simulation budget [default: 200]
   --odir ODIR           Set the output file directory name. [default: testrun]
-  --crn                 Set if common random numbers are desired.
-  --seed <s> <s> <s> <s> <s> <s>
-                        Set the random number seed with 6 spaced integers.
+  --crn                 Set if common random numbers are desired. Only
+                        mrg32k3a and mrg31k3p support --crn; philox4x32 does
+                        not (see --generator).
+  --seed <s>            Set the random number seed, as comma-separated
+                        integers with no spaces -- 6 for mrg32k3a/mrg31k3p, 2
+                        for philox4x32 (see --generator), e.g. --seed
+                        12345,32123,5322,2,9543,666666666. Arity and content
+                        are validated against whichever generator is selected.
+  --generator {mrg31k3p,mrg32k3a,philox4x32}
+                        Set the pseudo-random number generator [default:
+                        mrg32k3a]. Only mrg32k3a and mrg31k3p support --crn;
+                        philox4x32 does not (its own CRN mechanism does not
+                        exist yet -- see docs/rng-interface-design.md).
   --param <param> <val>
                         Specify a solver-specific parameter <param> <val>.
                         Repeatable.
@@ -293,9 +314,13 @@ Currently, all PyMOSO solvers support using common random numbers. Users may ena
 
 We do not recommend this option unless the oracle is implemented to be compatible, that is, the oracle uses PyMOSO's pseudo-random number generator to generate pseudo-random numbers or to provide a seed to an external `mrg32k3a` generator (see [Implementing PyMOSO Oracles](#implementing-pymoso-oracles)).   
 
-Users may specify an initial seed to PyMOSO's `mrg32k3a` pseudo-random number generator. Seeds must be 6 positive integers with spaces. The default is 12345 for each of the 6 components.  
+Users may specify an initial seed to PyMOSO's pseudo-random number generator using `--seed`, as comma-separated integers with no spaces. The required count and shape depend on which generator is selected (`--generator`, below): the default `mrg32k3a`, and `mrg31k3p`, both take 6 integers; `philox4x32` takes 2. The default seed is `12345` for each of `mrg32k3a`'s 6 components.  
 
-`pymoso solve --seed 1111 2222 3333 4444 5555 6666 myproblem.py RPERLE 23`  
+`pymoso solve --seed 1111,2222,3333,4444,5555,6666 myproblem.py RPERLE 23`  
+
+Users may select which pseudo-random number generator to use with `--generator {mrg32k3a,mrg31k3p,philox4x32}` (default `mrg32k3a`). Only `mrg32k3a` and `mrg31k3p` support `--crn`; `philox4x32` does not yet (see [Known Issues](KNOWN_ISSUES.md)).  
+
+`pymoso solve --generator philox4x32 --seed 1111,2222 myproblem.py RPERLE 23`  
 
 Users may specify algorithm-specific parameters (see the papers in which the algorithms were introduced for detailed explanations of the parameters.) All parameters are specified in the form `--param name value`. For example, the RLE relaxation parameter can be specified and set as `betadel` to a real number. We refer the reader to [the table](#table-of-algorithm-specific-parameters) for the full list of currently available algorithm-specific parameters.  
 
@@ -303,7 +328,7 @@ Users may specify algorithm-specific parameters (see the papers in which the alg
 
 Finally, users may specify any number of options in one invocation. However, all options must be specified in after the `solve` command and before the `myproblem.py` argument. Furthermore, any `--param` options must be the last options. (Note that the `\` at the end of the first line continues the command to the second line.)
 
-`pymoso solve --crn --simpar=4 --budget=10000 --seed 1 2 3 4 5 6 \`  
+`pymoso solve --crn --simpar=4 --budget=10000 --seed 1,2,3,4,5,6 \`  
 `     --odir=Exp1 --param mconst 4 --param betadel 0.7 myproblem.py RPERLE 97`  
 
 
@@ -377,7 +402,7 @@ class MyTester(object):
 The template `testsolve` command is `pymoso testsolve tester solver` where `tester` is a built-in or user-defined tester, and `solver` is a built-in or user-defined solver. Users may also specify an `x0`, as in the `solve` command, if the `tester` does not implement the function to generate feasible points. As a first example, we test `RPERLE` on `MyProblem` using `MyTester`. Since some options are compatible with both `solve` and `testsolve`, we include those options in this example.  
 
 `pymoso testsolve --budget=999 --odir=exp1 \`  
-`    --crn --seed 1 2 3 4 5 6 mytester.py RPERLE`  
+`    --crn --seed 1,2,3,4,5,6 mytester.py RPERLE`  
 
 Users may want to compute some metric on the algorithm-generated solutions. If a metric is defined as part of the tester, such as in `MyTester`, the `testsolve` command can compute the metric on every algorithm iteration using the `--metric` option.  
 
@@ -756,7 +781,7 @@ isp12_iter5_metric = MyTester().metric(iter5_soln)
 
 ## PyMOSO Object Reference
 ### The `pymoso.prng.mrg32k3a` Module
-The `pymoso.prng.mrg32k3a` module exposes the pseudo-random number generator and functions to manipulate it.
+The `pymoso.prng.mrg32k3a` module exposes the default pseudo-random number generator and functions to manipulate it. Two more generators, `pymoso.prng.mrg31k3p.MRG31k3p` and `pymoso.prng.philox4x32.Philox4x32Stream`, are also selectable via `--generator`/the `generator=` keyword argument to `solve()`/`testsolve()` (see [The `solve` command](#the-solve-command)); this table documents the default's own module only.
 
 | Object | Description |
 | ------ | ----------- |

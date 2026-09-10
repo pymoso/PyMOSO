@@ -78,7 +78,7 @@ SEED_RE = re.compile(r"^--\s+(?:next|ending) seed:\s+(.+)$", re.M)
 
 
 def run_solve(tmp_path, odir, extra_args):
-    cmd = ["pymoso", "solve", "--budget=200", f"--odir={odir}", "--seed", *SEED,
+    cmd = ["pymoso", "solve", "--budget=200", f"--odir={odir}", "--seed", ",".join(SEED),
            *extra_args, "myproblem.py", "RPERLE", "40"]
     try:
         return subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True,

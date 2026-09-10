@@ -592,10 +592,37 @@ omitting it today falls back to `chnutils.DEFAULT_SEED`.
 of "the backend owns what only the backend can validate" (§3.1's
 coordinate, §3.4's per-Oracle `W`):
 
-- **argparse** accepts `--seed` generically — `nargs='+'`, raw tokens (not
-  coerced to `int` at parse time, since Philox's shape isn't necessarily
-  a flat tuple of integers). Argparse cannot validate arity against a
+- **argparse** accepts `--seed` generically — raw tokens (not coerced to
+  `int` at parse time, since Philox's shape isn't necessarily a flat
+  tuple of integers). Argparse cannot validate arity against a
   generator it doesn't know at parse time; it shouldn't try.
+
+  **Correction, found implementing §12 step 6b: not `nargs='+'`.**
+  This section originally specified `nargs='+'` for the CLI flag
+  itself. Checked directly, not assumed, once real: an unbounded
+  `nargs='+'` on an *optional* argument greedily consumes every
+  following argv token, including required positionals — `pymoso
+  solve --seed 1 2 3 4 5 6 ProbTPA RPERLE 4 14`, the exact form this
+  project's own `EPILOG`/README examples have always used, failed
+  parsing entirely under it ("the following arguments are required:
+  `<problem>`, `<solver>`, `<x>`"), because `--seed` swallowed
+  `ProbTPA RPERLE 4 14` too. It only worked with `--seed` placed after
+  every positional — a real regression from `nargs=6`'s own behavior,
+  and inconsistent with every other option this CLI has, all of which
+  are order-independent (`test_options_after_positional_args_still_
+  accepted`, `test_param_option_after_other_options_still_accepted`).
+
+  **What shipped instead:** `--seed` takes exactly one argparse token —
+  a comma-separated string with no spaces (`--seed
+  12345,32123,5322,2,9543,666666666`), split on `,` before being handed
+  to the selected generator's own `validate_seed`. A single token can
+  never swallow a neighboring positional regardless of where `--seed`
+  appears, so order-independence is preserved. This is a visible
+  invocation-syntax change from the pre-6b space-separated form
+  (`--seed 12345 32123 ...`) — every README/`EPILOG` example, and
+  `tests/test_golden.py`/`tests/test_multifile_transport.py`'s own CLI
+  invocations, were updated to match, with the underlying seed values
+  themselves unchanged (no golden moved).
 - **The selected generator** validates arity and content, via
   `validate_seed` (§3.2's added required-surface entry). This is a
   parse-time-adjacent step run once the generator is known (immediately
@@ -2293,21 +2320,85 @@ behavior-changing (goldens move, on purpose, with sign-off).
    only, matching step 5's own scope — not wired into `chnbase.py`'s
    coordinate machinery or any CLI/library selection surface. Confirmed
    directly, not assumed, once landed.
-6b. **[new capability, not sequenced against 5/6's own landing order]**
-   Wire §3.8's already-settled generator-selection design (a `--generator`
-   CLI flag plus the matching `solve()`/`testsolve()` kwarg) into the
-   CLI and library layers, generically over whatever generators are
-   registered at the time — not hardcoded to MRG31k3p specifically, so
-   it doesn't need a second pass when Philox (step 6) lands. Given a
-   home here, not left as step 7's own prose-only "it can land whenever
-   the CLI work is scheduled" note — the same reasoning step 8 started
-   from before being promoted out of step 7's placeholder text into its
-   own step, so this doesn't go undiscovered the same way. Until this
-   lands, every generator onboarded by step 5/6 is real, tested code
-   with no way for a user to actually reach it — `solve()`/`testsolve()`
-   always construct `MRG32k3a`, the default, regardless of what else
-   exists in `pymoso/prng/`. No existing golden should move: this only
-   adds a new selection path, it doesn't touch the default's own.
+6b. **[new capability, not sequenced against 5/6's own landing order —
+   done]** Wire §3.8's already-settled generator-selection design (a
+   `--generator` CLI flag plus the matching `solve()`/`testsolve()`
+   kwarg) into the CLI and library layers, generically over whatever
+   generators are registered at the time — not hardcoded to MRG31k3p
+   specifically, so it doesn't need a second pass when Philox (step 6)
+   lands. Given a home here, not left as step 7's own prose-only "it
+   can land whenever the CLI work is scheduled" note — the same
+   reasoning step 8 started from before being promoted out of step 7's
+   placeholder text into its own step, so this doesn't go undiscovered
+   the same way. Before this landed, every generator onboarded by step
+   5/6 was real, tested code with no way for a user to actually reach
+   it — `solve()`/`testsolve()` always constructed `MRG32k3a`, the
+   default, regardless of what else existed in `pymoso/prng/`. No
+   existing golden moved: this only adds a new selection path, it
+   doesn't touch the default's own — confirmed directly, full suite
+   green on both venvs throughout.
+
+   **Landed as:** the real work turned out to be finding #2 from this
+   step's own preparatory report, not the CLI/kwarg wiring itself —
+   `chnbase.py::Oracle` had hardcoded `.prng.mrg32k3a` imports
+   throughout its own internals (`_hit_via_coordinate`, `crn_advance`,
+   `_advance_replication`, `get_endseed`, `_touch_coordinate`), so
+   selecting which class to construct `self.rng` from was never going
+   to be enough by itself. `pymoso/prng/registry.py` (new): `GENERATORS`
+   name→module map, `CRN_CAPABLE` (the MRG family only), `backend_for_
+   stream` (`type(self.rng)` → owning module, `isinstance`-based so
+   instrumentation subclasses resolve correctly). `Oracle` resolves and
+   caches its own backend (`self._backend_name`, a string — not the
+   module directly, which broke `--proc`'s own live-Oracle pickling:
+   confirmed directly, "`TypeError: cannot pickle 'module' object`"
+   before this fix) the first time `set_crnflag()` runs; `Oracle.
+   __init__`'s own signature is untouched, so no existing custom Oracle
+   subclass needed changes. Three new required Stream-protocol methods
+   (§3.2, all three backends): `advance(delta)` (replaces raw
+   `jump_seed_n` chaining on a bare seed tuple — O(1) for the MRG
+   family via `jump_seed_n`'s existing cached fast path, cheaper still
+   for Philox, exact counter addition with no jump computation at all;
+   timed directly, not assumed, since "should be O(1)" and "is O(1)"
+   have diverged on this branch before), `raw_consumed()` (replaces the
+   removed `set_class_cache()`/`.generate` monkeypatch instrumentation),
+   and `root_seed()` (distinct from `get_seed()` for Philox specifically
+   — `get_seed()`'s own full `(key, counter, buffer)` state isn't the
+   2-tuple base key `stream_at` expects as `_orc_root`; confirmed
+   directly this needed its own method, not reuse). `MRG31k3p` gained
+   its own cached `REPL_RESERVE_STRIDE` matrices (absent until this
+   step, since nothing called that path before). `Philox4x32Stream`'s
+   constructor now takes one combined `(key, counter)` argument (or
+   `get_seed()`'s own 3-tuple), matching the MRG family's own single-
+   seed-argument shape — required for `--proc`'s `rngcls(seed)` worker
+   reconstruction to work generically across backends at all.
+
+   `sync=`/`visit!=0` and the CRN branch itself stay MRG-family-only,
+   deliberately — both raise `NotImplementedError` naming the generator,
+   at `set_crnflag()`/`hit()` call time. Recorded as its own future step
+   (CRN convergence, §12 below step 8) with the concrete shape traced,
+   not left as an unexplained wall.
+
+   `chnutils.get_solv_prnstreams`/`get_testsolve_prnstreams` also
+   generalized: every construction in both turned out to already be
+   expressible through `stream_at` alone (`get_next_prnstream(seed) ==
+   stream_at(seed, 1, 0)`, `MRG32k3a(seed) == stream_at(seed, 0, 0)`,
+   both confirmed directly), so neither needed `get_next_prnstream`'s
+   own CRN-specific machinery — both now work uniformly across all
+   three backends. Found tracing this exact seed math, not fixed:
+   `get_testsolve_prnstreams`'s own `orc_root` coincides with the last
+   solver stream's own starting position (`KNOWN_ISSUES.md` issue 14) —
+   a real, pre-existing independence violation, reproduced byte-for-byte
+   rather than fixed inline (a fix moves `testsolve()`'s own `endseed`
+   and needs its own sign-off).
+
+   `--seed` itself shipped as one comma-separated token, not `nargs='+'`
+   — see §3.7's own correction note for why. `commands/solve.py`/
+   `commands/testsolve.py` call the selected generator's `validate_seed`
+   at runtime (not argparse), record the generator's name in run
+   metadata (`gen_humanfile`), and print seed values generically
+   (`basecomm.format_seed_for_display`, falling back to `repr()` for
+   any shape that isn't a flat tuple of ints — Philox's own `get_seed()`
+   return, in particular).
 6c. **[interface change, found onboarding step 6, not Philox-specific —
    see §3.9 — done]** Split `stream_at`'s coordinate into `(stream,
    offset)`: `stream` selects an independent, non-overlapping stream

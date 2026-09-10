@@ -10,6 +10,7 @@ from random import Random
 import traceback
 import importlib.util
 from ..chnutils import solve, DEFAULT_SEED
+from ..prng import registry
 
 
 class Solve(BaseComm):
@@ -32,10 +33,19 @@ class Solve(BaseComm):
         hasseed = self.options['--seed']
         simpar = self.options['--simpar']
         crn = self.options['--crn']
+        generator = self.options['--generator']
+        backend = registry.get_generator(generator)
         if hasseed:
-            seed = tuple(int(i) for i in self.options['<s>'])
+            try:
+                seed = backend.validate_seed(self.options['<s>'])
+            except ValueError as e:
+                print('--* Error: ', e)
+                tstr = ''.join(traceback.format_exc())
+                save_errortb(name, tstr)
+                print('--* Aborting. ')
+                sys.exit()
         else:
-            seed = DEFAULT_SEED
+            seed = backend.DEFAULT_SEED
         ## determine the solver and problem
         probarg = self.options['<problem>']
         base_mod_name = probarg
@@ -103,12 +113,13 @@ class Solve(BaseComm):
         solve_kwargs['seed'] = seed
         solve_kwargs['simpar'] = simpar
         solve_kwargs['crn'] = crn
+        solve_kwargs['generator'] = generator
         for i, p in enumerate(params):
             solve_kwargs[p] = float(vals[i])
         start_opt_time = time.time()
         print('** Solving ', probarg, ' using ', solvarg, ' **')
         stsstr = '-- using starting seed:'
-        print(f'{stsstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
+        print(f'{stsstr:26} {format_seed_for_display(seed)}')
         try:
             res, end_seed = solve(probclass, solvclass, x0, **solve_kwargs)
         except Exception:
@@ -119,11 +130,10 @@ class Solve(BaseComm):
             sys.exit(1)
         end_opt_time = time.time()
         opt_durr = end_opt_time - start_opt_time
-        humtxt = gen_humanfile(name, probarg, solvarg, budget, opt_durr, params, vals, seed, end_seed)
-        seed = tuple([int(i) for i in end_seed])
+        humtxt = gen_humanfile(name, probarg, solvarg, budget, opt_durr, params, vals, seed, end_seed, generator)
         print('-- Run time: {0:.2f} seconds'.format(opt_durr))
         endstr = '-- next seed:'
-        print(f'{endstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
+        print(f'{endstr:26} {format_seed_for_display(end_seed)}')
         print('-- Saving data and details in folder ', name, ' ...')
         strlst = [str(lep) for lep in res]
         resstr = '\n'.join(strlst)

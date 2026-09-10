@@ -117,7 +117,7 @@ def save_metadata(name, humantxt):
         dump(humantxt, f1, indent=4, separators=(',', ': '))
 
 
-def gen_humanfile(name, probn, solvn, budget, runtime, param, vals, startseed, endseed):
+def gen_humanfile(name, probn, solvn, budget, runtime, param, vals, startseed, endseed, generator):
     """
     Generate a human-readable experiment metadata string
 
@@ -131,6 +131,13 @@ def gen_humanfile(name, probn, solvn, budget, runtime, param, vals, startseed, e
     vals : list
     startseed : tuple of int
     endseed : tuple of int
+    generator : str
+        The selected generator's own canonical name (§3.8) -- recorded
+        because two runs supplying the *same* seed tokens under two
+        different generators produce entirely unrelated output (§3.8):
+        a run's own metadata is incomplete, and misleading in a way
+        that looks complete, without saying which generator consumed
+        the seed.
 
     Returns
     -------
@@ -140,10 +147,34 @@ def gen_humanfile(name, probn, solvn, budget, runtime, param, vals, startseed, e
     today = date.today()
     tstr = today.strftime("%A %d. %B %Y")
     timestr = time.strftime('%X')
-    dnames = ('Name', 'Problem', 'Algorithm', 'Budget', 'Run time', 'Day', 'Time', 'Params', 'Param Values', 'start seed', 'end seed')
-    ddate = (name, probn, solvn, budget, runtime, tstr, timestr, param, vals, startseed, endseed)
+    dnames = ('Name', 'Problem', 'Algorithm', 'Budget', 'Run time', 'Day', 'Time', 'Params', 'Param Values', 'Generator', 'start seed', 'end seed')
+    ddate = (name, probn, solvn, budget, runtime, tstr, timestr, param, vals, generator, startseed, endseed)
     ddict = collections.OrderedDict(zip(dnames, ddate))
     return ddict
+
+
+def format_seed_for_display(seed):
+    """
+    Render a seed tuple for CLI display, generically across generators
+    (§12 step 6b) -- MRG's own 6 flat integers (and Philox's own 2)
+    get the traditional fixed-width columns commands/solve.py's and
+    commands/testsolve.py's own start/end-seed lines have always used;
+    anything not a flat tuple of ints (e.g. Philox's own get_seed(),
+    which nests a key/counter/buffer rather than reporting one) falls
+    back to a plain repr() rather than assuming exactly 6 int-shaped
+    components the way this used to be hardcoded to.
+
+    Parameters
+    ----------
+    seed : tuple
+
+    Returns
+    -------
+    str
+    """
+    if all(isinstance(component, int) for component in seed):
+        return ' '.join('{0:12}'.format(component) for component in seed)
+    return repr(seed)
 
 
 def save_metrics(name, exp, metdata):

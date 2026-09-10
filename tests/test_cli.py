@@ -49,7 +49,7 @@ README_EXAMPLES = {
         0,
     ),
     "solve_seed": (
-        ["solve", "--seed", "12345", "32123", "5322", "2", "9543", "666666666",
+        ["solve", "--seed", "12345,32123,5322,2,9543,666666666",
          "ProbTPC", "RPERLE", "5", "5", "5"],
         0,  # was x0=(31,21,11), infeasible for ProbTPC ([-10,10] per
             # component at the default density_factor=2) -- a real,
@@ -120,45 +120,54 @@ def test_readme_example_details_testsolve_full(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# --seed: exactly 6 integers. argparse's `nargs=6, type=int` is a genuine
-# improvement here (see the migration report): wrong counts are now
-# rejected far more often than under docopt, because a non-numeric
-# neighboring token (almost always the case in practice -- a problem or
-# solver name) fails the int() conversion immediately.
+# --seed: one comma-separated token, arity/content validated by the
+# selected generator's own validate_seed at runtime (§3.7/§12 step 6b)
+# -- not argparse's nargs=6/type=int arity enforcement any more (that
+# mechanism could not survive generator selection: MRG31k3p is also 6
+# integers, but Philox4x32 is 2 -- a single hardcoded arity can't serve
+# more than one generator). The two tests below intentionally REPLACE
+# (not adjust) test_seed_with_too_few_values_is_now_cleanly_rejected/
+# test_seed_with_too_many_values_still_fails_loudly_but_not_cleanly:
+# those pinned specific quirks of the nargs=6 mechanism itself (a
+# silent misparse at 5 values, an overflow into <problem> at 7+) that
+# have no equivalent once that mechanism is gone -- this is not a
+# regression in what they covered, it's a genuine improvement: both
+# the too-few and too-many cases now get the identical, correctly-
+# scoped "mrg32k3a expects 6 integers, got N" message, where the old
+# mechanism could only sometimes catch undercounts cleanly and never
+# caught overcounts cleanly at all.
 # ---------------------------------------------------------------------------
 
 def test_seed_with_six_values_still_works(tmp_path):
-    proc = run(["solve", "--seed", "1", "2", "3", "4", "5", "6",
+    proc = run(["solve", "--seed", "1,2,3,4,5,6",
                 "ProbTPA", "RPERLE", "4", "14"], tmp_path)
     assert proc.returncode == 0
     assert "-- Done!" in proc.stdout
 
 
 @pytest.mark.parametrize("n_values", [0, 1, 3, 5])
-def test_seed_with_too_few_values_is_now_cleanly_rejected(n_values, tmp_path):
-    """Improvement over docopt: n=3 was already rejected before (too few
-    total tokens); n=5 used to silently misparse (borrowing 'ProbTPA' as
-    the 6th seed component). Now, type=int on --seed means borrowing a
-    non-numeric token fails immediately with a clear message, for every
-    count in this range."""
-    seed_vals = [str(i) for i in range(1, n_values + 1)]
-    proc = run(["solve", "--seed"] + seed_vals + ["ProbTPA", "RPERLE", "4", "14"], tmp_path)
-    assert proc.returncode == 2
-    assert "Traceback" not in proc.stderr
+def test_seed_with_too_few_values_is_cleanly_rejected_by_validate_seed(n_values, tmp_path):
+    seed_arg = ",".join(str(i) for i in range(1, n_values + 1))
+    # "".split(",") == [''] -- one blank token, not zero -- so compute
+    # the expected count from the same split validate_seed itself does,
+    # rather than assume it always equals n_values.
+    expected_count = len(seed_arg.split(","))
+    proc = run(["solve", "--seed", seed_arg, "ProbTPA", "RPERLE", "4", "14"], tmp_path)
+    assert "mrg32k3a expects 6 integers, got {0}".format(expected_count) in proc.stdout
+    assert "Traceback" not in proc.stdout
 
 
 @pytest.mark.parametrize("n_values", [7, 8])
-def test_seed_with_too_many_values_still_fails_loudly_but_not_cleanly(n_values, tmp_path):
-    """Not fully fixed: with 7+ *numeric* tokens following --seed,
-    argparse's nargs=6 still only takes the first 6, and the overflow
-    (itself numeric, so it survives type=int) shifts into <problem>.
-    This reliably fails -- '7' or '8' is never a valid problem name in
-    practice -- but with a misleading "Problem name is not valid"
-    message rather than a "wrong seed count" one. Recorded here as a
-    known residual gap, not silently reproduced as if it were fine."""
-    seed_vals = [str(i) for i in range(1, n_values + 1)]
-    proc = run(["solve", "--seed"] + seed_vals + ["ProbTPA", "RPERLE", "4", "14"], tmp_path)
-    assert "Problem name is not valid" in proc.stdout
+def test_seed_with_too_many_values_is_also_cleanly_rejected_by_validate_seed(n_values, tmp_path):
+    """The old nargs=6 mechanism could never cleanly catch this case at
+    all (the overflow silently shifted into <problem>, confirmed on
+    the old mechanism by this same test's own prior version) --
+    validate_seed catches it exactly the same way it catches
+    undercounts. A genuine fix, not a residual gap carried forward."""
+    seed_arg = ",".join(str(i) for i in range(1, n_values + 1))
+    proc = run(["solve", "--seed", seed_arg, "ProbTPA", "RPERLE", "4", "14"], tmp_path)
+    assert "mrg32k3a expects 6 integers, got {0}".format(n_values) in proc.stdout
+    assert "Traceback" not in proc.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +194,7 @@ def test_repeated_param_still_works(tmp_path):
     triggering the hang."""
     proc = run([
         "solve", "--crn", "--simpar=4", "--budget=10000",
-        "--seed", "1", "2", "3", "4", "5", "6", "--odir=Exp1",
+        "--seed", "1,2,3,4,5,6", "--odir=Exp1",
         "--param", "mconst", "4", "--param", "betadel", "0.7",
         "ProbTPA", "RPERLE", "40", "40",
     ], tmp_path)
@@ -332,7 +341,7 @@ def test_seed_and_param_interleaved_out_of_order_now_parses_correctly(tmp_path):
     others, not as one shared token stream."""
     proc = run([
         "solve", "--param", "radius", "3", "--seed",
-        "1", "2", "3", "4", "5", "6", "ProbTPA", "RPERLE", "4", "14",
+        "1,2,3,4,5,6", "ProbTPA", "RPERLE", "4", "14",
     ], tmp_path)
     assert proc.returncode == 0
     assert "-- Done!" in proc.stdout

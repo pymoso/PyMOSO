@@ -9,6 +9,7 @@ import traceback
 import importlib.util
 import importlib
 from ..chnutils import testsolve, par_diff, par_runs, DEFAULT_SEED
+from ..prng import registry
 
 
 class TestSolve(BaseComm):
@@ -26,10 +27,19 @@ class TestSolve(BaseComm):
         name = self.options['--odir']
         hasseed = self.options['--seed']
         metric = self.options['--metric']
+        generator = self.options['--generator']
+        backend = registry.get_generator(generator)
         if hasseed:
-            seed = tuple(int(i) for i in self.options['<s>'])
+            try:
+                seed = backend.validate_seed(self.options['<s>'])
+            except ValueError as e:
+                print('--* Error: ', e)
+                tstr = ''.join(traceback.format_exc())
+                save_errortb(name, tstr)
+                print('--* Aborting.')
+                sys.exit()
         else:
-            seed = DEFAULT_SEED
+            seed = backend.DEFAULT_SEED
         isp = self.options['--isp']
         proc = self.options['--proc']
         crn = self.options['--crn']
@@ -124,12 +134,13 @@ class TestSolve(BaseComm):
         solve_kwargs['proc'] = proc
         solve_kwargs['ranx0'] = ranx0
         solve_kwargs['crn'] = crn
+        solve_kwargs['generator'] = generator
         for i, p in enumerate(params):
             solve_kwargs[p] = float(vals[i])
         start_opt_time = time.time()
         print('** Testing ', solvarg, ' using ', testarg, ' **')
         stsstr = '-- using starting seed:'
-        print(f'{stsstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
+        print(f'{stsstr:26} {format_seed_for_display(seed)}')
         try:
             res, end_seed = testsolve(testclass, solvclass, x0, **solve_kwargs)
         except Exception:
@@ -140,11 +151,10 @@ class TestSolve(BaseComm):
             sys.exit(1)
         end_opt_time = time.time()
         opt_durr = end_opt_time - start_opt_time
-        humtxt = gen_humanfile(name, testarg, solvarg, budget, opt_durr, params, vals, seed, end_seed)
-        seed = tuple([int(i) for i in end_seed])
+        humtxt = gen_humanfile(name, testarg, solvarg, budget, opt_durr, params, vals, seed, end_seed, generator)
         print('-- Optimization run time: {0:.2f} seconds'.format(opt_durr))
         endstr = '-- ending seed:'
-        print(f'{endstr:26} {seed[0]:12} {seed[1]:12} {seed[2]:12} {seed[3]:12} {seed[4]:12} {seed[5]:12}')
+        print(f'{endstr:26} {format_seed_for_display(end_seed)}')
         save_metadata(name, humtxt)
         do_metrics = True
         mytester = testclass()
