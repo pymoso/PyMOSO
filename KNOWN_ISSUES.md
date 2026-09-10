@@ -152,10 +152,14 @@ roughly 68 to 92 iterations — and reaching 200 would require on the
 order of 4x10^9 simulation calls at minimum. The risk arises with an
 unusually small `mconst` combined with a very large budget.
 
-**Status:** fixed on this branch. `chnutils.MAX_RI` is now a promoted
-module constant (upstream still uses a bare local `max_RI = 200`, never
-enforced), and `RASolver.rasolve` raises before starting any RA
-iteration beyond it.
+**Status:** fixed on this branch. An earlier fix promoted
+`chnutils.MAX_RI` to a module constant and made `RASolver.rasolve`
+raise before starting any RA iteration beyond it; that guard was later
+removed entirely (§12 step 4b) once `hit()`'s `crnflag=False` path
+moved onto `point_code`/`offset_within_iteration` coordinates, which
+are collision-free by construction rather than by an enforced ceiling
+— there is no longer a reserved-window bound to overrun. Upstream still
+uses a bare, unenforced local `max_RI = 200`.
 
 ---
 
@@ -261,13 +265,20 @@ code different from a normal successful run.
 
 #### Status
 
-Not fixed on this branch. An argparse-based CLI replacement (and the
-CLI characterization tests documenting the exact 1.x behavior above)
-were built against this fork's earlier base but are deferred pending
-review before being re-applied against the canonical repository's CLI
-(`pymoso/cli.py` is still docopt-based here, unchanged by any of the 13
-upstream commits). This issue persists on this branch exactly as
-characterized until that migration is decided and re-applied.
+Fixed on this branch. `pymoso/cli.py` is argparse-based; `--seed`
+(`nargs=6`) and `--param` (`nargs=2`) are each validated for their own
+fixed arity independent of the rest of the command line, closing the
+total-token-count matching this entry describes. Confirmed directly,
+not assumed: `--seed 1 2 3 4 5 ProbTPA RPERLE 40 40` (5 values) now
+exits 2 with `error: argument --seed: invalid int value: 'ProbTPA'`;
+`--param lb --seed 1 2 3 4 5 6 ...` (missing `--param` value) exits 2
+with `error: argument --param: expected 2 arguments`. Neither silently
+completes a run with a wrong seed or starting point. This entry
+previously said `pymoso/cli.py` was "still docopt-based here" — stale,
+written in `39fe2b7` before the docopt→argparse migration landed and
+never revisited after. `tests/test_cli_characterization.py` keeps the
+1.x docopt behavior above as a frozen historical record; it is not live
+code.
 
 ---
 
@@ -319,7 +330,9 @@ documented values (`budget=200`, `seed=(12345,)*6`, `simpar=1`, `isp=1`,
 (`DEFAULT_BUDGET` etc.) and referenced by the CLI layer's own Python-
 level defaults rather than duplicated, so the two cannot drift apart
 silently; `tests/test_kwarg_defaults.py` additionally checks the
-constants directly against docopt's own parsed defaults. Calling
+constants directly against argparse's own parsed defaults (originally
+checked against docopt's; rewritten as part of the docopt→argparse
+migration, before which this line was stale). Calling
 `solve`/`testsolve` exactly as the README shows now works without
 needing an undocumented keyword argument.
 
@@ -467,9 +480,18 @@ install and on this branch: same `ModuleNotFoundError: No module named
 exists — `sys.path` is never touched anywhere in `commands/solve.py`,
 `commands/testsolve.py`, or `cli.py`, on either version.
 
-**Status:** not fixed on this branch as of this entry. This has never
-worked, on the released/used version or any version checked — not a
-migration regression.
+**Status:** fixed on this branch. `commands/basecomm.py`'s
+`load_user_module` inserts the user file's directory onto `sys.path`
+before executing it and restores `sys.path` afterward; both
+`commands/solve.py` and `commands/testsolve.py` load user files through
+it. Confirmed directly, not assumed: the fixture this entry's own
+"Verified against 1.0.8" section describes
+(`scratch/multifile_cli_check/myproblem.py` importing a sibling
+`helper.py`) now solves cleanly via `pymoso solve --budget=200
+myproblem.py RPERLE 40`. This entry previously said "not fixed... this
+has never worked" — stale, written in `9da11f2` before the `sys.path`
+fix landed and never revisited after. See also
+`tests/test_multifile_transport.py`.
 
 ---
 
