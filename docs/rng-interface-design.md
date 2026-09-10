@@ -2399,6 +2399,51 @@ behavior-changing (goldens move, on purpose, with sign-off).
    (`basecomm.format_seed_for_display`, falling back to `repr()` for
    any shape that isn't a flat tuple of ints — Philox's own `get_seed()`
    return, in particular).
+
+   **Found running real end-to-end scenarios, not hypothetical, once
+   Philox was actually reachable:** `pymoso testsolve --generator
+   philox4x32 ...` with no `<x>` raised `AttributeError:
+   'Philox4x32Stream' object has no attribute 'choice'`. Every built-in
+   tester's own `get_ranx0` calls `rng.choice()`; `BSProb`'s own `g()`
+   calls `rng.expovariate()`; MOCOMPASS/MOPBnB call
+   `self.sprn.sample()` — all "an rng-shaped object" per §3.6's own
+   documented contract (the *entire* `random.Random` API), which
+   `Philox4x32Stream` deliberately does not provide (only §3.2's
+   minimal Stream protocol — unlike MRG32k3a/MRG31k3p, real
+   `random.Random` subclasses with the full surface natively).
+   `RandomCompatAdapter` (§3.6) exists for exactly this and had never
+   been wired to anything ("nothing constructs one yet," its own prior
+   docstring). `pymoso.prng.base.ensure_random_compatible(stream)` is
+   the wiring — returns `stream` unchanged if already a `random.Random`
+   (a no-op for the MRG family, so the default path is untouched),
+   wraps it otherwise. Applied at every point a stream reaches such
+   code (`chnbase.py`'s `mp_replicate` and `_hit_via_coordinate`'s own
+   `g(x, ...)` calls — the *unwrapped* stream stays what
+   `raw_consumed()`/`backend_for_stream` see, since the adapter doesn't
+   expose either; `chnutils.py`'s `get_solv_prnstreams`/
+   `get_testsolve_prnstreams` for `solvstream`/`xprn`/each `solprn`) —
+   never at `orcstream`/`orcprn`, which become `Oracle.rng` and must
+   stay the real backend instance for `set_crnflag()`'s own
+   `type(self.rng)` lookup.
+
+   **A second bug, found immediately after fixing the first:**
+   `RandomCompatAdapter` itself didn't pickle —
+   `random.Random`'s own inherited `__reduce__` reconstructs via
+   `self.__class__()` (zero arguments) then applies state;
+   `RandomCompatAdapter.__init__` requires `stream`, so that failed
+   outright (confirmed directly: `pickle.dumps(RandomCompatAdapter(
+   stream))` raised `TypeError`). `testsolve()`'s own `--proc` path
+   needs this (`KNOWN_ISSUES.md` issue 9's own "ships fully-
+   constructed... Oracle instances" pattern) — without it, `pymoso
+   testsolve --generator philox4x32 ...` *hung* rather than raising (a
+   forkserver-pickling-error hang, the same class of failure issue 9
+   already tracks, triggered by a new cause). Fixed with a `__reduce__`
+   override reconstructing via the real constructor, passing
+   `self._stream`.
+
+   Both verified by reverting (`git stash`) and confirming the new
+   tests fail first — an `ImportError` on the removed function, not a
+   passing-by-luck test — then pass after restoring.
 6c. **[interface change, found onboarding step 6, not Philox-specific —
    see §3.9 — done]** Split `stream_at`'s coordinate into `(stream,
    offset)`: `stream` selects an independent, non-overlapping stream
