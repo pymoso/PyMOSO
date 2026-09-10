@@ -1,5 +1,17 @@
 # RNG interface design: decoupling from `random.Random`
 
+**Release-branch note (`release-1.1.0`):** this file is the design
+record for the RNG redesign as a whole, not a description of 1.1.0's
+shipped behavior specifically — most of it (coordinate-derived streams,
+`visit=`/`sync=`, the non-CRN default, `endseed`) is what 1.1.0 actually
+ships, but the generator-selection interface it also covers (`--generator`,
+`pymoso/prng/registry.py`, per-backend threading through `Oracle`) and
+CRN-branch convergence are 2.0.0-era work landed after this branch's
+`b637a3e` boundary and not present here, and some material this document
+cites — `docs/mocompass-mopbnb-known-issues.md`, MOCOMPASS/MOPBnB
+themselves — is excluded from this release entirely; see
+`KNOWN_ISSUES.md` issue 13.
+
 Status: design only, nothing implemented. Written against `pymoso-migration`
 at `f884bf2`. Scope is the pseudo-random generator interface and what
 replaces the CRN protocol in `chnbase.py`/`chnutils.py`. Onboarding
