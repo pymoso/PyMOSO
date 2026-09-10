@@ -28,15 +28,25 @@ specifically, a direct re-check against a real PyPI 1.0.8 install:
 - Item 2 (--simpar crash): superseded -- resolved upstream by 917bf06,
   independently of this project. See KNOWN_ISSUES.md issue 2 and
   docs/upstream-simpar.md, not this file, for the current picture.
-- Item 3 (MAX_RI): re-verified by tests/test_max_ri.py, and by
-  KNOWN_ISSUES.md issue 3's direct 1.0.8 source check (bare
-  `max_RI = 200`, still unenforced).
+- Item 3 (MAX_RI): re-verified by tests/test_max_ri.py at the time, and
+  by KNOWN_ISSUES.md issue 3's direct 1.0.8 source check (bare
+  `max_RI = 200`, still unenforced) -- the latter still holds, but
+  test_max_ri.py itself was deleted when MAX_RI was removed entirely
+  from this branch (§12 step 4b: the reserved-window guard it tested
+  was replaced by `point_code`/`offset_within_iteration`,
+  collision-free by construction, not strengthened in place). Current
+  coverage: tests/test_oracle_visit_sync.py's
+  test_iteration_and_replication_never_overflow_one_isp_stride_block /
+  test_no_collision_between_isp_paths_at_iteration_counts_well_beyond_max_ri.
 - Item 4 (infeasible x0): re-verified by tests/test_infeasible_x0.py,
   and by KNOWN_ISSUES.md issue 5's direct 1.0.8 behavioral check
   (same KeyError/"Unable to run accel()" outputs reproduced live).
-- Item 5 (Oracle.bump()): not independently re-verified on this
-  branch by any permanent test as of this porting; read as historical
-  only unless re-checked.
+- Item 5 (Oracle.bump()): not independently re-verified on this branch
+  by any permanent test as of this porting, and subsequently overtaken
+  entirely -- `bump()` was removed outright (docs/rng-interface-design.md
+  §12 step 6b, no in-tree caller, no compatibility shim). The body
+  below describing it as working correctly is historical only; see
+  KNOWN_ISSUES.md issue 13 for the removal and migration path.
 
 Body below is otherwise unedited from old-work.
 -->
