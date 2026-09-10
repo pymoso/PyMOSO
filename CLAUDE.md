@@ -55,11 +55,16 @@ this line is headed in.
 **The two branches genuinely differ in content, not just version
 number.** `release-1.1.0` excludes MOCOMPASS/MOPBnB entirely (deferred
 to 2.0.0 as a deliberate decision — see that branch's `KNOWN_ISSUES.md`
-issue 13); `pymoso-migration`'s working tree includes them
-(`pymoso/solvers/mocompass.py`/`mopbnb.py`, currently uncommitted — see
-"Known open items" above). Don't assume a diff between the two branches
-is only the commits between them; `release-1.1.0` also lacks files this
-branch has.
+issue 13); `pymoso-migration` has them committed
+(`pymoso/solvers/mocompass.py`/`mopbnb.py`, `tests/test_mocompass_mopbnb_compat.py`
+— `fbc0fdf`, "Add MOCOMPASS and MOPBnB solvers (previously
+untracked)"; see "Known open items" above). Don't assume a diff between
+the two branches is only the commits between them; `release-1.1.0`
+also lacks files this branch has, and citations to
+`test_mocompass_mopbnb_compat.py` that are valid here (e.g.
+`tests/test_oracle_noncrn_default.py`'s own docstring) are dangling
+references on `release-1.1.0` — checked and fixed there specifically,
+not assumed to carry over.
 
 `docs/rng-interface-design.md` carries the same boundary note at its
 own head, step-by-step.
