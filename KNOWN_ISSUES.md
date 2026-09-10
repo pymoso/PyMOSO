@@ -43,6 +43,17 @@ algorithms are proven against; see "What this means" below.
 all six components divisible by 256, the exact fingerprint described
 below.
 
+**Independently re-verified against the paper's own peer-reviewed
+archive:** `github.com/INFORMSJoC/2019.0902` — confirmed by diff to be
+`a38e27d` (one of these 13 commits) plus a mechanical MIT-license-header
+addition and a version bump to `1.0.8`, nothing functionally different
+(see "Archival cross-check" near the end of this file). Installed from
+that repository on real Python 3.6.15 (the version the paper targets,
+`python_requires='>=3.6.0'`) and re-ran the same command: identical
+divisible-by-256 end seed. This settles what "a real 1.0.8 install" was
+actually running — not an opaque wheel of unclear provenance, but this
+exact, citable, peer-reviewed snapshot.
+
 #### What is wrong
 
 PyMOSO's `mrg32k3a` module advances between pseudo-random streams by
@@ -301,7 +312,12 @@ library use was broken.
 **Verified against 1.0.8:** `chnutils.py` (site-packages) pops
 `budget`/`seed`/`simpar`/`crn` (in `solve`) and
 `budget`/`seed`/`isp`/`proc`/`ranx0`/`crn` (in `testsolve`) with no
-default value on any `kwargs.pop(...)` call.
+default value on any `kwargs.pop(...)` call. Independently re-verified
+against the paper's own archival snapshot (`github.com/INFORMSJoC/
+2019.0902`, confirmed `== a38e27d` plus a version bump — see "Archival
+cross-check" near the end of this file) on real Python 3.6.15:
+`chnutils.solve(ProbTPA, RPERLE, (4, 14))` raises `KeyError: 'budget'`,
+exactly as described.
 
 #### What is wrong
 
@@ -482,7 +498,12 @@ install and on this branch: same `ModuleNotFoundError: No module named
 'helper'`, same crash site (`commands/solve.py:47`,
 `spec.loader.exec_module(module)`). Confirmed no alternate loading path
 exists — `sys.path` is never touched anywhere in `commands/solve.py`,
-`commands/testsolve.py`, or `cli.py`, on either version.
+`commands/testsolve.py`, or `cli.py`, on either version. Independently
+re-verified against the paper's own archival snapshot
+(`github.com/INFORMSJoC/2019.0902`, confirmed `== a38e27d` plus a
+version bump — see "Archival cross-check" near the end of this file)
+on real Python 3.6.15: the same fixture shape fails identically,
+`ModuleNotFoundError: No module named 'helper'`.
 
 **Status:** fixed on this branch. `commands/basecomm.py`'s
 `load_user_module` inserts the user file's directory onto `sys.path`
@@ -496,6 +517,47 @@ myproblem.py RPERLE 40`. This entry previously said "not fixed... this
 has never worked" — stale, written in `9da11f2` before the `sys.path`
 fix landed and never revisited after. See also
 `tests/test_multifile_transport.py`.
+
+---
+
+### 14. `pymoso/examples/mytester.py` mixes tabs and spaces, blocking its own figure-replication command
+
+**Affects:** all 1.x versions, including 1.0.8 and the canonical
+repository's current master — confirmed present, byte-for-byte, in the
+paper's own peer-reviewed archival snapshot (`github.com/INFORMSJoC/
+2019.0902`; see "Archival cross-check" near the end of this file).
+**Severity:** high for anyone following the paper's own instructions —
+the file as shipped cannot be imported at all under Python 3, on any
+version.
+
+**What is wrong:** line 34 of `pymoso/examples/mytester.py`'s `metric`
+method begins with a single literal tab character, while every
+surrounding line in the same method (and file) uses spaces. Python 3
+rejects mixed tab/space indentation within one block outright:
+`TabError: inconsistent use of tabs and spaces in indentation`. Not a
+runtime behavior difference or an edge case — the module fails to
+import, full stop, before any of its own code runs.
+
+Found by accident, not by design: this project's own CI workflow was
+the first thing to ever run `python -m compileall pymoso/` against
+this codebase, which is what surfaced it (`f0d6f9c`, an ancestor of
+this branch). That commit's own message calls it "not part of any
+planned migration step" and doesn't cross-reference the paper's
+replication instructions — which is what this entry now does. The
+INFORMS archive's README documents `pymoso --isp=16 --proc=4 --metric
+testsolve mytester.py RPERLE` as the exact command that reproduces
+Figures 6 and 7 of the published paper, using the shipped
+`pymoso/examples/mytester.py` unmodified. Confirmed directly on a
+clean install of the actual archive, real Python 3.6.15: running that
+command exactly as documented raises this `TabError` before doing
+anything else. The paper's own documented figure-replication
+instructions do not work against the paper's own archived code, for
+anyone running Python 3, out of the box.
+
+**Status:** fixed on this branch (`f0d6f9c`), whitespace-only
+(`git diff -w` empty). Migration for anyone working from the archive
+directly: replace the leading tab on that one line with spaces
+matching the surrounding indentation.
 
 ---
 
@@ -754,6 +816,112 @@ solver-specific, and citing it does not imply MOCOMPASS/MOPBnB ship.
 
 Not a defect to fix on this branch — the solvers, their review against
 source papers, and their known-issues documentation are 2.0.0 scope.
+
+---
+
+## Archival cross-check: the INFORMS Journal on Computing snapshot
+
+Not a numbered issue — nothing here claims PyMOSO's own code is wrong.
+This is a record of directly validating several claims above against
+the paper's own permanent, citable, peer-reviewed record
+(`github.com/INFORMSJoC/2019.0902`), rather than resting on a PyPI
+install of otherwise-unknown provenance. Kept here because it settles
+exactly what "1.0.8" is, and because one finding below (Figures 6/7)
+belongs on the record regardless of whose defect it turns out to be.
+
+**What the archive actually is.** It states it snapshots
+`pymoso/PyMOSO@a38e27d` — one of the 13 commits already in this
+project's own history, confirmed the third commit back from that
+repository's current master, with only two commits after it and both
+of those README-only (`git log a38e27d..origin/master`: `e9bac72`,
+`72f43dc`, both "Update README.md", nothing else). Confirmed by diff,
+not assumed: every one of the 23 `.py` files that differs between
+`a38e27d` and the archive differs by exactly one hunk — a mechanical
+MIT-license-header block INFORMS added at the top of each file,
+nothing functional. `setup.py` is byte-identical
+(`install_requires = ['docopt']`, `python_requires='>=3.6.0'`).
+`LICENSE.txt` differs only in copyright attribution (adds Susan Hunter
+as co-author). The README differs extensively above the paper's own
+"Table of Contents" heading (INFORMS's citation/build/replication
+front matter, plus one updated citation year), but the entire body
+from that heading onward is byte-identical except one added blank
+line — confirmed by hashing both bodies, not by eyeballing a diff.
+
+**Version.** The archive's `pymoso/__init__.py` reads
+`1.0.7 -> 1.0.8` relative to `a38e27d` — a one-line version bump,
+nothing else changed. Searched all known history
+(`git log --all -S"__version__ = '1.0.8'"`) and confirmed no commit in
+`pymoso/PyMOSO`'s own git history ever set that string, anywhere. So
+the precise claim is: **1.0.8 corresponds to no commit in
+`pymoso/PyMOSO`'s git history, but it is real, peer-reviewed code** —
+`a38e27d` plus this one-line bump, permanently archived and citable
+(DOI `10.1287/ijoc.2019.0902.cd`). Every "verified against 1.0.8"
+claim elsewhere in this document now has a precise, checkable referent
+rather than an assumption about what some PyPI wheel contained.
+
+**The ten documentation defects were published, not introduced
+later.** Confirmed by the byte-identical-body finding above, directly,
+not by inference: `RSPLNE` (the typo) and `ProbTPC RPERLE 31 21 11`
+(the infeasible starting point) are both present verbatim in the
+archive's README, at the same lines `a38e27d` has them. Since the
+entire body is unchanged, every documentation defect traced to
+`a38e27d` is present in the peer-reviewed archive. This hardens the
+framing of those defects, not softens it: they are not an artifact of
+reading an unpolished development branch — they are what INFORMS
+Journal on Computing published.
+
+**Tested on real Python 3.6.15** (`python:3.6-slim` in Docker;
+building 3.6 from source on this project's own development machine
+hits the OpenSSL 3.0 wall this note doesn't need to relitigate),
+installed from a clean clone of the archive with no modification
+beyond what's noted below.
+
+- **Figure 4** (`pymoso solve --budget=10000 --simpar=4 myproblem.py
+  RPERLE 97`): runs successfully and matches the published output
+  exactly — `(2,)`, `(0,)`, `(1,)`. Also directly confirms `--simpar`
+  works at this commit, as expected (`a38e27d` postdates `917bf06`'s
+  multiprocessing rework — issue 2).
+- **Figures 6 and 7** (`pymoso --isp=16 --proc=4 --metric testsolve
+  mytester.py RPERLE`, every option preceding the subcommand while the
+  usage block declares them after it): docopt accepts this ordering
+  without complaint — consistent with issue 6's own finding that
+  docopt matches by whole-command-line token satisfaction, not
+  positional enforcement, so the ordering itself is not a defect. The
+  command as shipped fails outright with the `TabError` issue 14
+  documents. With that one line fixed, it runs successfully and
+  deterministically (re-ran twice, byte-identical output; also ran
+  with `--isp=1 --proc=1` to rule out a parallelism-dependent seed —
+  byte-identical first-path trajectory, matching a direct reading of
+  `get_testsolve_prnstreams`: the shared `x0stream` is seeded from the
+  raw root seed before any per-trial loop runs, independent of `isp`)
+  — but **does not match the published Figures 6 or 7**. The first
+  solution-file entry is `{(-25,)}`, not `{(3,)}`; the trajectory that
+  follows is a different, if equally coherent, RPERLE search path.
+  Verified independently of the CLI that this is the correct,
+  deterministic output of the shipped code, not a bug in how this was
+  invoked: a bare `MRG32k3a((12345,)*6).choice(range(-100, 101))` —
+  the exact first draw `mytester.py`'s `get_ranx0` makes — returns
+  `-25` directly. This does not look like a PyMOSO code defect as far
+  as this investigation can tell: `random()`/`choice()`/
+  `normalvariate()` are all deterministic, version-stable computations
+  here (`MRG32k3a` overrides only `random()`; `choice()`'s fallback
+  path has been stable across CPython 3.x for a class that doesn't
+  define `getrandbits()`), and Figure 4's exact match on the same
+  install rules out an environment-wide explanation. The most likely
+  account is that the README's documented replication command is not,
+  in fact, what produced the published Figures 6/7 — the same class of
+  documentation imprecision as the ten defects above, not a new one
+  this project is asserting. Recorded here because it belongs on the
+  record, not because it changes PyMOSO's own status on anything.
+- **Library kwarg `KeyError`** (issue 7): reproduced exactly —
+  `chnutils.solve(ProbTPA, RPERLE, (4, 14))` raises
+  `KeyError: 'budget'`.
+- **Multi-file custom problem loading** (issue 11): reproduced exactly
+  — a problem file importing a sibling module fails with
+  `ModuleNotFoundError: No module named 'helper'`.
+- **Jump-ahead fingerprint** (issue 1): reproduced exactly —
+  `pymoso solve --budget=1000 ProbTPA RPERLE 40 40`'s end seed is
+  divisible by 256 in all six components.
 
 ---
 
