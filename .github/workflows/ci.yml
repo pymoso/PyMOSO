@@ -28,7 +28,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install pymoso and test dependencies
-        run: uv pip install --system -e . pytest pytest-timeout docopt
+        run: uv pip install --system -e . pytest pytest-timeout
 
       - name: Compile check
         run: python -m compileall -q pymoso/
@@ -38,3 +38,35 @@ jobs:
 
       - name: Run doctests
         run: pytest --doctest-modules pymoso/chnutils.py -v
+
+  clean-clone:
+    # Exists specifically to catch undeclared test-time dependencies --
+    # the class of gap the `test` job above cannot catch by design,
+    # since its own install step can quietly grow to include something
+    # extra (docopt did, for a long time: KNOWN_ISSUES.md issue 6,
+    # docs/phase2c-cli-migration.md). This job's install line is the
+    # exact command an external contributor would type; it deliberately
+    # does NOT match the `test` job's line above, and nothing should
+    # ever be added here to make it match -- if the suite needs
+    # something beyond pytest to collect and pass, that need itself
+    # should be questioned before this line is edited to satisfy it.
+    # actions/checkout@v4 below is a clean clone in CI's own terms --
+    # an ephemeral runner, no cache, no state from any other job --
+    # so no literal `git clone` subprocess is needed to prove the
+    # point. Single version (the 3.10 compatibility floor): this job's
+    # purpose is dependency completeness, not cross-version behavior,
+    # which the `test` matrix above already covers.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install pymoso and pytest -- nothing else
+        run: uv pip install --system -e . pytest
+
+      - name: Run the full suite
+        run: pytest tests/ -v
