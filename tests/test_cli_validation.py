@@ -17,6 +17,8 @@ import subprocess
 
 import pytest
 
+from _pymoso_cli import pymoso_argv
+
 pytestmark = pytest.mark.timeout(60)
 
 CASES = [
@@ -29,7 +31,7 @@ CASES = [
 
 @pytest.mark.parametrize("cmd,option_name", CASES, ids=[c[1] for c in CASES])
 def test_non_positive_option_rejected_with_clear_message(cmd, option_name, tmp_path):
-    proc = subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True)
+    proc = subprocess.run(pymoso_argv(cmd), cwd=tmp_path, capture_output=True, text=True)
     assert proc.returncode == 2, proc.stdout + proc.stderr
     assert option_name in proc.stderr
     assert "positive integer" in proc.stderr

@@ -30,6 +30,8 @@ import sys
 
 import pytest
 
+from _pymoso_cli import pymoso_argv
+
 pytestmark = pytest.mark.timeout(90)
 
 # Comfortably above the ~1-3s a real small --simpar run takes when it
@@ -81,7 +83,7 @@ def run_solve(tmp_path, odir, extra_args):
     cmd = ["pymoso", "solve", "--budget=200", f"--odir={odir}", "--seed", *SEED,
            *extra_args, "myproblem.py", "RPERLE", "40"]
     try:
-        return subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True,
+        return subprocess.run(pymoso_argv(cmd), cwd=tmp_path, capture_output=True, text=True,
                                timeout=SUBPROCESS_TIMEOUT)
     except subprocess.TimeoutExpired:
         pytest.fail(
@@ -175,7 +177,7 @@ def test_multifile_problem_under_proc_matches_serial(tmp_path):
 
     cmd = ["pymoso", "testsolve", "--budget=200", "--proc=2", "mytester.py", "RPERLE", "40"]
     try:
-        proc = subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True,
+        proc = subprocess.run(pymoso_argv(cmd), cwd=tmp_path, capture_output=True, text=True,
                                timeout=SUBPROCESS_TIMEOUT)
     except subprocess.TimeoutExpired:
         pytest.fail(

@@ -26,13 +26,14 @@ import subprocess
 import pytest
 
 from pymoso import __version__
+from _pymoso_cli import pymoso_argv
 
 pytestmark = pytest.mark.timeout(60)
 
 
 def run(args, cwd):
-    """Run the real `pymoso` console script as a subprocess."""
-    return subprocess.run(["pymoso"] + args, cwd=cwd, capture_output=True, text=True)
+    """Run the real `pymoso` CLI as a subprocess (`python -m pymoso`)."""
+    return subprocess.run(pymoso_argv(["pymoso"] + args), cwd=cwd, capture_output=True, text=True)
 
 
 # ---------------------------------------------------------------------------

@@ -30,6 +30,8 @@ produces), not assumed.
 import difflib
 import subprocess
 
+from _pymoso_cli import pymoso_argv
+
 HELP_COMMANDS = [
     ["pymoso", "--help"],
     ["pymoso", "solve", "--help"],
@@ -39,7 +41,7 @@ HELP_COMMANDS = [
 
 
 def run(argv):
-    proc = subprocess.run(argv, capture_output=True, text=True)
+    proc = subprocess.run(pymoso_argv(argv), capture_output=True, text=True)
     assert proc.returncode == 0, (argv, proc.stderr)
     return proc.stdout.rstrip("\n")
 
