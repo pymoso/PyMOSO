@@ -17,23 +17,25 @@ expectations encode.
 Every test here spawns the real `pymoso` subprocess, so a hang in the
 CLI (see tests/test_simpar_worker_lifecycle.py for the specific bug
 this guards against) would otherwise hang the whole suite.
-pytest-timeout's module-level marker below forces any such hang to
-fail after 60 seconds -- generous over every real test's ~1-3s
-runtime -- instead of consuming the run indefinitely.
+Each subprocess has its own `timeout=` (CLI_TIMEOUT), so a hang fails
+that test with TimeoutExpired even without pytest-timeout installed;
+the module-level marker below is a second backstop where the plugin
+is present, generous over every real test's ~1-3s runtime.
 """
 import subprocess
 
 import pytest
 
 from pymoso import __version__
-from _pymoso_cli import pymoso_argv
+from _pymoso_cli import CLI_TIMEOUT, pymoso_argv
 
 pytestmark = pytest.mark.timeout(60)
 
 
 def run(args, cwd):
     """Run the real `pymoso` CLI as a subprocess (`python -m pymoso`)."""
-    return subprocess.run(pymoso_argv(["pymoso"] + args), cwd=cwd, capture_output=True, text=True)
+    return subprocess.run(pymoso_argv(["pymoso"] + args), cwd=cwd, capture_output=True, text=True,
+                          timeout=CLI_TIMEOUT)
 
 
 # ---------------------------------------------------------------------------

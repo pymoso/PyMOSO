@@ -30,7 +30,7 @@ produces), not assumed.
 import difflib
 import subprocess
 
-from _pymoso_cli import pymoso_argv
+from _pymoso_cli import CLI_TIMEOUT, pymoso_argv
 
 HELP_COMMANDS = [
     ["pymoso", "--help"],
@@ -41,7 +41,7 @@ HELP_COMMANDS = [
 
 
 def run(argv):
-    proc = subprocess.run(pymoso_argv(argv), capture_output=True, text=True)
+    proc = subprocess.run(pymoso_argv(argv), capture_output=True, text=True, timeout=CLI_TIMEOUT)
     assert proc.returncode == 0, (argv, proc.stderr)
     return proc.stdout.rstrip("\n")
 

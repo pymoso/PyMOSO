@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from _pymoso_cli import pymoso_argv
+from _pymoso_cli import CLI_TIMEOUT, pymoso_argv
 from pymoso.chnutils import solve, testsolve
 from pymoso.problems.probtpa import ProbTPA
 from pymoso.solvers.rperle import RPERLE
@@ -96,7 +96,8 @@ CASES = {
 
 
 def end_seed(cmd, cwd):
-    proc = subprocess.run(pymoso_argv(cmd), cwd=cwd, capture_output=True, text=True)
+    proc = subprocess.run(pymoso_argv(cmd), cwd=cwd, capture_output=True, text=True,
+                          timeout=CLI_TIMEOUT)
     assert proc.returncode == 0, proc.stderr
     match = SEED_RE.search(proc.stdout)
     assert match, f"no seed line found in:\n{proc.stdout}"

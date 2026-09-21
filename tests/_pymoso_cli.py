@@ -17,6 +17,14 @@ variables; no test here relies on any.
 """
 import sys
 
+# Per-subprocess time limit for CLI tests that don't set their own. Passed
+# as `timeout=` to subprocess.run so a hang fails that one test with
+# TimeoutExpired, with or without pytest-timeout installed. The slowest CLI
+# case measured is ~7s (solve --odir); 30s matches the SUBPROCESS_TIMEOUT
+# used elsewhere in the suite and stays under the 60s module marker, so
+# this fires first with the specific error.
+CLI_TIMEOUT = 30
+
 
 def pymoso_argv(cmd):
     """Turn a `["pymoso", *args]` command list into a real argv."""
