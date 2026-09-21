@@ -331,7 +331,7 @@ finds nothing. `fork`'s copy-on-write inheritance masked this
 completely — it's why this went unnoticed through the whole 1.x
 history. Full mechanism, a minimal reproduction independent of pymoso,
 and the options considered: `docs/forkserver-hang.md`,
-`KNOWN_ISSUES.md` issue 9.
+`KNOWN_ISSUES.md` issue 7.
 
 Fixed on this branch (not upstream) by not sending `orccls` by
 reference at all when it's one of these dynamically-loaded classes.
@@ -377,7 +377,7 @@ fully-constructed, already-seeded `Oracle` *instance* per job (live RNG
 state included), not a class reference, so the class-reconstruction
 approach above doesn't extend to it — reconstructing a live object
 mid-computation from transportable data is a different, harder problem
-than reconstructing a class from source. `KNOWN_ISSUES.md` issue 9 and
+than reconstructing a class from source. `KNOWN_ISSUES.md` issue 7 and
 `tests/test_multifile_transport.py::test_multifile_problem_under_proc_matches_serial`
 (`xfail` on Python 3.14+, confirmed actually reproducing there) record
 this as open.

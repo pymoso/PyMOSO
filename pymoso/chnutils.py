@@ -49,7 +49,7 @@ from .prng.base import one_past
 # removed as of docs/rng-interface-design.md §12 step 4b: each path's
 # oracle stream is now computed directly from `isp` via ISP_STRIDE
 # (get_testsolve_prnstreams below), so there is no reservation to
-# overrun and nothing left to guard. See KNOWN_ISSUES.md issue 3 for the
+# overrun and nothing left to guard. See KNOWN_ISSUES.md issue 2 for the
 # defect this originally fixed, and its current status note.
 
 # Defaults for solve()/testsolve()'s keyword arguments, matching the CLI's

@@ -29,7 +29,7 @@ specifically, a direct re-check against a real PyPI 1.0.8 install:
   independently of this project. See KNOWN_ISSUES.md issue 2 and
   docs/upstream-simpar.md, not this file, for the current picture.
 - Item 3 (MAX_RI): re-verified by tests/test_max_ri.py at the time, and
-  by KNOWN_ISSUES.md issue 3's direct 1.0.8 source check (bare
+  by KNOWN_ISSUES.md issue 2's direct 1.0.8 source check (bare
   `max_RI = 200`, still unenforced) -- the latter still holds, but
   test_max_ri.py itself was deleted when MAX_RI was removed entirely
   from this branch (§12 step 4b: the reserved-window guard it tested
@@ -39,7 +39,7 @@ specifically, a direct re-check against a real PyPI 1.0.8 install:
   test_iteration_and_replication_never_overflow_one_isp_stride_block /
   test_no_collision_between_isp_paths_at_iteration_counts_well_beyond_max_ri.
 - Item 4 (infeasible x0): re-verified by tests/test_infeasible_x0.py,
-  and by KNOWN_ISSUES.md issue 5's direct 1.0.8 behavioral check
+  and by KNOWN_ISSUES.md issue 4's direct 1.0.8 behavioral check
   (same KeyError/"Unable to run accel()" outputs reproduced live).
 - Item 5 (Oracle.bump()): not independently re-verified on this
   branch by any permanent test as of this porting; read as historical
@@ -48,7 +48,7 @@ specifically, a direct re-check against a real PyPI 1.0.8 install:
   boundary -- but that removal is not part of `release-1.1.0`:
   `Oracle.bump()` is still present and unchanged here. Don't assume
   `pymoso-migration`'s KNOWN_ISSUES.md issue numbering applies on this
-  branch either -- this branch's own issue 13 is the unrelated
+  branch either -- this branch's own issue 14 is the unrelated
   MOCOMPASS/MOPBnB exclusion.)
 
 Body below is otherwise unedited from old-work.

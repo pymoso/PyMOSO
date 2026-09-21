@@ -135,7 +135,7 @@ def _run_example(cmd, tmp_path):
 
 @pytest.mark.parametrize("cmd", CLI_EXAMPLES, ids=range(len(CLI_EXAMPLES)))
 def test_readme_cli_example_is_invocable(cmd, tmp_path):
-    # KNOWN_ISSUES.md issue 9: testsolve()'s --proc path ships a live,
+    # KNOWN_ISSUES.md issue 7: testsolve()'s --proc path ships a live,
     # already-seeded Oracle instance per job, not a class reference, so
     # the --simpar source-bundle transport fix doesn't cover it -- it
     # still hangs on Python 3.14+ (forkserver) for a dynamically-loaded
@@ -150,7 +150,7 @@ def test_readme_cli_example_is_invocable(cmd, tmp_path):
     # which reproduces this exact gap on demand.
     if "testsolve" in cmd and (".py" in cmd) and sys.version_info >= (3, 14):
         pytest.xfail(
-            "KNOWN_ISSUES.md issue 9: testsolve() + a dynamically-loaded "
+            "KNOWN_ISSUES.md issue 7: testsolve() + a dynamically-loaded "
             "file hangs on Python 3.14+ (forkserver), regardless of --proc "
             "-- see "
             "tests/test_multifile_transport.py::test_multifile_problem_under_proc_matches_serial"

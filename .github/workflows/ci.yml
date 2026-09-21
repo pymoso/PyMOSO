@@ -14,7 +14,7 @@ jobs:
         # 3.14 is the development environment (.venv-dev) -- forkserver is
         # its default multiprocessing start method, unlike fork on 3.10-3.13,
         # which is where the known --proc/--simpar gaps live (see
-        # KNOWN_ISSUES.md issue 9, docs/forkserver-hang.md). Those are
+        # KNOWN_ISSUES.md issue 7, docs/forkserver-hang.md). Those are
         # handled with conditional xfail markers (sys.version_info >= (3,
         # 14)) rather than by excluding 3.14 from the matrix, so it still
         # gates on anything else.
@@ -43,7 +43,7 @@ jobs:
     # Exists specifically to catch undeclared test-time dependencies --
     # the class of gap the `test` job above cannot catch by design,
     # since its own install step can quietly grow to include something
-    # extra (docopt did, for a long time: KNOWN_ISSUES.md issue 6,
+    # extra (docopt did, for a long time: KNOWN_ISSUES.md issue 5,
     # docs/phase2c-cli-migration.md). This job's install line is the
     # exact command an external contributor would type; it deliberately
     # does NOT match the `test` job's line above, and nothing should

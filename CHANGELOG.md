@@ -28,7 +28,7 @@ fixed — `Oracle` is a context manager now, so worker cleanup runs even
 when a run raises partway through. (One related leak — worker
 processes orphaned if the *parent* process is killed externally, e.g.
 `SIGKILL` — is not fixed; no Python-level mechanism can fully close
-that gap. See `KNOWN_ISSUES.md` issue 10.)
+that gap. See `KNOWN_ISSUES.md` issue 8.)
 
 **CLI rewritten on argparse; zero runtime dependencies.** `docopt` is
 gone from the runtime path (`install_requires = []` — confirmed empty
@@ -42,7 +42,7 @@ token — including the problem or solver name — and complete a run
 using the wrong seed or starting point, with no error. `argparse`'s
 per-option arity validation closes this: a malformed `--seed`/
 `--param` now fails cleanly with a real error message and a non-zero
-exit code. See `KNOWN_ISSUES.md` issue 6.
+exit code. See `KNOWN_ISSUES.md` issue 5.
 
 **Library API defaults that had never actually worked.**
 `chnutils.solve()`/`chnutils.testsolve()`, called exactly as the
@@ -53,14 +53,14 @@ including this project's own original base. Defaults are restored and
 centralized (`DEFAULT_BUDGET`, etc.), matching the CLI's own
 documented values, with a test asserting the two can't drift apart.
 Calling the library functions as documented now works. See
-`KNOWN_ISSUES.md` issue 7.
+`KNOWN_ISSUES.md` issue 6.
 
 **Multi-file custom problems/testers.** A user-supplied problem or
 tester file that imports a sibling module in the same directory (the
 realistic shape for any nontrivial simulation) failed immediately with
 `ModuleNotFoundError`, on every version checked, including 1.0.8 —
 `sys.path` was never updated to include the file's own directory.
-Fixed. See `KNOWN_ISSUES.md` issue 11.
+Fixed. See `KNOWN_ISSUES.md` issue 9.
 
 **Python 3.10–3.14.** CPython `random.Random` internals this project
 depended on directly were removed; the package now runs across the
@@ -75,14 +75,14 @@ transport), but `testsolve --proc` ships a live, already-seeded
 `Oracle` instance to each worker, which that fix doesn't cover — the
 result is an indefinite hang, no error, specific to custom problem/
 tester files supplied by path (built-in problems/testers are
-unaffected). See `KNOWN_ISSUES.md` issue 9.
+unaffected). See `KNOWN_ISSUES.md` issue 7.
 
 **MOCOMPASS and MOPBnB are not in this release.** They are not
 shipped: bringing in-tree implementations of two other groups'
 published algorithms, and reviewing their correctness against the
 source papers, is deliberately deferred to 2.0.0 rather than falling
 out incidentally from this release's version boundary. See
-`KNOWN_ISSUES.md` issue 13.
+`KNOWN_ISSUES.md` issue 14.
 
 **Documentation.** Ten documentation defects in example code are
 fixed, plus one found separately: a pre-existing `TabError` in
@@ -90,7 +90,7 @@ fixed, plus one found separately: a pre-existing `TabError` in
 Python 3 import of the file at all) that turns out to block the
 published paper's own documented Figure 6/7 replication command from
 running, on the peer-reviewed archive itself — see `KNOWN_ISSUES.md`
-issue 14. README code blocks, CLI help text, and the `listitems`
+issue 11. README code blocks, CLI help text, and the `listitems`
 output are now generated from and tested byte-identical against live
 source, so they can't drift silently. `docs/end-seed-scope.md` explains
 precisely what a reported end seed does and does not guarantee (it

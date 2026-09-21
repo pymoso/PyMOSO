@@ -62,7 +62,7 @@ what every subsequent regeneration should do.
   `chnutils.solve()`/`chnutils.testsolve()` calls. These functions had
   never been under any regression coverage before this migration --
   only the CLI, which always passes every keyword argument explicitly,
-  was ever exercised (see KNOWN_ISSUES.md issue 7). Both match their
+  was ever exercised (see KNOWN_ISSUES.md issue 6). Both match their
   CLI counterparts' end seeds exactly, as expected: the CLI commands
   are thin wrappers over these same functions.
 

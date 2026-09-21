@@ -5,7 +5,7 @@ point_code -- the specific gap identified before regenerating goldens
 (§8.1's own "goldens can't verify what they encode" point, extended:
 test_solution_sensitivity.py is a real, valuable integration check
 (tests/test_mocompass_mopbnb_compat.py would be too, on branches where
-MOCOMPASS/MOPBnB ship -- not this one, see KNOWN_ISSUES.md issue 13),
+MOCOMPASS/MOPBnB ship -- not this one, see KNOWN_ISSUES.md issue 14),
 but it compares against baselines that get regenerated to match
 whatever this step's code produces, so it isn't independent
 verification once that happens, and doesn't directly isolate

@@ -5,7 +5,7 @@ tests/test_cli_characterization.py's docopt-specific tests once
 pymoso/cli.py moved to argparse; that file was later deleted (it was
 the only thing in this suite with a live `docopt` import, an
 undeclared test-time dependency -- see docs/phase2c-cli-migration.md
-and KNOWN_ISSUES.md issue 6, which preserve what it demonstrated). The
+and KNOWN_ISSUES.md issue 5, which preserve what it demonstrated). The
 subprocess-level checks here describe how the real `pymoso` command
 behaves today, and should be updated deliberately (with the reason
 recorded) whenever that behavior legitimately changes.
@@ -328,7 +328,7 @@ def test_param_option_after_other_options_still_accepted(tmp_path):
 
 def test_seed_and_param_interleaved_out_of_order_now_parses_correctly(tmp_path):
     """This is the actual fix for the silent-misparse bug documented in
-    KNOWN_ISSUES.md issue 6 and docs/phase2c-cli-migration.md: --seed
+    KNOWN_ISSUES.md issue 5 and docs/phase2c-cli-migration.md: --seed
     and --param no longer compete for each other's tokens when given in
     an order no example shows, because argparse treats each optional's
     nargs independently of the others, not as one shared token stream."""
@@ -342,7 +342,7 @@ def test_seed_and_param_interleaved_out_of_order_now_parses_correctly(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Multi-file custom problems (KNOWN_ISSUES.md issue 11): commands/solve.py
+# Multi-file custom problems (KNOWN_ISSUES.md issue 9): commands/solve.py
 # never added a dynamically-loaded file's own directory to sys.path, so a
 # sibling import failed outright -- confirmed on this branch and on a real
 # PyPI 1.0.8 install, single process, no --simpar/--proc involved. Fixed
@@ -389,7 +389,7 @@ class MyProblem(Oracle):
 def test_multifile_custom_problem_loads_and_solves(tmp_path):
     """A custom problem file importing a sibling helper module must
     load and solve in a single process, no --simpar/--proc. Confirmed
-    failing before the fix (KNOWN_ISSUES.md issue 11): raw
+    failing before the fix (KNOWN_ISSUES.md issue 9): raw
     ModuleNotFoundError, identical on this branch and a real PyPI 1.0.8
     install."""
     (tmp_path / 'helper.py').write_text(MULTIFILE_HELPER)

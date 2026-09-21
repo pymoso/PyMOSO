@@ -1,8 +1,8 @@
 """
 Transport correctness for multi-file custom problems under --simpar
-(KNOWN_ISSUES.md issue 9, docs/forkserver-hang.md): the actual
+(KNOWN_ISSUES.md issue 7, docs/forkserver-hang.md): the actual
 regression test for the forkserver hang, using a real multi-file
-fixture (the one from KNOWN_ISSUES.md issue 11 / tests/test_cli.py --
+fixture (the one from KNOWN_ISSUES.md issue 9 / tests/test_cli.py --
 requires that loading bug fixed first, or this test can't even get to
 the transport question) run under real --simpar, not a synthetic
 reproduction.
@@ -86,7 +86,7 @@ def run_solve(tmp_path, odir, extra_args):
     except subprocess.TimeoutExpired:
         pytest.fail(
             f"{' '.join(cmd)} did not complete within {SUBPROCESS_TIMEOUT}s -- "
-            "the forkserver hang (KNOWN_ISSUES.md issue 9, docs/forkserver-hang.md) "
+            "the forkserver hang (KNOWN_ISSUES.md issue 7, docs/forkserver-hang.md) "
             "has regressed, or the transport fix isn't landed yet."
         )
 
@@ -119,7 +119,7 @@ def test_multifile_problem_under_simpar_matches_serial(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# testsolve()'s --proc path (KNOWN_ISSUES.md issue 9): a structurally
+# testsolve()'s --proc path (KNOWN_ISSUES.md issue 7): a structurally
 # different mechanism from --simpar (chnutils.par_runs, a
 # multiprocessing.Pool dispatching one job per independent sample path,
 # each job carrying a fully-constructed, already-seeded Oracle instance
@@ -127,7 +127,7 @@ def test_multifile_problem_under_simpar_matches_serial(tmp_path):
 # (which reconstructs classes) does not cover it. Documented as
 # reproducible, not suspected, with its own fixture, same discipline as
 # the --simpar test above. xfail is conditional on Python 3.14+: this
-# is the same fork-vs-forkserver split as issue 9, not a universal
+# is the same fork-vs-forkserver split as issue 7, not a universal
 # failure -- unconditional xfail would XPASS (and fail, strict=True) on
 # 3.10-3.13, where fork's copy-on-write inheritance already makes this
 # work today.
@@ -158,7 +158,7 @@ class MyTester(object):
     condition=sys.version_info >= (3, 14),
     strict=True,
     reason=(
-        "KNOWN_ISSUES.md issue 9: testsolve()'s --proc path "
+        "KNOWN_ISSUES.md issue 7: testsolve()'s --proc path "
         "(chnutils.par_runs, multiprocessing.Pool) ships a "
         "fully-constructed, already-seeded Oracle instance per job, not a "
         "class reference -- reconstructing a live object with RNG state is "
@@ -180,7 +180,7 @@ def test_multifile_problem_under_proc_matches_serial(tmp_path):
     except subprocess.TimeoutExpired:
         pytest.fail(
             f"{' '.join(cmd)} did not complete within {SUBPROCESS_TIMEOUT}s -- "
-            "reproduces KNOWN_ISSUES.md issue 9's --proc gap."
+            "reproduces KNOWN_ISSUES.md issue 7's --proc gap."
         )
     assert proc.returncode == 0, proc.stderr
 

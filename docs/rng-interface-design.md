@@ -7,7 +7,7 @@ interface (`--generator`, `pymoso/prng/registry.py`, per-backend
 threading through `Oracle`, §§3.6-3.9), CRN-branch convergence, and the
 MOCOMPASS/MOPBnB external-validation analysis (§4.2) all land after
 this branch's `b637a3e` boundary, or are excluded from this release
-outright (see `KNOWN_ISSUES.md` issue 13) — together the largest parts
+outright (see `KNOWN_ISSUES.md` issue 14) — together the largest parts
 of this document, including all of §12's step list. What 1.1.0 does
 ship is the core coordinate mechanism this design produced —
 coordinate-derived streams, `visit=`/`sync=`, the non-CRN default,
@@ -433,7 +433,7 @@ if not, rather than silently reducing mod something and risking a
 collision no one can see. This mirrors this project's own established
 posture toward exactly this class of problem — `MAX_RI` moved from an
 unenforced bare local to a promoted, checked constant (KNOWN_ISSUES.md
-issue 3); the same move here is: fail loudly and exactly, never silently
+issue 2); the same move here is: fail loudly and exactly, never silently
 and probabilistically.
 
 **Sizing, adaptive per Oracle.** Split the within-iteration budget
@@ -1197,7 +1197,7 @@ four integers and the root seed, which is exactly what `--simpar`'s
 existing per-replication dispatch already sends (`hit()`'s `simpar > 1`
 branch already does `cseed = self.rng.get_seed(); self.req_q.put((x,
 cseed))` — a concrete seed, not a live object). This is precisely the
-gap `testsolve`'s `--proc` path has instead (KNOWN_ISSUES.md issue 9,
+gap `testsolve`'s `--proc` path has instead (KNOWN_ISSUES.md issue 7,
 `docs/forkserver-hang.md`'s "prerequisite for the Spark goal" section):
 it ships fully-constructed, already-seeded `Oracle` instances because
 there was no cheaper way to hand a worker "the right position" than
@@ -2593,7 +2593,7 @@ on top.
   calc_m(200) ≈ 2**28.5 still leaves ~5.6x margin. Headroom beyond
   calc_m(200)'s scale is moot regardless: `calc_m`'s own float overflow
   (nu≈7440) is preceded by `calc_b`'s (nu≈3882, KNOWN_ISSUES.md issue
-  12) for every RASolver-family case checked, so a run reaching a
+  13) for every RASolver-family case checked, so a run reaching a
   larger `m` than `REPL_COUNT_BITS` covers already fails via that
   overflow before `hit()` ever sees it — the same reasoning step 4a
   applied when sizing the original `REPL_BITS` against calc_m(200)

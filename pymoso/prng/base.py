@@ -148,7 +148,7 @@ REPL_COUNT_BITS = 32    # replication index < 2**32 -- unchanged from the
                         # (~2**28.5, checked directly, not assumed -- see
                         # docs/rng-interface-design.md), ~5.6x margin here.
                         # calc_m/calc_b's own float overflow (nu ~7440/
-                        # ~3882 respectively -- KNOWN_ISSUES.md issue 12)
+                        # ~3882 respectively -- KNOWN_ISSUES.md issue 13)
                         # makes headroom beyond calc_m(200)'s scale moot:
                         # a solver ever reaching a larger m already fails
                         # via that overflow before hit() sees it
@@ -171,7 +171,7 @@ class PointCodeOverflow(ValueError):
     this problem's dimension leaves available. Raised, not silently
     reduced mod something -- fail loudly and exactly, the same posture
     MAX_RI moved to when it became a checked constant (KNOWN_ISSUES.md
-    issue 3), per §3.4."""
+    issue 2), per §3.4."""
 
 
 class VisitOverflow(ValueError):
@@ -380,7 +380,7 @@ class StreamFamilyExceeded(ValueError):
     family (e.g. the same isp path's own reserved run of iteration
     values). Raised, not silently landed in adjacent, already-allocated
     territory -- the same class of defect MAX_RI's unenforced silent
-    overlap was (KNOWN_ISSUES.md issue 3): a boundary that looks safe
+    overlap was (KNOWN_ISSUES.md issue 2): a boundary that looks safe
     only because nothing has reached it. `stream_family_capacity=None`
     means the caller has deliberately chosen not to bound this family
     (documented per call site, e.g. MRG's own sync axis relies on
