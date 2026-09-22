@@ -404,7 +404,8 @@ it.
 
 ---
 
-### 10. `testsolve()`'s path-0 oracle stream and the last path's solver stream share a starting seed
+### 10. `testsolve()`'s path-0 oracle stream and the last path's solver
+stream share a starting seed
 
 **Affects:** confirmed on this branch's current code; **not** checked
 against 1.0.8 or the canonical repository, unlike issue 9 above — the

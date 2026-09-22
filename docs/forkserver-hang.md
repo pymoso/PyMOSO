@@ -156,7 +156,7 @@ since 3.8; nothing guarantees it stays available on Linux either).
 Fine as a short-term unblock if one is needed; not a design to settle
 on.
 
-## This is a prerequisite for the Spark goal, not a detour
+## This is a prerequisite for the Spark goal
 
 A Spark worker is a fresh process on a *different machine* — strictly
 worse than `forkserver` for this purpose: no shared filesystem access

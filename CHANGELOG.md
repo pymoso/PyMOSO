@@ -4,20 +4,21 @@
 
 **Upgrading from 1.0.8? Read this first: numerical results will not match.**
 
+This release requires at least Python version 3.10 and is compatible with
+subsequent versions. 
+
 This release fixes an incorrect pseudo-random stream jump-ahead defect
-present in every published 1.x version, including 1.0.8. `mrg32k3a`'s
+present in versions up to 1.0.8. `mrg32k3a`'s
 stream-advance matrix multiplication was done in floating point, losing
 precision and landing streams near — not at — their intended positions,
 with error compounding across successive jumps. Every individual
 simulation replication draws from a correct stream; the defect was
-confined to how streams were advanced between them. **This is an
-implementation fix, not a correction to the published convergence
-theory** the algorithms are proven against — the theory is unaffected,
-but end seeds and per-run solution values from 1.x will not reproduce
+confined to how streams were advanced between them,
+but end seeds and per-run solution values from 1.0.x will not reproduce
 bit-for-bit under 1.1.0, for any seed. See `KNOWN_ISSUES.md` issue 1
 for the full mechanism and verification.
 
-**Error handling.** Bare `except:` clauses that swallowed tracebacks
+**Error handling.** Bare `except:` clauses that suppressed tracebacks
 are gone — errors now report specific exception types with real
 tracebacks. Library code that called `sys.exit()` on bad input now
 raises instead, so library callers can catch it rather than having
@@ -44,21 +45,20 @@ per-option arity validation closes this: a malformed `--seed`/
 `--param` now fails cleanly with a real error message and a non-zero
 exit code. See `KNOWN_ISSUES.md` issue 5.
 
-**Library API defaults that had never actually worked.**
+**Library API defaults that had never actually worked using illustrative examples.**
 `chnutils.solve()`/`chnutils.testsolve()`, called exactly as the
-README's own documented examples show (omitting `budget`, `seed`,
+README's documented examples show (omitting `budget`, `seed`,
 `simpar`, etc.), raised `KeyError` immediately — every keyword
 argument was popped with no default, on every version checked,
 including this project's own original base. Defaults are restored and
-centralized (`DEFAULT_BUDGET`, etc.), matching the CLI's own
-documented values, with a test asserting the two can't drift apart.
+centralized (`DEFAULT_BUDGET`, etc.), matching the CLI's own values, with
+a test asserting the two can't drift apart.
 Calling the library functions as documented now works. See
 `KNOWN_ISSUES.md` issue 6.
 
 **Multi-file custom problems/testers.** A user-supplied problem or
-tester file that imports a sibling module in the same directory (the
-realistic shape for any nontrivial simulation) failed immediately with
-`ModuleNotFoundError`, on every version checked, including 1.0.8 —
+tester file that imports a sibling module in the same directory failed
+immediately with `ModuleNotFoundError`, on every version checked, including 1.0.8 —
 `sys.path` was never updated to include the file's own directory.
 Fixed. See `KNOWN_ISSUES.md` issue 9.
 
@@ -84,13 +84,8 @@ source papers, is deliberately deferred to 2.0.0 rather than falling
 out incidentally from this release's version boundary. See
 `KNOWN_ISSUES.md` issue 14.
 
-**Documentation.** Ten documentation defects in example code are
-fixed, plus one found separately: a pre-existing `TabError` in
-`pymoso/examples/mytester.py` (mixed tabs and spaces, blocking any
-Python 3 import of the file at all) that turns out to block the
-published paper's own documented Figure 6/7 replication command from
-running, on the peer-reviewed archive itself — see `KNOWN_ISSUES.md`
-issue 11. README code blocks, CLI help text, and the `listitems`
+**Documentation.** Documentation defects in example code are
+fixed, plus one found separately: README code blocks, CLI help text, and the `listitems`
 output are now generated from and tested byte-identical against live
 source, so they can't drift silently. `docs/end-seed-scope.md` explains
 precisely what a reported end seed does and does not guarantee (it
