@@ -1197,23 +1197,19 @@ class Oracle(object):
     Count of completed crn_advance() calls (one per RA iteration).
     Meaningful mainly under crnflag=True, where it determines the
     current iteration's baseline coordinate; tracked unconditionally
-    since it costs nothing and later steps (visit=/sync=) need it.
+    since later steps (visit=/sync=) need it.
     _iteration_baseline_seed : tuple of int
-    The current RA iteration's baseline mrg32k3a seed -- what
-    crnold_state used to hold. Under crnflag=True, hit()/bump() rewind
+    The current RA iteration's baseline mrg32k3a seed.
+     Under crnflag=True, hit()/bump() rewind
     both `rng` and _next_seed to this seed at the start of every call,
     so different points visited in the same iteration draw from the
-    same baseline (this rewind-then-walk-forward *is* what "common
-    random numbers" means here -- see §2). Under crnflag=False it is
+    same baseline. Under crnflag=False it is
     tracked but never used to rewind anything.
     _next_seed : tuple of int
-    Where the *next* replication's stream starts -- what crn_obsold
-    used to hold. Advances by exactly one 2**76 hop per replication,
+    Where the *next* replication's stream starts. Advances by exactly
+    one 2**76 hop per replication,
     computed from its own previous value, never from wherever `rng`
-    happened to end up (`g()`'s own draws mutate `rng`, and a solver may
-    externally overwrite it -- see `rng` above; both are irrelevant to
-    this progression, by design, the same way they were irrelevant to
-    crn_obsold's). `rng` is reset to this value immediately before every
+    happened to end up. `rng` is reset to this value immediately before every
     jump, discarding whatever it held, so the two stay equal exactly at
     the boundary between replications -- never assumed equal mid-call.
     _orc_root : tuple of int
@@ -1401,9 +1397,7 @@ class Oracle(object):
         actually handed to `g()` so far -- §8.2's high-water-mark
         `endseed` (docs/rng-interface-design.md), replacing
         `crn_advance()`'s own call-count-only reporting (`_iteration *
-        ITER_STRIDE`), which lost real information (confirmed
-        empirically: MOCOMPASS and MOPBnB used to report identical
-        `endseed`s for verified-different consumption).
+        ITER_STRIDE`).
 
         **Oracle-role only** (§8.2's own explicit scoping, not "every
         role" a run touches): a solver's own draws -- `RASolver`'s
@@ -1421,14 +1415,12 @@ class Oracle(object):
         to also bound solver-role consumption would be relying on
         something this method does not actually provide.
 
-        **The carry, proven safe before use, not assumed** (§12 step
-        6c): `_high_water_mark` stores the last coordinate genuinely
+        The carry  (§12 step 6c): `_high_water_mark` stores the last coordinate
         touched, as `(stream, offset)`; the seed returned must be one
         past it -- `pymoso.prng.base.one_past(stream, offset,
         offset_capacity, stream_family_capacity)`, which raises
         `StreamFamilyExceeded` rather than silently landing in a
-        different, already-allocated family's own territory (the same
-        class of defect `MAX_RI`'s unenforced silent overlap was). The
+        different, already-allocated family's own territory. The
         family capacity depends on which zone the touch's own `stream`
         falls in: below `SYNC_ZONE_STREAM_START`, it's the default/CRN
         zone, bounded by `ISP_ITER_MARGIN` (how many iterations one isp
