@@ -216,26 +216,29 @@ The default installation of PyMOSO includes a selection of solvers, testers, and
 
 ```
 
-Solver                         Description                   
-************************       ************************      
-MOCOMPASS                      MO-COMPASS solver for multi-objective discrete optimization via simulation.
-MOPBnB                         MOPBnB solver for Pareto-optimal approximation via probabilistic branch and bound.
-RMINRLE                        A solver using R-MinRLE for integer-ordered MOSO.
-RPE                            R-Pe solver for bi-objective simulation optimization.
-RPERLE                         R-PERLE solver for bi-objective simulation optimization.
-RSPLINE                        R-SPLINE solver for single-objective simulation optimization.
+Solver                 Description
+*********************  ************************************************************
+RMINRLE                A solver using R-MinRLE for integer-ordered MOSO.
+RPE                    R-Pe solver for bi-objective simulation optimization.
+RPERLE                 R-PERLE solver for bi-objective simulation optimization.
+RSPLINE                R-SPLINE solver for single-objective simulation
+                       optimization.
 
-Problems                       Description                                                  Test Name (if available)      
-************************       ************************                                     ************************      
-BSProb                         An Oracle that simulates a bus-scheduling problem, minimizing total BSTester                      
-ProbExpensive                  An Oracle simulating the same problem as ProbSimpleSO, plus a ExpensiveTester               
-ProbExpensiveHeavy             ProbExpensive at a heavy cost tier: burn_units=60,000.                                     
-ProbExpensiveLight             ProbExpensive at a light cost tier: burn_units=2,000.                                      
-ProbExpensiveModerate          ProbExpensive at a moderate cost tier: burn_units=20,000.    ExpensiveTester               
-ProbSimpleSO                   An Oracle that simulates the Test Simple SO problem.         SimpleSOTester                
-ProbTPA                        An Oracle that simulates Test Problem A.                     TPATester                     
-ProbTPB                        An Oracle that simulates Test Problem B.                     TPBTester                     
-ProbTPC                        An Oracle that simulates Test Problem C.                     TPCTester                     
+Problems               Description                                                   Test Name (if available)
+*********************  ************************************************************  ************************
+BSProb                 An Oracle that simulates a bus-scheduling problem,            BSTester
+                       minimizing total passenger wait time and bus-dispatch cost.
+ProbExpensive          An Oracle simulating the same problem as ProbSimpleSO, plus
+                       a tunable CPU burn per replication that does not affect
+                       g()'s output.
+ProbExpensiveHeavy     ProbExpensive at a heavy cost tier: burn_units=60,000.
+ProbExpensiveLight     ProbExpensive at a light cost tier: burn_units=2,000.
+ProbExpensiveModerate  ProbExpensive at a moderate cost tier: burn_units=20,000.     ExpensiveTester
+ProbSimpleSO           An Oracle that simulates the Test Simple SO problem.          SimpleSOTester
+ProbTPA                An Oracle that simulates Test Problem A.                      TPATester
+ProbTPB                An Oracle that simulates Test Problem B.                      TPBTester
+ProbTPC                An Oracle that simulates Test Problem C.                      TPCTester
+                   
 ```
 
 ### The `solve` command

@@ -66,6 +66,32 @@ also lacks files this branch has, and citations to
 references on `release-1.1.0` — checked and fixed there specifically,
 not assumed to carry over.
 
+**`KNOWN_ISSUES.md` issue numbering has diverged between the two
+branches (recorded 2026-09-21; 2.0.0 work is paused, so this is
+unreconciled).** `release-1.1.0` renumbered its file by hand and
+updated every citation on that branch to match, so a
+`KNOWN_ISSUES.md issue N` reference means different things depending on
+the branch. This branch's committed file and all its citations (code
+comments, test docstrings, xfail reasons, docs) still use the old
+numbering, deliberately untouched. Where the old numberings agree
+(`release-1.1.0` before its renumbering, and this branch), the mapping
+to `release-1.1.0`'s new numbers is 1->1, 3->2, 4->3, 5->4, 6->5, 7->6,
+9->7, 10->8, 11->9, 8->12, 12->13. The old numberings disagree from 13
+on: this branch has 13 = `Oracle.bump()` removal, 14 = `testsolve()`
+path-0/last-path seed sharing, 15 = `mytester.py` `TabError`; release had
+13 = MOCOMPASS/MOPBnB exclusion, 14 = `mytester.py` `TabError`, and now
+has 14 = MOCOMPASS/MOPBnB exclusion, 11 = `TabError`, 10 =
+path-0/last-path seed sharing. Old issue 2 (`--simpar`,
+development-history only) was dropped from release's file, so its
+citations there dangle. Release's file also dropped the INFORMS
+archival cross-check section, which this branch's committed file still
+carries. `bump()` removal exists only on this branch; the MOCOMPASS/
+MOPBnB exclusion only on release. When 2.0.0 resumes, reconcile
+deliberately -- pick one numbering, then remap citations in one pass --
+rather than merging `KNOWN_ISSUES.md` textually: merging
+`release-1.1.0` into this branch will conflict on that file and
+mis-number every citation a merge auto-resolves.
+
 `docs/rng-interface-design.md` carries the same boundary note at its
 own head, step-by-step.
 

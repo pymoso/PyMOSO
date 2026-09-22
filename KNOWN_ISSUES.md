@@ -12,47 +12,21 @@ Issues are grouped by whether they affect a version anyone is known to
 have used. PyMOSO had no known users prior to 1.0.8: versions 1.0.0
 through 1.0.7 were development releases pushed to PyPI while the paper
 (Cooper & Hunter 2018) was in progress, and users arrived only after
-the preprint was archived, which was after 1.0.8 shipped. Download
-statistics from that period aren't reconstructible, so this document
-says "no known users prior to 1.0.8," not "no users" — a deliberately
-weaker claim that costs nothing here.
-
-Every entry below in the first section was re-verified directly
-against a real PyPI 1.0.8 install (`.venv-py38`, CPython 3.8), not
-reasoned from the 1.0.4 wheel most of this project's early
-investigation used or from reading the diff.
-
-If you have used PyMOSO 1.0.8 or later in work leading to publication,
-please read issue 1. It affects the numerical output of individual
-runs, not the convergence theory the algorithms are proven against.
-
+the preprint was archived, which was after 1.0.8 shipped.
 ---
 
-## Affects released, used versions (1.0.8 and later)
+## Affects released, used versions (up to 1.0.8)
 
 ### 1. Incorrect pseudo-random stream jump-ahead
 
-**Affects:** all 1.x versions, including 1.0.8 and the canonical
-repository's current master. **Severity:** high — alters the numerical
-output of individual runs. Does not affect the convergence theory the
-algorithms are proven against; see "What this means" below.
+**Affects:** all 1.x versions.  **Severity:** high — alters the numerical
+output of individual runs.
 
 **Verified against 1.0.8:** `pymoso solve --budget=1000 ProbTPA RPERLE
 40 40` on a real 1.0.8 install reports ending seed
 `738848768 2094673920 3003824128 304680960 1844190720 1414365184` —
 all six components divisible by 256, the exact fingerprint described
 below.
-
-**Independently re-verified against the paper's own peer-reviewed
-archive:** `github.com/INFORMSJoC/2019.0902` — confirmed by diff to be
-`a38e27d` (one of these 13 commits) plus a mechanical MIT-license-header
-addition and a version bump to `1.0.8`, nothing functionally different
-(see "Archival cross-check" near the end of this file). Installed from
-that repository on real Python 3.6.15 (the version the paper targets,
-`python_requires='>=3.6.0'`) and re-ran the same command: identical
-divisible-by-256 end seed. This settles what "a real 1.0.8 install" was
-actually running — not an opaque wheel of unclear provenance, but this
-exact, citable, peer-reviewed snapshot.
 
 #### What is wrong
 
@@ -68,7 +42,7 @@ land 2^76 and 2^127 steps ahead as intended. They land near those
 positions, with an error that compounds across successive jumps.
 
 The defect is visible in PyMOSO's own output: the six components of the
-reported end seed are, in practice, always divisible by 256.
+reported end seed were, in practice, always divisible by 256.
 
 #### Scope
 
@@ -84,33 +58,10 @@ The defect is confined to the jump-ahead path. In practice this means:
   and every independent sample path beyond the first — begins at a
   position other than the intended one.
 
-A separate, unrelated change on the canonical repository
-(`dfd2a30`, "set rng cache with object methods instead of class
-methods") touches how the generator/bsm caches are stored, not the
-jump-ahead arithmetic itself; `mat333mult`/`mat311mod` are confirmed
-byte-identical to the version this was originally found against (see
-`docs/upstream-simpar.md`).
-
 #### What this means
 
-The convergence theorems for RPERLE/RMINRLE/RSPLINE/RPE are proofs about
-the algorithms, assuming truly independent pseudo-random streams. They
-are not empirical claims about what any particular piece of software's
-PRNG actually does, and this defect does not touch them: nothing in the
-published theory is invalidated by a bug in this implementation.
-
 What the defect affects is numerical output — the specific solutions and
-metric values a given run produced. The stream positions a 1.x run
-actually used after the first jump are not the positions the theory's
-independence assumption calls for, so a run's numbers do not necessarily
-carry the guarantees the theory attaches to a run using truly independent
-streams. That is a gap between this implementation and what the theory
-assumes of it, not a defect in the theory itself.
-
-We are not currently able to state how large an effect this has on any
-particular reported number, and whether it materially changed any
-published value is an empirical question this document does not settle.
-We do not want to overstate or understate it. What can be said:
+metric values a given run produced. 
 
 - The generator was producing valid MRG32k3a output throughout; values
   are not degenerate or patterned.
@@ -119,10 +70,6 @@ We do not want to overstate or understate it. What can be said:
   strictly hold.
 - Numerical output (end seeds, per-run solution and metric values) will
   not reproduce bit-for-bit across the fix.
-
-Empirical studies whose contribution is a performance comparison —
-rather than a theoretical result — may warrant re-running and comparing
-against this fix.
 
 #### Status
 
@@ -135,10 +82,9 @@ end-seed suite.
 
 ---
 
-### 3. Silent stream overlap past the reserved iteration window
+### 2. Silent stream overlap past the reserved iteration window
 
-**Affects:** all 1.x versions, including 1.0.8 and the canonical
-repository's current master. **Severity:** moderate — requires
+**Affects:** all 1.0.x versions. **Severity:** moderate — requires
 non-default settings to trigger.
 
 **Verified against 1.0.8:** `chnutils.py` (site-packages) still has a
@@ -160,24 +106,19 @@ No warning or error is produced.
 Under default settings this is unreachable in practice. Iteration
 counts grow logarithmically in budget — a budget of 400,000 reaches
 roughly 68 to 92 iterations — and reaching 200 would require on the
-order of 4x10^9 simulation calls at minimum. The risk arises with an
-unusually small `mconst` combined with a very large budget.
+order of 4x10^9 simulation calls at minimum. The risk arises with a very
+large budget.
 
-**Status:** fixed on this branch. An earlier fix promoted
-`chnutils.MAX_RI` to a module constant and made `RASolver.rasolve`
-raise before starting any RA iteration beyond it; that guard was later
-removed entirely (§12 step 4b) once `hit()`'s `crnflag=False` path
-moved onto `point_code`/`offset_within_iteration` coordinates, which
+`hit()`'s `crnflag=False` path moved onto
+point_code`/`offset_within_iteration` coordinates, which
 are collision-free by construction rather than by an enforced ceiling
-— there is no longer a reserved-window bound to overrun. Upstream still
-uses a bare, unenforced local `max_RI = 200`.
+— there is no longer a reserved-window bound to overrun.
 
 ---
 
-### 4. Errors reported without tracebacks
+### 3. Errors reported without tracebacks
 
-**Affects:** all 1.x versions, including 1.0.8 and the canonical
-repository's current master. **Severity:** moderate — obscures other
+**Affects:** all 1.0.x versions. **Severity:** moderate — obscures other
 defects.
 
 **Verified against 1.0.8:** `chnbase.py` (site-packages) still has
@@ -187,9 +128,7 @@ bare `except:` clauses (confirmed at two live call sites) and multiple
 Bare `except:` clauses in `chnbase.py` catch every exception, including
 `KeyboardInterrupt` and `SystemExit`, report a generic message, and call
 `sys.exit()`. Programming errors, invalid inputs, and interrupts are all
-reported identically as a failure to simulate. This survived upstream's
-`917bf06` multiprocessing rewrite unchanged — the bare excepts are still
-present, in the same shape, just at different line numbers.
+reported identically as a failure to simulate.
 
 Library use is affected as well: prior to this migration's kwarg-
 defaults fix (issue 7), `chnutils.solve`/`testsolve` couldn't even be
@@ -206,10 +145,9 @@ rather than exits.
 
 ---
 
-### 5. Misleading error for an infeasible starting point
+### 4. Misleading error for an infeasible starting point
 
-**Affects:** all 1.x versions, including 1.0.8 and the canonical
-repository's current master. **Severity:** low.
+**Affects:** all 1.0.x versions. **Severity:** low.
 
 **Verified against 1.0.8:** `pymoso solve --budget=500 ProbTPA RPE 100
 100` (infeasible: `ProbTPA` is feasible on `[0,50]^2`) raises an
@@ -232,10 +170,9 @@ message.
 
 ---
 
-### 6. Silent mis-parsing of `--seed` and `--param` on the command line
+### 5. Silent mis-parsing of `--seed` and `--param` on the command line
 
-**Affects:** all 1.x versions, including 1.0.8 and the canonical
-repository's current master (still docopt-based). **Severity:**
+**Affects:** all 1.0.x versions. **Severity:**
 moderate — requires a user mistake to trigger (a wrong `--seed` value
 count, or giving `--seed` and `--param` in an order no documented
 example shows), but produces a completed, apparently-successful run
@@ -284,42 +221,25 @@ not assumed: `--seed 1 2 3 4 5 ProbTPA RPERLE 40 40` (5 values) now
 exits 2 with `error: argument --seed: invalid int value: 'ProbTPA'`;
 `--param lb --seed 1 2 3 4 5 6 ...` (missing `--param` value) exits 2
 with `error: argument --param: expected 2 arguments`. Neither silently
-completes a run with a wrong seed or starting point. This entry
-previously said `pymoso/cli.py` was "still docopt-based here" — stale,
-written in `39fe2b7` before the docopt→argparse migration landed and
-never revisited after. `tests/test_cli_characterization.py` used to
-keep the 1.x docopt behavior above as a frozen historical record, via a
-live `docopt` import; deleted -- that import was an undeclared
-test-time dependency (a clean clone's `pytest` run failed at collection
-without `docopt` manually installed), and everything it demonstrated is
-already recorded here, verified against a real PyPI 1.0.8 install,
-which needs no such dependency.
+completes a run with a wrong seed or starting point.
 
 ---
 
-### 7. `chnutils.solve`/`chnutils.testsolve`'s documented library usage has never worked
+### 6. `chnutils.solve`/`chnutils.testsolve`'s documented library usage
+has never worked without additional code
 
 **Affects:** `chnutils.testsolve`'s `ranx0` gap affects all 1.x
-versions, including this fork's original base. The broader
-`budget`/`seed`/`simpar`/`isp`/`proc`/`crn` regression below is specific
-to the canonical repository: confirmed broken on both its current
-master (1.0.7) and PyPI's published 1.0.8, but *not* present at the
-version this project originally forked from, where those kwargs already
-had defaults. **Severity:** moderate — the CLI was unaffected in either
+versions, including this fork's original base.
+**Severity:** moderate — the CLI was unaffected in either
 case, since it always passes every argument explicitly; only direct
 library use was broken.
 
 **Verified against 1.0.8:** `chnutils.py` (site-packages) pops
 `budget`/`seed`/`simpar`/`crn` (in `solve`) and
 `budget`/`seed`/`isp`/`proc`/`ranx0`/`crn` (in `testsolve`) with no
-default value on any `kwargs.pop(...)` call. Independently re-verified
-against the paper's own archival snapshot (`github.com/INFORMSJoC/
-2019.0902`, confirmed `== a38e27d` plus a version bump — see "Archival
-cross-check" near the end of this file) on real Python 3.6.15:
-`chnutils.solve(ProbTPA, RPERLE, (4, 14))` raises `KeyError: 'budget'`,
-exactly as described.
+default value on any `kwargs.pop(...)` call.
 
-#### What is wrong
+#### What was wrong
 
 `chnutils.solve(problem, solver, x0, **kwargs)` and
 `chnutils.testsolve(tester, solver, x0, **kwargs)` pop every one of
@@ -330,17 +250,6 @@ Example", "A `testsolve` Example") omits most or all of these, since
 none are mentioned as required. Any such call raised `KeyError:
 'budget'` immediately, before doing anything else.
 
-On the canonical repository, this is worse than it was on this
-project's original fork: commit `917bf06` ("improved multiprocessing
-for --simpar option") removed defaults from `budget`/`seed`/`isp`/
-`proc`/`crn` that existed at the shared merge-base, as a side effect of
-its otherwise-unrelated multiprocessing rework. `ranx0` never had a
-default in any version checked. Neither gap is a CLI regression: the
-CLI's own commands (`commands/solve.py`, `commands/testsolve.py`)
-always compute and pass every one of these arguments explicitly, so the
-documented library entry point was never actually exercised by the CLI,
-the test suite, or (as far as this project's history shows) any real
-caller.
 
 #### Status
 
@@ -358,12 +267,9 @@ needing an undocumented keyword argument.
 
 ---
 
-### 9. User-supplied problem/tester files hang `--simpar`/`--proc` on Python 3.14+
+### 7. User-supplied problem/tester files hang `--simpar`/`--proc` on Python 3.14+
 
-**Affects:** all 1.x versions, including 1.0.8 and the canonical
-repository's current master, on Python 3.14 or later. **Severity:**
-high — indefinite hang, no error, on the documented way a user supplies
-their own problem or tester.
+**Affects:** all 1.x versions, including 1.0.8 and this branch. 
 
 **Verified against 1.0.8:** `commands/solve.py` and
 `commands/testsolve.py` both register a user's `<file>.py` into
@@ -423,19 +329,16 @@ distributed-execution goal for this project).
 
 ---
 
-### 10. `--simpar`/`--proc` worker processes leak if the parent is killed externally
+### 8. `--simpar`/`--proc` worker processes leak if the parent is killed externally
 
-**Affects:** all 1.x versions, including 1.0.8 and the canonical
-repository's current master. **Severity:** moderate — requires an
+**Affects:** all 1.x versions. **Severity:** moderate — requires an
 external kill (not a normal Python exception) to trigger, but leaves
 worker processes running indefinitely when it does.
 
 **Verified against 1.0.8:** `chnbase.py`'s `Oracle.set_simpar`/
 `mp_cleanup`/`__exit__` structure predates this branch's own fix for
-the in-process error-path leak (see "Fixed on this branch" in
-`CLAUDE.md`, and `tests/test_simpar_worker_lifecycle.py`) and is
-otherwise unchanged in 1.0.8. This entry describes a different gap in
-the same mechanism, present on both.
+the in-process error-path leak and is
+otherwise unchanged in 1.0.8.
 
 `Oracle.mp_cleanup()` (`terminate()`+`join()` on every worker process)
 only runs via the `set_simpar` context manager's `__exit__`, which
@@ -449,10 +352,7 @@ waiting on its input queue indefinitely. Observed directly while
 investigating issue 9: worker/forkserver processes from an earlier
 killed test run were still alive 45+ minutes later.
 
-This is distinct from the already-fixed in-process error-path leak
-(an infeasible `x0` raising `ValueError` inside the `with` block, which
-`__exit__` *does* catch and clean up after — see "Fixed on this
-branch" in `CLAUDE.md` and `tests/test_simpar_worker_lifecycle.py`).
+This is distinct from the already-fixed in-process error-path leak.
 That fix only covers exceptions the interpreter sees; it cannot cover
 the process being killed out from under itself.
 
@@ -461,17 +361,13 @@ the process being killed out from under itself.
 for an unconditional external kill (`SIGKILL` cannot be caught at all);
 a real fix likely needs the worker side to detect its parent has died
 independently (e.g. checking the parent pid, or a heartbeat) rather
-than relying solely on the parent-side cleanup path. Noted as the
-fourth multiprocessing lifecycle finding in this project
-(`docs/forkserver-hang.md`) — an argument for an executor rework, not
-a fourth independent point fix.
+than relying solely on the parent-side cleanup path.
 
 ---
 
-### 11. A multi-file custom problem or tester fails to load at all
+### 9. A multi-file custom problem or tester fails to load at all
 
-**Affects:** all 1.x versions, including 1.0.8 and the canonical
-repository's current master. **Severity:** high for anyone it applies
+**Affects:** all 1.0.x versions. **Severity:** high for anyone it applies
 to — immediate crash, no workaround short of inlining everything into
 one file — but scoped narrowly: only custom problem/tester files
 supplied on the command line by path (`pymoso solve myproblem.py ...`,
@@ -498,29 +394,17 @@ install and on this branch: same `ModuleNotFoundError: No module named
 'helper'`, same crash site (`commands/solve.py:47`,
 `spec.loader.exec_module(module)`). Confirmed no alternate loading path
 exists — `sys.path` is never touched anywhere in `commands/solve.py`,
-`commands/testsolve.py`, or `cli.py`, on either version. Independently
-re-verified against the paper's own archival snapshot
-(`github.com/INFORMSJoC/2019.0902`, confirmed `== a38e27d` plus a
-version bump — see "Archival cross-check" near the end of this file)
-on real Python 3.6.15: the same fixture shape fails identically,
-`ModuleNotFoundError: No module named 'helper'`.
+`commands/testsolve.py`, or `cli.py`, on either version.
 
 **Status:** fixed on this branch. `commands/basecomm.py`'s
 `load_user_module` inserts the user file's directory onto `sys.path`
 before executing it and restores `sys.path` afterward; both
 `commands/solve.py` and `commands/testsolve.py` load user files through
-it. Confirmed directly, not assumed: the fixture this entry's own
-"Verified against 1.0.8" section describes
-(`scratch/multifile_cli_check/myproblem.py` importing a sibling
-`helper.py`) now solves cleanly via `pymoso solve --budget=200
-myproblem.py RPERLE 40`. This entry previously said "not fixed... this
-has never worked" — stale, written in `9da11f2` before the `sys.path`
-fix landed and never revisited after. See also
-`tests/test_multifile_transport.py`.
+it.
 
 ---
 
-### 14. `testsolve()`'s path-0 oracle stream and the last path's solver stream share a starting seed
+### 10. `testsolve()`'s path-0 oracle stream and the last path's solver stream share a starting seed
 
 **Affects:** confirmed on this branch's current code; **not** checked
 against 1.0.8 or the canonical repository, unlike issue 11 above — the
@@ -573,12 +457,9 @@ it isn't silently carried forward unrecorded.
 
 ---
 
-### 15. `pymoso/examples/mytester.py` mixes tabs and spaces, blocking its own figure-replication command
+### 11. `pymoso/examples/mytester.py` mixes tabs and spaces, blocking its own figure-replication command
 
-**Affects:** all 1.x versions, including 1.0.8 and the canonical
-repository's current master — confirmed present, byte-for-byte, in the
-paper's own peer-reviewed archival snapshot (`github.com/INFORMSJoC/
-2019.0902`; see "Archival cross-check" near the end of this file).
+**Affects:** all 1.0.x versions. 
 **Severity:** high for anyone following the paper's own instructions —
 the file as shipped cannot be imported at all under Python 3, on any
 version.
@@ -596,76 +477,11 @@ the first thing to ever run `python -m compileall pymoso/` against
 this codebase, which is what surfaced it (`f0d6f9c`). That commit's
 own message calls it "not part of any planned migration step" and
 doesn't cross-reference the paper's replication instructions — which
-is what this entry now does. The INFORMS archive's README documents
-`pymoso --isp=16 --proc=4 --metric testsolve mytester.py RPERLE` as
-the exact command that reproduces Figures 6 and 7 of the published
-paper, using the shipped `pymoso/examples/mytester.py` unmodified.
-Confirmed directly on a clean install of the actual archive, real
-Python 3.6.15: running that command exactly as documented raises this
-`TabError` before doing anything else. The paper's own documented
-figure-replication instructions do not work against the paper's own
-archived code, for anyone running Python 3, out of the box.
-
+is what this entry now does.
 **Status:** fixed on this branch (`f0d6f9c`), whitespace-only
 (`git diff -w` empty). Migration for anyone working from the archive
 directly: replace the leading tab on that one line with spaces
 matching the surrounding indentation.
-
----
-
-## Development-history only (pre-1.0.8, no known users)
-
-### 2. `--simpar` (parallel simulation replications)
-
-**Affects:** every published 1.x version through at least PyPI 1.0.4.
-**Not affected:** PyPI 1.0.8 or github.com/pymoso/PyMOSO's current
-master. **Severity:** was high (documented feature entirely
-non-functional) at the time, but no known user was ever exposed to it
-— see the "no known users prior to 1.0.8" note above. Informational
-now.
-
-**Verified against 1.0.8:** `pymoso solve --budget=1000 --simpar=2
-ProbTPA RPERLE 40 40` exits 0 and reports the identical ending seed as
-the equivalent serial (`--simpar=1`) run — matching the seed-assignment
-design described below.
-
-#### History
-
-`Oracle.hit`'s parallel branch called `get_next_prnstream` with one
-argument where the function requires two. Any invocation with
-`--simpar` of 2 or greater raised `TypeError` on essentially the first
-estimate call, and a chain of bare `except:` clauses masked it behind a
-generic "Unable to simulate" message with no traceback. This was
-confirmed directly against a genuine install of the published PyPI
-1.0.4 wheel: `--simpar=2` reproduces the identical crash there.
-
-**Correction to an earlier version of this entry:** it previously
-stated `--simpar` "has never worked in any published version." That
-claim was based only on 1.0.4 and this fork's own history; it did not
-hold once checked against the canonical repository's actual current
-state. PyPI's published 1.0.8 (and github.com/pymoso/PyMOSO's master,
-commit `917bf06`, "improved multiprocessing for --simpar option") runs
-`--simpar=2` successfully — confirmed empirically against a fresh
-worktree of that commit, and again here directly against a real 1.0.8
-install, not merely by reading the diff.
-
-#### What changed upstream
-
-Commit `917bf06` replaced the old per-`hit()`-call `multiprocessing.Pool`
-with a persistent worker pool created once per `solve()` call
-(`Oracle.set_simpar`/`mp_cleanup`), and gives each *replication* its own
-seed (derived via the same `crn_nextobs()` substream-jump mechanism the
-serial path already used) rather than trying to give each *worker* its
-own long-lived stream. This is why it composes correctly with CRN where
-the old design didn't: there's no second, independently-configured
-`Oracle` with its own CRN state involved. Full architectural writeup in
-`docs/upstream-simpar.md`.
-
-#### Status
-
-Resolved upstream, by `917bf06`, independently of this project's work —
-not a fix produced here. Not present on this migration's base, nor on
-1.0.8, as a result.
 
 ---
 
@@ -678,7 +494,7 @@ because they change observable behavior relative to earlier commits on
 this same branch, the same way an entry above changes it relative to
 upstream.
 
-### 8. `MRG32k3a.getrandbits()` changes stream consumption for `choice`/`sample`/`randrange`
+### 12. `MRG32k3a.getrandbits()` changes stream consumption for `choice`/`sample`/`randrange`
 
 **Affects:** this branch only, from the commit that added
 `MRG32k3a.getrandbits()` onward. **Severity:** low — no result this
@@ -748,7 +564,7 @@ regression to fix.
 
 ---
 
-### 12. The README's `MyRAAlg` template's failure mode changed, and became less legible
+### 13. The README's `MyRAAlg` template's failure mode changed, and became less legible
 
 **Affects:** this branch only, from the commit that removed
 `RASolver.rasolve`'s `nu > MAX_RI` guard (docs/rng-interface-design.md
@@ -807,7 +623,7 @@ reservation, not solver correctness).
 
 #### Status
 
-Not fixed, and not a case of "someday": the actual fix is `MyRAAlg`
+Not fixed. The actual fix is `MyRAAlg`
 calling `self.estimate` as the README's own prose already says a real
 implementation must — `MyRAAlg` is deliberately illustrative/non-
 terminating, not something this entry proposes changing. Checked
@@ -825,7 +641,7 @@ expect `OverflowError`, not a timeout, and can cite this entry.
 
 ---
 
-### 13. `Oracle.bump()` removed from the public API
+### 14. `Oracle.bump()` removed from the public API
 
 **Affects:** this branch only, from the commit that removed it (docs/
 rng-interface-design.md §12 step 6b). **Severity:** low for this
@@ -857,116 +673,7 @@ project's stated posture toward backwards-compatibility hacks.
 Migration for anyone calling it out of tree: `hit(x, m)` with the same
 arguments returns aggregated `(isfeas, obmean, obse)`; if raw
 per-replication values are genuinely needed, they are not currently
-available through any public method — that capability returns with the
-executor rework (CLAUDE.md's "Still in flight"), which is expected to
-expose unaggregated per-replication observations as its own return
-shape rather than reintroduce `bump()`.
-
----
-
-## Archival cross-check: the INFORMS Journal on Computing snapshot
-
-Not a numbered issue — nothing here claims PyMOSO's own code is wrong.
-This is a record of directly validating several claims above against
-the paper's own permanent, citable, peer-reviewed record
-(`github.com/INFORMSJoC/2019.0902`), rather than resting on a PyPI
-install of otherwise-unknown provenance. Kept here because it settles
-exactly what "1.0.8" is, and because one finding below (Figures 6/7)
-belongs on the record regardless of whose defect it turns out to be.
-
-**What the archive actually is.** It states it snapshots
-`pymoso/PyMOSO@a38e27d` — one of the 13 commits already in this
-project's own history, confirmed the third commit back from that
-repository's current master, with only two commits after it and both
-of those README-only (`git log a38e27d..origin/master`: `e9bac72`,
-`72f43dc`, both "Update README.md", nothing else). Confirmed by diff,
-not assumed: every one of the 23 `.py` files that differs between
-`a38e27d` and the archive differs by exactly one hunk — a mechanical
-MIT-license-header block INFORMS added at the top of each file,
-nothing functional. `setup.py` is byte-identical
-(`install_requires = ['docopt']`, `python_requires='>=3.6.0'`).
-`LICENSE.txt` differs only in copyright attribution (adds Susan Hunter
-as co-author). The README differs extensively above the paper's own
-"Table of Contents" heading (INFORMS's citation/build/replication
-front matter, plus one updated citation year), but the entire body
-from that heading onward is byte-identical except one added blank
-line — confirmed by hashing both bodies, not by eyeballing a diff.
-
-**Version.** The archive's `pymoso/__init__.py` reads
-`1.0.7 -> 1.0.8` relative to `a38e27d` — a one-line version bump,
-nothing else changed. Searched all known history
-(`git log --all -S"__version__ = '1.0.8'"`) and confirmed no commit in
-`pymoso/PyMOSO`'s own git history ever set that string, anywhere. So
-the precise claim is: **1.0.8 corresponds to no commit in
-`pymoso/PyMOSO`'s git history, but it is real, peer-reviewed code** —
-`a38e27d` plus this one-line bump, permanently archived and citable
-(DOI `10.1287/ijoc.2019.0902.cd`). Every "verified against 1.0.8"
-claim elsewhere in this document now has a precise, checkable referent
-rather than an assumption about what some PyPI wheel contained.
-
-**The ten documentation defects were published, not introduced
-later.** Confirmed by the byte-identical-body finding above, directly,
-not by inference: `RSPLNE` (the typo) and `ProbTPC RPERLE 31 21 11`
-(the infeasible starting point) are both present verbatim in the
-archive's README, at the same lines `a38e27d` has them. Since the
-entire body is unchanged, every documentation defect traced to
-`a38e27d` is present in the peer-reviewed archive. This hardens the
-framing of those defects, not softens it: they are not an artifact of
-reading an unpolished development branch — they are what INFORMS
-Journal on Computing published.
-
-**Tested on real Python 3.6.15** (`python:3.6-slim` in Docker;
-building 3.6 from source on this project's own development machine
-hits the OpenSSL 3.0 wall this note doesn't need to relitigate),
-installed from a clean clone of the archive with no modification
-beyond what's noted below.
-
-- **Figure 4** (`pymoso solve --budget=10000 --simpar=4 myproblem.py
-  RPERLE 97`): runs successfully and matches the published output
-  exactly — `(2,)`, `(0,)`, `(1,)`. Also directly confirms `--simpar`
-  works at this commit, as expected (`a38e27d` postdates `917bf06`'s
-  multiprocessing rework — issue 2).
-- **Figures 6 and 7** (`pymoso --isp=16 --proc=4 --metric testsolve
-  mytester.py RPERLE`, every option preceding the subcommand while the
-  usage block declares them after it): docopt accepts this ordering
-  without complaint — consistent with issue 6's own finding that
-  docopt matches by whole-command-line token satisfaction, not
-  positional enforcement, so the ordering itself is not a defect. The
-  command as shipped fails outright with the `TabError` issue 15
-  documents. With that one line fixed, it runs successfully and
-  deterministically (re-ran twice, byte-identical output; also ran
-  with `--isp=1 --proc=1` to rule out a parallelism-dependent seed —
-  byte-identical first-path trajectory, matching a direct reading of
-  `get_testsolve_prnstreams`: the shared `x0stream` is seeded from the
-  raw root seed before any per-trial loop runs, independent of `isp`)
-  — but **does not match the published Figures 6 or 7**. The first
-  solution-file entry is `{(-25,)}`, not `{(3,)}`; the trajectory that
-  follows is a different, if equally coherent, RPERLE search path.
-  Verified independently of the CLI that this is the correct,
-  deterministic output of the shipped code, not a bug in how this was
-  invoked: a bare `MRG32k3a((12345,)*6).choice(range(-100, 101))` —
-  the exact first draw `mytester.py`'s `get_ranx0` makes — returns
-  `-25` directly. This does not look like a PyMOSO code defect as far
-  as this investigation can tell: `random()`/`choice()`/
-  `normalvariate()` are all deterministic, version-stable computations
-  here (`MRG32k3a` overrides only `random()`; `choice()`'s fallback
-  path has been stable across CPython 3.x for a class that doesn't
-  define `getrandbits()`), and Figure 4's exact match on the same
-  install rules out an environment-wide explanation. The most likely
-  account is that the README's documented replication command is not,
-  in fact, what produced the published Figures 6/7 — the same class of
-  documentation imprecision as the ten defects above, not a new one
-  this project is asserting. Recorded here because it belongs on the
-  record, not because it changes PyMOSO's own status on anything.
-- **Library kwarg `KeyError`** (issue 7): reproduced exactly —
-  `chnutils.solve(ProbTPA, RPERLE, (4, 14))` raises
-  `KeyError: 'budget'`.
-- **Multi-file custom problem loading** (issue 11): reproduced exactly
-  — a problem file importing a sibling module fails with
-  `ModuleNotFoundError: No module named 'helper'`.
-- **Jump-ahead fingerprint** (issue 1): reproduced exactly —
-  `pymoso solve --budget=1000 ProbTPA RPERLE 40 40`'s end seed is
-  divisible by 256 in all six components.
+available through any public method. 
 
 ---
 
