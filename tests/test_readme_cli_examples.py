@@ -43,6 +43,9 @@ import shlex
 import shutil
 import subprocess
 import sys
+import multiprocessing
+
+_NON_FORK = multiprocessing.get_start_method() != "fork"
 
 import pytest
 
@@ -150,7 +153,7 @@ def test_readme_cli_example_is_invocable(cmd, tmp_path):
     # after timing out at 60s. See
     # tests/test_multifile_transport.py::test_multifile_problem_under_proc_matches_serial,
     # which reproduces this exact gap on demand.
-    if "testsolve" in cmd and (".py" in cmd) and sys.version_info >= (3, 14):
+    if "testsolve" in cmd and (".py" in cmd) and _NON_FORK:
         pytest.xfail(
             "KNOWN_ISSUES.md issue 7: testsolve() + a dynamically-loaded "
             "file hangs on Python 3.14+ (forkserver), regardless of --proc "

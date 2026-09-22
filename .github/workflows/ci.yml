@@ -31,13 +31,13 @@ jobs:
         run: uv pip install -e . pytest pytest-timeout
 
       - name: Compile check
-        run: .venv/bin/python -m compileall -q pymoso/
+        run: uv run python -m compileall -q pymoso/
 
       - name: Run tests
-        run: .venv/bin/python -m pytest tests/ -v
+        run: uv run python -m pytest tests/ -v
 
       - name: Run doctests
-        run: .venv/bin/python -m pytest --doctest-modules pymoso/chnutils.py -v
+        run: uv run python -m pytest --doctest-modules pymoso/chnutils.py -v
 
   clean-clone:
     # Exists specifically to catch undeclared test-time dependencies --
@@ -70,7 +70,7 @@ jobs:
           cache-dependency-glob: "setup.py"
 
       - name: Create virtual environment
-        run: uv venv --python ${{ matrix.python-version }}
+        run: uv venv --python 3.10
 
       - name: Install pymoso and test dependencies
         run: uv pip install -e . pytest pytest-timeout

@@ -27,7 +27,9 @@ import ast
 import re
 import subprocess
 import sys
+import multiprocessing
 
+_NON_FORK = multiprocessing.get_start_method() != "fork"
 import pytest
 
 from _pymoso_cli import pymoso_argv
@@ -155,9 +157,8 @@ class MyTester(object):
         return 0.0
 '''
 
-
 @pytest.mark.xfail(
-    condition=sys.version_info >= (3, 14),
+    condition=_NON_FORK,
     strict=True,
     reason=(
         "KNOWN_ISSUES.md issue 7: testsolve()'s --proc path "
