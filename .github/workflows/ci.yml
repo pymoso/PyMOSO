@@ -6,7 +6,6 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
     # Backstop for a hung run: the suite takes ~1-2 min, and the default
     # job limit is 360. The tests' own subprocess timeouts fail a hang
     # with a specific error well before this fires.
