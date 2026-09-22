@@ -37,8 +37,7 @@ def positive_int(value):
     --budget/--simpar/--isp/--proc so a non-positive process/replication
     count is rejected at the CLI boundary instead of reaching mp.Pool
     (which raises an opaque error for a non-positive process count) or
-    another downstream crash. Replaces the separate
-    basecomm.validate_positive_int check from commit 82c177b.
+    another downstream crash.
 
     Parameters
     ----------
@@ -74,9 +73,7 @@ def _add_common_options(subp):
 def build_parser():
     """
     Build the pymoso argument parser: subparsers for listitems, solve,
-    and testsolve, preserving the invocation syntax of the previous
-    docopt-based CLI (see docs/ for the characterization this was
-    checked against).
+    and testsolve.
     """
     parser = argparse.ArgumentParser(
         prog='pymoso',
@@ -116,9 +113,7 @@ def build_parser():
 def _options_for_solve(args):
     """
     Translate argparse's Namespace into the same dict shape
-    commands/solve.py already expects (unchanged from the docopt era),
-    so that module needs no changes beyond dropping its now-redundant
-    int()/validate_positive_int() calls.
+    commands/solve.py already expects.
     """
     param = args.param or []
     return {

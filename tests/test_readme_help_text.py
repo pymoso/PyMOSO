@@ -56,19 +56,20 @@ def build_expected_listitems_block():
 
 
 def extract_plain_fenced_blocks(readme_text):
-    """Sequentially scan for ``` and ```python fences, pairing each
-    opener with the next closing ``` line (a regex alone can't tell a
-    python block's closing ``` apart from a plain block's opening ```).
-    Returns the content of each plain (non-python) block, in order."""
+    """Sequentially scan for fenced blocks of any kind, pairing each
+    opening fence with the next closing ``` line. A block is plain only
+    if its opening fence carries no language tag. Fence lines may be
+    indented, e.g. inside a list item. Returns the content of each plain
+    block, in order."""
     lines = readme_text.split("\n")
     blocks = []
     i = 0
     while i < len(lines):
-        line = lines[i]
-        if line == "```" or line == "```python":
-            is_plain = line == "```"
+        fence = lines[i].strip()
+        if fence.startswith("```"):
+            is_plain = fence == "```"
             j = i + 1
-            while j < len(lines) and lines[j] != "```":
+            while j < len(lines) and lines[j].strip() != "```":
                 j += 1
             if is_plain:
                 blocks.append("\n".join(lines[i + 1 : j]))
@@ -82,8 +83,8 @@ def _assert_matches(actual, expected, label):
     if actual != expected:
         diff = "\n".join(difflib.unified_diff(
             expected.splitlines(), actual.splitlines(),
-            fromfile=f"README.md ({label}, current)",
-            tofile=f"{label} (live pymoso output)",
+			fromfile=f"{label} (live pymoso output)",
+			tofile=f"README.md ({label}, current)",
             lineterm="",
         ))
         raise AssertionError(f"README's {label} block is stale:\n{diff}")
