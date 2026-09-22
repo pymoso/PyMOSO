@@ -70,29 +70,65 @@ Table of Contents
          * [The RLESolver Class](#the-rlesolver-class)
 
 ## Installation
-Since PyMOSO is programmed in Python, every PyMOSO user must first install Python, which can be downloaded from https://www.python.org/downloads/. PyMOSO is compatible with Python versions 3.6 and higher. In the remainder of this section, we assume an appropriate Python version is installed. We discuss three different methods to install PyMOSO: first, from the Python Packaging Index; second, directly from our source code using git; and third, manually installing PyMOSO from our source code.
+Since PyMOSO is programmed in Python, every PyMOSO user must first install Python, which can be downloaded from https://www.python.org/downloads/. PyMOSO is now compatible with Python versions 3.10 and higher. Legacy versions (1.0.8 and lower) are compatible with Python 3.6. In the remainder of this section, we assume an appropriate Python version is installed. We discuss three different methods to install PyMOSO: first, from the Python Packaging Index; second, directly from our source code using git; and third, installing PyMOSO from our source code.
 
-### Install PyMOSO from the Python Packaging Index using `pip`
-For ease of distribution, we keep stable, recent releases of PyMOSO on the Python Packaging Index (PyPI). Since the program `pip` is included in Python versions 3.6 and higher, we recommend using `pip` to install PyMOSO. To do so, open a terminal, type the following command, and press enter.  
+### Before you begin
 
-`pip install pymoso`  
+PyMOSO requires Python 3.10 or newer, which can be downloaded from https://www.python.org/downloads/. To check which version you have, open a terminal and run `python --version`. On Windows, use `py --version`; on some systems, use `python3 --version`.
 
-Depending on how users configure their Python installation and how many version of Python they install, they may need to replace `pip` with `pip3`, or other variants of `pip`.  
+We recommend installing PyMOSO into a *virtual environment*, a self-contained folder that keeps PyMOSO and its setup separate from other Python software on your computer. Many recent operating systems require this and will refuse to install packages without one. To create and activate a virtual environment, open a terminal, navigate to the folder where you want to work, and run:
 
-### Install PyMOSO from the repository using `pip`
-Users with `git` installed can use `pip` to install the most current version of PyMOSO directly from our source code:  
+On macOS and Linux:
 
-`pip install git+https://github.com/pymoso/PyMOSO.git`  
+```shell
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-We consider the latest source to be less stable than the fixed releases we upload to PyPI, and thus we recommend most users install PyMOSO from PyPI.  
+On Windows:
 
-### Install PyMOSO from Source Code
-Users may follow the steps below to manually install PyMOSO from any version of the source code.  
-1. Acquire the PyMOSO source code, for example, by downloading it from the repository https://github.com/HunterResearch/PyMOSO.
-1. Install the `wheel` package, e.g. using the `pip install wheel` command.
-1. Open a terminal and navigate into the main project directory which contains the file `setup.py`.
-1. Build the installable PyMOSO package, called a wheel, using the command `python setup.py bdist_wheel`. As with `pip`, some users may need to replace `python` with `python3` or something similar. The command should create a directory named `dist` containing the PyMOSO wheel.
-1. Install the PyMOSO wheel using pip install `dist/pymoso-x.x.x-py3-none-any.whl`, where users replace `x.x.x` with the appropriate PyMOSO version.
+```shell
+py -m venv .venv
+.venv\Scripts\activate
+```
+
+While the environment is active, the commands `python` and `pip` refer to the environment's own copy, on every operating system. Run the activation command again whenever you open a new terminal to use PyMOSO.
+
+### Install PyMOSO from the Python Packaging Index
+
+We keep stable releases of PyMOSO on the Python Packaging Index (PyPI), and we recommend this method for most users. With your virtual environment active, run:
+
+```shell
+python -m pip install pymoso
+```
+
+We write `python -m pip` rather than `pip` because it guarantees that PyMOSO is installed for the same Python you will run it with.
+
+### Install PyMOSO from the repository
+
+Users with `git` installed can install the most recent development version of PyMOSO directly from our source code:
+
+```shell
+python -m pip install "git+https://github.com/pymoso/PyMOSO.git"
+```
+
+We consider the latest source to be less stable than the releases we publish to PyPI, and thus we recommend most users install PyMOSO from PyPI.
+
+### Install PyMOSO from source code
+
+Users may follow the steps below to install PyMOSO from any version of the source code.
+
+1. Acquire the PyMOSO source code from https://github.com/pymoso/PyMOSO. Users without `git` can use the green **Code** button and choose **Download ZIP**, then unzip the file. Specific versions are available from the repository's **Releases** page.
+1. Open a terminal and navigate into the project directory, the folder that contains the file `setup.py`.
+1. With your virtual environment active, install PyMOSO from the current directory:
+
+```shell
+python -m pip install .
+```
+
+   The trailing `.` means "this folder."
+
+To confirm any of the three methods worked, run `pymoso --version`.
 
 
 ## Command Line Interface (CLI)
@@ -195,24 +231,28 @@ The default installation of PyMOSO includes a selection of solvers, testers, and
 
 ```
 
-Solver                         Description                   
-************************       ************************      
-RMINRLE                        A solver using R-MinRLE for integer-ordered MOSO.
-RPE                            R-Pe solver for bi-objective simulation optimization.
-RPERLE                         R-PERLE solver for bi-objective simulation optimization.
-RSPLINE                        R-SPLINE solver for single-objective simulation optimization.
+Solver                 Description
+*********************  ************************************************************
+RMINRLE                A solver using R-MinRLE for integer-ordered MOSO.
+RPE                    R-Pe solver for bi-objective simulation optimization.
+RPERLE                 R-PERLE solver for bi-objective simulation optimization.
+RSPLINE                R-SPLINE solver for single-objective simulation
+                       optimization.
 
-Problems                       Description                                                  Test Name (if available)      
-************************       ************************                                     ************************      
-BSProb                         An Oracle that simulates a bus-scheduling problem, minimizing total BSTester                      
-ProbExpensive                  An Oracle simulating the same problem as ProbSimpleSO, plus a ExpensiveTester               
-ProbExpensiveHeavy             ProbExpensive at a heavy cost tier: burn_units=60,000.                                     
-ProbExpensiveLight             ProbExpensive at a light cost tier: burn_units=2,000.                                      
-ProbExpensiveModerate          ProbExpensive at a moderate cost tier: burn_units=20,000.    ExpensiveTester               
-ProbSimpleSO                   An Oracle that simulates the Test Simple SO problem.         SimpleSOTester                
-ProbTPA                        An Oracle that simulates Test Problem A.                     TPATester                     
-ProbTPB                        An Oracle that simulates Test Problem B.                     TPBTester                     
-ProbTPC                        An Oracle that simulates Test Problem C.                     TPCTester                     
+Problems               Description                                                   Test Name (if available)
+*********************  ************************************************************  ************************
+BSProb                 An Oracle that simulates a bus-scheduling problem,            BSTester
+                       minimizing total passenger wait time and bus-dispatch cost.
+ProbExpensive          An Oracle simulating the same problem as ProbSimpleSO, plus
+                       a tunable CPU burn per replication that does not affect
+                       g()'s output.
+ProbExpensiveHeavy     ProbExpensive at a heavy cost tier: burn_units=60,000.
+ProbExpensiveLight     ProbExpensive at a light cost tier: burn_units=2,000.
+ProbExpensiveModerate  ProbExpensive at a moderate cost tier: burn_units=20,000.     ExpensiveTester
+ProbSimpleSO           An Oracle that simulates the Test Simple SO problem.          SimpleSOTester
+ProbTPA                An Oracle that simulates Test Problem A.                      TPATester
+ProbTPB                An Oracle that simulates Test Problem B.                      TPBTester
+ProbTPC                An Oracle that simulates Test Problem C.                      TPCTester
 ```
 
 ### The `solve` command
