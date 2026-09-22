@@ -51,6 +51,7 @@ SEEDS = [
     (511616026, 1372175473),
 ]
 
+_ISOLATED_START = "forkserver" if "forkserver" in multiprocessing.get_all_start_methods() else "spawn"
 
 # ---------------------------------------------------------------------------
 # Reusable checks -- same shape as the other §7 conformance suites in this
@@ -285,7 +286,7 @@ def test_cross_process_reproducibility_under_forkserver():
     seed = DEFAULT_SEED
     stream, offset = 3, 7
     n_draws = 5
-    ctx = multiprocessing.get_context("forkserver")
+    ctx = multiprocessing.get_context(_ISOLATED_START)
     q = ctx.Queue()
     p = ctx.Process(target=_worker_stream_draws, args=(seed, stream, offset, n_draws, q))
     p.start()
