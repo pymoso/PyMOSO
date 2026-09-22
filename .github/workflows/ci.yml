@@ -14,8 +14,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # (keep your existing comment here)
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -70,10 +71,16 @@ jobs:
           cache-dependency-glob: "setup.py"
 
       - name: Create virtual environment
-        run: uv venv --python 3.10
+        run: uv venv --python ${{ matrix.python-version }}
 
-      - name: Install pymoso and pytest -- nothing else
-        run: uv pip install -e . pytest
+      - name: Install pymoso and test dependencies
+        run: uv pip install -e . pytest pytest-timeout
 
-      - name: Run the full suite
-        run: .venv/bin/python -m pytest tests/ -v
+      - name: Compile check
+        run: uv run python -m compileall -q pymoso/
+
+      - name: Run tests
+        run: uv run python -m pytest tests/ -v
+
+      - name: Run doctests
+        run: uv run python -m pytest --doctest-modules pymoso/chnutils.py -v
