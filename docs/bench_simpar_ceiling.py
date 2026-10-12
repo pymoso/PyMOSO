@@ -4,7 +4,7 @@ Where a --simpar run's wall time goes, and what bounds its speedup.
 Companion to docs/bench_parallel_dispatch.py (which times whole runs)
 and docs/bench_hit_cost.py (which times one hit() call). This script
 puts timers around the three things the parent process does during a
---simpar run -- computing coordinates, sending jobs, and waiting for
+--simpar run -- turning coordinates into streams, sending jobs, and waiting for
 results -- and separately computes the best speedup that parallelising
 *within one hit() call* can give, from the run's own distribution of
 replications per call. Results are recorded in docs/simpar-ceiling.md.
@@ -19,6 +19,7 @@ import sys
 import time
 
 from pymoso.chnutils import get_solv_prnstreams, isp_run
+from pymoso.executor import SerialExecutor
 from pymoso.prng import mrg32k3a as M
 from pymoso.problems.probexpensive import ProbExpensiveHeavy, ProbExpensiveLight, ProbExpensiveModerate
 from pymoso.solvers.rspline import RSPLINE
@@ -49,8 +50,12 @@ class Timer:
 def run(problem_cls, simpar, budget):
     jump, send, wait, sim = Timer(), Timer(), Timer(), Timer()
     replications_per_hit = []
-    real_stream_at = M.stream_at
-    M.stream_at = jump.wrap(real_stream_at)
+    # Everything that turns a block's coordinate into streams -- the
+    # jump from the root, the jump to the block's offset, the
+    # per-replication advances -- happens in SerialExecutor.streams,
+    # in the parent, for serial and --simpar runs alike.
+    real_streams = SerialExecutor.streams
+    SerialExecutor.streams = jump.wrap(real_streams)
     try:
         orcstream, solvstream = get_solv_prnstreams(SEED, M)
         orc = problem_cls(orcstream)
@@ -71,7 +76,7 @@ def run(problem_cls, simpar, budget):
             isp_run(RSPLINE, budget, orc, sprn=solvstream, x0=X0)
             elapsed = time.perf_counter() - start
     finally:
-        M.stream_at = real_stream_at
+        SerialExecutor.streams = real_streams
     return dict(elapsed=elapsed, jump=jump.seconds, send=send.seconds, wait=wait.seconds,
                 sim=sim.seconds, sim_calls=sim.calls, per_hit=replications_per_hit)
 
@@ -93,14 +98,14 @@ def main():
         g_each = serial['sim'] / serial['sim_calls']
         print('\n{0}: {1} hit() calls, {2} replications ({3:.1f} per call), g() {4:.2f} ms each'.format(
             label, len(per_hit), reps, reps / len(per_hit), 1000 * g_each))
-        print('  serial: {0:.3f}s total | g() {1:.3f}s | stream_at {2:.3f}s ({3:.0f}% of the run)'.format(
+        print('  serial: {0:.3f}s total | g() {1:.3f}s | coordinates {2:.3f}s ({3:.0f}% of the run)'.format(
             serial['elapsed'], serial['sim'], serial['jump'], 100 * serial['jump'] / serial['elapsed']))
         for workers in WORKERS:
             par = run(problem_cls, workers, budget)
             rounds = sum(math.ceil(m / workers) for m in per_hit)
             bound_with_jump = serial['elapsed'] / (rounds * g_each + serial['jump'])
-            print('  workers={0}: {1:.3f}s, {2:.2f}x | stream_at {3:.3f}s | queue sends {4:.4f}s | waiting {5:.3f}s'
-                  ' | bound, intra-hit only: {6:.2f}x | bound, intra-hit + serial stream_at: {7:.2f}x'.format(
+            print('  workers={0}: {1:.3f}s, {2:.2f}x | coordinates {3:.3f}s | queue sends {4:.4f}s | waiting {5:.3f}s'
+                  ' | bound, intra-hit only: {6:.2f}x | bound, intra-hit + serial coordinates: {7:.2f}x'.format(
                       workers, par['elapsed'], serial['elapsed'] / par['elapsed'], par['jump'], par['send'],
                       par['wait'], intra_hit_bound(per_hit, workers), bound_with_jump))
         print('  infinite workers, intra-hit only: {0:.2f}x'.format(intra_hit_bound(per_hit, 10 ** 9)))

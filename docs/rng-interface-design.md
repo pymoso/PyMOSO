@@ -3276,3 +3276,41 @@ exactly as `docs/end-seed-scope.md` says.
    same care applies in reverse to the MRG family's own `ITER_STRIDE`
    and `REPL_STRIDE`, which are L'Ecuyer's and are kept because goldens
    depend on them, not because they were sized for this framework.
+
+10. **[preserving — done] The executor interface, serial backend
+    (Phase 2).** `pymoso/executor.py`. `_hit_via_coordinate` no longer
+    runs anything: it computes a block's `(stream, offset)`, performs
+    the boundary checks, records the high-water mark and the point
+    code, builds a `ReplicationBlock`, and hands it to an executor;
+    aggregation into mean and standard error stays in `Oracle`.
+
+    - *Where coordinates are computed: split.* The caller computes
+      `(stream, offset)` -- integer arithmetic, and where every check
+      lives. The backend turns `(root, stream, offset)` into a stream.
+      For a future pool backend that takes the expensive jump out of
+      the serial parent.
+    - *The batching unit is a list of blocks,* because what bounds
+      parallel speedup is confinement to one `hit()` call, not
+      per-job dispatch (`docs/simpar-ceiling.md`).
+    - *Step 9's cache moved, intact, into `SerialExecutor`:* one cached
+      base stream per `(root, stream)`. CRN `hit()` is unchanged at
+      ~20-35 µs. A side effect: default-branch blocks now jump by
+      their offset alone from that cached base, which roughly halves
+      their cost for small points (`docs/hit-cost-baseline.md`). Not
+      sought; bit-identical; reported rather than hidden.
+    - *Transport is a property of the handle.* `InProcessHandle` (a
+      live instance; what `hit()` uses), `ClassHandle` (by reference or
+      source bundle; the existing `--simpar` transport, moved here
+      unchanged). A cloudpickle handle for notebook-defined problems
+      is a third subclass behind an optional dependency and needs no
+      interface change (`docs/forkserver-hang.md`'s correction).
+    - *The draw-overflow check moved into the backend,* raised right
+      after the offending replication as before. It is part of the
+      `run` contract, so a parallel backend must enforce it too --
+      `--simpar` never has.
+    - *Exceptions are part of the contract:* `run` raises a
+      replication's own exception in the caller. That is the property
+      whose absence is KNOWN_ISSUES.md issue 15.
+
+    Not in this step: `--simpar` and `--proc` are untouched apart from
+    `--simpar` asking the executor for its streams. No golden moved.

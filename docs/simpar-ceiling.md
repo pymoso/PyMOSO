@@ -77,3 +77,27 @@ as a serial term.
 - **A cheaper jump.** Precomputed matrix powers would shorten
   `stream_at` itself. Golden-neutral and separable; carried as a
   candidate for the batching phase, where its value changes anyway.
+
+## After the executor interface (Phase 2)
+
+Same script, after `Oracle.hit()` moved onto `pymoso/executor.py`. The
+script now times everything that turns a block's coordinate into
+streams (`SerialExecutor.streams`: both jumps and the per-replication
+advances), which is slightly more than the `stream_at` timer above
+covered.
+
+| Tier | Coordinate share of the serial run | Observed at 6 workers | Bound: intra-hit + serial coordinates | Bound: intra-hit alone |
+|---|---|---|---|---|
+| Light, Python 3.14 | 24% (was 37%) | 1.72x | 2.63x | 4.57x |
+| Moderate, Python 3.14 | 5% (was 9%) | 2.81x | 3.53x | 4.00x |
+| Heavy, Python 3.14 | 2% (was 4%) | 2.94x | 3.46x | 3.62x |
+| Light, Python 3.10 | 25% (was 38%) | 1.70x | 2.59x | 4.57x |
+| Moderate, Python 3.10 | 6% (was 10%) | 2.75x | 3.49x | 4.00x |
+| Heavy, Python 3.10 | 3% (was 4%) | 2.98x | 3.43x | 3.62x |
+
+The serial coordinate term shrank (see docs/hit-cost-baseline.md for
+why), which lifts the second bound. The observed speedups barely moved
+and the intra-hit bound did not move at all: `--simpar` itself is
+unchanged in this phase, and the call pattern is the solver's. The
+conclusion stands, more strongly -- what remains between observed and
+possible is the confinement to one `hit()` call.

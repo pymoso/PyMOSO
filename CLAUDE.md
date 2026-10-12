@@ -379,10 +379,32 @@ The decisions below are landed, not pending. Full reasoning in
 
 ## Still in flight
 
-- Executor rework: work expressed as data (points, sample sizes,
-  explicit seeds), seeds as computed values rather than object state,
-  pluggable backends (serial, process pool, Spark) behind one interface
-  with one lifecycle.
+- Executor rework. **Landed (Phase 2):** the interface and a serial
+  backend, `pymoso/executor.py`. Work is a `ReplicationBlock` (point,
+  root, `(stream, offset)`, stride, count); problems reach a backend
+  only as a `ProblemHandle`; `Executor.open/run/close` is the one
+  lifecycle, and `run` takes a list of blocks. `Oracle` computes
+  coordinates and does the checks; the backend turns coordinates into
+  streams and calls `g()`. `Oracle.hit()` runs through
+  `SerialExecutor` on every branch; goldens unchanged. The base-stream
+  cache that keeps `--crn` fast lives in `SerialExecutor` now.
+  **Not yet:** `--simpar` and `--proc` still use their own mechanisms
+  (`Oracle.set_simpar` borrows only `executor.streams()`), so
+  KNOWN_ISSUES.md issues 7, 8 and 15 are all still live. A process-pool
+  backend, a path-level job type for `--proc` (the replication-level
+  interface alone does not close issue 7's `--proc` half), a
+  cloudpickle `ProblemHandle` for notebook-defined problems, and Spark
+  come later.
+- **What the next phase is for:** cross-`hit()` batching, not dispatch
+  overhead. `--simpar`'s ceiling is that parallelism is confined to one
+  `hit()` call (`docs/simpar-ceiling.md`). The interface already takes
+  a list of blocks; what is missing is a caller that submits more than
+  one point at a time.
+- Deferred, with reasons, in rng-interface-design.md §11: per-point
+  CRN continuation (11: not invisible to RA solvers), unifying
+  `solve()`/`testsolve()` layouts (12: buys the executor nothing),
+  remembering infeasible points within an iteration (13: a performance
+  finding in its own right), a cheaper general jump (14: Phase 3).
 
 ## Testing
 

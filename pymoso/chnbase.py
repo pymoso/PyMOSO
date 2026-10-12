@@ -11,165 +11,18 @@ RASolver(MOSOSolver), class
 RLESolver(RASolver), class
 Oracle(object), class
 """
-import os
-import sys
-import types
-import inspect
 from statistics import mean, variance
 from math import sqrt, ceil, floor
 from .prng import registry
 from .prng.base import (
-    ReplicationDrawOverflow, ReplicationOverflow, IterationOverflow, SyncOverflow,
-    PointCodeCollision,
-    one_past, ensure_random_compatible,
+    ReplicationOverflow, IterationOverflow, SyncOverflow, PointCodeCollision, one_past,
 )
 from multiprocessing import Queue, Process
+from .executor import (
+    ReplicationBlock, SerialExecutor, InProcessHandle, simulate_with_class,
+    build_transport_descriptor, reconstruct_transport_descriptor,
+)
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
-
-
-def build_transport_descriptor(cls):
-    """
-    Build whatever a --simpar worker process needs to reconstruct cls,
-    once per worker rather than once per replication -- see
-    Oracle.set_simpar, the broadcast point this is built at.
-
-    A class loaded normally (built-in problems/testers, or anything
-    else genuinely importable) is returned as-is: it already pickles
-    by reference correctly regardless of multiprocessing start method,
-    since a fresh worker can just `import` it like any other
-    dependency.
-
-    A class loaded from a user-supplied file
-    (commands/basecomm.load_user_module marks its module
-    __pymoso_dynamic__ = True) has no real module backing it -- nothing
-    a worker can `import` by name, since the name only exists because
-    the CLI process put it in sys.modules. For that case, this returns
-    a source-bundle descriptor instead: every .py file's source text in
-    cls's directory, shipped as plain strings -- always picklable
-    regardless of start method, since no code or class objects are
-    involved -- reconstructed fresh in the worker
-    (reconstruct_transport_descriptor).
-
-    Ships the whole directory rather than analyzing cls's file for
-    which siblings it actually imports -- a real constraint, not an
-    oversight: a custom problem/tester's sibling imports must live flat
-    in one directory (matching commands/basecomm.load_user_module,
-    which only puts that one directory on sys.path -- a package-style
-    layout with subdirectories, or `from .sibling import x`, isn't
-    supported by either).
-
-    Parameters
-    ----------
-    cls : Oracle class
-
-    Returns
-    -------
-    cls, unchanged, or a dict source-bundle descriptor
-
-    Raises
-    ------
-    ValueError
-        cls has no locatable source at all (defined interactively, not
-        loaded from a .py file) -- --simpar cannot transport it to a
-        worker process. Raised here, at worker-creation time, rather
-        than left to surface as a hang once a job is dispatched.
-    """
-    module = sys.modules.get(cls.__module__)
-    if module is not None and getattr(module, '__pymoso_dynamic__', False):
-        return _build_source_bundle(cls, module)
-    try:
-        inspect.getfile(cls)
-    except (TypeError, OSError) as e:
-        raise ValueError(
-            f"{cls.__name__} has no locatable source file, so it cannot be "
-            "sent to a --simpar worker process. This happens for a class "
-            "defined interactively (a REPL or notebook), not loaded from a "
-            ".py file. Define it in a .py file and try again, or run "
-            "without --simpar."
-        ) from e
-    return cls
-
-
-def _build_source_bundle(cls, module):
-    filepath = module.__file__
-    directory = os.path.dirname(os.path.abspath(filepath))
-    entry_name = os.path.splitext(os.path.basename(filepath))[0]
-    files = {}
-    for fname in sorted(os.listdir(directory)):
-        if fname.endswith('.py'):
-            with open(os.path.join(directory, fname)) as f:
-                files[fname[:-3]] = f.read()
-    return {'files': files, 'entry': entry_name, 'class_name': cls.__name__}
-
-
-def reconstruct_transport_descriptor(descriptor):
-    """
-    The worker side of build_transport_descriptor: turns a
-    source-bundle dict back into a class, or passes an already-real
-    class through unchanged. Pure data in (for the bundle case) -- no
-    pickled code or class objects -- so this works identically
-    regardless of multiprocessing start method.
-
-    Execution order isn't assumed (e.g. "entry last"): the bundled
-    directory can contain files unrelated to the entry point that have
-    their own cross-imports (confirmed directly -- pymoso/examples/
-    ships both myproblem.py and mytester.py, and mytester.py imports
-    myproblem.py; a real --simpar run on a fixture built from that
-    directory bundles both even though only one is the entry point).
-    Instead, this retries whichever files raise ImportError against
-    modules not populated yet, until a full pass makes no further
-    progress -- a simple fixed-point resolution that works for any
-    acyclic dependency order among the bundled files without having to
-    guess it upfront.
-
-    Parameters
-    ----------
-    descriptor : Oracle class, or dict as built by
-        build_transport_descriptor
-
-    Returns
-    -------
-    Oracle class
-
-    Raises
-    ------
-    ImportError
-        The bundled files' cross-imports can't be resolved in any
-        order (a genuine circular import among them, or one of them
-        imports something this bundle doesn't include).
-    """
-    if not isinstance(descriptor, dict):
-        return descriptor
-    files = descriptor['files']
-    entry = descriptor['entry']
-    modules = {}
-    for name in files:
-        mod = types.ModuleType(name)
-        mod.__file__ = f'<transported:{name}.py>'
-        modules[name] = mod
-        sys.modules[name] = mod
-    pending = dict(files)
-    last_errors = {}
-    while pending:
-        progressed = False
-        for name in sorted(pending):
-            try:
-                code = compile(pending[name], f'<transported:{name}.py>', 'exec')
-                exec(code, modules[name].__dict__)
-            except ImportError as e:
-                last_errors[name] = e
-                continue
-            del pending[name]
-            progressed = True
-        if not progressed:
-            raise ImportError(
-                f"Could not resolve import order for bundled file(s) "
-                f"{sorted(pending)} while reconstructing a --simpar transport "
-                f"descriptor -- a circular import among the bundled files, or "
-                f"one of them imports something outside the bundle. Last "
-                f"error(s) seen: {last_errors}"
-            )
-    return getattr(modules[entry], descriptor['class_name'])
 
 
 def mp_replicate(orccls, x, rngcls, seed):
@@ -193,17 +46,10 @@ def mp_replicate(orccls, x, rngcls, seed):
     Oracle.replicate
     """
 
-    rng = rngcls(seed)
-    orc = orccls(rng)
-    orc.set_crnflag(False)
-    # ensure_random_compatible, not rng directly: g(x, rng) is
-    # documented only as "an rng-shaped object" (§3.6) -- BSProb's own
-    # g() calls expovariate(), which a raw Philox4x32Stream doesn't
-    # have (§12 step 6b) -- but the *unwrapped* rng already went into
-    # orccls(rng)/set_crnflag() above, which need the real backend
-    # instance for backend_for_stream's own isinstance check.
-    isfeas, objvals = orc.g(x, ensure_random_compatible(rng))
-    return isfeas, objvals
+    # One replication from a problem class: executor.simulate_with_class
+    # is the single statement of that recipe (construct over the
+    # unwrapped stream, hand g() its random.Random-compatible view).
+    return simulate_with_class(orccls, x, rngcls(seed))
 
 
 def mp_worker(input, output, descriptor, rngcls):
@@ -1210,14 +1056,14 @@ class Oracle(object):
     that sharing across points *is* what "common random numbers" means
     here); under crnflag=False, at `stream_at(_orc_root, k,
     offset_within_iteration(x, visit, r, W))`.
-    _crn_baseline : tuple of (int, Stream), or None
-    Cache: the iteration it was computed for, and that iteration's
-    baseline stream `stream_at(_orc_root, iteration, 0)`. Computed at
-    most once per iteration, on the first crnflag=True hit() of that
-    iteration, and reused by every later one -- see
-    `_crn_baseline_stream()` for why this cache is the performance of
-    `--crn` and must not be removed. Never drawn from. `None` until
-    first needed, and under crnflag=False always.
+    _executor : executor.SerialExecutor, or None
+    What actually runs replications: hit() describes each call as a
+    `ReplicationBlock` and hands it over (pymoso/executor.py). Opened
+    lazily, on the first hit(), over this instance -- so `g()` is
+    called on this very object, with whatever state it carries. It
+    also holds the per-stream cache that keeps crnflag=True hit()s
+    cheap; see SerialExecutor's own docstring before touching that.
+    `None` until first needed, and again after mp_cleanup().
     _orc_root : tuple of int
     Fixed for the Oracle's entire lifetime (set once, in set_crnflag(),
     never reassigned) -- the reference point every hit() coordinate is
@@ -1248,7 +1094,7 @@ class Oracle(object):
         # here touches `rng`: _orc_root gets its real value in
         # set_crnflag(), which every real solve()/testsolve()/
         # mp_replicate() path calls before any hit().
-        self._crn_baseline = None
+        self._executor = None
         self._orc_root = None
         # §12 step 6b: the selected generator's own canonical NAME
         # (a string, not the module itself -- see the `_backend`
@@ -1340,6 +1186,7 @@ class Oracle(object):
         Terminate all multiprocessing processes created in `__init__`. Call
         this after simulation is complete.
         """
+        self._close_executor()
         if self.simpar > 1:
             for p in self.proc:
                 p.terminate()
@@ -1365,7 +1212,7 @@ class Oracle(object):
         backend = registry.backend_for_stream(self.rng)
         self._backend_name = registry.GENERATOR_NAMES[backend]
         self._iteration = 0
-        self._crn_baseline = None
+        self._close_executor()
         # Fixed for the Oracle's lifetime, unlike `_iteration` above:
         # the reference point every coordinate -- default, CRN, visit=
         # and sync= alike -- is computed from (docs/rng-interface-
@@ -1538,9 +1385,9 @@ class Oracle(object):
         continuation tracking, §4.1): a new iteration's coordinate space
         is disjoint from the last one's, so no continuation state from
         the previous iteration could be meaningful here even if kept.
-        The cached CRN baseline (`_crn_baseline`) is keyed on the
-        iteration it was computed for, so it needs no reset here -- the
-        next crnflag=True hit() sees the mismatch and recomputes.
+        The executor's base-stream cache is keyed on `(root, stream)`,
+        and `stream` is `_iteration`, so it needs no reset here -- the
+        next hit() simply asks for a different stream.
 
         §12 step 9: this used to jump `rng` itself one ITER_STRIDE
         forward and re-read `_iteration_baseline_seed`/`_next_seed` from
@@ -1637,40 +1484,47 @@ class Oracle(object):
                 'interface-design.md §3.4.'.format(seen, tuple(x), code, self._iteration, len(x))
             )
 
-    def _crn_baseline_stream(self):
+    def _get_executor(self):
         """
-        The current iteration's CRN baseline stream,
-        `stream_at(_orc_root, _iteration, 0)` -- computed once per
-        iteration and cached in `_crn_baseline`, never drawn from.
-        Callers take `advance()`d copies of it.
+        The executor that runs this Oracle's replications, opened on
+        first use: a `SerialExecutor` over this very instance
+        (`InProcessHandle(self)`), for the selected generator.
 
-        **The cache is the performance of `--crn`, not an optimization
-        to simplify away.** `stream_at` is a full jump from the root
-        (~1.5-2 ms for MRG32k3a); `advance()` by a cached stride is
-        ~10 µs. An RA iteration makes many hit() calls and one baseline
-        serves all of them, so without the cache every crnflag=True
-        hit() would pay the full jump -- roughly 80x its cost before
-        §12 step 9 converged this branch onto `_hit_via_coordinate`.
-        Measured, not assumed: docs/hit-cost-baseline.md, regenerated
-        by docs/bench_hit_cost.py.
+        Lazy for two reasons. `set_crnflag()` is what fixes the
+        generator, and it runs after construction. And `testsolve()`
+        pickles each path's Oracle into a worker *before* any hit(), so
+        an executor created here is created in the process that uses
+        it. It is dropped (`_close_executor`) by `set_crnflag()` and
+        `mp_cleanup()`, and reopened on the next hit() if there is one.
 
         Returns
         -------
-        Stream
+        executor.SerialExecutor
         """
-        cached = self._crn_baseline
-        if cached is None or cached[0] != self._iteration:
-            cached = (self._iteration, self._backend.stream_at(self._orc_root, self._iteration, 0))
-            self._crn_baseline = cached
-        return cached[1]
+        if self._executor is None:
+            self._executor = SerialExecutor().open(InProcessHandle(self), self._backend_name)
+        return self._executor
+
+    def _close_executor(self):
+        executor = getattr(self, '_executor', None)
+        if executor is not None:
+            executor.close()
+        self._executor = None
 
     def _hit_via_coordinate(self, x, m, visit, sync, start_replication=0, crn=False):
         """
         The explicit-coordinate replication path (docs/rng-interface-
         design.md §4.1/§4.3), computed fresh from the Oracle's fixed
-        `_orc_root` via the selected backend's own `stream_at`/`advance`
-        -- the one replication loop every hit() call runs through, for
+        `_orc_root` -- the one path every hit() call runs through, for
         every branch (§12 step 9). Never touches `rng`.
+
+        This method computes *where* the block is and checks that it is
+        allowed to be there; it does not run anything. It builds a
+        `ReplicationBlock` -- point, root, `(stream, offset)`, stride,
+        count -- and hands it to the executor (pymoso/executor.py),
+        which turns the coordinate into streams and calls `g()`.
+        Aggregating the results into a mean and standard error happens
+        back here.
 
         Three coordinate shapes, one loop:
 
@@ -1681,10 +1535,9 @@ class Oracle(object):
           replication*REPL_STRIDE` -- the default branch's stream with
           the point and visit terms dropped (CRN is point-independent by
           construction, §2) and the sync branch's wide stride. The
-          first replication's stream is an `advance()`d copy of the
-          cached iteration baseline (`_crn_baseline_stream()`), not a
-          fresh `stream_at` call: same position, a small fraction of
-          the cost.
+          block starts at offset 0 of the iteration's stream, which
+          the executor has cached -- that, not a fresh jump from the
+          root per call, is why a CRN hit() is cheap.
         - sync (`sync` an int): the caller-chosen axis, below.
 
         §12 step 6b: generalized off the MRG-only mechanism step 6c left
@@ -1834,15 +1687,10 @@ class Oracle(object):
             stride = backend.REPL_STRIDE
             stream = backend.SYNC_ZONE_STREAM_START + sync // backend.SYNC_PER_STREAM
             offset = (sync % backend.SYNC_PER_STREAM) * backend.SYNC_STRIDE + start_replication * stride
-            first = backend.stream_at(self._orc_root, stream, offset)
         elif crn:
             stride = backend.REPL_STRIDE
             stream = self._iteration
             offset = start_replication * stride
-            # advance(), not the cached baseline itself: the baseline
-            # must never be drawn from (it serves every hit() in this
-            # iteration), and g() is about to draw from `first`.
-            first = self._crn_baseline_stream().advance(offset)
         else:
             # encode_point: the exact positional code when x fits, a
             # hash when it does not (a high-dimensional problem). Either
@@ -1853,14 +1701,11 @@ class Oracle(object):
             stream = self._iteration
             offset = backend.offset_from_point_code(code, visit, start_replication)
             stride = backend.REPL_RESERVE_STRIDE
-            first = backend.stream_at(self._orc_root, stream, offset)
-        # `stride` is also each replication's reserve: how many raw
-        # values its g() may draw before running into the next
-        # replication's start. Checked below on every branch -- only the
-        # default branch's is small enough to reach in practice.
-        streams = [first]
-        for _ in range(m - 1):
-            streams.append(streams[-1].advance(stride))
+        # Work as data. `stride` is also each replication's reserve:
+        # how many raw values its g() may draw before running into the
+        # next replication's start -- the executor checks it on every
+        # branch; only the default branch's is small enough to reach.
+        block = ReplicationBlock(x=x, root=self._orc_root, stream=stream, offset=offset, stride=stride, count=m)
         # §12 step 8: this block's own replications span
         # [offset, offset + m*stride) relative to `stream` -- see
         # _touch_coordinate's own docstring for why the last position
@@ -1875,35 +1720,23 @@ class Oracle(object):
         self._touch_coordinate(stream + extra_stream, last_offset)
         feas = []
         objm = []
+        executor = self._get_executor()
         if self.simpar > 1:
-            # Same broadcast shape as hit()'s own simpar branch: raw
-            # seeds queued for workers, no stream object built here.
-            for s in streams:
+            # --simpar still runs through set_simpar()'s own worker
+            # loop, not through an executor backend: the executor only
+            # supplies each replication's stream, and the raw seed is
+            # queued for a worker as before. (No draw-count check on
+            # this path -- the count stays in the worker.)
+            for s in executor.streams(block):
                 self.req_q.put((x, s.get_seed()))
             for _ in mr:
                 isfeasi, oval = self.res_q.get()
                 feas.append(isfeasi)
                 objm.append(oval)
         else:
-            reserve = stride
-            for s in streams:
-                # ensure_random_compatible(s), not s directly: g(x, rng)
-                # is documented only as "an rng-shaped object" (§3.6) --
-                # BSProb's own g() calls expovariate(), which a raw
-                # Philox4x32Stream doesn't have (§12 step 6b). s itself
-                # (unwrapped) is still what raw_consumed() below reads
-                # -- the adapter delegates to the same underlying
-                # stream, so wrapping doesn't affect the count.
-                isfeasi, oval = self.g(x, ensure_random_compatible(s))
-                if s.raw_consumed() > reserve:
-                    raise ReplicationDrawOverflow(
-                        'a single replication of x={0} drew {1} raw values, '
-                        'exceeding its reserved block of {2} '
-                        '-- it overran the next replication\'s starting position. '
-                        'See docs/rng-interface-design.md §3.4.'.format(x, s.raw_consumed(), reserve)
-                    )
-                feas.append(isfeasi)
-                objm.append(oval)
+            for replication in executor.run([block])[0]:
+                feas.append(replication.isfeas)
+                objm.append(replication.objectives)
         isfeas = False
         obmean = []
         obse = []

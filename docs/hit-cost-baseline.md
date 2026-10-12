@@ -76,3 +76,41 @@ What is established: any design that batches replications across
 full jump from the root (for example, one jump to the iteration's
 baseline, cached, then a shorter jump by the offset alone), has up to
 ~1.5 ms per `hit()` call available to recover on the default path.
+
+## After the executor interface (Phase 2)
+
+`Oracle.hit()` now describes its work as a `ReplicationBlock` and a
+`SerialExecutor` runs it (`pymoso/executor.py`). Same script, same
+machine, same day:
+
+| operation | Python 3.10.22 (µs) | Python 3.14.8 (µs) |
+|---|---|---|
+| `hit(x, m=1)`, `crn=True` | 34 | 19 |
+| `hit(x, m=8)`, `crn=True` | 219 | 138 |
+| `hit(x, m=64)`, `crn=True` | 1,389 | 889 |
+| `hit(x, m=1)`, `crn=False` | 1,029 | 744 |
+| `hit(x, m=8)`, `crn=False` | 1,210 | 864 |
+| `hit(x, m=64)`, `crn=False` | 2,365 | 1,614 |
+
+**CRN is unchanged**, as intended: the per-iteration cache moved from
+`Oracle` into the executor (one cached base stream per
+`(root, stream)`).
+
+**The default path roughly halved in this benchmark, and that was not
+a goal of the phase.** It is a side effect of where the cache now
+sits. Before, a default-branch `hit()` made one jump from the root
+straight to its coordinate -- an exponent of about 130 bits
+(`stream*2**127 + offset`). Now the executor reaches every coordinate
+in two steps: the stream's base, cached, then `advance(offset)`. The
+per-call jump is therefore by the offset alone, and binary
+exponentiation costs in proportion to the exponent's bit length. The
+benchmark's point `(3,)` in one dimension has a ~55-bit offset. The
+saving is point-dependent: a two-dimensional ProbTPA point has a
+~96-bit offset and saves about a quarter; a point whose code fills the
+field saves almost nothing. Every stream reached is bit-identical to
+before (the jump composition law), and no golden moved.
+
+This is not the "cheaper general jump" carried as a Phase 3 candidate
+(docs/rng-interface-design.md §11, entry 14) -- that one would shorten
+the exponentiation itself -- but it does reduce what that candidate
+has left to gain on small points.
