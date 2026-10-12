@@ -11,16 +11,18 @@ replacement (§4). Two checks the golden suite doesn't directly provide
   behind "CRN stays bit-identical," not an assumption riding on §2's
   proof alone. Unaffected by step 4b -- the CRN branch is untouched.
 
-  `_crn_replicate` below drives replications directly (reset to
-  `_iteration_baseline_seed`, then `g()`+`_advance_replication()` per
-  replication) rather than through `orc.hit(x, m)`: hit() only returns
-  aggregated mean/se, and several tests below check every individual
-  replication's own coordinate, not the mean. This mirrors exactly the
-  loop `Oracle.bump()` used to run before its removal (no in-tree
-  caller, duplicated hit()'s own loop -- see CLAUDE.md's "Fixed on this
-  branch") -- reproduced here, test-local, because this file's own
-  regression intent (raw per-replication coordinate correctness) needs
-  it, not because bump() itself is coming back.
+  `_crn_replicate` below calls the real `orc.hit(x, m)` and reads back,
+  from `SeedRecordingOracle.log`, the full seed each replication's own
+  `g()` call was handed. hit() only returns aggregated mean/se, and
+  several tests below check every individual replication's own
+  coordinate, so the Oracle records them as they happen. Nothing here
+  reads or writes Oracle's private stream state: these tests state what
+  `g()` must observe, not how the Oracle gets there, so they hold
+  unchanged across §12 step 9's convergence of the CRN branch onto
+  `_hit_via_coordinate`. (An earlier version of this helper re-ran the
+  CRN walk itself, test-locally, through `_iteration_baseline_seed`/
+  `_next_seed`/`_advance_replication()` -- it would have kept passing
+  against its own copy of the mechanism no matter what hit() did.)
 
 - §7.1 item 10, order-independence. Landed at step 3 as a strict xfail,
   run against that step's own code and confirmed FAILING: step 3
@@ -46,35 +48,37 @@ ITER_STRIDE = 2 ** 127
 
 
 class SeedRecordingOracle(Oracle):
-    """g() returns the first seed component it was actually handed,
-    as a float (so hit()'s mean()/variance() calls -- expecting
-    numbers -- work unmodified) -- lets a test read back exactly which
-    stream position g() drew from, without needing a real simulation."""
+    """g() records the full seed it was actually handed in `self.log`
+    (one entry per replication, in call order) and returns that seed's
+    first component as a float (so hit()'s mean()/variance() calls --
+    expecting numbers -- work unmodified) -- lets a test read back
+    exactly which stream position g() drew from, without needing a real
+    simulation."""
 
     def __init__(self, rng):
         self.num_obj = 1
         self.dim = 1
+        self.log = []
         super().__init__(rng)
 
     def g(self, x, rng):
-        return True, (float(rng.get_seed()[0]),)
+        seed = rng.get_seed()
+        self.log.append(seed)
+        return True, (float(seed[0]),)
 
 
-def _expected_seed0(coordinate):
-    return float(jump_seed_n(ROOT, coordinate)[0])
+def _expected_seed(coordinate):
+    return jump_seed_n(ROOT, coordinate)
 
 
 def _crn_replicate(orc, x, m):
-    """Drive `m` CRN replications at `x`, returning raw per-replication
-    observations -- see module docstring for why this exists instead of
-    calling the removed Oracle.bump() or the aggregating orc.hit()."""
-    orc.rng.seed(orc._iteration_baseline_seed)
-    orc._next_seed = orc._iteration_baseline_seed
-    obs = []
-    for _ in range(m):
-        isfeas, objd = orc.g(x, orc.rng)
-        obs.append(objd)
-        orc._advance_replication()
+    """Run `m` CRN replications at `x` through the real orc.hit(),
+    returning the full seed each replication's g() call was handed --
+    see module docstring."""
+    start = len(orc.log)
+    orc.hit(x, m)
+    obs = orc.log[start:]
+    assert len(obs) == m
     return obs
 
 
@@ -93,7 +97,7 @@ def _fresh_crn_oracle():
 def test_crn_replication_0_at_iteration_0_matches_the_root_directly():
     orc = _fresh_crn_oracle()
     obs = _crn_replicate(orc, (1,), 1)
-    assert obs[0][0] == _expected_seed0(0)
+    assert obs[0] == _expected_seed(0)
 
 
 @pytest.mark.parametrize("m", [1, 3, 5])
@@ -104,7 +108,7 @@ def test_crn_every_replication_within_one_iteration_matches_the_coordinate_formu
     orc = _fresh_crn_oracle()
     obs = _crn_replicate(orc, (7,), m)
     for r in range(m):
-        assert obs[r][0] == _expected_seed0(0 * ITER_STRIDE + r * REPL_STRIDE)
+        assert obs[r] == _expected_seed(0 * ITER_STRIDE + r * REPL_STRIDE)
 
 
 def test_crn_advance_moves_to_the_next_iteration_baseline_exactly():
@@ -115,7 +119,7 @@ def test_crn_advance_moves_to_the_next_iteration_baseline_exactly():
     for k in range(1, 6):
         orc.crn_advance()
         obs = _crn_replicate(orc, (k,), 1)
-        assert obs[0][0] == _expected_seed0(k * ITER_STRIDE)
+        assert obs[0] == _expected_seed(k * ITER_STRIDE)
 
 
 def test_crn_different_points_in_the_same_iteration_share_the_same_replication_streams():
@@ -127,9 +131,9 @@ def test_crn_different_points_in_the_same_iteration_share_the_same_replication_s
     orc.crn_advance()
     obs_a = _crn_replicate(orc, (11,), 4)
     obs_b = _crn_replicate(orc, (22,), 4)
-    assert [v[0] for v in obs_a] == [v[0] for v in obs_b]
+    assert obs_a == obs_b
     for r in range(4):
-        assert obs_a[r][0] == _expected_seed0(1 * ITER_STRIDE + r * REPL_STRIDE)
+        assert obs_a[r] == _expected_seed(1 * ITER_STRIDE + r * REPL_STRIDE)
 
 
 def test_crn_multiple_iterations_and_replications_all_match_the_formula():
@@ -144,7 +148,7 @@ def test_crn_multiple_iterations_and_replications_all_match_the_formula():
         m = k + 1
         obs = _crn_replicate(orc, (100 + k,), m)
         for r in range(m):
-            assert obs[r][0] == _expected_seed0(k * ITER_STRIDE + r * REPL_STRIDE), (
+            assert obs[r] == _expected_seed(k * ITER_STRIDE + r * REPL_STRIDE), (
                 f"iteration {k}, replication {r}"
             )
 

@@ -116,7 +116,29 @@ def test_endseed_matches_the_formula_crn_branch():
     orc.hit((5,), 4)
     expected = jump_seed_n(orc._orc_root, 0 * ITER_STRIDE + 4 * REPL_STRIDE)
     assert orc.get_endseed() == expected
-    assert orc.get_endseed() == orc._next_seed  # the two mechanisms agree, as designed
+
+
+def test_endseed_crn_branch_is_where_the_next_replication_would_start():
+    """After m CRN replications, the endseed is exactly the seed
+    replication m itself would be handed -- observed through a second
+    Oracle's real hit(x, m + 1), not read from private stream state."""
+    class RecordingOracle(SimpleOracle):
+        def __init__(self, rng, dim=1):
+            self.log = []
+            super().__init__(rng, dim=dim)
+
+        def g(self, x, rng):
+            self.log.append(rng.get_seed())
+            return super().g(x, rng)
+
+    m = 4
+    orc = _fresh_oracle(dim=1, crnflag=True)
+    orc.hit((5,), m)
+    probe = RecordingOracle(MRG32k3a(ROOT))
+    probe.set_crnflag(True)
+    probe.simpar = 1
+    probe.hit((5,), m + 1)
+    assert orc.get_endseed() == probe.log[m]
 
 
 def test_endseed_matches_the_formula_sync_branch():
