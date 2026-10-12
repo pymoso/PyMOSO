@@ -40,6 +40,10 @@ Homepage = "https://github.com/pymoso/PyMOSO"
 pymoso = "pymoso.cli:main"
 
 [tool.setuptools]
+# MANIFEST.in adds pymoso/examples to the sdist for the test suite. Without
+# this, setuptools would also copy those files into the wheel as package
+# data; the installed package has never shipped them.
+include-package-data = false
 packages = [
     "pymoso",
     "pymoso.solvers",

@@ -1,0 +1,7 @@
+# The sdist carries everything the test suite needs, so the suite can be
+# run from an unpacked source distribution: setuptools includes
+# tests/test*.py by default, but not the helpers beside them, pytest's
+# configuration, or the example files several README tests execute.
+include pytest.ini
+recursive-include tests *.py *.md
+recursive-include pymoso/examples *.py
