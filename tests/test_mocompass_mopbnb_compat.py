@@ -27,6 +27,7 @@ import subprocess
 
 import pytest
 
+from _pymoso_cli import CLI_TIMEOUT, pymoso_argv
 from pymoso.chnutils import solve, testsolve
 from pymoso.problems.probtpa import ProbTPA
 from pymoso.solvers.mocompass import MOCOMPASS
@@ -107,7 +108,8 @@ def test_crn_refused_via_cli(name, tmp_path):
         "--param", "lb", "0", "--param", "ub", "50",
         "ProbTPA", name, "40", "40",
     ]
-    proc = subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True)
+    proc = subprocess.run(pymoso_argv(cmd), cwd=tmp_path, capture_output=True, text=True,
+                          timeout=CLI_TIMEOUT)
     assert proc.returncode != 0
     assert "does not support --crn" in proc.stdout
     assert "Traceback" not in proc.stdout

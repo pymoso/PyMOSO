@@ -46,6 +46,8 @@ import sys
 
 import pytest
 
+from _pymoso_cli import pymoso_argv
+
 pytestmark = pytest.mark.timeout(90)
 
 README = open("README.md", encoding="utf-8").read()
@@ -130,7 +132,7 @@ def _run_example(cmd, tmp_path):
     if any("myproblem.py" in a or "mytester.py" in a for a in argv):
         shutil.copy("pymoso/examples/myproblem.py", tmp_path)
         shutil.copy("pymoso/examples/mytester.py", tmp_path)
-    return subprocess.run(["pymoso"] + argv, cwd=tmp_path, capture_output=True, text=True, timeout=60)
+    return subprocess.run(pymoso_argv(["pymoso"] + argv), cwd=tmp_path, capture_output=True, text=True, timeout=60)
 
 
 @pytest.mark.parametrize("cmd", CLI_EXAMPLES, ids=range(len(CLI_EXAMPLES)))

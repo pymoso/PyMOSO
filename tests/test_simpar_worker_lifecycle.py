@@ -32,6 +32,8 @@ import subprocess
 
 import pytest
 
+from _pymoso_cli import pymoso_argv
+
 pytestmark = pytest.mark.timeout(60)
 
 # Comfortably above the ~1-3s a real --simpar run takes when it isn't
@@ -44,7 +46,7 @@ def test_infeasible_x0_with_simpar_exits_rather_than_hanging(tmp_path):
     cmd = ["pymoso", "solve", "--simpar=4", "--budget=10000",
            "ProbTPA", "RPERLE", "97", "97"]  # (97, 97) infeasible: ProbTPA's domain is [0, 50]
     try:
-        proc = subprocess.run(cmd, cwd=tmp_path, capture_output=True,
+        proc = subprocess.run(pymoso_argv(cmd), cwd=tmp_path, capture_output=True,
                                text=True, timeout=SUBPROCESS_TIMEOUT)
     except subprocess.TimeoutExpired:
         pytest.fail(
