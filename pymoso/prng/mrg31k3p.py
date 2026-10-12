@@ -28,8 +28,9 @@ this module never touches in float form either -- jump_seed_n below is
 mrg_common.mat_pow_mod end to end, exact integers throughout, same as
 mrg32k3a.py's own generalized jump).
 
-REPL_STRIDE/ITER_STRIDE/OFFSET_CAPACITY/ISP_ITER_MARGIN/ISP_STRIDE/
-SYNC_ROLE_OFFSET/SYNC_ZONE_STREAM_START/SYNC_STRIDE are all reused
+REPL_STRIDE/ITER_STRIDE/OFFSET_CAPACITY/ISP_ITER_MARGIN/ISP_STREAM_SPAN/
+ISP_STRIDE/SYNC_ROLE_OFFSET/SYNC_ZONE_STREAM_START/SYNC_STRIDE/
+SYNC_PER_STREAM/SYNC_CAPACITY/REPL_COUNT_LIMIT are all reused
 directly from mrg32k3a.py, not redefined here: docs/rng-interface-
 design.md's step 5 entry works out that every existing coordinate
 constant (sized against MRG32k3a's period, ~2**191) stays safely under
@@ -67,8 +68,9 @@ import random
 
 from .mrg32k3a import (
     bsm, REPL_STRIDE, ITER_STRIDE, REPL_RESERVE_BITS, REPL_RESERVE_STRIDE,
-    OFFSET_CAPACITY, ISP_ITER_MARGIN, ISP_STRIDE, SYNC_ROLE_OFFSET,
-    SYNC_ZONE_STREAM_START, SYNC_STRIDE, point_width, offset_within_iteration,
+    OFFSET_CAPACITY, ISP_ITER_MARGIN, ISP_STREAM_SPAN, ISP_STRIDE,
+    SYNC_ROLE_OFFSET, SYNC_ZONE_STREAM_START, SYNC_STRIDE, SYNC_PER_STREAM,
+    SYNC_CAPACITY, REPL_COUNT_LIMIT, point_width, offset_within_iteration,
 )
 from .mrg_common import (
     mat333mult as _mat333mult,

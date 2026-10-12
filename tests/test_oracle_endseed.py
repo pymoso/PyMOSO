@@ -234,14 +234,14 @@ def test_get_endseed_raises_at_the_default_zone_family_boundary():
         orc.get_endseed()
 
 
-def test_get_endseed_never_raises_in_the_sync_zone_at_any_reachable_stream():
-    """The sync zone is deliberately left unbounded (§8.2's own
-    documented posture) -- confirmed directly at a stream value far
-    beyond anything ISP_ITER_MARGIN would allow in the default zone,
-    not just at a small, unremarkable one."""
+def test_get_endseed_carries_within_the_sync_zone():
+    """The sync zone is a family of its own, bounded by the isp path's
+    slot (ISP_STREAM_SPAN), not by ISP_ITER_MARGIN: a carry from deep
+    inside it is ordinary. Its upper boundary, where the carry raises,
+    is covered in tests/test_sync_isp_nesting.py."""
     orc = _fresh_oracle(dim=1, crnflag=False)
     orc.set_crnflag(False)
-    huge_sync_stream = SYNC_ZONE_STREAM_START + 10 ** 15
-    orc._high_water_mark = (huge_sync_stream, ITER_STRIDE - 1)
-    expected = jump_seed_n(orc._orc_root, (huge_sync_stream + 1) * ITER_STRIDE)
+    sync_stream = SYNC_ZONE_STREAM_START + 10 ** 6
+    orc._high_water_mark = (sync_stream, ITER_STRIDE - 1)
+    expected = jump_seed_n(orc._orc_root, (sync_stream + 1) * ITER_STRIDE)
     assert orc.get_endseed() == expected  # must not raise

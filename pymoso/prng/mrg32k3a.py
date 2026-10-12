@@ -21,7 +21,7 @@ DEFAULT_SEED
 import random
 from math import log
 
-from .base import REPL_RESERVE_BITS, point_width, offset_within_iteration
+from .base import REPL_RESERVE_BITS, REPL_COUNT_BITS, point_width, offset_within_iteration
 # point_width/offset_within_iteration re-exported directly, not wrapped
 # (contrast philox4x32.py's own versions): base.py's *default* budget
 # (POINT_BITS=75/VISIT_BITS=6/REPL_COUNT_BITS=32/REPL_RESERVE_BITS=14)
@@ -206,44 +206,52 @@ _jump127_p2 = _mat_pow_mod(_m2_step, ITER_STRIDE, mrgm2i)
 # count grows only logarithmically in budget -- even an absurd
 # budget=10**12 (a trillion simulation calls; nothing in this project's
 # docs, README examples, or test suite budgets past 400,000) reaches
-# only nu=282. A margin of 2**32 (~4.3e9) iterations before ISP_STRIDE
-# is approached is therefore not a tight fit to a realistic ceiling, it
-# is many orders of magnitude beyond any budget that could realistically
-# be run:
-ISP_ITER_MARGIN = 2 ** 32
-ISP_STRIDE = ITER_STRIDE * ISP_ITER_MARGIN  # 2**159
-
-# ISP_MAX_MARGIN bounds how many independent sample paths (`isp`) the
-# oracle role's own region reserves space for, before SYNC_ROLE_OFFSET
-# begins -- sized generously against --isp, which in practice is single-
-# to double-digit (testsolve's own use case is comparing a handful of
-# independent runs, not thousands): 2**16 (65,536) paths is already
-# never approached in practice.
-ISP_MAX_MARGIN = 2 ** 16
-SYNC_ROLE_OFFSET = ISP_MAX_MARGIN * ISP_STRIDE  # 2**175
-
-# §12 step 6c: the stream value (ITER_STRIDE units, via divmod) at which
-# the sync zone begins -- exact, since SYNC_ROLE_OFFSET is an exact
-# multiple of ITER_STRIDE (2**175 / 2**127 = 2**48). Used by
-# chnbase.py's Oracle.get_endseed() and chnutils.py's testsolve() to
-# decide which family a touched stream belongs to for the high-water-
-# mark carry (base.one_past): below this, the default/CRN zone,
-# bounded by ISP_ITER_MARGIN; at or above it, the sync zone, left
-# unbounded (§8.2's own documented posture).
+# only nu=282. That table is anchored to budget through the built-in
+# sample-size schedule, so it is a statement about RASolver's own
+# calc_m, not a hard bound. Two harder ones:
 #
-# Found while wiring this through both call sites, not fixed here: this
-# offset (2**175) is *larger* than ISP_STRIDE (2**159) -- a single isp
-# path's own sync-zone coordinate already exceeds what should be the
-# next isp path's own entire reserved range. sync= and multi-path
-# testsolve() (isp > 1) are therefore not actually compatible in the
-# shipped scheme, pre-existing (not introduced by step 6c, which only
-# relabels the same arithmetic), and unreached by anything in this
-# codebase today -- no in-tree caller uses sync= at all (checked,
-# tests/test_oracle_visit_sync.py and grep confirm zero non-test
-# callers). Tracked in docs/rng-interface-design.md, not fixed here:
-# resolving it would mean relocating SYNC_ROLE_OFFSET below ISP_STRIDE,
-# a real redesign, not a relabeling.
-SYNC_ZONE_STREAM_START = SYNC_ROLE_OFFSET // ITER_STRIDE
+# - With the built-in schedule no run can pass nu = 4,000 at all:
+#   calc_b's 1.2**nu overflows a float before nu=3,900 and calc_m's
+#   1.1**nu before nu=7,500, and both raise OverflowError
+#   (KNOWN_ISSUES.md issue 13; tests/test_sync_isp_nesting.py checks
+#   the arithmetic).
+# - A solver with its own schedule, whose iterations consume no budget
+#   (issue 13's own runaway case), can iterate without limit. Nothing
+#   bounds that except the ceiling below, so the ceiling must raise.
+#
+# Each isp path owns ISP_STREAM_SPAN consecutive streams (ITER_STRIDE
+# apart): the lower half for RA iterations, the upper half for the
+# sync zone.
+ISP_STREAM_SPAN = 2 ** 32
+ISP_STRIDE = ITER_STRIDE * ISP_STREAM_SPAN  # 2**159
+
+# Where, within a path's own slot, the sync zone begins -- and
+# therefore how many RA iterations a path gets: 2**31 (~2.1e9), over
+# 500,000x the float-overflow ceiling above (2**31 / 4,000 ~ 537,000). Reaching it raises
+# IterationOverflow (chnbase.py's _hit_via_coordinate) before anything
+# is drawn; it does not wrap and does not spill into the sync zone.
+#
+# This is the fix for a defect found at §12 step 6c: the sync zone
+# used to begin at 2**175 from an Oracle's own root, 2**16 slots
+# *above* that path's own 2**159-wide slot -- inside the default zone
+# of path t + 65,536 -- and two paths' sync zones coincided wherever
+# their sync values differed by 2**51. No in-tree caller reached
+# either, but independence between paths rested on that arithmetic
+# rather than on the layout. Nested here, a path's every coordinate --
+# default, CRN and sync -- lies inside its own slot, and each axis has
+# a boundary that raises.
+SYNC_ZONE_STREAM_START = ISP_STREAM_SPAN // 2  # 2**31
+ISP_ITER_MARGIN = SYNC_ZONE_STREAM_START
+
+# The same boundary as a flat coordinate (2**158), for callers and
+# tests that state §4.3's formula in flat form.
+SYNC_ROLE_OFFSET = SYNC_ZONE_STREAM_START * ITER_STRIDE
+
+# How many replications one hit() block may address, on every branch:
+# the default branch's own REPL_COUNT_BITS field (base.py -- sized
+# against calc_m(200) there), applied uniformly so the CRN and sync
+# branches have a ceiling that raises too (ReplicationOverflow).
+REPL_COUNT_LIMIT = 1 << REPL_COUNT_BITS  # 2**32
 
 # SYNC_STRIDE holds one sync value's own replication range. §4.3's own
 # formula is `SYNC_ROLE_OFFSET + sync*SYNC_STRIDE + replication*
@@ -255,26 +263,31 @@ SYNC_ZONE_STREAM_START = SYNC_ROLE_OFFSET // ITER_STRIDE
 # supplying sync), so unlike offset_within_iteration it is never
 # competing with x (or with a per-draw reserve) for bits, and can use
 # the same wide, bit-identity-grade spacing the CRN branch already does
-# rather than inventing a second, narrower one. SYNC_STRIDE therefore
-# needs to hold `replication`'s own realistic range (the same margin
-# base.REPL_COUNT_BITS=32 already established against the calc_m table
-# above, not base's own, separately-budgeted field) at REPL_STRIDE
-# spacing:
-SYNC_REPL_MARGIN = 2 ** 32  # same figure REPL_COUNT_BITS uses, same reasoning
+# rather than inventing a second, narrower one. SYNC_STRIDE is
+# therefore REPL_COUNT_LIMIT replications at REPL_STRIDE spacing:
+SYNC_REPL_MARGIN = REPL_COUNT_LIMIT
 SYNC_STRIDE = SYNC_REPL_MARGIN * REPL_STRIDE  # 2**108
 
-# Headroom check, computed: SYNC_ROLE_OFFSET (2**175) leaves
-# 2**191 - 2**175 = (2**16 - 1) * 2**175 of coordinate space above it,
-# comfortably inside the period with a factor of 2**16 (65,536) to
-# spare before SYNC_ROLE_OFFSET itself would need to move. Within that,
-# the number of distinct `sync` values supported before running past the
-# period is (2**191 - 2**175) // SYNC_STRIDE ~= 2**83 -- MOCOMPASS's own
-# `sync` value (`nx[x]`, bounded by total replications taken at one
-# point, itself bounded by --budget) never approaches this: even the
-# budget=10**12 row above is 2**~40, over forty orders of magnitude
-# under 2**83. No separate "SYNC_BITS" ceiling is needed; the remaining
-# period headroom after SYNC_ROLE_OFFSET already covers every realistic
-# case with room to spare.
+# The sync coordinate is two-dimensional like every other (§3.9):
+#
+#   stream = SYNC_ZONE_STREAM_START + sync // SYNC_PER_STREAM
+#   offset = (sync % SYNC_PER_STREAM)*SYNC_STRIDE + replication*REPL_STRIDE
+#
+# SYNC_PER_STREAM sync values share one stream; for this generator the
+# pair flattens to exactly §4.3's formula above. SYNC_CAPACITY is how
+# many sync values one path's sync zone holds: 2**31 streams * 2**19 =
+# 2**50 (~1.1e15). MOCOMPASS's own `sync` (`nx[x]`, the replications
+# taken at one point, itself bounded by --budget) is ~2**40 even at the
+# absurd budget=10**12 row above. A value at or past SYNC_CAPACITY
+# raises SyncOverflow.
+SYNC_PER_STREAM = OFFSET_CAPACITY // SYNC_STRIDE  # 2**19
+SYNC_CAPACITY = (ISP_STREAM_SPAN - SYNC_ZONE_STREAM_START) * SYNC_PER_STREAM  # 2**50
+assert SYNC_PER_STREAM * SYNC_STRIDE == OFFSET_CAPACITY
+assert REPL_COUNT_LIMIT * REPL_STRIDE <= OFFSET_CAPACITY
+
+# How many isp paths fit is bounded by the period, not by a constant
+# here: ~2**191 / ISP_STRIDE = 2**32 slots for MRG32k3a. --isp is
+# single- to double-digit in practice. Not enforced.
 
 
 #constants used for approximating the inverse standard normal cdf

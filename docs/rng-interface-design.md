@@ -2576,6 +2576,47 @@ behavior-changing (goldens move, on purpose, with sign-off).
    a real redesign of §4.3's own sizing, not a relabeling — out of this
    step's own scope.
 
+   **Resolved since** (Phase 1 of the 2.0.0 work). Stated exactly, the
+   defect was narrower than "incompatible": a path's sync zone began
+   `2**16` slots above its own, inside the default zone of path
+   `t + 65,536`, and two paths' sync zones coincided where their sync
+   values differed by `2**51` (path 0 at `sync=2**51` was handed the
+   seed path 1 got at `sync=0` -- reproduced, then pinned in
+   `tests/test_sync_isp_nesting.py`). Nothing realistic reached either,
+   but independence between paths rested on that arithmetic, not on the
+   layout. Now:
+
+   - Each isp path owns `ISP_STREAM_SPAN` streams. The lower part,
+     `[0, ISP_ITER_MARGIN)`, is RA iterations; the sync zone is
+     `[SYNC_ZONE_STREAM_START, ISP_STREAM_SPAN)` with
+     `SYNC_ZONE_STREAM_START == ISP_ITER_MARGIN`. Every coordinate a
+     path can produce lies inside its own slot.
+   - The sync coordinate is two-dimensional (§3.9), one formula for
+     every generator: `stream = SYNC_ZONE_STREAM_START + sync //
+     SYNC_PER_STREAM`, `offset = (sync % SYNC_PER_STREAM)*SYNC_STRIDE +
+     replication*REPL_STRIDE`. For the MRG family it flattens to §4.3's
+     original formula with `SYNC_ROLE_OFFSET = 2**158`.
+   - MRG family: slot `2**32` streams (unchanged -- path roots, and so
+     `testsolve()` goldens, depend on it), iterations halved to
+     `2**31`, `2**19` sync values per stream, `2**50` per path.
+   - Each axis raises at its boundary before anything is drawn:
+     `IterationOverflow` at iteration `ISP_ITER_MARGIN`,
+     `SyncOverflow` at `SYNC_CAPACITY`, `ReplicationOverflow` when a
+     block's last replication index passes `REPL_COUNT_LIMIT` (only its
+     first was checked before, and only on the default branch). The
+     sync family is bounded by `ISP_STREAM_SPAN` in `get_endseed()` and
+     `testsolve()`'s aggregation; it used to be `None`.
+   - The halved iteration headroom, as a number: the built-in
+     `calc_b`/`calc_m` schedule overflows a float and raises before
+     `nu = 4,000` whatever the budget, `2**31 / 4,000` is about
+     537,000x that. The ceiling is reachable only by a solver with its
+     own schedule whose iterations consume no budget (KNOWN_ISSUES.md
+     issue 13's runaway case), and that is the case the raise is for.
+
+   No golden moved: default and CRN coordinates are untouched, and no
+   in-tree caller passes `sync=`. Sync coordinates themselves moved
+   (`2**175` to `2**158` from the path root).
+
    **Debt, recorded not fixed: the CRN branch was not migrated.**
    `crn_advance()`/`_advance_replication()`/`hit()`'s own `crnflag=True`
    path keep their incremental, stateful `rng`/`_next_seed` mutation

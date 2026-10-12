@@ -292,13 +292,16 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   no two-dimensional sync coordinate yet). The asterisk on "Philox is
   supported" in `--generator`'s CLI help and the README stays until
   that lands -- see "Still in flight."
-- `SYNC_ROLE_OFFSET` (2^175) exceeds `ISP_STRIDE` (2^159), so `sync=`
-  and multi-path `testsolve()` are incompatible. No in-tree caller
-  exercises the combination today, but MOCOMPASS is the natural `sync=`
-  user once ported and `testsolve` is how its competing numerics would
-  be generated — this is one step away from being reached, not
-  genuinely unreachable. Recorded at the constant's definition; should
-  probably raise.
+- **Closed:** `SYNC_ROLE_OFFSET` (2^175) exceeded `ISP_STRIDE` (2^159):
+  a path's sync zone lay 2^16 slots above its own. The sync zone is now
+  nested inside each isp path's slot (`SYNC_ZONE_STREAM_START` =
+  `ISP_ITER_MARGIN`; `ISP_STREAM_SPAN` is the slot width), the sync
+  coordinate is two-dimensional, and iteration, sync value and
+  replication count each raise at their boundary
+  (`IterationOverflow`, `SyncOverflow`, `ReplicationOverflow`). The MRG
+  family halved its iteration headroom to 2^31 to do it (its slot
+  width is pinned by goldens); Philox doubled its slot instead. No
+  golden moved. `tests/test_sync_isp_nesting.py`.
 
   
 ## Settled RNG design (implemented)

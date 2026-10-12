@@ -247,6 +247,24 @@ class ReplicationOverflow(ValueError):
     have silently overflowed into visit's zone."""
 
 
+class IterationOverflow(ValueError):
+    """The RA iteration index has reached this generator's own
+    ISP_ITER_MARGIN -- the number of streams one isp path's slot
+    reserves for iterations. The next stream up belongs to the same
+    path's sync zone, so drawing there would silently share streams
+    with sync= callers. Raised by chnbase.py's _hit_via_coordinate
+    before anything is drawn. Not reachable by a run that terminates
+    for the usual reasons (see mrg32k3a.py's own sizing table); a
+    solver whose iterations never consume budget is what gets here."""
+
+
+class SyncOverflow(ValueError):
+    """`sync` doesn't fit in the sync zone of one isp path's slot
+    (this generator's own SYNC_CAPACITY). Raised, not wrapped into the
+    next path's slot -- which is exactly what an unbounded sync zone
+    used to allow."""
+
+
 class ReplicationDrawOverflow(ValueError):
     """A single replication's g() call drew more than
     2**REPL_RESERVE_BITS raw values, overrunning the block reserved

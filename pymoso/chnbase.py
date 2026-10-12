@@ -18,7 +18,10 @@ import inspect
 from statistics import mean, variance
 from math import sqrt, ceil, floor
 from .prng import registry
-from .prng.base import ReplicationDrawOverflow, one_past, ensure_random_compatible
+from .prng.base import (
+    ReplicationDrawOverflow, ReplicationOverflow, IterationOverflow, SyncOverflow,
+    one_past, ensure_random_compatible,
+)
 from multiprocessing import Queue, Process
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
 
@@ -1479,14 +1482,15 @@ class Oracle(object):
         different, already-allocated family's own territory (the same
         class of defect `MAX_RI`'s unenforced silent overlap was). The
         family capacity depends on which zone the touch's own `stream`
-        falls in: below `SYNC_ZONE_STREAM_START`, it's the default/CRN
-        zone, bounded by `ISP_ITER_MARGIN` (how many iterations one isp
-        path's own slot reserves -- carrying past it would land in what
-        should be the *next* isp path's own zone); at or above it, it's
-        the sync zone, deliberately left unbounded (`None` -- §8.2's own
-        documented posture: remaining period headroom past
-        `SYNC_ROLE_OFFSET` already covers every realistic `sync` value,
-        so no separate ceiling is enforced here either). An untouched
+        falls in, both inside this isp path's own slot: below
+        `SYNC_ZONE_STREAM_START`, it's the default/CRN zone, bounded by
+        `ISP_ITER_MARGIN` (carrying past it would land in this path's
+        own sync zone); at or above it, it's the sync zone, bounded by
+        `ISP_STREAM_SPAN` (carrying past it would land in the *next*
+        isp path's slot). The sync zone used to be left unbounded
+        (`None`), which was only defensible while it lay outside every
+        slot -- the defect described at `SYNC_ZONE_STREAM_START`'s own
+        definition (mrg32k3a.py). An untouched
         Oracle (`_high_water_mark is None`) returns `_orc_root` itself,
         with no carry computed at all -- there is nothing to be "one
         past" yet.
@@ -1510,7 +1514,7 @@ class Oracle(object):
             return self._orc_root
         stream, offset = self._high_water_mark
         backend = self._backend
-        family_capacity = backend.ISP_ITER_MARGIN if stream < backend.SYNC_ZONE_STREAM_START else None
+        family_capacity = backend.ISP_ITER_MARGIN if stream < backend.SYNC_ZONE_STREAM_START else backend.ISP_STREAM_SPAN
         next_stream, next_offset = one_past(
             stream, offset, offset_capacity=backend.OFFSET_CAPACITY, stream_family_capacity=family_capacity
         )
@@ -1638,11 +1642,11 @@ class Oracle(object):
         since `stream`/`offset` were always the two dimensions §3.9
         already named; the flattening was legacy structure from before
         that split existed, not something intrinsic to the computation.
-        The sync branch keeps the old flat-then-divmod formula, MRG-
-        family only (see the explicit check below) -- see docs/rng-
-        interface-design.md §12's CRN-convergence step for what a
-        genuinely two-dimensional sync coordinate would need, scoped
-        out of this step (no in-tree caller exercises `sync=` at all).
+        The sync branch is two-dimensional too: `stream =
+        SYNC_ZONE_STREAM_START + sync // SYNC_PER_STREAM`, inside this
+        isp path's own slot, with `SYNC_PER_STREAM` sync values sharing
+        a stream -- see the selected backend's own constants for the
+        sizing, and mrg32k3a.py for the defect the nesting fixes.
 
         Three callers, unified here on purpose (docs/rng-interface-
         design.md §12 step 4a's own convergence note, completed by step
@@ -1715,29 +1719,72 @@ class Oracle(object):
         ReplicationDrawOverflow
             A single replication (serial path only) drew more raw
             values than its reserved block holds.
+        ReplicationOverflow
+            The block's last replication index is past the selected
+            backend's `REPL_COUNT_LIMIT`.
+        IterationOverflow
+            `_iteration` has reached the backend's `ISP_ITER_MARGIN`
+            (default and CRN branches).
+        SyncOverflow
+            `sync` is at or past the backend's `SYNC_CAPACITY`.
         NotImplementedError
-            `sync` is not None, and the selected backend has no
-            `ITER_STRIDE` -- see this method's own docstring above.
+            `sync` is not None, and the selected backend defines no
+            sync strides yet.
         """
         backend = self._backend
         d = self.num_obj
         dr = range(d)
         mr = range(m)
+        # Every axis raises at its own boundary, before anything is
+        # drawn -- nothing below wraps or spills into a neighbouring
+        # zone (docs/rng-interface-design.md, the SYNC_ROLE_OFFSET/
+        # ISP_STRIDE entry). offset_within_iteration checks the default
+        # branch's *first* replication index itself; this covers the
+        # block's last one, and the CRN and sync branches, which have
+        # no other check.
+        if start_replication + m > backend.REPL_COUNT_LIMIT:
+            raise ReplicationOverflow(
+                'replications {0}..{1} of x={2} do not fit under this '
+                'generator\'s limit of {3} replications per block. See '
+                'docs/rng-interface-design.md §3.4.'.format(
+                    start_replication, start_replication + m - 1, x, backend.REPL_COUNT_LIMIT
+                )
+            )
+        if sync is None and self._iteration >= backend.ISP_ITER_MARGIN:
+            raise IterationOverflow(
+                'RA iteration {0} is past the {1} iterations one '
+                'independent sample path reserves under {2}; the next '
+                'stream belongs to the sync zone. A run that terminates '
+                'normally cannot get here -- check that every iteration '
+                'of the solver consumes simulation budget '
+                '(KNOWN_ISSUES.md issue 13).'.format(
+                    self._iteration, backend.ISP_ITER_MARGIN, self._backend_name
+                )
+            )
         if sync is not None:
-            if not hasattr(backend, 'ITER_STRIDE'):
+            if not hasattr(backend, 'SYNC_STRIDE'):
                 raise NotImplementedError(
-                    'sync= is not supported under {0} -- only the MRG '
-                    'family has the flat-coordinate machinery this '
-                    'branch still uses; a genuinely two-dimensional '
-                    'sync coordinate is real, undone work (docs/rng-'
-                    'interface-design.md §12\'s CRN-convergence step). '
-                    'No in-tree caller uses sync= today.'.format(
-                        registry.GENERATOR_NAMES.get(backend, backend)
+                    'sync= is not supported under {0} yet -- it has no '
+                    'sync strides defined (docs/rng-interface-design.md '
+                    '§12 step 9). No in-tree caller uses sync= '
+                    'today.'.format(self._backend_name)
+                )
+            if sync >= backend.SYNC_CAPACITY:
+                raise SyncOverflow(
+                    'sync={0} does not fit in the {1} sync values one '
+                    'independent sample path reserves under {2}. See '
+                    'docs/rng-interface-design.md §4.3.'.format(
+                        sync, backend.SYNC_CAPACITY, self._backend_name
                     )
                 )
-            base = backend.SYNC_ROLE_OFFSET + sync * backend.SYNC_STRIDE + start_replication * backend.REPL_STRIDE
+            # Two-dimensional like every other coordinate (§3.9):
+            # SYNC_PER_STREAM sync values share a stream, inside this
+            # path's own sync zone. For the MRG family this flattens to
+            # exactly §4.3's `SYNC_ROLE_OFFSET + sync*SYNC_STRIDE +
+            # replication*REPL_STRIDE`.
             stride = backend.REPL_STRIDE
-            stream, offset = divmod(base, backend.ITER_STRIDE)
+            stream = backend.SYNC_ZONE_STREAM_START + sync // backend.SYNC_PER_STREAM
+            offset = (sync % backend.SYNC_PER_STREAM) * backend.SYNC_STRIDE + start_replication * stride
             first = backend.stream_at(self._orc_root, stream, offset)
         elif crn:
             stride = backend.REPL_STRIDE
@@ -1753,10 +1800,10 @@ class Oracle(object):
             offset = backend.offset_within_iteration(x, visit, start_replication, W)
             stride = backend.REPL_RESERVE_STRIDE
             first = backend.stream_at(self._orc_root, stream, offset)
-        # The reserve check below applies to the default branch only:
-        # CRN and sync space replications REPL_STRIDE apart, far beyond
-        # anything a g() call could draw.
-        check_reserve = sync is None and not crn
+        # `stride` is also each replication's reserve: how many raw
+        # values its g() may draw before running into the next
+        # replication's start. Checked below on every branch -- only the
+        # default branch's is small enough to reach in practice.
         streams = [first]
         for _ in range(m - 1):
             streams.append(streams[-1].advance(stride))
@@ -1784,7 +1831,7 @@ class Oracle(object):
                 feas.append(isfeasi)
                 objm.append(oval)
         else:
-            reserve = 1 << backend.REPL_RESERVE_BITS
+            reserve = stride
             for s in streams:
                 # ensure_random_compatible(s), not s directly: g(x, rng)
                 # is documented only as "an rng-shaped object" (§3.6) --
@@ -1794,10 +1841,10 @@ class Oracle(object):
                 # -- the adapter delegates to the same underlying
                 # stream, so wrapping doesn't affect the count.
                 isfeasi, oval = self.g(x, ensure_random_compatible(s))
-                if check_reserve and s.raw_consumed() > reserve:
+                if s.raw_consumed() > reserve:
                     raise ReplicationDrawOverflow(
                         'a single replication of x={0} drew {1} raw values, '
-                        'exceeding its reserved block of {2} (2**REPL_RESERVE_BITS) '
+                        'exceeding its reserved block of {2} '
                         '-- it overran the next replication\'s starting position. '
                         'See docs/rng-interface-design.md §3.4.'.format(x, s.raw_consumed(), reserve)
                     )

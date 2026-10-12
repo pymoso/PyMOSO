@@ -181,9 +181,9 @@ def testsolve(tester, solver, x0, **kwargs):
     #
     # Path t's own Oracle stream is relative to `orc_root + t*ISP_STRIDE`
     # (get_testsolve_prnstreams's own construction); since
-    # ISP_STRIDE == ISP_ITER_MARGIN*ITER_STRIDE exactly, path t's own
+    # ISP_STRIDE == ISP_STREAM_SPAN*ITER_STRIDE exactly, path t's own
     # (oracle_stream, oracle_offset) composes additively into the shared
-    # root's own stream units: t*ISP_ITER_MARGIN + oracle_stream,
+    # root's own stream units: t*ISP_STREAM_SPAN + oracle_stream,
     # oracle_offset unchanged -- the same composition Oracle.get_endseed()
     # itself relies on, one level up. Reduces to exactly the same flat
     # value the pre-split code computed (t*ISP_STRIDE + oracle_flat), so
@@ -193,8 +193,8 @@ def testsolve(tester, solver, x0, **kwargs):
     # against the *winning* path's own raw oracle_stream/family capacity
     # -- not against the combined value -- for the same reason
     # Oracle.get_endseed() itself carries against its own local stream:
-    # the family boundary (ISP_ITER_MARGIN, or unbounded in the sync
-    # zone) is a property of that one Oracle's own coordinate space, not
+    # the family boundary (ISP_ITER_MARGIN in the default zone,
+    # ISP_STREAM_SPAN in the sync zone) is a property of that one Oracle's own coordinate space, not
     # of the combined isp-relative value.
     touches = []
     for t in range(isp):
@@ -202,16 +202,16 @@ def testsolve(tester, solver, x0, **kwargs):
         if hwm is None:
             continue
         oracle_stream, oracle_offset = hwm
-        touches.append((t * backend.ISP_ITER_MARGIN + oracle_stream, oracle_offset, t, oracle_stream))
+        touches.append((t * backend.ISP_STREAM_SPAN + oracle_stream, oracle_offset, t, oracle_stream))
     if not touches:
         endseed = orc_root
     else:
         _, offset, t, oracle_stream = max(touches)
-        family_capacity = backend.ISP_ITER_MARGIN if oracle_stream < backend.SYNC_ZONE_STREAM_START else None
+        family_capacity = backend.ISP_ITER_MARGIN if oracle_stream < backend.SYNC_ZONE_STREAM_START else backend.ISP_STREAM_SPAN
         carried_stream, carried_offset = one_past(
             oracle_stream, offset, offset_capacity=backend.OFFSET_CAPACITY, stream_family_capacity=family_capacity
         )
-        overall_stream = t * backend.ISP_ITER_MARGIN + carried_stream
+        overall_stream = t * backend.ISP_STREAM_SPAN + carried_stream
         endseed = backend.stream_at(orc_root, overall_stream, carried_offset).get_seed()
     return res, endseed
 
@@ -256,7 +256,7 @@ def get_testsolve_prnstreams(num_trials, iseed, backend):
         below.
     orc_root : tuple of int
         The oracle role's own root seed, shared across every path
-        (path t's own root is `stream_at(orc_root, t*ISP_ITER_MARGIN, 0)`,
+        (path t's own root is `stream_at(orc_root, t*ISP_STREAM_SPAN, 0)`,
         §12 step 6c -- the same position `jump_seed_n(orc_root,
         t*ISP_STRIDE)` always reached).
         Exposed so a caller can combine per-path high-water marks
@@ -314,27 +314,27 @@ def get_testsolve_prnstreams(num_trials, iseed, backend):
     # above: this coincides with solprn_lst[-1]'s own position.)
     orc_root = iseed
     for t in range(num_trials):
-        # §12 step 6c: stream_at(orc_root, t*ISP_ITER_MARGIN, 0), not a
+        # §12 step 6c: stream_at(orc_root, t*ISP_STREAM_SPAN, 0), not a
         # raw jump_seed_n(orc_root, t*ISP_STRIDE) call -- a relabeling
         # of the exact same arithmetic (ISP_STRIDE ==
-        # ISP_ITER_MARGIN*ITER_STRIDE exactly, so
-        # t*ISP_ITER_MARGIN*ITER_STRIDE + 0 == t*ISP_STRIDE), not new
+        # ISP_STREAM_SPAN*ITER_STRIDE exactly, so
+        # t*ISP_STREAM_SPAN*ITER_STRIDE + 0 == t*ISP_STRIDE), not new
         # arithmetic; confirmed directly, not assumed. `backend.
-        # ISP_ITER_MARGIN`, not a hardcoded import (§12 step 6b) --
-        # this generator's own margin, e.g. Philox's own 2**30, not
-        # MRG's 2**32.
-        orcprn = backend.stream_at(orc_root, t * backend.ISP_ITER_MARGIN, 0)
+        # ISP_STREAM_SPAN`, not a hardcoded import (§12 step 6b) --
+        # this generator's own slot width, e.g. Philox's own 2**31,
+        # not MRG's 2**32.
+        orcprn = backend.stream_at(orc_root, t * backend.ISP_STREAM_SPAN, 0)
         orcprn_lst.append(orcprn)
     # The next independent stream past every path actually reserved --
     # path `num_trials` would be the next one derived by this same
     # formula, so its seed is the natural "next" value to report,
     # matching this function's pre-existing "next independent seed"
     # contract without needing a live walk to compute it. §12 step 6b:
-    # stream_at(orc_root, num_trials*ISP_ITER_MARGIN, 0), not
+    # stream_at(orc_root, num_trials*ISP_STREAM_SPAN, 0), not
     # jump_seed_n(orc_root, num_trials*ISP_STRIDE) -- identical for the
     # MRG family (confirmed directly), and Philox has no ISP_STRIDE (no
     # flat coordinate to jump within) or jump_seed_n at all.
-    iseed = backend.stream_at(orc_root, num_trials * backend.ISP_ITER_MARGIN, 0).root_seed()
+    iseed = backend.stream_at(orc_root, num_trials * backend.ISP_STREAM_SPAN, 0).root_seed()
     return orcprn_lst, solprn_lst, xprn, iseed, orc_root
 
 

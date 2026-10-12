@@ -38,8 +38,8 @@ Coordinate shape (docs/rng-interface-design.md §3.9/§12 step 6c):
 (added, mod 2**64, to `seed`'s own base key) and `offset` directly onto
 the counter -- no jump-ahead, no flattening into one integer first.
 `OFFSET_CAPACITY` (2**118) and the stream-side family constants below
-(`ISP_ITER_MARGIN`, `SYNC_ROLE_OFFSET`, mirroring mrg32k3a.py's own
-names for the same roles) are this module's own chosen policy numbers,
+(`ISP_ITER_MARGIN`, `ISP_STREAM_SPAN`, `SYNC_ZONE_STREAM_START`,
+mirroring mrg32k3a.py's own names for the same roles) are this module's own chosen policy numbers,
 sized against budget-anchored ceilings (not period-anchored ones, since
 nothing in the framework bounds replications/iteration or
 iterations/run beyond `--budget`) -- see docs/rng-interface-design.md's
@@ -197,30 +197,32 @@ assert OFFSET_CAPACITY == 1 << (POINT_BITS + VISIT_BITS + REPL_COUNT_BITS + REPL
 # own per-replication counter reserve.
 REPL_RESERVE_STRIDE = 1 << REPL_RESERVE_BITS
 
-# Stream side, mirroring mrg32k3a.py's ISP_ITER_MARGIN (how many
-# iterations one isp path's own slot reserves) and SYNC_ROLE_OFFSET
-# (where the sync zone begins) -- both far smaller than MRG's own
-# 2**32/2**175 equivalents, because Philox's 64-bit key is far smaller
-# than MRG's own period, not because this module needs less headroom
-# for the same realistic usage. Both still comfortably clear the
-# budget-anchored ceilings they're sized against (10**9 iterations,
-# 10,000 isp paths): ISP_ITER_MARGIN gives 2**30 (~1.07e9, >10**9
-# iterations before the next isp path's own slot begins) and
-# SYNC_ROLE_OFFSET leaves 2**64 - 2**48 ~= 2**64 of key space for sync
-# values -- 2**16 (65,536x) of margin beyond ISP_ITER_MARGIN itself.
-ISP_ITER_MARGIN = 1 << 30
-SYNC_ROLE_OFFSET = 1 << 48
+# How many replications one hit() block may address, on every branch
+# (ReplicationOverflow past it) -- this generator's own REPL_COUNT_BITS.
+REPL_COUNT_LIMIT = 1 << REPL_COUNT_BITS  # 2**30
 
-# §12 step 6b: the uniform, backend-agnostic name chnbase.py looks up
-# to decide which "zone" a touched stream falls in (Oracle.get_endseed's
-# own family_capacity choice) -- mrg32k3a.py's own SYNC_ZONE_STREAM_
-# START is SYNC_ROLE_OFFSET // ITER_STRIDE (a flat-integer coordinate
-# divided down into stream units); Philox's own `stream` dimension
-# already *is* the key, native stream-space, with no flattening or
-# division involved at all, so SYNC_ROLE_OFFSET is already the stream
-# value the sync zone begins at -- this is that same value under the
-# name chnbase.py looks up generically, not a second constant.
-SYNC_ZONE_STREAM_START = SYNC_ROLE_OFFSET
+# Stream side. `stream` is the key directly (§3.9), so these are plain
+# key counts, sized against this module's own budget-anchored ceilings
+# (10**9 iterations, 10,000 isp paths), not derived from mrg32k3a.py's
+# figures:
+#
+# - ISP_ITER_MARGIN: RA iterations per isp path. 2**30 (~1.07e9) clears
+#   the 10**9 anchor, so it stays where it was. Reaching it raises
+#   IterationOverflow (chnbase.py), it does not wrap.
+# - SYNC_ZONE_STREAM_START: the sync zone begins immediately above the
+#   iterations, *inside the same path's slot*. It used to sit at 2**48
+#   regardless of path, the same defect mrg32k3a.py's own comment
+#   describes: outside the slot, so path t's sync keys were path
+#   t + 2**18's iteration keys.
+# - ISP_STREAM_SPAN: keys per isp path -- iterations plus an equally
+#   large sync zone, 2**31. The MRG family had to *halve* its iteration
+#   headroom to nest its sync zone, because its slot width is pinned by
+#   existing goldens; nothing pins this one, and halving would have
+#   dropped it to 2**29 (~5.4e8), under the 10**9 anchor above. So the
+#   slot doubles instead. 2**64 / 2**31 = 2**33 paths fit in the key.
+ISP_ITER_MARGIN = 1 << 30
+SYNC_ZONE_STREAM_START = ISP_ITER_MARGIN
+ISP_STREAM_SPAN = 2 * ISP_ITER_MARGIN  # 2**31
 
 
 def point_width(dim):
@@ -291,7 +293,7 @@ class CoordinateCapacityExceeded(ValueError):
     This is this module's own generator-level capacity check only; the
     narrower, framework-level family boundaries (docs/rng-interface-
     design.md §12 step 6c) are `pymoso.prng.base.one_past`'s job, using
-    `ISP_ITER_MARGIN`/`SYNC_ROLE_OFFSET` above."""
+    `ISP_ITER_MARGIN`/`ISP_STREAM_SPAN` above."""
 
 
 def _mulhilo32(a, b):
