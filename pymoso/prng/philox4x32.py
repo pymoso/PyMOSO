@@ -220,6 +220,16 @@ REPL_COUNT_LIMIT = 1 << REPL_COUNT_BITS  # 2**30
 #   existing goldens; nothing pins this one, and halving would have
 #   dropped it to 2**29 (~5.4e8), under the 10**9 anchor above. So the
 #   slot doubles instead. 2**64 / 2**31 = 2**33 paths fit in the key.
+#
+#   Consequence, recorded because it is a behaviour change: path t's
+#   root is key t*ISP_STREAM_SPAN, so doubling the slot moved every
+#   Philox isp path's root for t >= 1 (path 0 is unaffected). Any
+#   testsolve() result under --generator philox4x32 with --isp > 1
+#   from before this change does not reproduce after it. No golden or
+#   pinned baseline existed for that combination (checked:
+#   tests/test_golden.py and tests/test_solution_sensitivity.py are
+#   mrg32k3a-only; the Philox testsolve tests assert completion and
+#   serial == --proc, not values), so nothing in the suite moved.
 ISP_ITER_MARGIN = 1 << 30
 SYNC_ZONE_STREAM_START = ISP_ITER_MARGIN
 ISP_STREAM_SPAN = 2 * ISP_ITER_MARGIN  # 2**31

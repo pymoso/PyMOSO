@@ -7,7 +7,13 @@ one process, with a `g()` that draws one value and does nothing else, so
 what remains is the framework's own cost of reaching a coordinate.
 
 Absolute timings, not enforced by the test suite. Regenerate with
-`python docs/bench_hit_cost.py`. Measured 2026-10-12 on an AMD Ryzen 5
+`python docs/bench_hit_cost.py`. **Regenerating is a manual step and
+nothing verifies the script still runs**: no test imports or executes
+it, so an API change can break it silently. That has already happened
+once -- removing `Oracle.crn_advance()` broke it, and it was noticed
+only because the next timing run failed. It is in the same category as
+`scratch/` and `docs/bench_parallel_dispatch.py`: run it before
+trusting it, and expect to repair it. Measured 2026-10-12 on an AMD Ryzen 5
 5600X3D (6 cores, 12 threads), MRG32k3a, before §12 step 9 (CRN-branch
 convergence) of `docs/rng-interface-design.md`.
 

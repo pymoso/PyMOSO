@@ -2599,6 +2599,14 @@ behavior-changing (goldens move, on purpose, with sign-off).
    - MRG family: slot `2**32` streams (unchanged -- path roots, and so
      `testsolve()` goldens, depend on it), iterations halved to
      `2**31`, `2**19` sync values per stream, `2**50` per path.
+   - Philox: iterations stay `2**30` (halving would have gone under its
+     own `10**9` anchor) and the slot doubles to `2**31` instead.
+     **This moved every Philox isp path's root for path 1 and above**
+     (path t's root is key `t*ISP_STREAM_SPAN`): a `testsolve()` run
+     under `--generator philox4x32` with `--isp > 1` from before this
+     change does not reproduce after it. No golden or pinned baseline
+     existed for that combination, so nothing in the suite moved; had
+     one existed, it would have.
    - Each axis raises at its boundary before anything is drawn:
      `IterationOverflow` at iteration `ISP_ITER_MARGIN`,
      `SyncOverflow` at `SYNC_CAPACITY`, `ReplicationOverflow` when a
