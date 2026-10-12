@@ -70,7 +70,8 @@ from .mrg32k3a import (
     bsm, REPL_STRIDE, ITER_STRIDE, REPL_RESERVE_BITS, REPL_RESERVE_STRIDE,
     OFFSET_CAPACITY, ISP_ITER_MARGIN, ISP_STREAM_SPAN, ISP_STRIDE,
     SYNC_ROLE_OFFSET, SYNC_ZONE_STREAM_START, SYNC_STRIDE, SYNC_PER_STREAM,
-    SYNC_CAPACITY, REPL_COUNT_LIMIT, point_width, offset_within_iteration,
+    SYNC_CAPACITY, REPL_COUNT_LIMIT, POINT_BITS, point_width, offset_within_iteration,
+    encode_point, offset_from_point_code,
 )
 from .mrg_common import (
     mat333mult as _mat333mult,

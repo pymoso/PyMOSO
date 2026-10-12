@@ -64,6 +64,7 @@ CoordinateCapacityExceeded
 """
 
 from .mrg32k3a import bsm
+from . import base as _prng_base
 from .base import (
     point_width as _base_point_width,
     offset_within_iteration as _base_offset_within_iteration,
@@ -343,6 +344,38 @@ def offset_within_iteration(x, visit, replication, W):
     """
     return _base_offset_within_iteration(
         x, visit, replication, W,
+        visit_bits=VISIT_BITS,
+        repl_count_bits=REPL_COUNT_BITS,
+        repl_reserve_bits=REPL_RESERVE_BITS,
+    )
+
+
+def encode_point(x):
+    """
+    pymoso.prng.base.encode_point under this module's own 72-bit point
+    field: the exact positional code when the point fits, a checked
+    hash when it does not.
+
+    Returns
+    -------
+    code : int
+    hashed : bool
+    """
+    return _prng_base.encode_point(x, point_bits=POINT_BITS)
+
+
+def offset_from_point_code(code, visit, replication):
+    """
+    pymoso.prng.base.offset_from_point_code under this module's own
+    118-bit offset budget.
+
+    Raises
+    ------
+    VisitOverflow
+    ReplicationOverflow
+    """
+    return _prng_base.offset_from_point_code(
+        code, visit, replication,
         visit_bits=VISIT_BITS,
         repl_count_bits=REPL_COUNT_BITS,
         repl_reserve_bits=REPL_RESERVE_BITS,

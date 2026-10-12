@@ -35,6 +35,8 @@ or how chnbase.py uses them, so there is no reason to wait -- see §7.1
 items 8-9 and docs/rng-interface-design.md §12 step 3's own note to
 that effect.
 """
+import hashlib
+import operator
 import random
 from typing import Protocol, runtime_checkable
 
@@ -235,6 +237,21 @@ class PointCodeOverflow(ValueError):
     issue 2), per §3.4."""
 
 
+class PointCodeCollision(ValueError):
+    """Two different points visited in the same RA iteration produced
+    the same point code, so they would have been handed the same
+    replication streams. Only possible when at least one of them was
+    too large for the exact positional code and was hashed instead
+    (encode_point); for a POINT_BITS-wide field it takes on the order
+    of 2**(POINT_BITS/2) distinct points in one iteration to expect one.
+    Raised by chnbase.py's Oracle before anything is drawn for the
+    second point -- "correct or raises", the same posture as
+    PointCodeOverflow, never silently shared streams. If it is ever
+    seen: use crn=True (no point in the coordinate at all), or reduce
+    the problem's dimension or the points' magnitude until the exact
+    code fits."""
+
+
 class VisitOverflow(ValueError):
     """`visit` doesn't fit in VISIT_BITS. Same posture as
     PointCodeOverflow -- found during the same audit that found the
@@ -361,7 +378,9 @@ def point_code(x, W):
     integer at radix 2**W (§3.4). Injective on the domain where every
     zigzagged component fits in W bits; a component that doesn't is a
     detectable, per-point failure, raised here rather than silently
-    wrapped.
+    wrapped. This is the strict form. Oracle.hit() no longer calls it
+    directly: it uses encode_point, which returns this exact code when
+    the point fits and a checked hash when it does not.
 
     Parameters
     ----------
@@ -392,6 +411,114 @@ def point_code(x, W):
             )
         code += z * (limit ** i)
     return code
+
+
+def hash_point(x, point_bits):
+    """
+    A fixed, portable hash of a point into `point_bits` bits: blake2b
+    over a canonical encoding (dimension, then each component in
+    decimal). Deliberately not Python's hash() -- that is an
+    implementation detail of one interpreter build, and this value
+    decides which stream a replication draws from, so it has to be the
+    same on every Python version and platform, forever
+    (tests/test_point_code_fallback.py pins a value).
+
+    Not injective, and not meant to be used alone: encode_point falls
+    back to it only for points the exact code cannot hold, and the
+    Oracle detects any collision it produces (PointCodeCollision).
+
+    Parameters
+    ----------
+    x : tuple of int
+    point_bits : int
+
+    Returns
+    -------
+    int
+        In [0, 2**point_bits).
+    """
+    payload = '{0}:{1}'.format(len(x), ','.join(str(operator.index(v)) for v in x)).encode('ascii')
+    digest = hashlib.blake2b(payload, digest_size=(point_bits + 7) // 8, person=b'pymoso-point').digest()
+    return int.from_bytes(digest, 'big') & ((1 << point_bits) - 1)
+
+
+def encode_point(x, point_bits=POINT_BITS):
+    """
+    The point component of a non-CRN coordinate: point_code(x, W)
+    exactly, whenever every component fits in W = point_bits // dim
+    bits; otherwise hash_point(x, point_bits).
+
+    Why a fallback exists at all (docs/rng-interface-design.md §3.4):
+    W shrinks with dimension -- a dim=20 problem gets 3 bits per
+    component -- and no rearrangement of fields fixes that. Coordinates
+    are taken modulo the generator's period (~2**191 for MRG32k3a), so
+    the whole coordinate is a fixed budget, and an injective code for
+    dim=20 with 16-bit components alone needs 320 bits. Making the
+    field wider cannot work; giving up injectivity, and checking for
+    the consequence, can.
+
+    Points that fit are unaffected: same code as point_code, so no
+    existing coordinate moves.
+
+    Parameters
+    ----------
+    x : tuple of int
+    point_bits : int
+        The calling generator's own point field width.
+
+    Returns
+    -------
+    code : int
+        In [0, 2**point_bits).
+    hashed : bool
+        False if `code` is the exact positional code (injective among
+        such codes); True if it is a hash. Exact and hashed codes share
+        one field, so either kind can coincide with the other -- the
+        caller must check every code it uses, not only hashed ones
+        (chnbase.py's Oracle does).
+    """
+    W = point_width(len(x), point_bits)
+    limit = 1 << W
+    code = 0
+    for i, xi in enumerate(x):
+        z = zigzag(xi)
+        if z >= limit:
+            return hash_point(x, point_bits), True
+        code += z * (limit ** i)
+    return code, False
+
+
+def offset_from_point_code(code, visit, replication,
+                           visit_bits=VISIT_BITS,
+                           repl_count_bits=REPL_COUNT_BITS,
+                           repl_reserve_bits=REPL_RESERVE_BITS):
+    """
+    offset_within_iteration's packing, starting from a point code
+    already computed (encode_point) rather than from the point itself.
+    Same fields, same checks; see offset_within_iteration.
+
+    Raises
+    ------
+    VisitOverflow
+    ReplicationOverflow
+    """
+    if visit >= (1 << visit_bits):
+        raise VisitOverflow(
+            'visit={0} does not fit in VISIT_BITS={1} (limit {2}). See '
+            'docs/rng-interface-design.md §3.4.'.format(visit, visit_bits, 1 << visit_bits)
+        )
+    if replication >= (1 << repl_count_bits):
+        raise ReplicationOverflow(
+            'replication={0} does not fit in REPL_COUNT_BITS={1} (limit '
+            '{2}). See docs/rng-interface-design.md §3.4.'.format(
+                replication, repl_count_bits, 1 << repl_count_bits
+            )
+        )
+    return (
+        code * (1 << (visit_bits + repl_count_bits + repl_reserve_bits))
+        + visit * (1 << (repl_count_bits + repl_reserve_bits))
+        + replication * (1 << repl_reserve_bits)
+    )
 
 
 def offset_within_iteration(x, visit, replication, W,
@@ -448,22 +575,13 @@ def offset_within_iteration(x, visit, replication, W,
     ReplicationOverflow
         `replication` >= 2**repl_count_bits.
     """
-    if visit >= (1 << visit_bits):
-        raise VisitOverflow(
-            'visit={0} does not fit in VISIT_BITS={1} (limit {2}). See '
-            'docs/rng-interface-design.md §3.4.'.format(visit, visit_bits, 1 << visit_bits)
-        )
-    if replication >= (1 << repl_count_bits):
-        raise ReplicationOverflow(
-            'replication={0} does not fit in REPL_COUNT_BITS={1} (limit '
-            '{2}). See docs/rng-interface-design.md §3.4.'.format(
-                replication, repl_count_bits, 1 << repl_count_bits
-            )
-        )
-    return (
-        point_code(x, W) * (1 << (visit_bits + repl_count_bits + repl_reserve_bits))
-        + visit * (1 << (repl_count_bits + repl_reserve_bits))
-        + replication * (1 << repl_reserve_bits)
+    # point_code first, so an oversized point raises PointCodeOverflow
+    # here regardless of the other fields -- this function stays the
+    # strict, exact-only form (chnbase.py uses encode_point +
+    # offset_from_point_code, which falls back to a hash instead).
+    return offset_from_point_code(
+        point_code(x, W), visit, replication,
+        visit_bits=visit_bits, repl_count_bits=repl_count_bits, repl_reserve_bits=repl_reserve_bits,
     )
 
 

@@ -20,6 +20,7 @@ from math import sqrt, ceil, floor
 from .prng import registry
 from .prng.base import (
     ReplicationDrawOverflow, ReplicationOverflow, IterationOverflow, SyncOverflow,
+    PointCodeCollision,
     one_past, ensure_random_compatible,
 )
 from multiprocessing import Queue, Process
@@ -1262,6 +1263,7 @@ class Oracle(object):
         # contiguous block instead of restarting at 0 (MOPBnB's own
         # need, see hit()). Reset whenever the iteration advances.
         self._replications_drawn = {}
+        self._point_codes = {}
         # §12 step 6c/8: the oracle-role coordinate high-water mark --
         # (stream, offset), the *last* coordinate actually touched via
         # hit() (any branch) or _hit_via_coordinate, relative to
@@ -1381,6 +1383,7 @@ class Oracle(object):
         # on each backend's Stream class.
         self._orc_root = self.rng.root_seed()
         self._replications_drawn = {}
+        self._point_codes = {}
         self._high_water_mark = None
 
     def _touch_coordinate(self, stream, offset):
@@ -1557,6 +1560,82 @@ class Oracle(object):
         """
         self._iteration += 1
         self._replications_drawn = {}
+        self._point_codes = {}
+
+    def _record_point_code(self, code, x):
+        """
+        Collision detection for the default branch's point codes: note
+        that `x` was coded as `code` in the current iteration, and raise
+        if a *different* point already holds that code.
+
+        Needed because `encode_point` is no longer injective: a point
+        too large for the exact positional code is hashed into the same
+        field (pymoso/prng/base.py). Exact codes cannot collide with
+        each other, but a hashed code can coincide with another hashed
+        code or with an exact one, so every code is recorded, not only
+        hashed ones. With this check a run is still "correct or
+        raises": two points are never silently handed the same
+        replication streams.
+
+        `_point_codes` maps code -> point for the current iteration
+        only. It is reset in `_advance_iteration()`, because the next
+        iteration draws from a different stream, where the same code is
+        a different position. Its size is the number of distinct points
+        hit on the default branch this iteration -- the same order as
+        `_replications_drawn`, which already holds one entry per point.
+
+        **Where the check is exhaustive.** Point codes are computed in
+        exactly one place, `_hit_via_coordinate`'s default branch, in
+        the process that owns this Oracle, and every one passes through
+        here first. `visit != 0` uses the same code and is covered. The
+        CRN and sync branches put no point in the coordinate and have
+        nothing to collide. Under `--simpar`, workers never compute
+        coordinates -- this process computes every seed and queues
+        `(x, seed)` -- so this one record sees every point. Under
+        `--proc`, each isp path has its own Oracle and its own record,
+        and also its own slot of streams: the same code on two paths is
+        two different positions, so there is no cross-path collision to
+        miss.
+
+        **Three ways around it, none new, written down so they are not
+        rediscovered:**
+
+        1. Code that calls a backend's `stream_at`,
+           `offset_within_iteration` or `offset_from_point_code`
+           directly, instead of `hit()`. Nothing here sees those
+           coordinates.
+        2. A subclass that overrides `hit()` or `_hit_via_coordinate`
+           and computes coordinates itself.
+        3. Two Oracles constructed over the same root in one process.
+           Each keeps its own record; they draw from the same streams.
+
+        The first and third were equally unguarded when the code was
+        exact: an exact code only ever promised distinct points
+        distinct positions *within one Oracle's own hit() calls*. This
+        check is no weaker than `PointCodeOverflow`'s guard was; it has
+        the same scope.
+
+        Parameters
+        ----------
+        code : int
+        x : tuple of int
+
+        Raises
+        ------
+        PointCodeCollision
+        """
+        seen = self._point_codes.get(code)
+        if seen is None:
+            self._point_codes[code] = tuple(x)
+        elif seen != tuple(x):
+            raise PointCodeCollision(
+                'points {0} and {1} both map to point code {2} in RA '
+                'iteration {3} and would share replication streams. At '
+                'least one is too large for the exact positional code '
+                '(dim={4}) and was hashed. Use crn=True, or reduce the '
+                'dimension or magnitude of the points. See docs/rng-'
+                'interface-design.md §3.4.'.format(seen, tuple(x), code, self._iteration, len(x))
+            )
 
     def _crn_baseline_stream(self):
         """
@@ -1765,9 +1844,14 @@ class Oracle(object):
             # iteration), and g() is about to draw from `first`.
             first = self._crn_baseline_stream().advance(offset)
         else:
-            W = backend.point_width(len(x))
+            # encode_point: the exact positional code when x fits, a
+            # hash when it does not (a high-dimensional problem). Either
+            # way the code is checked against every other point this
+            # iteration has used before anything is drawn.
+            code, _hashed = backend.encode_point(x)
+            self._record_point_code(code, x)
             stream = self._iteration
-            offset = backend.offset_within_iteration(x, visit, start_replication, W)
+            offset = backend.offset_from_point_code(code, visit, start_replication)
             stride = backend.REPL_RESERVE_STRIDE
             first = backend.stream_at(self._orc_root, stream, offset)
         # `stride` is also each replication's reserve: how many raw

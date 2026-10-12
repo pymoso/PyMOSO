@@ -527,6 +527,68 @@ against the counter's available bits rather than `ITER_STRIDE`), which
 for a 128-bit counter gives even more headroom than the MRG-family case
 already checked above, at every `dim`. No jump computation either way.
 
+**Addendum (Phase 1 of the 2.0.0 work): the dimension ceiling, and a
+hashed fallback that keeps the guarantee.** `W = POINT_BITS // dim`
+degrades with dimension -- a `dim=20` problem gets 3 bits per component
+(`|x_i| <= 3`), `dim=40` gets 1 -- and `point_code` raised
+`PointCodeOverflow` past that, so a high-dimensional custom problem
+could not run at all without `--crn`. The open question was whether the
+encoding should *grow* rather than partition a fixed budget, since
+Python integers are unbounded.
+
+It cannot. Coordinates are jumps taken modulo the generator's period,
+so a coordinate past the period wraps and collides. The whole
+coordinate is a fixed budget -- about 191 bits for MRG32k3a, 185 for
+MRG31k3p, 192 for Philox (64-bit key plus 128-bit counter) -- and an
+injective code for `dim=20` with 16-bit components alone needs 320.
+That is a pigeonhole limit, not a layout problem. Reclaiming slack from
+the generous margins elsewhere would lift the point field from 75 to
+perhaps 115 bits: `dim=20` would go from 3 bits per component to 5, and
+every `dim >= 2` golden would move to get there.
+
+What landed instead: **exact when it fits, hashed with collision
+detection when it does not** (`pymoso.prng.base.encode_point`).
+
+- A point whose components all fit is coded by `point_code`, exactly as
+  before. No existing coordinate moves and no golden moved.
+- A point that does not fit is hashed into the same field with a fixed,
+  portable hash (`hash_point`: blake2b over a canonical encoding, not
+  Python's `hash()`; one value is pinned in the tests).
+- `Oracle._record_point_code` records code -> point for the current
+  iteration and raises `PointCodeCollision`, before anything is drawn,
+  if two different points ever produce the same code -- hashed against
+  hashed, or hashed against exact.
+
+This is not the hash this section rejected above. That one *accepted* a
+birthday-bound collision risk; the objection was that it changed the
+kind of claim the scheme makes, from "non-overlap by construction" to
+"with negligible probability." With detection the claim is "correct or
+raises": the same posture as `PointCodeOverflow` and
+`ReplicationDrawOverflow`. A run either used distinct streams for
+distinct points or it stopped and said so.
+
+That holds only where the check sees every point code. It does within
+one Oracle's own `hit()` calls: codes are computed in exactly one
+place, in the process that owns the Oracle; `--simpar` workers receive
+finished seeds and never compute coordinates; `--proc` paths each have
+their own Oracle, record and stream slot, so the same code on two paths
+is two different positions. The three ways around it -- calling a
+backend's coordinate functions directly, overriding `hit()`, and two
+Oracles over one root -- are written out beside the check
+(`Oracle._record_point_code`); the first and third were just as
+unguarded when the code was exact.
+
+**What this does not buy, found while testing it.** Removing the
+coordinate layer's ceiling does not make the in-tree solvers usable in
+high dimension. `chnutils.get_nbors` enumerates a `3**dim`
+neighbourhood, so an RPERLE solve that takes 0.6 s at `dim=3` takes
+5 s at `dim=6`, 17 s at `dim=9`, and did not return at `dim=20`
+(`3**20` is about 3.5e9 points per neighbourhood) -- with the time in
+`get_nbors`/`edist`, not in the RNG. High-dimensional problems need a
+solver that does not enumerate neighbourhoods; that is Phase 4's
+subject, and this change only ensures the coordinate layer is not what
+stops it.
+
 ### 3.5 Should the interface expose jump-ahead at all?
 
 No. `stream_at(base_seed, coordinate)` is the only way to reach a stream.

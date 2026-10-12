@@ -21,7 +21,10 @@ DEFAULT_SEED
 import random
 from math import log
 
-from .base import REPL_RESERVE_BITS, REPL_COUNT_BITS, point_width, offset_within_iteration
+from .base import (
+    REPL_RESERVE_BITS, REPL_COUNT_BITS, POINT_BITS, point_width, offset_within_iteration,
+    encode_point, offset_from_point_code,
+)
 # point_width/offset_within_iteration re-exported directly, not wrapped
 # (contrast philox4x32.py's own versions): base.py's *default* budget
 # (POINT_BITS=75/VISIT_BITS=6/REPL_COUNT_BITS=32/REPL_RESERVE_BITS=14)

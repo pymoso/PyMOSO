@@ -353,11 +353,21 @@ The decisions below are landed, not pending. Full reasoning in
   `crn_check()` no-opping, and a defect.
 - `point_code` is a zigzag-plus-positional-radix bijection —
   collision-free by construction, not a hash. `W = POINT_BITS // dim`
-  per Oracle; overflow raises. All built-in problems fit (BSProb
-  tightest at dim=9, W=8). The scheme degrades with dimension and
-  PyMOSO bounds dimension nowhere, so high-dimensional custom problems
-  hit a hard wall — open whether the encoding should grow rather than
-  partition a fixed budget.
+  per Oracle. All built-in problems fit (BSProb tightest at dim=9,
+  W=8). **Closed:** a point that does not fit used to raise
+  `PointCodeOverflow`, a hard wall for high-dimensional custom
+  problems. `Oracle.hit()` now uses `encode_point`: the exact code when
+  the point fits (so nothing existing moves), otherwise a fixed blake2b
+  hash into the same field, with `Oracle._record_point_code` raising
+  `PointCodeCollision` if two points in one iteration ever share a
+  code. "Correct or raises", not "probably distinct". The encoding
+  cannot simply grow: coordinates are modulo the generator's period
+  (rng-interface-design.md §3.4 addendum). Known limits of the check
+  are listed in `_record_point_code`'s docstring.
+- **Not closed, and the real high-dimension blocker:**
+  `chnutils.get_nbors` enumerates a `3**dim` neighbourhood, so the
+  in-tree RA solvers are impractical past roughly dim=9 and do not
+  return at dim=20, independent of the RNG. Phase 4.
 
 ## Still in flight
 
