@@ -364,10 +364,18 @@ The decisions below are landed, not pending. Full reasoning in
   cannot simply grow: coordinates are modulo the generator's period
   (rng-interface-design.md §3.4 addendum). Known limits of the check
   are listed in `_record_point_code`'s docstring.
-- **Not closed, and the real high-dimension blocker:**
-  `chnutils.get_nbors` enumerates a `3**dim` neighbourhood, so the
-  in-tree RA solvers are impractical past roughly dim=9 and do not
-  return at dim=20, independent of the RNG. Phase 4.
+- **"Coordinate ceiling removed" is not "dim 20 works."** The hashed
+  fallback unblocks custom `MOSOSolver`s at any dimension and
+  low-dimensional problems with large components. It does NOT make the
+  built-in RA solvers usable in high dimension: `chnutils.get_nbors`
+  enumerates a `3**dim` neighbourhood (RPERLE, budget 300: 0.6 s at
+  dim=3, 5 s at dim=6, 17 s at dim=9, no return at dim=20 -- `3**20` is
+  about 3.5 billion points). Structural, not a tuning problem; they
+  stay practical to roughly dim=9.
+  **Phase 4 scoping fact:** if distributed users bring high-dimensional
+  problems, the built-in solvers will not serve them whatever the
+  executor does. That needs a solver that does not enumerate
+  neighbourhoods -- new algorithmic work, not executor work.
 
 ## Still in flight
 

@@ -578,16 +578,36 @@ Oracles over one root -- are written out beside the check
 (`Oracle._record_point_code`); the first and third were just as
 unguarded when the code was exact.
 
-**What this does not buy, found while testing it.** Removing the
-coordinate layer's ceiling does not make the in-tree solvers usable in
-high dimension. `chnutils.get_nbors` enumerates a `3**dim`
-neighbourhood, so an RPERLE solve that takes 0.6 s at `dim=3` takes
-5 s at `dim=6`, 17 s at `dim=9`, and did not return at `dim=20`
-(`3**20` is about 3.5e9 points per neighbourhood) -- with the time in
-`get_nbors`/`edist`, not in the RNG. High-dimensional problems need a
-solver that does not enumerate neighbourhoods; that is Phase 4's
-subject, and this change only ensures the coordinate layer is not what
-stops it.
+**"Coordinate ceiling removed" does not mean "dim 20 works."** Read
+this before citing the change above.
+
+What it unblocks:
+
+- custom `MOSOSolver`s on problems of any dimension -- a solver that
+  chooses its own points and calls `hit()` is no longer stopped by the
+  coordinate layer;
+- low-dimensional problems with large components (a `dim=3` problem
+  with coordinates near `10**9` exceeds the exact code's 25 bits per
+  component, and now runs -- that is what the end-to-end test uses).
+
+What it does not unblock: **the built-in RA solvers in high
+dimension.** `chnutils.get_nbors` enumerates a `3**dim` neighbourhood.
+Measured with RPERLE at budget 300: 0.6 s at `dim=3`, 5 s at `dim=6`,
+17 s at `dim=9`, and no return at `dim=20`, with the time in
+`get_nbors`/`edist`, not in the RNG. `3**20` is about 3.5 billion
+points per neighbourhood. That is structural -- it is what
+"neighbourhood" means in these algorithms -- not a tuning problem, and
+no change to the coordinate layer, the generator or the executor
+touches it. RPERLE, RMINRLE, RPE and RSPLINE remain practical up to
+roughly `dim=9` (BSProb's dimension, the largest built-in problem).
+
+**Phase 4 scoping fact.** If distributed users bring high-dimensional
+problems, the built-in solvers will not serve them whatever the
+executor does: parallelising replications does nothing for a solver
+that cannot finish enumerating one neighbourhood. Serving those users
+means a solver that does not enumerate neighbourhoods, which is new
+algorithmic work, not executor work. This change only ensures the
+coordinate layer is not a second obstacle when that solver exists.
 
 ### 3.5 Should the interface expose jump-ahead at all?
 
