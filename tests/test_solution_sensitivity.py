@@ -41,11 +41,18 @@ from pymoso.solvers.rperle import RPERLE
 # changed, invisible to end-seed matching alone (docs/end-seed-scope.md).
 # end_seed (below, in the test itself) has moved separately since then,
 # for an unrelated reason -- see its own comment.
+#
+# Recaptured a second time for the testsolve() role-layout fix
+# (KNOWN_ISSUES.md issue 10; tests/golden/README.md has the prior
+# values): both defects it fixed were in where each path's oracle
+# streams start, so every path's replications -- and therefore its
+# search path -- changed. Again the class of change this golden exists
+# to catch, and again deliberate.
 EXPECTED_SOLUTIONS = {
-    0: {(31, 6), (32, 6)},
-    1: {(1, 8), (17, 7)},
-    2: {(7, 4), (8, 4), (9, 3)},
-    3: {(26, 16), (26, 17)},
+    0: {(32, 1), (32, 3)},
+    1: {(12, 16), (16, 8)},
+    2: {(9, 3), (11, 0)},
+    3: {(18, 18), (18, 19), (19, 16), (19, 17)},
 }
 
 
@@ -71,4 +78,9 @@ def test_testsolve_ranx0_solution_sets_match_baseline():
     # value moved from the prior baseline for that reason, not from
     # EXPECTED_SOLUTIONS's own defect fix above (a separate, unrelated
     # regeneration).
-    assert end_seed == (3654817394, 2187457693, 4207556677, 3585739323, 608476310, 697649114)
+    #
+    # Still true after the testsolve() role-layout fix moved both: this
+    # value and testsolve_tpa's moved to the same new value, which is
+    # what a uniform change to the layout should do to two runs of the
+    # same computation.
+    assert end_seed == (2485384564, 3157617357, 1600102004, 2564266890, 2564580077, 3801707191)

@@ -27,14 +27,21 @@ from pymoso.testers.tpatester import TPATester
 # bit-identical (the testsolve()-shaped analog of the mocompass_tpa/
 # mopbnb_tpa collision stage 1 fixed); the three-way match now breaks,
 # as expected going in -- each reflects its own solver's real
-# consumption. All five sets of prior values are preserved in
+# consumption. A sixth time, for the testsolve() role-layout fix
+# (KNOWN_ISSUES.md issue 10): get_testsolve_prnstreams used to root the
+# oracle role wherever its solver-stream loop ended, which made path
+# 0's oracle stream share a seed with the last path's solver stream
+# AND made every path's oracle streams depend on --isp. Fixing both
+# moved every testsolve oracle root, so the three testsolve_* cases and
+# the testsolve() library case moved again; every solve() case is
+# untouched (solve() was never affected). All six sets of prior values
+# are preserved in
 # tests/golden/README.md for historical reference -- none are
 # restorable defaults; each prior mechanism (the jump-ahead bug, the
 # pre-4b order-dependence defect, the replication-collision defect,
-# and call-count-only endseed reporting, at both the solve() and
-# testsolve() layers) was wrong in its own way. These values are now a
-# fully settled baseline under §12 step 8's own design -- both stages
-# are landed.
+# call-count-only endseed reporting, at both the solve() and
+# testsolve() layers, and the testsolve() role layout) was wrong in its
+# own way.
 
 SEED_RE = re.compile(r"^--\s+(?:next|ending) seed:\s+(.+)$", re.M)
 
@@ -70,7 +77,7 @@ CASES = {
     "testsolve_tpa": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--metric",
          "TPATester", "RPERLE"],
-        (3654817394, 2187457693, 4207556677, 3585739323, 608476310, 697649114),
+        (2485384564, 3157617357, 1600102004, 2564266890, 2564580077, 3801707191),
     ),
     # rperle_tpa_crn moved too, contrary to this golden's own long-
     # standing expectation of staying fixed while the crnflag=False
@@ -109,12 +116,12 @@ CASES = {
     "testsolve_mocompass": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--param", "lb", "0",
          "--param", "ub", "50", "TPATester", "MOCOMPASS"],
-        (2422441504, 1336929696, 2999367015, 1940896654, 3321487088, 1155700982),
+        (2346975725, 1224100873, 2386202199, 4246821866, 1768963681, 2406381760),
     ),
     "testsolve_mopbnb": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--param", "lb", "0",
          "--param", "ub", "50", "TPATester", "MOPBnB"],
-        (3460682149, 1730614318, 2650224894, 981491354, 3020985147, 1482257229),
+        (559300817, 691733575, 3730937374, 1133024474, 2779640938, 790303042),
     ),
 }
 
@@ -156,4 +163,4 @@ def test_library_testsolve_end_seed_matches_baseline():
         TPATester, RPERLE, (40, 40),
         budget=1000, seed=(12345,) * 6, isp=4, proc=1, crn=False, ranx0=False,
     )
-    assert end_seed == (1744404958, 3393812160, 2418775421, 509218500, 1460079748, 3249260099)
+    assert end_seed == (608833221, 1812491834, 2623259368, 3887640181, 811678161, 2382318639)

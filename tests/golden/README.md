@@ -91,7 +91,86 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (post §12 step 8 stage 2: testsolve()'s aggregation -- both stages landed)
+### Current values (post testsolve() role-layout fix)
+
+**Capture conditions:** `.venv-baseline`, CPython 3.10.22, this repo
+installed editable, captured from the source tree directly, at the
+testsolve() role-layout fix itself (the commit immediately prior to
+this regeneration). Command: `pytest tests/test_golden.py
+tests/test_solution_sensitivity.py -v`; cross-checked against an
+independent capture under `.venv-dev` (CPython 3.14.8) -- identical
+values.
+
+**Captured against the fix for KNOWN_ISSUES.md issue 10**, which was
+two distinct defects in `chnutils.get_testsolve_prnstreams`, both from
+rooting the oracle role "wherever the solver-stream loop ended":
+
+1. *Seed collision.* That position was the last solver stream's own
+   seed, so path 0's oracle stream and the last path's solver stream
+   started at the same place -- with the default `--isp=1`, the same
+   path's own solver and oracle.
+2. *Dependence on `--isp`.* That position was stream `isp` from the
+   run's seed, so every path's oracle streams moved whenever the number
+   of paths changed. Extending a study from 100 sample paths to 200
+   changed the results of the first 100.
+
+The fix puts the three roles in fixed, separate zones (x0 at stream 0,
+path t's solver at stream 1 + t, path t's oracle streams in slot t + 1)
+so no two roles share a position and none depends on `--isp`. Solver
+and x0 streams did not move; every oracle root did. Consequently
+`testsolve_tpa`/`testsolve_mocompass`/`testsolve_mopbnb` and the
+`testsolve()` library case moved, and nothing else: every `solve()`-path
+case is identical to the previous capture below -- confirmed directly,
+not assumed (`solve()` builds its two streams separately and had
+neither defect). Predicted before the change and matched exactly.
+
+`test_solution_sensitivity.py` moved in both of its parts: its
+`EXPECTED_SOLUTIONS` (every path's replications changed, so every
+path's search did) and its `end_seed`. **Its `end_seed` still equals
+`testsolve_tpa`'s** -- both moved to the same new value. They are the
+identical computation (same tester/solver/budget/seed/isp/proc/crn,
+both `ranx0=True`), reached through the CLI in one case and the library
+in the other, so a uniform change to the layout has to move them
+together; that the equality survived is evidence the move was uniform
+rather than path- or entry-point-specific.
+
+| Case | End seed |
+|---|---|
+| rperle_tpa | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| rminrle_tpa | `3101702307, 2274224287, 2252695779, 2887425027, 4188880773, 159891216` |
+| rpe_tpa | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| rspline_simpleso | `2327071160, 589288757, 3791179983, 1866895284, 2094692759, 3256882931` |
+| testsolve_tpa | `2485384564, 3157617357, 1600102004, 2564266890, 2564580077, 3801707191` |
+| rperle_tpa_crn | `1128359308, 3860538173, 798726527, 4016157990, 1667726745, 709835043` |
+| rperle_tpa_seed2 | `2175629958, 147802191, 2425104019, 853609596, 4132240727, 4089413332` |
+| rperle_tpa_simpar2 | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| solve() library call | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
+| testsolve() library call | `608833221, 1812491834, 2623259368, 3887640181, 811678161, 2382318639` |
+| mocompass_tpa | `1146796796, 3308305028, 386855827, 2694500999, 2221614380, 1025642763` |
+| mopbnb_tpa | `3809509318, 1900386143, 1103642148, 1010814338, 790187922, 3654332215` |
+| testsolve_mocompass | `2346975725, 1224100873, 2386202199, 4246821866, 1768963681, 2406381760` |
+| testsolve_mopbnb | `559300817, 691733575, 3730937374, 1133024474, 2779640938, 790303042` |
+
+`test_solution_sensitivity.py`'s `EXPECTED_SOLUTIONS`, old and new (its
+`end_seed` is `testsolve_tpa`'s, above):
+
+| Path | Before the fix | After the fix |
+|---|---|---|
+| 0 | `{(31, 6), (32, 6)}` | `{(32, 1), (32, 3)}` |
+| 1 | `{(1, 8), (17, 7)}` | `{(12, 16), (16, 8)}` |
+| 2 | `{(7, 4), (8, 4), (9, 3)}` | `{(9, 3), (11, 0)}` |
+| 3 | `{(26, 16), (26, 17)}` | `{(18, 18), (18, 19), (19, 16), (19, 17)}` |
+
+---
+
+## Historical: post §12 step 8 stage 2 (testsolve()'s aggregation), pre testsolve() role-layout fix
+
+The four `testsolve` values in this section are the ones the
+role-layout fix replaced. Like every historical section here, they are
+a record, not restorable defaults: they were produced with path 0's
+oracle stream sharing a seed with a solver stream, and with every
+path's streams depending on `--isp`.
+
 
 **Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
 installed editable, captured from the source tree directly. Commit:
