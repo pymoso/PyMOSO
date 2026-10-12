@@ -285,9 +285,24 @@ SYNC_CAPACITY = (ISP_STREAM_SPAN - SYNC_ZONE_STREAM_START) * SYNC_PER_STREAM  # 
 assert SYNC_PER_STREAM * SYNC_STRIDE == OFFSET_CAPACITY
 assert REPL_COUNT_LIMIT * REPL_STRIDE <= OFFSET_CAPACITY
 
-# How many isp paths fit is bounded by the period, not by a constant
-# here: ~2**191 / ISP_STRIDE = 2**32 slots for MRG32k3a. --isp is
-# single- to double-digit in practice. Not enforced.
+# testsolve()'s roles on the slot grid (chnutils.get_testsolve_
+# prnstreams; KNOWN_ISSUES.md issue 10): slot 0 holds the x0 stream
+# (stream 0) and the solver streams (stream 1 + t); oracle path t owns
+# slot t + 1. Two things therefore bound the number of paths:
+#
+# - slot 0 has ISP_STREAM_SPAN - 1 solver streams;
+# - slots 1..isp must fit in the streams this generator can address at
+#   all. The period is (m1**3 - 1)*(m2**3 - 1)/2, a little under
+#   2**191, so STREAM_CAPACITY is a little under 2**64 streams.
+#
+# The second binds here: ISP_MAX_PATHS = 4,294,898,109, which is
+# 2**32 - 69,187 (computed below, not rounded). Past it,
+# get_testsolve_prnstreams raises IspOverflow before building anything;
+# without the check, stream indices would wrap around the period
+# silently. (--isp is single- to triple-digit in practice.)
+PERIOD = (mrgm1i ** 3 - 1) * (mrgm2i ** 3 - 1) // 2
+STREAM_CAPACITY = PERIOD // ITER_STRIDE
+ISP_MAX_PATHS = min(ISP_STREAM_SPAN - 1, STREAM_CAPACITY // ISP_STREAM_SPAN - 1)
 
 
 #constants used for approximating the inverse standard normal cdf

@@ -132,6 +132,10 @@ class RandomCompatAdapter(random.Random):
     def random(self) -> float:
         return self._stream.random()
 
+    def raw_consumed(self) -> int:
+        """The wrapped stream's own count (chnutils.check_role_draws)."""
+        return self._stream.raw_consumed()
+
     def getrandbits(self, k: int) -> int:
         return self._stream.getrandbits(k)
 
@@ -263,6 +267,31 @@ class SyncOverflow(ValueError):
     (this generator's own SYNC_CAPACITY). Raised, not wrapped into the
     next path's slot -- which is exactly what an unbounded sync zone
     used to allow."""
+
+
+class IspOverflow(ValueError):
+    """More independent sample paths were requested than the stream
+    layout holds for the selected generator (its own ISP_MAX_PATHS).
+    Raised by chnutils.get_testsolve_prnstreams before any stream is
+    built. Two things bound it: slot 0 of the isp grid has
+    ISP_STREAM_SPAN - 1 solver streams, and slots 1..isp must fit in
+    the streams the generator can address at all (STREAM_CAPACITY).
+    MRG31k3p's ceiling, just under 2**26 paths, is the tightest of the
+    three onboarded generators and is the first place its shorter
+    period (~2**185, against MRG32k3a's ~2**191) constrains the layout
+    -- for the MRG family an `isp` past the ceiling would otherwise
+    wrap around the period silently."""
+
+
+class RoleDrawOverflow(ValueError):
+    """A solver-role or x0-role stream reports having drawn more raw
+    values than one stream holds, so it ran into the next stream in its
+    zone (MRG family) or wrapped onto its own start (Philox). Checked
+    when the role's work finishes (chnutils.check_role_draws), the same
+    after-the-fact posture as ReplicationDrawOverflow: nothing limits
+    how much a custom solver draws from `sprn`, and a per-draw check
+    would tax every draw to guard a bound no real run can reach
+    (2**127 draws for the MRG family)."""
 
 
 class ReplicationDrawOverflow(ValueError):

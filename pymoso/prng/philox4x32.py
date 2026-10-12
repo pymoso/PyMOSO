@@ -234,6 +234,13 @@ ISP_ITER_MARGIN = 1 << 30
 SYNC_ZONE_STREAM_START = ISP_ITER_MARGIN
 ISP_STREAM_SPAN = 2 * ISP_ITER_MARGIN  # 2**31
 
+# How many isp paths the layout holds (see mrg32k3a.py's ISP_MAX_PATHS
+# for the two bounds). The key addresses 2**64 streams, 2**33 slots, so
+# here it is slot 0's ISP_STREAM_SPAN - 1 solver streams that binds:
+# 2**31 - 1 paths. Past it: IspOverflow.
+STREAM_CAPACITY = 1 << KEY_BITS
+ISP_MAX_PATHS = min(ISP_STREAM_SPAN - 1, STREAM_CAPACITY // ISP_STREAM_SPAN - 1)
+
 # CRN and sync replication spacing (docs/rng-interface-design.md §12
 # step 9). Derived from this generator's own budget, not taken from the
 # MRG family:

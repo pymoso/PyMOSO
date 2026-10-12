@@ -114,6 +114,18 @@ _m2_step = [[0, 1, 0], [0, 0, 1], [32769, 0, 32768]]
 # replication -- the same O(log n)-per-call shape step 2's own
 # regression was, reproduced here for this generator specifically had
 # this not been added; timed directly, not assumed, once threaded in.
+# How many isp paths the layout holds (see mrg32k3a.py's ISP_MAX_PATHS
+# for the two bounds). NOT reused from mrg32k3a.py, unlike the strides:
+# this is the one layout figure that depends on the period, and this
+# generator's is ~2**185 against MRG32k3a's ~2**191. That leaves a
+# little under 2**58 streams, so ISP_MAX_PATHS = 67,106,887, which is
+# 2**26 - 1,977 (computed below) -- the tightest ceiling of the
+# three onboarded generators, and the first place the shorter period
+# constrains anything. Past it: IspOverflow.
+PERIOD = (mrg31m1 ** 3 - 1) * (mrg31m2 ** 3 - 1) // 2
+STREAM_CAPACITY = PERIOD // ITER_STRIDE
+ISP_MAX_PATHS = min(ISP_STREAM_SPAN - 1, STREAM_CAPACITY // ISP_STREAM_SPAN - 1)
+
 _jump76_p1 = _mat_pow_mod(_m1_step, REPL_STRIDE, mrg31m1)
 _jump76_p2 = _mat_pow_mod(_m2_step, REPL_STRIDE, mrg31m2)
 _jump127_p1 = _mat_pow_mod(_m1_step, ITER_STRIDE, mrg31m1)

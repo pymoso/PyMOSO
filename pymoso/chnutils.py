@@ -39,7 +39,7 @@ from math import ceil, floor, sqrt
 import multiprocessing as mp
 from statistics import mean, variance
 from .prng import registry
-from .prng.base import one_past, ensure_random_compatible
+from .prng.base import one_past, ensure_random_compatible, IspOverflow, RoleDrawOverflow
 
 # MAX_RI (a reserved 200-RA-iteration substream window per independent
 # sample path, and the RuntimeError RASolver.rasolve raised past it) is
@@ -169,6 +169,7 @@ def testsolve(tester, solver, x0, **kwargs):
         paramargs = dict(paramlst)
         mainparms = (solver, budget, orc)
         joblist.append((mainparms, paramargs))
+    check_role_draws(x0stream, backend, 'x0')
     res = par_runs(joblist, proc)
     for o in orclst:
         o.mp_cleanup()
@@ -272,69 +273,63 @@ def get_testsolve_prnstreams(num_trials, iseed, backend):
     power work whether path 5 is requested first, last, or alone,
     regardless of how many iterations any other path used.
 
-    **KNOWN_ISSUES.md issue 10, reproduced here deliberately, not
-    fixed:** `orc_root` (below) lands at the identical position as
-    `solprn_lst[-1]`'s own starting seed -- the solver-role stream for
-    the *last* path and the oracle-role stream for path 0
-    (`orcprn_lst[0] = stream_at(orc_root, 0, 0)`, a zero-jump from
-    `orc_root`) therefore share a raw seed. Predates §12 step 6b's own
-    generalization of this function onto a selected backend; this step
-    reproduces the exact seed math byte-for-byte (§12 step 6b's own
-    "no golden moves" scope), not a place to fix it inline -- a real
-    fix changes `testsolve()`'s own `endseed` and downstream solution
-    sets and needs its own sign-off.
+    Layout, in whole streams from `iseed` (KNOWN_ISSUES.md issue 10):
+
+    - slot 0, stream 0: the x0 stream;
+    - slot 0, stream 1 + t: path t's solver stream;
+    - slot t + 1: path t's oracle slot (ISP_STREAM_SPAN streams --
+      iterations below ISP_ITER_MARGIN, the sync zone above).
+
+    No role's streams depend on `num_trials`, so path t is the same run
+    whether 10 paths are requested or 1,000. Each zone has a boundary
+    that raises: `num_trials` past the generator's own ISP_MAX_PATHS
+    (IspOverflow, here); a solver or x0 stream drawing more than one
+    stream holds (RoleDrawOverflow, check_role_draws); and the oracle
+    slot's own iteration/sync/replication limits (chnbase.py).
+
+    Raises
+    ------
+    IspOverflow
     """
-    # ensure_random_compatible: xprn is handed straight to a tester's
-    # own get_ranx0(rng) (§3.6, "an rng-shaped object") -- every
-    # built-in tester's get_ranx0 calls rng.choice(...), which a raw
-    # Philox stream doesn't have (§12 step 6b).
-    xprn = ensure_random_compatible(backend.stream_at(iseed, 0, 0))
-    orcprn_lst = []
+    # Checked before anything is built: past ISP_MAX_PATHS the solver
+    # zone (slot 0) or the generator's own stream capacity is exhausted.
+    if num_trials > backend.ISP_MAX_PATHS:
+        raise IspOverflow(
+            '{0} independent sample paths requested, but the stream '
+            'layout holds at most {1} under {2}. See KNOWN_ISSUES.md '
+            'issue 10.'.format(num_trials, backend.ISP_MAX_PATHS, registry.GENERATOR_NAMES[backend])
+        )
+    root = iseed
+    span = backend.ISP_STREAM_SPAN
+    # Slot 0, stream 0: the x0 role. ensure_random_compatible: xprn is
+    # handed straight to a tester's own get_ranx0(rng) (§3.6, "an
+    # rng-shaped object") -- every built-in tester's get_ranx0 calls
+    # rng.choice(...), which a raw Philox stream doesn't have.
+    xprn = ensure_random_compatible(backend.stream_at(root, 0, 0))
+    # Slot 0, streams 1..num_trials: the solver role, one stream per
+    # path. Built by stepping one stream at a time from the root (a
+    # cached jump for the MRG family) -- the same positions
+    # stream_at(root, 1 + t, 0) names, without a full jump from the root
+    # per path. Each list entry is wrapped for solver code (MOCOMPASS/
+    # MOPBnB's own sprn.sample(...) calls, §3.6); the chain itself uses
+    # the unwrapped stream's root_seed().
     solprn_lst = []
+    step_seed = root
     for t in range(num_trials):
-        # §12 step 6b: stream_at(iseed, 1, 0), not backend.
-        # get_next_prnstream(iseed) -- identical for the MRG family
-        # (confirmed directly: get_next_prnstream(seed) ==
-        # stream_at(seed, 1, 0), since "jump ITER_STRIDE" and "move to
-        # stream=1" are the same operation), and unlike
-        # get_next_prnstream, stream_at exists on every backend
-        # (Philox has no jump-ahead, so no get_next_prnstream at all --
-        # this construction doesn't need it, CRN-capability aside).
-        solprn = backend.stream_at(iseed, 1, 0)
-        # root_seed() needs the *unwrapped* solprn (RandomCompatAdapter
-        # doesn't forward it) -- iseed's own chain must use the real
-        # backend instance; only the list entry handed to solver code
-        # (MOCOMPASS/MOPBnB's own sprn.sample(...) calls, §3.6) is
-        # wrapped.
-        iseed = solprn.root_seed()
+        solprn = backend.stream_at(step_seed, 1, 0)
+        step_seed = solprn.root_seed()
         solprn_lst.append(ensure_random_compatible(solprn))
-    # `iseed` here (post-solprn loop) is the oracle role's own root --
-    # solver-role and oracle-role streams stay structurally separated,
-    # unchanged from before this step. (See KNOWN_ISSUES.md issue 10
-    # above: this coincides with solprn_lst[-1]'s own position.)
-    orc_root = iseed
-    for t in range(num_trials):
-        # §12 step 6c: stream_at(orc_root, t*ISP_STREAM_SPAN, 0), not a
-        # raw jump_seed_n(orc_root, t*ISP_STRIDE) call -- a relabeling
-        # of the exact same arithmetic (ISP_STRIDE ==
-        # ISP_STREAM_SPAN*ITER_STRIDE exactly, so
-        # t*ISP_STREAM_SPAN*ITER_STRIDE + 0 == t*ISP_STRIDE), not new
-        # arithmetic; confirmed directly, not assumed. `backend.
-        # ISP_STREAM_SPAN`, not a hardcoded import (§12 step 6b) --
-        # this generator's own slot width, e.g. Philox's own 2**31,
-        # not MRG's 2**32.
-        orcprn = backend.stream_at(orc_root, t * backend.ISP_STREAM_SPAN, 0)
-        orcprn_lst.append(orcprn)
-    # The next independent stream past every path actually reserved --
-    # path `num_trials` would be the next one derived by this same
-    # formula, so its seed is the natural "next" value to report,
-    # matching this function's pre-existing "next independent seed"
-    # contract without needing a live walk to compute it. §12 step 6b:
-    # stream_at(orc_root, num_trials*ISP_STREAM_SPAN, 0), not
-    # jump_seed_n(orc_root, num_trials*ISP_STRIDE) -- identical for the
-    # MRG family (confirmed directly), and Philox has no ISP_STRIDE (no
-    # flat coordinate to jump within) or jump_seed_n at all.
-    iseed = backend.stream_at(orc_root, num_trials * backend.ISP_STREAM_SPAN, 0).root_seed()
+    # Slots 1..num_trials: the oracle role, path t in slot t + 1. Its
+    # root is a fixed position -- the start of slot 1 -- not "wherever
+    # the last solver stream ended up", which is what made path 0's
+    # oracle stream coincide with the last path's solver stream, and
+    # what made every path's oracle streams move whenever num_trials
+    # changed (KNOWN_ISSUES.md issue 10, both parts).
+    orc_root = backend.stream_at(root, span, 0).root_seed()
+    orcprn_lst = [backend.stream_at(orc_root, t * span, 0) for t in range(num_trials)]
+    # The next independent stream past every path actually reserved:
+    # the start of the slot path `num_trials` would own.
+    iseed = backend.stream_at(orc_root, num_trials * span, 0).root_seed()
     return orcprn_lst, solprn_lst, xprn, iseed, orc_root
 
 
@@ -447,9 +442,47 @@ def isp_run(boovsolver, budget, orc, **kwargs):
         solvprn = kwargs.get('solvprn', None)
         kwargs['sprn'] = solvprn
         del kwargs['solvprn']
+    sprn = kwargs.get('sprn')
     solver = boovsolver(orc, **kwargs)
     mydat = solver.solve(budget)
+    # The solver role's own boundary (KNOWN_ISSUES.md issue 10): checked
+    # here, where the path ran -- under --proc that is a worker process,
+    # and the stream's count never reaches the parent.
+    if sprn is not None and getattr(orc, '_backend_name', None) is not None:
+        check_role_draws(sprn, orc._backend, 'solver')
     return mydat
+
+
+def check_role_draws(stream, backend, role):
+    """
+    Raise if a solver-role or x0-role stream drew more raw values than
+    one stream holds -- that role's own zone boundary.
+
+    Parameters
+    ----------
+    stream : object
+        The stream the role drew from. Anything without a
+        `raw_consumed()` method (a caller's own rng-shaped object) is
+        not checked.
+    backend : module
+        The selected generator's own module.
+    role : str
+        'solver' or 'x0', for the message.
+
+    Raises
+    ------
+    RoleDrawOverflow
+    """
+    raw_consumed = getattr(stream, 'raw_consumed', None)
+    if raw_consumed is None:
+        return
+    drawn = raw_consumed()
+    if drawn > backend.OFFSET_CAPACITY:
+        raise RoleDrawOverflow(
+            'the {0} stream drew {1} raw values, more than the {2} one '
+            'stream holds -- it overran its own stream. See '
+            'KNOWN_ISSUES.md issue 10.'.format(role, drawn, backend.OFFSET_CAPACITY)
+        )
 
 
 def par_runs(joblst, num_proc=1):

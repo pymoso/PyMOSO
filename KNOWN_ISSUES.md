@@ -446,14 +446,52 @@ found tracing the exact seed math ahead of §12 step 6b's own generic
 (backend-agnostic) rewrite of this function, not by looking for bugs.
 Unconditional: happens for any `num_trials >= 1`, not an edge case.
 
-**Status:** not fixed. §12 step 6b's own rewrite of `get_testsolve_
-prnstreams` (generalizing it onto a selected backend) deliberately
-reproduces this exact seed math byte-for-byte rather than fixing it
-inline — a real fix moves `testsolve()`'s own `endseed` and downstream
-solution sets (a golden-affecting change, needing its own sign-off and
-regression test observed failing first, per the working agreement),
-which is out of scope for a generator-selection change. Tracked here so
-it isn't silently carried forward unrecorded.
+**A second, separate defect in the same function: every path's
+results depended on `--isp`.** The oracle role's root was not a fixed
+position; it was the seed the solver-stream loop happened to end on,
+which is stream `isp` counted from the run's seed. So the oracle
+streams of *every* path, path 0 included, moved whenever the number of
+paths changed:
+
+```
+--isp=1   solver streams [1]            oracle root at stream 1
+--isp=2   solver streams [1, 2]         oracle root at stream 2
+--isp=4   solver streams [1, 2, 3, 4]   oracle root at stream 4
+```
+
+This is not the seed sharing above, and for most users it matters
+more. Extending a study from 100 sample paths to 200 -- the ordinary
+way `testsolve` is used -- silently changed the results of the first
+100: the first 100 paths of the second run are not the first run's
+paths. Nothing raised and nothing looked wrong; each run was internally
+valid. Confirmed directly: `testsolve(..., isp=2)` and the first two
+paths of `testsolve(..., isp=3)` returned different solution sets,
+call counts and high-water marks
+(`tests/test_testsolve_role_layout.py`, observed failing before the
+fix). `solve()` was never affected by either defect -- it has one path
+and builds its two streams separately.
+
+**Status:** both fixed on this branch. `testsolve()`'s three roles now
+live in separate, bounded zones on a fixed grid, in whole streams from
+the run's seed:
+
+- stream 0: the starting-point (`x0`) stream;
+- stream 1 + *t*: path *t*'s solver stream;
+- slot *t* + 1 (one slot is `ISP_STREAM_SPAN` streams): path *t*'s
+  oracle streams.
+
+No two roles share a position, and no position depends on `--isp`, so
+path *t* is the same run however many paths are requested. Each zone
+raises at its boundary instead of running into the next: `IspOverflow`
+if more paths are requested than the selected generator's layout holds
+(`mrg31k3p`'s ceiling, about 6.7e7 paths, is the tightest of the three,
+a consequence of its shorter period), and `RoleDrawOverflow` if a
+solver or `x0` stream draws more than one whole stream.
+
+**The fix changes every `testsolve()` result.** Any `testsolve` output
+from this branch before the fix does not reproduce after it -- both
+defects were in where the oracle streams start, so correcting them
+moves every path's simulation draws. `solve()` output is unchanged.
 
 ---
 
