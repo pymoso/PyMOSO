@@ -159,7 +159,7 @@ def test_endseed_matches_the_formula_visit_branch():
 
 # ---------------------------------------------------------------------------
 # Monotonicity: the high-water mark never moves backward, across
-# multiple calls, multiple points, and crn_advance().
+# multiple calls, multiple points, and _advance_iteration().
 # ---------------------------------------------------------------------------
 
 def test_endseed_is_monotonic_across_multiple_hits_same_iteration():
@@ -184,7 +184,7 @@ def test_endseed_advances_across_crn_advance_crn_branch():
     orc = _fresh_oracle(dim=1, crnflag=True)
     orc.hit((5,), 2)
     before = orc.get_endseed()
-    orc.crn_advance()
+    orc._advance_iteration()
     orc.hit((5,), 2)
     after = orc.get_endseed()
     assert after != before
@@ -206,7 +206,7 @@ def test_endseed_reset_by_set_crnflag():
 # (tests/test_stream_offset_carry.py) or Philox's own real constants
 # (tests/test_philox4x32_conformance.py). MRG32k3a's own
 # ISP_ITER_MARGIN=2**32 makes the raise practically unreachable through
-# millions of real hit()/crn_advance() calls, so these set
+# millions of real hit()/_advance_iteration() calls, so these set
 # _high_water_mark directly (white-box) to the exact boundary a real
 # run would eventually reach, rather than actually running that many
 # iterations -- still a real exercise of get_endseed()'s own carry

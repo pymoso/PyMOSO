@@ -60,15 +60,18 @@ class MOPBnB(MOSOSolver):
     def __init__(self, orc, **kwargs):
         if orc.crnflag:
             raise RuntimeError(
-                '{0} does not support --crn yet. It calls crn_advance() once, '
-                'at the end of solve(), which the framework CRN protocol only '
-                'ever advances once per algorithmic iteration for RASolver-family '
-                'solvers -- for a solver that calls it just once, every '
-                'intervening hit() call rewinds to the same frozen baseline, so '
-                'every replication in the run would silently replay identical '
-                'draws. CRN support for general MOSOSolvers is pending the RNG '
-                'interface redesign (see docs/rng-interface-design.md, sections '
-                '4.2-4.3, and docs/mocompass-mopbnb-known-issues.md). Run without '
+                '{0} does not support --crn. In this framework, common random '
+                'numbers are defined per retrospective-approximation iteration: '
+                'every hit() call in an iteration starts again from that '
+                'iteration\'s baseline streams, and RASolver advances the '
+                'iteration itself. {0} is not an RASolver and has no such '
+                'iterations, so under --crn every hit() in the whole run would '
+                'start from the same baseline -- a second hit() on a point '
+                'would silently replay its first replications instead of adding '
+                'new ones. What --crn should mean for a solver like this is an '
+                'open design question (docs/rng-interface-design.md, section 11, '
+                'question 11; see also sections 4.2-4.3 and '
+                'docs/mocompass-mopbnb-known-issues.md). Run without '
                 '--crn.'.format(type(self).__name__)
             )
         self.subregions = int(kwargs.pop('subregions', 2))
@@ -155,16 +158,13 @@ class MOPBnB(MOSOSolver):
             simcalls[iterk] = self.num_calls
             print('-- -- Ending iteration: ', iterk, ' after ', self.num_calls, ' replications. ')
             iterk += 1
-        # Still reachable, and still meaningful, even though this solver is
-        # restricted to crnflag=False (see __init__): crn_check() no-ops
-        # under crnflag=False, but get_next_prnstream still performs a real
-        # 2**127 jump, so this keeps this solver's own iteration bookkeeping
-        # advancing correctly. The reported endseed itself comes from
-        # orc.get_endseed() (docs/rng-interface-design.md §8.2/§12 step 8) --
-        # the run's actual oracle-role coordinate high-water mark, not just
-        # this call count, giving the standard "safely-spaced next seed for
-        # an independent follow-up run" every other in-tree solver provides.
-        self.orc.crn_advance()
+        # No iteration bookkeeping here: this solver has no RA iterations
+        # for the framework to advance (it used to call orc.crn_advance()
+        # at this point -- removed, docs/rng-interface-design.md §4.2). The
+        # reported endseed comes from orc.get_endseed() (§8.2/§12 step 8),
+        # the run's actual oracle-role coordinate high-water mark -- the
+        # standard "safely-spaced next seed for an independent follow-up
+        # run" every other in-tree solver provides.
         # oracle_high_water_mark: raw material for testsolve()'s own
         # cross-path aggregation (§12 step 8 stage 2), not a per-path
         # seed itself -- see Oracle.get_high_water_mark()'s docstring.

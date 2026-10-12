@@ -18,10 +18,12 @@ Three things this file pins:
    anti-pattern KNOWN_ISSUES.md issue 3 already eliminated elsewhere.
 3. crn=True is refused with a clear RuntimeError, at construction time,
    both via the library and via the CLI -- see
-   docs/rng-interface-design.md sections 4.2-4.3 for why: both solvers
-   call orc.crn_advance() exactly once, at the end of solve(), which
-   silently makes every hit() call in the run replay identical draws
-   under --crn.
+   docs/rng-interface-design.md sections 4.2-4.3 and section 11,
+   question 11, for why: CRN is defined per RA iteration, neither
+   solver has RA iterations, so every hit() call in the run would
+   replay from the same baseline under --crn.
+4. Neither solver advances the Oracle's iteration, and Oracle exposes
+   no public crn_* method for a solver to call.
 """
 import subprocess
 
@@ -113,3 +115,32 @@ def test_crn_refused_via_cli(name, tmp_path):
     assert proc.returncode != 0
     assert "does not support --crn" in proc.stdout
     assert "Traceback" not in proc.stdout
+
+
+# ---------------------------------------------------------------------------
+# The solver-facing crn_* surface is gone (docs/rng-interface-design.md
+# §4.2, §11 open question 7): advancing the RA iteration is framework
+# bookkeeping, done by RASolver.rasolve(), not something a solver calls.
+# ---------------------------------------------------------------------------
+
+def test_oracle_exposes_no_public_crn_methods():
+    from pymoso.chnbase import Oracle
+    public_crn = [n for n in dir(Oracle) if n.startswith("crn_")]
+    assert public_crn == []
+
+
+@pytest.mark.parametrize("name,cls", SOLVERS, ids=[c[0] for c in SOLVERS])
+def test_solver_does_not_advance_the_oracles_iteration(name, cls):
+    """Both solvers used to call orc.crn_advance() once, at the end of
+    solve() -- framework bookkeeping leaked into solver code. A
+    MOSOSolver has no RA iterations, so its Oracle must still be at
+    iteration 0 when it finishes."""
+    class Probe(ProbTPA):
+        instances = []
+
+        def __init__(self, rng):
+            super().__init__(rng)
+            Probe.instances.append(self)
+
+    solve(Probe, cls, (40, 40), **SOLVE_KWARGS)
+    assert Probe.instances[-1]._iteration == 0

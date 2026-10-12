@@ -5,7 +5,7 @@ replacement (§4). Two checks the golden suite doesn't directly provide
 
 - §7 item 7, the bit-identical migration proof: for a battery of
   (iteration, replication) coordinates, the CRN branch's actual stream
-  -- produced by real hit()/crn_advance() calls -- equals
+  -- produced by real hit()/_advance_iteration() calls -- equals
   jump_seed_n(root, iteration*ITER_STRIDE + replication*REPL_STRIDE)
   computed directly (§2's formula). This is the concrete, checked claim
   behind "CRN stays bit-identical," not an assumption riding on §2's
@@ -112,12 +112,12 @@ def test_crn_every_replication_within_one_iteration_matches_the_coordinate_formu
 
 
 def test_crn_advance_moves_to_the_next_iteration_baseline_exactly():
-    """crn_advance() (iteration k -> k+1) must land exactly at
+    """_advance_iteration() (iteration k -> k+1) must land exactly at
     (k+1)*ITER_STRIDE, checked across several successive iterations,
     each time via a fresh point's replication 0."""
     orc = _fresh_crn_oracle()
     for k in range(1, 6):
-        orc.crn_advance()
+        orc._advance_iteration()
         obs = _crn_replicate(orc, (k,), 1)
         assert obs[0] == _expected_seed(k * ITER_STRIDE)
 
@@ -128,7 +128,7 @@ def test_crn_different_points_in_the_same_iteration_share_the_same_replication_s
     replication index -- both equal the coordinate formula, and
     therefore each other."""
     orc = _fresh_crn_oracle()
-    orc.crn_advance()
+    orc._advance_iteration()
     obs_a = _crn_replicate(orc, (11,), 4)
     obs_b = _crn_replicate(orc, (22,), 4)
     assert obs_a == obs_b
@@ -144,7 +144,7 @@ def test_crn_multiple_iterations_and_replications_all_match_the_formula():
     orc = _fresh_crn_oracle()
     for k in range(5):
         if k > 0:
-            orc.crn_advance()
+            orc._advance_iteration()
         m = k + 1
         obs = _crn_replicate(orc, (100 + k,), m)
         for r in range(m):
@@ -159,12 +159,12 @@ def test_crn_multiple_iterations_and_replications_all_match_the_formula():
 
 def test_crn_hit_never_moves_the_oracles_own_rng():
     """The Oracle's construction stream identifies the generator and
-    supplies the root; hit() and crn_advance() must not draw from it or
+    supplies the root; hit() and _advance_iteration() must not draw from it or
     reseed it. Each replication gets its own stream."""
     orc = _fresh_crn_oracle()
     before = orc.rng.get_seed()
     orc.hit((1,), 3)
-    orc.crn_advance()
+    orc._advance_iteration()
     orc.hit((2,), 2)
     assert orc.rng.get_seed() == before
     assert orc.log == [
@@ -194,8 +194,8 @@ def test_crn_baseline_is_computed_once_per_iteration_not_once_per_hit(monkeypatc
     for x in [(1,), (2,), (3,), (1,)]:
         orc.hit(x, 2)
     assert calls == [(0, 0)]
-    orc.crn_advance()
-    orc.crn_advance()   # an iteration with no hit() at all costs nothing
+    orc._advance_iteration()
+    orc._advance_iteration()   # an iteration with no hit() at all costs nothing
     for x in [(4,), (5,)]:
         orc.hit(x, 3)
     assert calls == [(0, 0), (2, 0)]

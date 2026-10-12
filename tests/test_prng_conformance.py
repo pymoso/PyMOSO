@@ -26,7 +26,7 @@ skipped:
   small coordinate multiples of 2**76.
 - Item 7 (bit-identical migration proof) doesn't apply: it compares a
   coordinate-derived seed against the *old* stateful `crn_reset`/
-  `crn_advance` walk, which requires `chnbase.py`'s real coordinate
+  `_advance_iteration` walk, which requires `chnbase.py`'s real coordinate
   wiring (step 3) to exist on both sides of the comparison.
 
 Per the working agreement ("a detector never seen detecting isn't proven

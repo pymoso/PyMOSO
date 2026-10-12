@@ -233,9 +233,14 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   compatibility-only examples. Brought in with three compatibility
   fixes (a Python 3.11+ `random.sample()` incompatibility, a
   library-hostile `sys.exit()` on missing params, a `--crn` refusal —
-  both solvers previously called `orc.crn_advance()` in a way that
-  silently corrupted `--crn`, confirmed empirically), and now refuse
-  `--crn` outright rather than carry that corruption forward. Their
+  under `--crn` every `hit()` either solver makes replays from the
+  same baseline, confirmed empirically), and refuse `--crn` outright
+  rather than carry that corruption forward. The refusal is not
+  temporary plumbing: the `orc.crn_advance()` call both made at the end
+  of `solve()` has been deleted along with the method, and the replay
+  remains, because it comes from a `MOSOSolver` having no RA iteration
+  to advance. What `--crn` should mean for such a solver is
+  rng-interface-design.md §11 open question 11. Their
   algorithmic correctness against the source papers has NOT been
   reviewed — that's separate, future work. Known algorithmic issues
   (MOCOMPASS's `product()` full-box materialization; MOPBnB's
@@ -248,10 +253,19 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   and `KNOWN_ISSUES.md` both use).
 - The README's own `MyMOSOAlg`/`MOSOSolver`-authoring template still
   tells solver authors to "use (or wrap) `hit` and `crn_advance()`" —
-  exactly the pattern that silently broke `--crn` for MOCOMPASS/MOPBnB.
-  Not fixed: the actual fix is removing the solver-facing `crn_*`
-  surface entirely (below), at which point the template needs rewriting
-  too, not patching now.
+  and its `Oracle` method table still lists `crn_advance()` and five
+  other `crn_*` methods. **None of them exist any more**: the
+  solver-facing `crn_*` surface is removed (`Oracle._advance_iteration()`
+  is framework-internal). The README template and table are now
+  wrong, not merely inadvisable; they go in the Phase 6 README rewrite,
+  with the `python setup.py bdist_wheel` install line.
+- `crn_advance()`'s removal is a deliberate 2.0 API change, so it is
+  recorded for the CHANGELOG (Phase 6), not in `KNOWN_ISSUES.md`, which
+  is for defects. `KNOWN_ISSUES.md` issue 14 (`bump()` removal) is the
+  same kind of entry and is inconsistent with that rule; left in place
+  for now, to be settled together with this one when the CHANGELOG is
+  written. Migration text for both: `bump(x, m)` -> `hit(x, m)`;
+  `orc.crn_advance()` in a custom `MOSOSolver` -> delete the line.
 - The README's "Table of Algorithm-Specific Parameters" is the one
   remaining solver-facing doc that isn't test-enforced against live
   output (CLI help/`listitems` blocks are, via

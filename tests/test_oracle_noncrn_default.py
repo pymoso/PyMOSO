@@ -144,16 +144,16 @@ def test_continuation_is_per_point_not_global():
 
 
 # ---------------------------------------------------------------------------
-# Continuation resets when the iteration advances (crn_advance()) -- a
+# Continuation resets when the iteration advances (_advance_iteration()) -- a
 # revisit to x in a *new* iteration starts fresh at replication 0 again,
 # under that iteration's own ITER_STRIDE offset.
 # ---------------------------------------------------------------------------
 
-def test_continuation_resets_on_crn_advance():
+def test_continuation_resets_on__advance_iteration():
     orc = _fresh_oracle(dim=1)
     W = point_width(1)
     orc.hit((5,), 3)               # iteration 0: replications 0,1,2
-    orc.crn_advance()              # -> iteration 1
+    orc._advance_iteration()              # -> iteration 1
     orc.hit((5,), 2)                # iteration 1: replications 0,1 (NOT 3,4)
     second = orc.log[3:]
     assert second == [_expected(orc, (5,), r, W) for r in range(2)]

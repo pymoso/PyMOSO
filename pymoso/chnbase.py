@@ -402,7 +402,7 @@ class RASolver(MOSOSolver):
             phatnu[self.nu] = self.spsolve(aold)
             #print('spsolve: ', phatnu[self.nu])
             simcalls[self.nu] = self.num_calls
-            self.orc.crn_advance()
+            self.orc._advance_iteration()
             self.endseed = self.orc.get_endseed()
 
     def get_min(self, mcS):
@@ -1198,7 +1198,8 @@ class Oracle(object):
     synchronization, which has no effect on what hit() draws (see
     docs/mocompass-mopbnb-known-issues.md and §4.2/§4.3).
     _iteration : int
-    Count of completed crn_advance() calls (one per RA iteration). The
+    Count of completed _advance_iteration() calls (one per RA
+    iteration). The
     `stream` half of every default- and CRN-branch coordinate: under
     crnflag=True, iteration k's replication r is drawn at
     `stream_at(_orc_root, k, r*REPL_STRIDE)` for every point (§2 --
@@ -1242,7 +1243,7 @@ class Oracle(object):
         # read .dim, and never call set_crnflag() on it. So nothing
         # here touches `rng`: _orc_root gets its real value in
         # set_crnflag(), which every real solve()/testsolve()/
-        # mp_replicate() path calls before any hit()/crn_advance().
+        # mp_replicate() path calls before any hit().
         self._crn_baseline = None
         self._orc_root = None
         # §12 step 6b: the selected generator's own canonical NAME
@@ -1268,7 +1269,7 @@ class Oracle(object):
         # compute "one past" safely -- pymoso.prng.base.one_past).
         # `None` means untouched. Monotonic for the Oracle's lifetime
         # (reset only in set_crnflag(), matching `_iteration`'s own
-        # reset there) -- never reset by crn_advance(), since every
+        # reset there) -- never reset by _advance_iteration(), since every
         # branch's own `stream` value only ever increases as
         # `_iteration` advances.
         self._high_water_mark = None
@@ -1537,7 +1538,7 @@ class Oracle(object):
         """
         return self._high_water_mark
 
-    def crn_advance(self):
+    def _advance_iteration(self):
         """
         Advance to the next RA iteration. Every default- and CRN-branch
         coordinate carries `_iteration` as its `stream`, so this one
@@ -1560,11 +1561,15 @@ class Oracle(object):
         `stream_at` computes directly. That model is gone; nothing here
         touches `rng`, for either crnflag value or any generator.
 
-        Kept as a public method for now: RASolver.rasolve() calls it
-        once per RA iteration, and MOCOMPASS/MOPBnB call it once at the
-        end of their own solve() (see docs/mocompass-mopbnb-known-
-        issues.md and docs/rng-interface-design.md §4.2). Removing the
-        solver-facing surface is its own step (§11 open question 7).
+        Framework bookkeeping, not solver API: RASolver.rasolve()
+        calls this once per RA iteration, and nothing else should. It
+        was public as `crn_advance()` until docs/rng-interface-
+        design.md §11 open question 7 was carried out -- removed
+        outright, no deprecated alias, because the one way real solvers
+        used it (MOCOMPASS and MOPBnB, once, at the end of solve()) did
+        nothing useful and looked like CRN support it did not provide
+        (§4.2). A custom MOSOSolver that called `orc.crn_advance()`
+        should delete that line; nothing replaces it.
         """
         self._iteration += 1
         self._replications_drawn = {}
@@ -1863,7 +1868,7 @@ class Oracle(object):
         across repeated calls to the same (x, visit) within one
         iteration (§4.1, needed by MOPBnB) is tracked here, in
         `_replications_drawn`, reset whenever `_iteration` advances
-        (crn_advance()) -- not inside `_hit_via_coordinate` itself,
+        (_advance_iteration()) -- not inside `_hit_via_coordinate` itself,
         since a genuinely opt-in `visit!=0`/`sync=<int>` call never
         continues automatically (a fresh independent block, or a
         solver-controlled axis that already encodes "which block"

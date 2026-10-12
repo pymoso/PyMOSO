@@ -102,7 +102,7 @@ def test_mrg31k3p_supports_crn():
     orc = _fresh_mrg31k3p_oracle(crnflag=True)
     isfeas, obmean, obse = orc.hit((5,), 3)
     assert isfeas
-    orc.crn_advance()
+    orc._advance_iteration()
     isfeas2, obmean2, obse2 = orc.hit((9,), 3)
     assert isfeas2
     # CRN's own point: a different point at the same iteration/replication
@@ -164,13 +164,13 @@ def test_philox_continuation_across_repeated_hit_calls():
 
 
 def test_philox_multiple_iterations_via_crn_advance_do_not_collide():
-    """crnflag=False still calls crn_advance() every RA iteration (via
+    """crnflag=False still calls _advance_iteration() every RA iteration (via
     RASolver.rasolve()'s own loop) -- confirms it doesn't crash for a
-    backend with no get_next_prnstream (§12 step 6b's own crn_advance()
+    backend with no get_next_prnstream (§12 step 6b's own _advance_iteration()
     fix), and that successive iterations' draws don't collide."""
     orc = _fresh_philox_oracle()
     orc.hit((5,), 2)
-    orc.crn_advance()
+    orc._advance_iteration()
     orc.hit((5,), 2)
     assert orc._iteration == 1
     assert set(orc.log[:2]).isdisjoint(orc.log[2:])
@@ -204,7 +204,7 @@ def test_philox_simpar_pickles_and_matches_serial():
 # ---------------------------------------------------------------------------
 # The --crn guard: Philox has no CRN branch at all (no get_next_prnstream/
 # jump_substream) -- must raise clearly, at set_crnflag() time, not fail
-# opaquely deep inside crn_advance()'s first real call.
+# opaquely deep inside _advance_iteration()'s first real call.
 # ---------------------------------------------------------------------------
 
 def test_philox_crnflag_true_raises_notimplementederror():

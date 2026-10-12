@@ -44,7 +44,7 @@ def fresh_oracle(crn):
     orc.set_crnflag(crn)
     orc.simpar = 1
     for _ in range(ITERATION):
-        orc.crn_advance()
+        orc._advance_iteration()
     return orc
 
 

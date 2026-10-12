@@ -1843,6 +1843,12 @@ existing code, surfaced rather than guessed.
    deprecated-but-callable `crn_advance()` would keep the exact footgun
    alive for anyone who copies the same pattern, not preserve a real
    capability.
+   **Landed:** `Oracle.crn_advance()` is now the framework-internal
+   `Oracle._advance_iteration()`, called only by `RASolver.rasolve()`;
+   MOCOMPASS and MOPBnB no longer call anything. Deleting their call
+   moved none of their goldens. It did **not** make `--crn` valid for
+   them -- see open question 11 below; both still refuse it, with the
+   reason corrected.
 8. **[settled] What `endseed` becomes, concretely.** §5/§8 establish that
    a raw mutable-`rng`-derived seed no longer has a natural single
    "current position" to report. Decided in §8.2: report the seed that

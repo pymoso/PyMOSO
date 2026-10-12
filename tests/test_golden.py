@@ -77,7 +77,7 @@ CASES = {
     # cases moved around it -- a real finding, not absorbed silently:
     # see docs/rng-interface-design.md §8.2's "Wired in as of step 8
     # stage 1" note for the full trace (rasolve()'s own trailing,
-    # unconditional crn_advance() call past the last iteration that
+    # unconditional _advance_iteration() call past the last iteration that
     # actually ran). The new value is a correct tightening, not a
     # regression -- confirmed nothing beyond it was ever touched.
     "rperle_tpa_crn": (
