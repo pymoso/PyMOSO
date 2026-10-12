@@ -31,10 +31,6 @@ jobs:
         with:
           cache-dependency-glob: "pyproject.toml"
 
-      # `uv run --no-project` below runs in this environment as installed.
-      # Without it, uv would treat pyproject.toml as a managed project and
-      # lock and sync it on every `uv run`, installing things this job's
-      # install line did not ask for.
       - name: Create virtual environment
         run: uv venv --python ${{ matrix.python-version }}
 
@@ -44,6 +40,14 @@ jobs:
       - name: Compile check
         run: uv run --no-project python -m compileall -q pymoso/
 
+      # --no-project is load-bearing on every `uv run` in this file; do
+      # not remove it. With a pyproject.toml present, a plain `uv run`
+      # treats the checkout as a uv-managed project: it writes a uv.lock
+      # and syncs the environment from it before running anything. The
+      # environment would then no longer be the one the install step
+      # above built, which is the thing these jobs exist to test --
+      # clean-clone most of all. --no-project runs the command in .venv
+      # exactly as installed.
       - name: Run tests
         run: uv run --no-project python -m pytest tests/ -v
 
@@ -95,6 +99,7 @@ jobs:
       - name: Compile check
         run: uv run --no-project python -m compileall -q pymoso/
 
+      # --no-project: see the note at this step in the `test` job.
       - name: Run tests
         run: uv run --no-project python -m pytest tests/ -v
 
