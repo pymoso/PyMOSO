@@ -7,13 +7,13 @@ one process, with a `g()` that draws one value and does nothing else, so
 what remains is the framework's own cost of reaching a coordinate.
 
 Absolute timings, not enforced by the test suite. Regenerate with
-`python docs/bench_hit_cost.py`. **Regenerating is a manual step and
-nothing verifies the script still runs**: no test imports or executes
-it, so an API change can break it silently. That has already happened
-once -- removing `Oracle.crn_advance()` broke it, and it was noticed
-only because the next timing run failed. It is in the same category as
-`scratch/` and `docs/bench_parallel_dispatch.py`: run it before
-trusting it, and expect to repair it. Measured 2026-10-12 on an AMD Ryzen 5
+`python docs/bench_hit_cost.py`. Regenerating is a manual step, but
+the script is kept runnable: `tests/test_benchmark_scripts.py` imports
+it and runs it on a trivial workload (asserting only that it
+completes, never a time). That test exists because removing
+`Oracle.crn_advance()` once broke this script unnoticed, and
+`docs/bench_parallel_dispatch.py` had been broken for longer still.
+Measured 2026-10-12 on an AMD Ryzen 5
 5600X3D (6 cores, 12 threads), MRG32k3a, before §12 step 9 (CRN-branch
 convergence) of `docs/rng-interface-design.md`.
 
@@ -96,19 +96,36 @@ machine, same day:
 `Oracle` into the executor (one cached base stream per
 `(root, stream)`).
 
-**The default path roughly halved in this benchmark, and that was not
-a goal of the phase.** It is a side effect of where the cache now
-sits. Before, a default-branch `hit()` made one jump from the root
-straight to its coordinate -- an exponent of about 130 bits
+**"Default `hit()` halved" is a statement about this benchmark's
+point, not a general result.** The saving scales with the bit length of
+the coordinate's offset, and the benchmark's point happens to have a
+short one. It was also not a goal of the phase; it is a side effect of
+where the cache now sits.
+
+Before, a default-branch `hit()` made one jump from the root straight
+to its coordinate: an exponent of about 130 bits
 (`stream*2**127 + offset`). Now the executor reaches every coordinate
-in two steps: the stream's base, cached, then `advance(offset)`. The
-per-call jump is therefore by the offset alone, and binary
-exponentiation costs in proportion to the exponent's bit length. The
-benchmark's point `(3,)` in one dimension has a ~55-bit offset. The
-saving is point-dependent: a two-dimensional ProbTPA point has a
-~96-bit offset and saves about a quarter; a point whose code fills the
-field saves almost nothing. Every stream reached is bit-identical to
-before (the jump composition law), and no golden moved.
+in two steps -- the stream's base, cached, then `advance(offset)` --
+so the per-call jump is by the offset alone. Binary exponentiation
+costs in proportion to the exponent's bit length, so the per-call cost
+went from "about 130 bits" to "however many bits the offset has".
+
+| Point | Offset bit length | Per-call jump vs before | Status |
+|---|---|---|---|
+| `(3,)`, dim 1 (this benchmark) | about 55 | about half | **measured** (the table above) |
+| a ProbTPA point such as `(40, 40)`, dim 2 | about 96 | about three quarters | *estimate from bit length, not measured* |
+| a point whose code fills the 75-bit field | about 127 | essentially unchanged | *estimate from bit length, not measured* |
+
+The offset is the point's code shifted above the visit and replication
+fields (52 bits for the MRG family), so its length is roughly
+`52 + (bits of the point code)`: small points in few dimensions are
+cheap, and the cost rises toward the old figure as the code grows. A
+hashed point (one too large for the exact code) always fills the
+field. Anyone quoting a speedup for a particular problem should
+measure that problem.
+
+Every stream reached is bit-identical to before (the jump composition
+law), and no golden moved.
 
 This is not the "cheaper general jump" carried as a Phase 3 candidate
 (docs/rng-interface-design.md §11, entry 14) -- that one would shorten

@@ -168,15 +168,21 @@ def time_testsolve(problem_cls, proc, isp, budget):
     return elapsed, calls
 
 
-def sweep():
+def sweep(tiers=None, worker_counts=None, proc_isp=None):
+    """The full sweep by default. The arguments exist so that
+    tests/test_benchmark_scripts.py can run a trivial one and prove this
+    script still works; they are not timing knobs."""
+    tiers = TIERS if tiers is None else tiers
+    worker_counts = WORKER_COUNTS if worker_counts is None else worker_counts
+    proc_isp = PROC_ISP if proc_isp is None else proc_isp
     results = {"machine": machine_info(), "simpar": [], "proc": []}
 
-    for label, problem_cls, simpar_budget, proc_budget in TIERS:
+    for label, problem_cls, simpar_budget, proc_budget in tiers:
         print(f"=== {label} ===", file=sys.stderr)
 
         print("  --simpar warm-up...", file=sys.stderr)
         time_solve(problem_cls, 1, simpar_budget)
-        for workers in WORKER_COUNTS:
+        for workers in worker_counts:
             elapsed, calls = time_solve(problem_cls, workers, simpar_budget)
             print(f"  --simpar={workers:<3} {elapsed:7.3f}s  ({calls} calls)", file=sys.stderr)
             results["simpar"].append({
@@ -185,12 +191,12 @@ def sweep():
             })
 
         print("  --proc warm-up...", file=sys.stderr)
-        time_testsolve(problem_cls, 1, PROC_ISP, proc_budget)
-        for workers in WORKER_COUNTS:
-            elapsed, calls = time_testsolve(problem_cls, workers, PROC_ISP, proc_budget)
-            print(f"  --proc={workers:<3}   {elapsed:7.3f}s  ({calls} calls, isp={PROC_ISP})", file=sys.stderr)
+        time_testsolve(problem_cls, 1, proc_isp, proc_budget)
+        for workers in worker_counts:
+            elapsed, calls = time_testsolve(problem_cls, workers, proc_isp, proc_budget)
+            print(f"  --proc={workers:<3}   {elapsed:7.3f}s  ({calls} calls, isp={proc_isp})", file=sys.stderr)
             results["proc"].append({
-                "tier": label, "workers": workers, "isp": PROC_ISP, "budget": proc_budget,
+                "tier": label, "workers": workers, "isp": proc_isp, "budget": proc_budget,
                 "elapsed_s": elapsed, "calls": calls,
             })
 

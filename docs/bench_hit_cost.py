@@ -48,18 +48,21 @@ def fresh_oracle(crn):
     return orc
 
 
-def main():
+def main(repeats=2000, hit_repeats=500, replication_counts=(1, 8, 64)):
+    """The published measurement by default. The arguments exist so that
+    tests/test_benchmark_scripts.py can run a trivial one and prove this
+    script still works; they are not timing knobs."""
     rows = []
     stream = M.stream_at(ROOT, ITERATION, 0)
-    rows.append(('stream_at(root, stream, 0)', per_call_us(lambda: M.stream_at(ROOT, ITERATION, 0), 2000)))
-    rows.append(('stream_at(root, stream, point offset)', per_call_us(lambda: M.stream_at(ROOT, ITERATION, 12345 << 52), 2000)))
-    rows.append(('Stream.advance(REPL_STRIDE)', per_call_us(lambda: stream.advance(M.REPL_STRIDE), 2000)))
-    rows.append(('Stream.advance(REPL_RESERVE_STRIDE)', per_call_us(lambda: stream.advance(M.REPL_RESERVE_STRIDE), 2000)))
+    rows.append(('stream_at(root, stream, 0)', per_call_us(lambda: M.stream_at(ROOT, ITERATION, 0), repeats)))
+    rows.append(('stream_at(root, stream, point offset)', per_call_us(lambda: M.stream_at(ROOT, ITERATION, 12345 << 52), repeats)))
+    rows.append(('Stream.advance(REPL_STRIDE)', per_call_us(lambda: stream.advance(M.REPL_STRIDE), repeats)))
+    rows.append(('Stream.advance(REPL_RESERVE_STRIDE)', per_call_us(lambda: stream.advance(M.REPL_RESERVE_STRIDE), repeats)))
     for crn in (True, False):
-        for m in (1, 8, 64):
+        for m in replication_counts:
             orc = fresh_oracle(crn)
             label = 'hit(x, m={0}), crn={1}'.format(m, crn)
-            rows.append((label, per_call_us(lambda: orc.hit((3,), m), 500)))
+            rows.append((label, per_call_us(lambda: orc.hit((3,), m), hit_repeats)))
     print('Python {0}, mrg32k3a'.format(sys.version.split()[0]))
     print('| operation | microseconds per call |')
     print('|---|---|')

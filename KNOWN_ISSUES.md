@@ -525,8 +525,13 @@ matching the surrounding indentation.
 
 ### 15. An exception in `g()` hangs `--simpar` instead of being reported
 
-(Numbered in order of discovery; it belongs with the released-version
-issues above, not with the migration's behavior changes below.)
+(**The number is deliberately out of sequence. Do not renumber.** This
+entry belongs here, with the issues affecting released versions, but it
+was found after entries 12-14 already had their numbers and were cited
+by them throughout the code, tests and docs. Giving it the next number
+in this section would have meant renumbering those three and every
+citation of them -- the exact cleanup this file went through once
+already. An entry's number is an identifier, not a position.)
 
 **Affects:** all 1.x versions, including 1.1.0 (reproduced against the
 `v1.1.0` tag) and this branch. **Severity:** high for anyone developing

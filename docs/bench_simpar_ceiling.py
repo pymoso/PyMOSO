@@ -11,8 +11,9 @@ replications per call. Results are recorded in docs/simpar-ceiling.md.
 
     python docs/bench_simpar_ceiling.py
 
-Absolute timings, machine-dependent, not enforced or even imported by
-the test suite: expect to repair this script before trusting it.
+Absolute timings, machine-dependent, and not enforced by the test
+suite. tests/test_benchmark_scripts.py runs this script on a trivial
+workload so that it keeps working; it checks no timings.
 """
 import math
 import sys
@@ -88,9 +89,14 @@ def intra_hit_bound(per_hit, workers):
     return sum(per_hit) / rounds
 
 
-def main():
+def main(tiers=None, workers=None):
+    """The published measurement by default. The arguments exist so that
+    tests/test_benchmark_scripts.py can run a trivial one and prove this
+    script still works; they are not timing knobs."""
+    tiers = TIERS if tiers is None else tiers
+    workers = WORKERS if workers is None else workers
     print('Python {0}, mrg32k3a, RSPLINE'.format(sys.version.split()[0]))
-    for label, problem_cls, budget in TIERS:
+    for label, problem_cls, budget in tiers:
         run(problem_cls, 1, budget)                      # warm-up
         serial = run(problem_cls, 1, budget)
         per_hit = serial['per_hit']
@@ -100,14 +106,14 @@ def main():
             label, len(per_hit), reps, reps / len(per_hit), 1000 * g_each))
         print('  serial: {0:.3f}s total | g() {1:.3f}s | coordinates {2:.3f}s ({3:.0f}% of the run)'.format(
             serial['elapsed'], serial['sim'], serial['jump'], 100 * serial['jump'] / serial['elapsed']))
-        for workers in WORKERS:
-            par = run(problem_cls, workers, budget)
-            rounds = sum(math.ceil(m / workers) for m in per_hit)
+        for count in workers:
+            par = run(problem_cls, count, budget)
+            rounds = sum(math.ceil(m / count) for m in per_hit)
             bound_with_jump = serial['elapsed'] / (rounds * g_each + serial['jump'])
             print('  workers={0}: {1:.3f}s, {2:.2f}x | coordinates {3:.3f}s | queue sends {4:.4f}s | waiting {5:.3f}s'
                   ' | bound, intra-hit only: {6:.2f}x | bound, intra-hit + serial coordinates: {7:.2f}x'.format(
-                      workers, par['elapsed'], serial['elapsed'] / par['elapsed'], par['jump'], par['send'],
-                      par['wait'], intra_hit_bound(per_hit, workers), bound_with_jump))
+                      count, par['elapsed'], serial['elapsed'] / par['elapsed'], par['jump'], par['send'],
+                      par['wait'], intra_hit_bound(per_hit, count), bound_with_jump))
         print('  infinite workers, intra-hit only: {0:.2f}x'.format(intra_hit_bound(per_hit, 10 ** 9)))
 
 

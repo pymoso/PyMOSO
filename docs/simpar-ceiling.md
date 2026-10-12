@@ -19,8 +19,9 @@ phase is **batching across `hit()` calls** -- submitting several points
 at once -- not reducing per-job dispatch cost.
 
 Absolute timings, not enforced by the test suite. Regenerate with
-`python docs/bench_simpar_ceiling.py`; nothing verifies that script
-still runs, so expect to repair it. Measured 2026-10-12 on an AMD
+`python docs/bench_simpar_ceiling.py`, which
+`tests/test_benchmark_scripts.py` keeps runnable (a smoke test on a
+trivial workload; it asserts no timings). Measured 2026-10-12 on an AMD
 Ryzen 5 5600X3D (6 cores, 12 threads), MRG32k3a, RSPLINE, the same
 three cost tiers and budgets as the dispatch baseline's `--simpar`
 sweep, before the executor interface landed.
