@@ -218,6 +218,10 @@ The default installation of PyMOSO includes a selection of solvers, testers, and
 
 Solver                 Description
 *********************  ************************************************************
+MOCOMPASS              MO-COMPASS solver for multi-objective discrete optimization
+                       via simulation.
+MOPBnB                 MOPBnB solver for Pareto-optimal approximation via
+                       probabilistic branch and bound.
 RMINRLE                A solver using R-MinRLE for integer-ordered MOSO.
 RPE                    R-Pe solver for bi-objective simulation optimization.
 RPERLE                 R-PERLE solver for bi-objective simulation optimization.
@@ -238,7 +242,6 @@ ProbSimpleSO           An Oracle that simulates the Test Simple SO problem.     
 ProbTPA                An Oracle that simulates Test Problem A.                      TPATester
 ProbTPB                An Oracle that simulates Test Problem B.                      TPBTester
 ProbTPC                An Oracle that simulates Test Problem C.                      TPCTester
-                   
 ```
 
 ### The `solve` command
