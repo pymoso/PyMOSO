@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pymoso"
+dynamic = ["version"]
+description = "Python Multi-Objective Simulation Optimization: a package for using, implementing, and testing simulation optimization algorithms."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+authors = [{ name = "Kyle Cooper", email = "kyle@kylescooper.com" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+# The core install has no dependencies, deliberately. Anything optional
+# belongs in an extra below, not here.
+dependencies = []
+
+[project.optional-dependencies]
+# Everything the test suite needs beyond pymoso itself. CI installs
+# exactly `-e ".[test]"` and nothing else, so a test-time dependency
+# that is not declared here fails CI rather than passing by accident.
+test = ["pytest", "pytest-timeout"]
+# Placeholders: declared now so the structure exists before the Spark
+# executor and numerics work need them. Empty until then.
+spark = []
+numerics = []
+
+[project.urls]
+Homepage = "https://github.com/pymoso/PyMOSO"
+
+[project.scripts]
+pymoso = "pymoso.cli:main"
+
+[tool.setuptools]
+packages = [
+    "pymoso",
+    "pymoso.solvers",
+    "pymoso.commands",
+    "pymoso.prng",
+    "pymoso.problems",
+    "pymoso.testers",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "pymoso.__version__" }

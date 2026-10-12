@@ -29,34 +29,46 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          cache-dependency-glob: "setup.py"
+          cache-dependency-glob: "pyproject.toml"
 
+      # `uv run --no-project` below runs in this environment as installed.
+      # Without it, uv would treat pyproject.toml as a managed project and
+      # lock and sync it on every `uv run`, installing things this job's
+      # install line did not ask for.
       - name: Create virtual environment
         run: uv venv --python ${{ matrix.python-version }}
 
       - name: Install pymoso and test dependencies
-        run: uv pip install -e . pytest pytest-timeout
+        run: uv pip install -e ".[test]"
 
       - name: Compile check
-        run: uv run python -m compileall -q pymoso/
+        run: uv run --no-project python -m compileall -q pymoso/
 
       - name: Run tests
-        run: uv run python -m pytest tests/ -v
+        run: uv run --no-project python -m pytest tests/ -v
 
       - name: Run doctests
-        run: uv run python -m pytest --doctest-modules pymoso/chnutils.py -v
+        run: uv run --no-project python -m pytest --doctest-modules pymoso/chnutils.py -v
 
   clean-clone:
-    # Exists specifically to catch undeclared test-time dependencies --
-    # the class of gap the `test` job above cannot catch by design,
-    # since its own install step can quietly grow to include something
-    # extra (docopt did, for a long time: KNOWN_ISSUES.md issue 5,
+    # Exists specifically to catch undeclared test-time dependencies:
+    # docopt was one for a long time, installed ad hoc by CI and
+    # declared nowhere (KNOWN_ISSUES.md issue 5,
     # docs/phase2c-cli-migration.md). This job's install line is the
-    # exact command an external contributor would type; it deliberately
-    # does NOT match the `test` job's line above, and nothing should
-    # ever be added here to make it match -- if the suite needs
-    # something beyond pytest to collect and pass, that need itself
-    # should be questioned before this line is edited to satisfy it.
+    # exact command an external contributor would type: the project and
+    # its declared `test` extra (pyproject.toml), and nothing else.
+    # Nothing should ever be appended to that line to make a failing
+    # suite pass. If the suite needs something more, question the need
+    # first; if it is real, declare it in the `test` extra, where every
+    # contributor gets it, rather than here.
+    #
+    # History, so the line is not "restored" by mistake: before the
+    # `test` extra existed this line was `-e . pytest`, and on the 1.1.0
+    # line it drifted to `-e . pytest pytest-timeout` -- an ad-hoc
+    # addition of exactly the kind this job exists to catch, which meant
+    # the job was not proving what its comment claimed. pytest-timeout
+    # is installed here now only because it is declared.
+    #
     # actions/checkout@v4 below is a clean clone in CI's own terms --
     # an ephemeral runner, no cache, no state from any other job --
     # so no literal `git clone` subprocess is needed to prove the
@@ -64,9 +76,7 @@ jobs:
     # purpose is dependency completeness, not cross-version behavior,
     # which the `test` matrix above already covers.
     runs-on: ubuntu-latest
-    # Same backstop as `test`. Matters more here: without pytest-timeout
-    # the module-level markers are inert, so the tests' own subprocess
-    # timeouts are the only per-test protection.
+    # Same backstop as `test`.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -74,19 +84,19 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          cache-dependency-glob: "setup.py"
+          cache-dependency-glob: "pyproject.toml"
 
       - name: Create virtual environment
         run: uv venv --python 3.10
 
-      - name: Install pymoso and pytest -- nothing else
-        run: uv pip install -e . pytest
+      - name: Install pymoso and its declared test extra -- nothing else
+        run: uv pip install -e ".[test]"
 
       - name: Compile check
-        run: uv run python -m compileall -q pymoso/
+        run: uv run --no-project python -m compileall -q pymoso/
 
       - name: Run tests
-        run: uv run python -m pytest tests/ -v
+        run: uv run --no-project python -m pytest tests/ -v
 
       - name: Run doctests
-        run: uv run python -m pytest --doctest-modules pymoso/chnutils.py -v
+        run: uv run --no-project python -m pytest --doctest-modules pymoso/chnutils.py -v
