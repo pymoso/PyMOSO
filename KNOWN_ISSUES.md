@@ -523,6 +523,53 @@ matching the surrounding indentation.
 
 ---
 
+### 15. An exception in `g()` hangs `--simpar` instead of being reported
+
+(Numbered in order of discovery; it belongs with the released-version
+issues above, not with the migration's behavior changes below.)
+
+**Affects:** all 1.x versions, including 1.1.0 (reproduced against the
+`v1.1.0` tag) and this branch. **Severity:** high for anyone developing
+a problem under `--simpar` -- a bug in their own code produces no
+error at all.
+
+**What is wrong:** with `--simpar` greater than 1, replications run in
+worker processes. If a user's `g()` raises there -- any exception, for
+any reason -- the worker dies with it. The worker loop
+(`chnbase.mp_worker`) does not catch the exception or send anything
+back, and the parent waits for that replication's result with no
+timeout. The run hangs indefinitely: no message, no traceback, no
+exit.
+
+The same problem run without `--simpar` reports the error immediately.
+Reproduced on Python 3.10 and 3.14 with a problem whose `g()` raises
+`ZeroDivisionError` for some points:
+
+```
+--simpar=1   RuntimeError: Unable to simulate RaisingProb. Message: boom at (94,)   (immediately)
+--simpar=2   no output; still running after 20 seconds, killed
+```
+
+This is broader than issue 7. That entry is about a worker failing to
+*import* a user-supplied file under Python 3.14's `forkserver`; the
+mechanism underneath (a dead worker's exception never reaches the
+parent) is the same, but this needs no particular Python version, start
+method or file layout -- only a `g()` that raises. It is independent of
+issue 8 (workers leaking when the parent is killed), though a user who
+kills a run hung this way will meet issue 8 next.
+
+**Workaround:** develop and debug a problem without `--simpar`; turn it
+on once `g()` is known not to raise. If a `--simpar` run stops making
+progress, rerun it serially to see the error.
+
+**Status:** not fixed. The fix belongs to the process-pool executor
+backend: the executor interface returns each replication's outcome as
+data, an exception included, and re-raises it in the caller, so a
+worker failure cannot be silent. Until that backend replaces
+`Oracle.set_simpar`'s own worker loop, this hang remains.
+
+---
+
 ## Behavior changes introduced by this migration
 
 These aren't defects inherited from some past pymoso version — they

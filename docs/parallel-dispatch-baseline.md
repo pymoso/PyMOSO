@@ -21,6 +21,14 @@ machine (10 and 20 both exceed 12 logical threads, and 10 already
 exceeds 6 physical cores) -- those numbers reflect contention on this
 hardware, not anything inherent to `--proc` itself.
 
+**Before drawing conclusions from the `--simpar` tables, read
+docs/simpar-ceiling.md.** "Unbatched" below is accurate but is not why
+`--simpar` tops out near 2.5-3x: per-job dispatch costs about a
+millisecond per run in total. The ceiling comes from parallelism being
+confined to one `hit()` call at a time (3.6-7.7 replications each in
+these runs), plus a serial coordinate jump per call that matters only
+for cheap simulations.
+
 ### Python 3.10.21
 
 - Captured: 2026-09-08T16:11:04.664387+00:00

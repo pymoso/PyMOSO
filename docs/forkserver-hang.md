@@ -181,6 +181,33 @@ process state — unaddressed for the case that actually matters later.
 it from scratch, not make a reference to living parent-process state
 survive transport.
 
+**Correction (Phase 2 of the 2.0.0 work).** The paragraph above
+over-generalizes, and is left in place so the correction can be read
+against it. Its requirement is right: a worker must get self-contained
+information, independent of the parent process's state. Its conclusion
+that `cloudpickle` therefore does not qualify is wrong.
+
+What the paragraph was warning against is pickling *by reference*: a
+module and class name that the worker must be able to import, which is
+exactly what fails for a synthetic `sys.modules` entry. Making a
+by-reference pickle "succeed" (a `__reduce__` that points at parent
+state, say) would indeed only hide the symptom on one machine.
+`cloudpickle` serializing a class *by value* is a different thing: the
+class's code, closures and globals travel in the payload, and the
+worker rebuilds it from that payload alone, with no parent state, no
+shared filesystem and no importable module needed. That meets the
+stated requirement, on another machine as well as on this one.
+
+It also covers a case the source-bundle transport cannot: a problem
+class defined interactively, in a notebook cell, has no `.py` file to
+bundle (`build_transport_descriptor` raises for it by design). That is
+the normal Databricks case. So by-value pickling is not a competitor
+to "ship what the worker needs to reconstruct the problem"; it is one
+way of doing it, alongside the source bundle. The executor interface
+treats both as implementations of the same seam -- a problem handle
+that a worker loads -- and `cloudpickle` stays an optional dependency
+of whichever backend wants it (docs/rng-interface-design.md, §11).
+
 ## Fourth multiprocessing lifecycle finding
 
 In order found on this project:

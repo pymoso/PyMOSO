@@ -2012,6 +2012,82 @@ existing code, surfaced rather than guessed.
     belongs with the executor design, where CRN is being expressed as
     coordinates anyway.
 
+    **Phase 2 result: not adopted, because the invisibility argument
+    is false.** RASolver-family solvers cache only *feasible* results
+    (`estimate()` stores `gbar`/`sehat` under `if isfeas`). An
+    infeasible point is simulated again every time the solver asks
+    about it in the same iteration. Measured under `--crn`:
+
+    | Run | `hit()` calls | Repeat hits of a point within an iteration |
+    |---|---|---|
+    | `rperle_tpa_crn` (the CRN golden) | 354 | 5 |
+    | RPERLE / ProbTPA, budget 20,000 | 2,289 | 367 |
+    | RMINRLE / ProbTPA, budget 5,000 | 1,020 | 146 |
+    | RPE / ProbTPB, budget 5,000 | 1,077 | 22 |
+    | RPERLE / ProbTPC, budget 3,000 | 664 | 0 |
+    | RSPLINE / ProbSimpleSO, budget 5,000 | 138 | 0 |
+
+    Every repeat is an infeasible point. Today a repeat replays the
+    same streams and returns the same answer. Under per-point
+    continuation it would draw new replications and raise the
+    high-water mark, so CRN end seeds could move -- and the CRN golden
+    itself contains five such repeats. The question stays open; the
+    candidate stays a candidate; it is no longer "invisible to RA
+    solvers" and must not be described that way.
+
+    A precondition that would make it invisible, and is worth doing for
+    its own sake, is entry 13 below.
+
+12. **[settled — deferred] Unify `solve()`'s and `testsolve()`'s stream
+    layouts?** They differ: `solve()` puts the solver at stream 0 and
+    the oracle root at stream 1; `testsolve()` path 0 puts the solver
+    at stream 1 and the oracle root at the start of slot 1. Asked at
+    the executor design (Phase 2), answered, and recorded so it is not
+    reopened every phase:
+
+    - *What unifying buys the executor: nothing.* A block of work
+      carries an oracle root; the executor never asks where the root
+      came from. The interface is identical either way.
+    - *What it buys elsewhere:* one layout function instead of two, and
+      `solve(seed)` reproducing path 0 of `testsolve(seed)`, which
+      would let a single sample path be re-run in isolation. It does
+      not remove the duplicated "one past the high-water mark" carry
+      (`Oracle.get_endseed()` and `testsolve()`'s aggregation): a
+      solver called directly still needs the first.
+    - *What it costs:* every `solve()` baseline moves -- nine CLI
+      goldens and the library end seed -- and every published `solve`
+      result from this branch stops reproducing.
+
+    Tidier, not simpler. Deferred until something needs
+    `solve() == testsolve()[0]` for a reason of its own; if that
+    arrives, do it as one deliberate golden-moving change.
+
+13. **[candidate — proposed, not started] Remember infeasible points
+    within an iteration.** A performance finding first: the table
+    under entry 11 shows RA solvers re-simulating points already known
+    to be infeasible -- 367 of 2,289 `hit()` calls (16%) in the second
+    row. Each repeat runs `m` replications whose result is discarded,
+    and none of it counts against `--budget`, so the user's budget
+    understates the simulation work done. Worth fixing whatever entry
+    11 decides. Sketch: `RASolver.estimate()` records an infeasible
+    `x` for the current iteration alongside `gbar`, and answers a
+    repeat from the record. Under `--crn` this changes no result (a
+    repeat replays the same draws today). Without `--crn` a repeat
+    currently draws *new* replications, so skipping it lowers the
+    high-water mark and can move end seeds; and an oracle whose
+    feasibility is random rather than a function of `x` could behave
+    differently. Needs its own survey, a regression test, and sign-off
+    on any golden it moves.
+
+14. **[candidate — Phase 3] A cheaper general jump.** `stream_at` costs
+    ~1.5-2 ms (`docs/hit-cost-baseline.md`), a binary exponentiation of
+    a 3x3 matrix pair per call. Precomputed powers would turn it into
+    a product of cached matrices. Golden-neutral and separable.
+    Deliberately not done in Phase 2, so that phase proves one thing
+    (the interface, goldens unchanged); and its value changes once
+    batching moves the jump out of the serial parent
+    (`docs/simpar-ceiling.md`).
+
 ## 12. Step list
 
 Each step names what lands and whether it's behavior-preserving (goldens

@@ -37,6 +37,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, '.')
 
 from pymoso.chnutils import get_solv_prnstreams, isp_run, testsolve
+from pymoso.prng import mrg32k3a
 from pymoso.problems.probexpensive import ProbExpensiveHeavy, ProbExpensiveLight, ProbExpensiveModerate
 from pymoso.solvers.rspline import RSPLINE
 from pymoso.testers.expensivetester import ExpensiveTester
@@ -147,7 +148,7 @@ def machine_info():
 # ---------------------------------------------------------------------------
 
 def time_solve(problem_cls, simpar, budget):
-    orcstream, solvstream = get_solv_prnstreams(SEED, False)
+    orcstream, solvstream = get_solv_prnstreams(SEED, mrg32k3a)
     orc = problem_cls(orcstream)
     orc.set_crnflag(False)
     t0 = time.perf_counter()
@@ -296,6 +297,14 @@ examples oversubscribe this specific 6-physical-/12-logical-core
 machine (10 and 20 both exceed 12 logical threads, and 10 already
 exceeds 6 physical cores) -- those numbers reflect contention on this
 hardware, not anything inherent to `--proc` itself.
+
+**Before drawing conclusions from the `--simpar` tables, read
+docs/simpar-ceiling.md.** "Unbatched" below is accurate but is not why
+`--simpar` tops out near 2.5-3x: per-job dispatch costs about a
+millisecond per run in total. The ceiling comes from parallelism being
+confined to one `hit()` call at a time (3.6-7.7 replications each in
+these runs), plus a serial coordinate jump per call that matters only
+for cheap simulations.
 """
 
 
