@@ -26,11 +26,17 @@ py-spy. A detector never observed detecting isn't proven to work.
 import ast
 import re
 import subprocess
+import multiprocessing
 import sys
 
 import pytest
 
 from _pymoso_cli import pymoso_argv
+
+# The known --proc gap follows the multiprocessing start method, not the
+# Python version: it reproduces wherever the default is not fork (3.14+
+# on Linux, and every version on macOS and Windows).
+_NON_FORK = multiprocessing.get_start_method() != "fork"
 
 pytestmark = pytest.mark.timeout(90)
 
@@ -157,7 +163,7 @@ class MyTester(object):
 
 
 @pytest.mark.xfail(
-    condition=sys.version_info >= (3, 14),
+    condition=_NON_FORK,
     strict=True,
     reason=(
         "KNOWN_ISSUES.md issue 9: testsolve()'s --proc path "

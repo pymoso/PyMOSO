@@ -63,6 +63,11 @@ SEEDS = [
     (511616026, 1372175473, 2158288731, 4085985277, 2198261820, 2779695000),
 ]
 
+# forkserver where it exists; spawn on Windows, where it does not. Both
+# start the child from a fresh interpreter, which is what these tests need.
+_ISOLATED_START = "forkserver" if "forkserver" in multiprocessing.get_all_start_methods() else "spawn"
+
+
 
 def thin_stream_at(seed, coordinate):
     """This step's narrow stand-in for §3.1's stream_at: `coordinate`
@@ -271,7 +276,7 @@ def test_cross_process_reproducibility_under_forkserver():
     seed = DEFAULT_SEED
     coordinate = 3
     n_draws = 5
-    ctx = multiprocessing.get_context("forkserver")
+    ctx = multiprocessing.get_context(_ISOLATED_START)
     q = ctx.Queue()
     p = ctx.Process(target=_worker_stream_draws, args=(seed, coordinate, n_draws, q))
     p.start()
