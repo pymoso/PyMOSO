@@ -46,7 +46,7 @@ from .prng.base import one_past, ensure_random_compatible
 # removed as of docs/rng-interface-design.md §12 step 4b: each path's
 # oracle stream is now computed directly from `isp` via ISP_STRIDE
 # (get_testsolve_prnstreams below), so there is no reservation to
-# overrun and nothing left to guard. See KNOWN_ISSUES.md issue 3 for the
+# overrun and nothing left to guard. See KNOWN_ISSUES.md issue 2 for the
 # defect this originally fixed, and its current status note.
 
 # Defaults for solve()/testsolve()'s keyword arguments, matching the CLI's
@@ -272,7 +272,7 @@ def get_testsolve_prnstreams(num_trials, iseed, backend):
     power work whether path 5 is requested first, last, or alone,
     regardless of how many iterations any other path used.
 
-    **KNOWN_ISSUES.md issue 14, reproduced here deliberately, not
+    **KNOWN_ISSUES.md issue 10, reproduced here deliberately, not
     fixed:** `orc_root` (below) lands at the identical position as
     `solprn_lst[-1]`'s own starting seed -- the solver-role stream for
     the *last* path and the oracle-role stream for path 0
@@ -310,7 +310,7 @@ def get_testsolve_prnstreams(num_trials, iseed, backend):
         solprn_lst.append(ensure_random_compatible(solprn))
     # `iseed` here (post-solprn loop) is the oracle role's own root --
     # solver-role and oracle-role streams stay structurally separated,
-    # unchanged from before this step. (See KNOWN_ISSUES.md issue 14
+    # unchanged from before this step. (See KNOWN_ISSUES.md issue 10
     # above: this coincides with solprn_lst[-1]'s own position.)
     orc_root = iseed
     for t in range(num_trials):

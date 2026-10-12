@@ -4,7 +4,7 @@ usage -- solve(problem, solver, x0) / testsolve(tester, solver, x0),
 with no kwargs at all -- must work, not raise KeyError. Commit 917bf06
 on the canonical repository removed the defaults these kwargs.pop()
 calls had at the shared merge-base (budget/seed/isp/proc/crn); ranx0
-never had one in any version checked. See KNOWN_ISSUES.md issue 7.
+never had one in any version checked. See KNOWN_ISSUES.md issue 6.
 
 Also checks that the restored defaults actually match the CLI's own
 documented values, parsed directly from argparse's own parser rather

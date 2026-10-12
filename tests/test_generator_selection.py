@@ -324,7 +324,7 @@ def test_solve_with_no_generator_still_uses_mrg32k3a_default():
 # itself didn't pickle (random.Random's own inherited __reduce__
 # reconstructs via `cls()`, zero arguments, then applies state;
 # RandomCompatAdapter.__init__ requires `stream`), which testsolve()'s
-# own --proc path needs (KNOWN_ISSUES.md issue 9's own "ships fully-
+# own --proc path needs (KNOWN_ISSUES.md issue 7's own "ships fully-
 # constructed... Oracle instances" pattern) -- confirmed directly:
 # pickling a bare RandomCompatAdapter raised before __reduce__ existed.
 # ---------------------------------------------------------------------------
@@ -369,7 +369,7 @@ def test_testsolve_bstester_under_philox_runs_to_completion():
 
 
 def test_testsolve_philox_with_multiple_isp_and_proc_paths():
-    """--proc's own pickling path (KNOWN_ISSUES.md issue 9) is what
+    """--proc's own pickling path (KNOWN_ISSUES.md issue 7) is what
     surfaced RandomCompatAdapter's own missing __reduce__ -- exercised
     directly here with isp>1/proc>1, not just isp=1."""
     res, endseed = testsolve(

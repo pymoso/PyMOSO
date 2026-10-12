@@ -1293,7 +1293,7 @@ class Oracle(object):
         attribute, specifically so the stored state (`_backend_name`,
         a string) stays picklable. `testsolve`'s own `--proc` path
         ships fully-constructed Oracle instances across a process
-        boundary (KNOWN_ISSUES.md issue 9's own pre-existing fragility)
+        boundary (KNOWN_ISSUES.md issue 7's own pre-existing fragility)
         -- storing the module object directly here broke that pickling
         outright (`TypeError: cannot pickle 'module' object`, confirmed
         directly when this was first tried), not a hypothetical

@@ -55,7 +55,7 @@ this line is headed in.
 **The two branches genuinely differ in content, not just version
 number.** `release-1.1.0` excludes MOCOMPASS/MOPBnB entirely (deferred
 to 2.0.0 as a deliberate decision — see that branch's `KNOWN_ISSUES.md`
-issue 13); `pymoso-migration` has them committed
+issue 14); `pymoso-migration` has them committed
 (`pymoso/solvers/mocompass.py`/`mopbnb.py`, `tests/test_mocompass_mopbnb_compat.py`
 — `fbc0fdf`, "Add MOCOMPASS and MOPBnB solvers (previously
 untracked)"; see "Known open items" above). Don't assume a diff between
@@ -185,7 +185,7 @@ Stream deliberately doesn't provide (`RandomCompatAdapter`, §3.6,
 finally wired in via `pymoso.prng.base.ensure_random_compatible`, a
 no-op for the MRG family); and `RandomCompatAdapter` itself didn't
 pickle, hanging `--proc` runs (a forkserver-pickling-error hang,
-KNOWN_ISSUES.md issue 9's own failure class, new cause) until given a
+KNOWN_ISSUES.md issue 7's own failure class, new cause) until given a
 `__reduce__`. Default path (no `--generator` given) unaffected
 throughout — confirmed directly, full suite green on both venvs, no
 golden moved.
@@ -195,7 +195,7 @@ that step): no in-tree callers, no test coverage beyond pinning its own
 leftover behavior, duplicated `hit()`'s replication loop. Migration for
 an out-of-tree caller: `hit()` with the same arguments returns
 aggregated stats; raw per-replication access returns with the executor
-rework. See `KNOWN_ISSUES.md` issue 13.
+rework. See `KNOWN_ISSUES.md` issue 14.
 
 Two defects found and fixed within that work, both introduced by it and
 never released: a replication-spacing collision (step 4b packed
@@ -212,7 +212,7 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   in place. Reconstructing a live object with RNG state is a different
   problem from reconstructing a class — this is executor-rework
   territory, not a point fix. See `docs/forkserver-hang.md` and
-  `KNOWN_ISSUES.md` issue 9.
+  `KNOWN_ISSUES.md` issue 7.
 - `--proc` also uses `Pool` unconditionally, even at `--proc=1`, so the
   serial path isn't actually serial and inherits parallel failure modes.
 - Dispatch granularity: `--simpar` dispatches one job per replication and
@@ -269,7 +269,7 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   `_hit_opt_in` already diverged once on the `m==1` variance case.
   (A third, `bump()`, existed until step 6b removed it outright — no
   in-tree caller, so there was nothing for a unification to preserve;
-  see "Fixed on this branch" and `KNOWN_ISSUES.md` issue 13.)
+  see "Fixed on this branch" and `KNOWN_ISSUES.md` issue 14.)
   **Reclassified, found preparing step 6b's own `--generator` wiring,
   now landed:** this was recorded purely as drift-risk; it is also a
   hard blocker. `hit()`'s CRN branch (`crn_advance()`/

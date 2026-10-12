@@ -15,7 +15,7 @@ Three things this file pins:
 2. Missing --param lb/ub/sprn raises a real, chained TypeError (the
    RASolver.__init__ idiom) instead of the bare sys.exit() both files
    called directly before this fix -- library-hostile, and the exact
-   anti-pattern KNOWN_ISSUES.md issue 4 already eliminated elsewhere.
+   anti-pattern KNOWN_ISSUES.md issue 3 already eliminated elsewhere.
 3. crn=True is refused with a clear RuntimeError, at construction time,
    both via the library and via the CLI -- see
    docs/rng-interface-design.md sections 4.2-4.3 for why: both solvers
@@ -91,7 +91,7 @@ def test_proc_results_match_serial(name, cls, proc):
     """Registered in pymoso/solvers/__init__.py, MOCOMPASS/MOPBnB are
     real installed modules like RSPLINE, not dynamically-loaded custom
     files -- the forkserver/--proc transport gap (KNOWN_ISSUES.md issue
-    9) is specific to the latter, so this is expected to pass under
+    7) is specific to the latter, so this is expected to pass under
     forkserver on 3.14, the same as test_parallel_dispatch.py's
     equivalent RSPLINE/ExpensiveTester case."""
     kwargs = dict(budget=300, seed=(12345,) * 6, isp=2, crn=False, **BOX_KWARGS)

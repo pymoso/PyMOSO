@@ -9,7 +9,7 @@ via a live `docopt` import; deleted once that import turned out to be an
 undeclared test-time dependency (a clean clone's `pytest` run failed at
 collection without `docopt` manually installed, since nothing in
 `setup.py` or CI declared it). Everything it demonstrated is preserved
-below and in `KNOWN_ISSUES.md` issue 6 -- the latter verified against a
+below and in `KNOWN_ISSUES.md` issue 5 -- the latter verified against a
 real PyPI 1.0.8 install, stronger evidence than running `docopt` alone
 against a copied docstring, and needing no such dependency.
 `tests/test_cli.py` is the live, ongoing contract against the real CLI.
@@ -170,10 +170,10 @@ scheduled for Layer 1/2's fix.
 - `tests/test_cli_characterization.py` — existed as a frozen historical
   record (its `DOC` constant a literal copy of the pre-migration
   docstring, not a live import from `pymoso.cli`), until it was deleted:
-  the only thing it added over `KNOWN_ISSUES.md` issue 6 and §§1-2 above
+  the only thing it added over `KNOWN_ISSUES.md` issue 5 and §§1-2 above
   was a live `docopt` import, which made every clean install need a
   dependency nothing declared. Its content is preserved above and in
-  `KNOWN_ISSUES.md` issue 6, not lost with the file.
+  `KNOWN_ISSUES.md` issue 5, not lost with the file.
 - `tests/test_cli.py` — the live, parser-agnostic contract on the real
   `pymoso` CLI. Update its expectations deliberately (with the reason
   recorded, as done here) whenever CLI behavior legitimately changes.

@@ -439,7 +439,7 @@ if not, rather than silently reducing mod something and risking a
 collision no one can see. This mirrors this project's own established
 posture toward exactly this class of problem — `MAX_RI` moved from an
 unenforced bare local to a promoted, checked constant (KNOWN_ISSUES.md
-issue 3); the same move here is: fail loudly and exactly, never silently
+issue 2); the same move here is: fail loudly and exactly, never silently
 and probabilistically.
 
 **Sizing, adaptive per Oracle.** Split the within-iteration budget
@@ -1230,7 +1230,7 @@ four integers and the root seed, which is exactly what `--simpar`'s
 existing per-replication dispatch already sends (`hit()`'s `simpar > 1`
 branch already does `cseed = self.rng.get_seed(); self.req_q.put((x,
 cseed))` — a concrete seed, not a live object). This is precisely the
-gap `testsolve`'s `--proc` path has instead (KNOWN_ISSUES.md issue 9,
+gap `testsolve`'s `--proc` path has instead (KNOWN_ISSUES.md issue 7,
 `docs/forkserver-hang.md`'s "prerequisite for the Spark goal" section):
 it ships fully-constructed, already-seeded `Oracle` instances because
 there was no cheaper way to hand a worker "the right position" than
@@ -2399,7 +2399,7 @@ behavior-changing (goldens move, on purpose, with sign-off).
    own CRN-specific machinery — both now work uniformly across all
    three backends. Found tracing this exact seed math, not fixed:
    `get_testsolve_prnstreams`'s own `orc_root` coincides with the last
-   solver stream's own starting position (`KNOWN_ISSUES.md` issue 14) —
+   solver stream's own starting position (`KNOWN_ISSUES.md` issue 10) —
    a real, pre-existing independence violation, reproduced byte-for-byte
    rather than fixed inline (a fix moves `testsolve()`'s own `endseed`
    and needs its own sign-off).
@@ -2446,10 +2446,10 @@ behavior-changing (goldens move, on purpose, with sign-off).
    `RandomCompatAdapter.__init__` requires `stream`, so that failed
    outright (confirmed directly: `pickle.dumps(RandomCompatAdapter(
    stream))` raised `TypeError`). `testsolve()`'s own `--proc` path
-   needs this (`KNOWN_ISSUES.md` issue 9's own "ships fully-
+   needs this (`KNOWN_ISSUES.md` issue 7's own "ships fully-
    constructed... Oracle instances" pattern) — without it, `pymoso
    testsolve --generator philox4x32 ...` *hung* rather than raising (a
-   forkserver-pickling-error hang, the same class of failure issue 9
+   forkserver-pickling-error hang, the same class of failure issue 7
    already tracks, triggered by a new cause). Fixed with a `__reduce__`
    override reconstructing via the real constructor, passing
    `self._stream`.
@@ -2738,7 +2738,7 @@ on top.
   calc_m(200) ≈ 2**28.5 still leaves ~5.6x margin. Headroom beyond
   calc_m(200)'s scale is moot regardless: `calc_m`'s own float overflow
   (nu≈7440) is preceded by `calc_b`'s (nu≈3882, KNOWN_ISSUES.md issue
-  12) for every RASolver-family case checked, so a run reaching a
+  13) for every RASolver-family case checked, so a run reaching a
   larger `m` than `REPL_COUNT_BITS` covers already fails via that
   overflow before `hit()` ever sees it — the same reasoning step 4a
   applied when sizing the original `REPL_BITS` against calc_m(200)

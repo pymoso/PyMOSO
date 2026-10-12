@@ -131,7 +131,7 @@ Bare `except:` clauses in `chnbase.py` catch every exception, including
 reported identically as a failure to simulate.
 
 Library use is affected as well: prior to this migration's kwarg-
-defaults fix (issue 7), `chnutils.solve`/`testsolve` couldn't even be
+defaults fix (issue 6), `chnutils.solve`/`testsolve` couldn't even be
 called minimally to observe this; once they can, they still exit the
 process rather than raising, so callers embedding PyMOSO in their own
 programs cannot handle errors.
@@ -346,10 +346,10 @@ Python only calls when the `with` block's frame unwinds — a normal
 return, or a raised exception propagating through it. If the *parent*
 process itself is killed externally (SIGKILL, SIGTERM to a process
 group, a supervisor deciding a hung process should die — including
-killing it in response to issue 9's hang), `__exit__` never runs, and
+killing it in response to issue 7's hang), `__exit__` never runs, and
 every worker process it spawned is orphaned, alive, and blocked
 waiting on its input queue indefinitely. Observed directly while
-investigating issue 9: worker/forkserver processes from an earlier
+investigating issue 7: worker/forkserver processes from an earlier
 killed test run were still alive 45+ minutes later.
 
 This is distinct from the already-fixed in-process error-path leak.
@@ -374,7 +374,7 @@ supplied on the command line by path (`pymoso solve myproblem.py ...`,
 `pymoso testsolve mytester.py ...`), not the four built-in problems/
 testers (`ProbTPA`, `TPATester`, etc.), which are real installed
 submodules and load normally regardless of this issue. Single process,
-no `--simpar`/`--proc` involved — this is unrelated to issue 9.
+no `--simpar`/`--proc` involved — this is unrelated to issue 7.
 
 **What is wrong:** `commands/solve.py`/`commands/testsolve.py` load a
 user's file via `importlib.util.spec_from_file_location` +
@@ -407,13 +407,13 @@ it.
 ### 10. `testsolve()`'s path-0 oracle stream and the last path's solver stream share a starting seed
 
 **Affects:** confirmed on this branch's current code; **not** checked
-against 1.0.8 or the canonical repository, unlike issue 11 above — the
+against 1.0.8 or the canonical repository, unlike issue 9 above — the
 shape of `get_testsolve_prnstreams`'s solver-stream derivation loop
 (accumulate `iseed` by jumping `ITER_STRIDE` once per solver stream,
 then use the final value directly as `orc_root`) looks like it predates
 the RNG redesign rather than being introduced by it, but that is an
 inference from reading the code, not a verified historical claim the
-way issue 11's is. **Severity:** correctness — a real independence
+way issue 9's is. **Severity:** correctness — a real independence
 violation between two roles `--isp`/`testsolve()` is supposed to keep
 independent, not just a labeling issue, though its practical effect on
 any given run's reported solution depends on how much the affected
@@ -582,7 +582,7 @@ never advances and `RASolver.rasolve`'s `while self.num_calls < budget`
 loop can never exit via budget exhaustion, for any budget. Before this
 branch's RNG redesign, `rasolve`'s `nu > MAX_RI` guard (a check that
 existed for an unrelated reason — stream-headroom reservation in
-`testsolve`, see issue 3) happened to also stop this loop, after 201
+`testsolve`, see issue 2) happened to also stop this loop, after 201
 fast, simulation-free iterations, with a clear `RuntimeError` naming
 `MAX_RI`.
 
