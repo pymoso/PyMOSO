@@ -1185,46 +1185,38 @@ class Oracle(object):
 
     Attributes
     ----------
-    rng : prng.MRG32k3a object
-    pseudo-random number generator, handed to `g(x, rng)` for each
-    replication. hit() uses it as the *live* draw source but does
-    not treat its value between calls as authoritative -- a custom
-    MOSOSolver may set it directly before calling hit() (MOCOMPASS, an
-    in-tree example, does exactly this, via rng.setstate(), as its own
-    cross-point synchronization mechanism -- see docs/mocompass-mopbnb-
-    known-issues.md and docs/rng-interface-design.md §4.2/§4.3). What
-    actually drives the framework's own stream progression is
-    _next_seed, below, not `rng` itself.
+    rng : Stream object
+    The stream the Oracle was constructed over. It identifies the
+    selected generator (`type(self.rng)`, set_crnflag()) and supplies
+    the root every coordinate is computed from (`rng.root_seed()`,
+    stored as `_orc_root`). hit() never draws from it and never moves
+    it: each replication's `g(x, rng)` call is handed its own fresh
+    stream at that replication's coordinate (docs/rng-interface-
+    design.md §12 step 9). Its state between calls means nothing to the
+    framework -- MOCOMPASS, in-tree, still saves and restores it via
+    getstate()/setstate() as its own attempted cross-point
+    synchronization, which has no effect on what hit() draws (see
+    docs/mocompass-mopbnb-known-issues.md and §4.2/§4.3).
     _iteration : int
-    Count of completed crn_advance() calls (one per RA iteration).
-    Meaningful mainly under crnflag=True, where it determines the
-    current iteration's baseline coordinate; tracked unconditionally
-    since it costs nothing and later steps (visit=/sync=) need it.
-    _iteration_baseline_seed : tuple of int
-    The current RA iteration's baseline mrg32k3a seed -- what
-    crnold_state used to hold. Under crnflag=True, hit() rewinds
-    both `rng` and _next_seed to this seed at the start of every call,
-    so different points visited in the same iteration draw from the
-    same baseline (this rewind-then-walk-forward *is* what "common
-    random numbers" means here -- see §2). Under crnflag=False it is
-    tracked but never used to rewind anything.
-    _next_seed : tuple of int
-    Where the *next* replication's stream starts -- what crn_obsold
-    used to hold. Advances by exactly one 2**76 hop per replication,
-    computed from its own previous value, never from wherever `rng`
-    happened to end up (`g()`'s own draws mutate `rng`, and a solver may
-    externally overwrite it -- see `rng` above; both are irrelevant to
-    this progression, by design, the same way they were irrelevant to
-    crn_obsold's). `rng` is reset to this value immediately before every
-    jump, discarding whatever it held, so the two stay equal exactly at
-    the boundary between replications -- never assumed equal mid-call.
+    Count of completed crn_advance() calls (one per RA iteration). The
+    `stream` half of every default- and CRN-branch coordinate: under
+    crnflag=True, iteration k's replication r is drawn at
+    `stream_at(_orc_root, k, r*REPL_STRIDE)` for every point (§2 --
+    that sharing across points *is* what "common random numbers" means
+    here); under crnflag=False, at `stream_at(_orc_root, k,
+    offset_within_iteration(x, visit, r, W))`.
+    _crn_baseline : tuple of (int, Stream), or None
+    Cache: the iteration it was computed for, and that iteration's
+    baseline stream `stream_at(_orc_root, iteration, 0)`. Computed at
+    most once per iteration, on the first crnflag=True hit() of that
+    iteration, and reused by every later one -- see
+    `_crn_baseline_stream()` for why this cache is the performance of
+    `--crn` and must not be removed. Never drawn from. `None` until
+    first needed, and under crnflag=False always.
     _orc_root : tuple of int
     Fixed for the Oracle's entire lifetime (set once, in set_crnflag(),
-    never reassigned) -- the reference point hit()'s opt-in `visit`/
-    `sync` parameters compute a fresh coordinate from (§4.1/§4.3),
-    independent of `_iteration_baseline_seed`/`_next_seed`, which both
-    move. At their defaults (visit=0, sync=None) hit() never reads this
-    at all; it exists only for the explicit, opt-in paths.
+    never reassigned) -- the reference point every hit() coordinate is
+    computed from (§4.1/§4.3, §12 step 9): `rng.root_seed()`.
     crnflag : bool
     Indicates whether common random numbers is turned on or off.
     Defaults to off.
@@ -1245,16 +1237,13 @@ class Oracle(object):
         self.rng = rng
         self.crnflag = False
         self._iteration = 0
-        # Not rng.get_seed() here: commands/solve.py/testsolve.py
-        # construct a throwaway Oracle over a plain random.Random() --
-        # not MRG32k3a, no get_seed() -- purely to read .dim, and never
-        # call set_crnflag() on it. crnflag defaults to False, so
-        # _iteration_baseline_seed is never dereferenced unless
-        # set_crnflag() runs first and gives it a real value -- every
-        # real solve()/testsolve()/mp_replicate() path does exactly
-        # that before any hit()/crn_advance() call.
-        self._iteration_baseline_seed = None
-        self._next_seed = None
+        # commands/solve.py/testsolve.py construct a throwaway Oracle
+        # over a plain random.Random() -- no root_seed() -- purely to
+        # read .dim, and never call set_crnflag() on it. So nothing
+        # here touches `rng`: _orc_root gets its real value in
+        # set_crnflag(), which every real solve()/testsolve()/
+        # mp_replicate() path calls before any hit()/crn_advance().
+        self._crn_baseline = None
         self._orc_root = None
         # §12 step 6b: the selected generator's own canonical NAME
         # (a string, not the module itself -- see the `_backend`
@@ -1356,17 +1345,14 @@ class Oracle(object):
         Set the common random number (crn) flag and initialize the
         iteration baseline.
 
-        §12 step 6b: also resolves and caches `self._backend` (the
-        selected generator's own module, from `type(self.rng)`) --
-        set_crnflag() is already this class's own authoritative
-        initialization point (see `_orc_root`'s own comment below), so
-        this is the natural place to fail loudly and immediately if
-        `crnflag=True` was requested under a generator whose own CRN
-        branch doesn't exist (Philox: no jump-ahead, no
-        get_next_prnstream/jump_substream at all -- §12 step
-        6c-completion's own reclassification of this debt), rather than
-        reaching a confusing AttributeError deep inside crn_advance()'s
-        first real call.
+        Also resolves `self._backend` (the selected generator's own
+        module, from `type(self.rng)`, §12 step 6b) -- set_crnflag() is
+        already this class's own authoritative initialization point
+        (see `_orc_root`'s own comment below), so this is the natural
+        place to fail loudly and immediately if `crnflag=True` was
+        requested under a generator the CRN branch cannot serve yet
+        (Philox: no REPL_STRIDE), rather than deep inside the first
+        hit().
 
         Parameters
         ----------
@@ -1376,31 +1362,31 @@ class Oracle(object):
         ------
         NotImplementedError
             `crnflag` is True and the selected generator has no
-            get_next_prnstream (only the MRG family does).
+            REPL_STRIDE (only the MRG family does today).
         """
         self.crnflag = crnflag
         backend = registry.backend_for_stream(self.rng)
         self._backend_name = registry.GENERATOR_NAMES[backend]
-        if crnflag and not hasattr(backend, 'get_next_prnstream'):
+        if crnflag and not hasattr(backend, 'REPL_STRIDE'):
             raise NotImplementedError(
-                '--crn is not supported under {0}: its own CRN branch '
-                '(crn_advance()/_advance_replication()) depends on '
-                'get_next_prnstream()/jump_substream(), which only the '
-                'MRG family provides. Select mrg32k3a or mrg31k3p '
-                'instead, or omit --crn. See docs/rng-interface-'
-                'design.md §12 and CLAUDE.md\'s "Known open '
-                'items".'.format(self._backend_name)
+                '--crn is not supported under {0} yet: the CRN branch '
+                'spaces replications REPL_STRIDE apart within an '
+                'iteration\'s stream, and this generator has no such '
+                'stride defined. Select mrg32k3a or mrg31k3p instead, '
+                'or omit --crn. See docs/rng-interface-design.md §12 '
+                'step 9 and CLAUDE.md\'s "Known open items".'.format(
+                    self._backend_name
+                )
             )
         self._iteration = 0
-        self._iteration_baseline_seed = self.rng.get_seed()
-        self._next_seed = self.rng.get_seed()
-        # Fixed for the Oracle's lifetime, unlike the three trackers
-        # above (which all move): the reference point visit=/sync=
-        # compute fresh coordinates from (docs/rng-interface-design.md
-        # §4.1/§4.3). Captured once here rather than in __init__ for the
-        # same reason _iteration_baseline_seed is -- set_crnflag() is
-        # the authoritative initialization point in every real
-        # solve()/testsolve()/mp_replicate() call path.
+        self._crn_baseline = None
+        # Fixed for the Oracle's lifetime, unlike `_iteration` above:
+        # the reference point every coordinate -- default, CRN, visit=
+        # and sync= alike -- is computed from (docs/rng-interface-
+        # design.md §4.1/§4.3, §12 step 9). Captured here rather than in
+        # __init__ because set_crnflag() is the authoritative
+        # initialization point in every real solve()/testsolve()/
+        # mp_replicate() call path (see __init__).
         #
         # root_seed(), not get_seed(): the value _hit_via_coordinate
         # passes as stream_at's own base_seed (§12 step 6b) -- for the
@@ -1428,10 +1414,10 @@ class Oracle(object):
         Philox's own coordinate is two-dimensional natively, no
         flattening step to invert). Every caller already computes
         `(stream, offset)` this way now (`_hit_via_coordinate`'s own
-        `divmod(offset + m*stride - 1, backend.OFFSET_CAPACITY)`, and
-        `hit()`'s CRN branch's `(self._iteration, m*REPL_STRIDE - 1)`
-        directly, since `self._iteration*ITER_STRIDE` is already an
-        exact multiple of `ITER_STRIDE` by construction) -- this method
+        `divmod(offset + m*stride - 1, backend.OFFSET_CAPACITY)`, for
+        every branch -- the CRN branch's `(self._iteration,
+        m*REPL_STRIDE - 1)` is that same expression at `offset = 0`,
+        §12 step 9) -- this method
         only ever compares and stores the pair.
 
         Storing the last position touched, rather than "one past" it
@@ -1553,112 +1539,85 @@ class Oracle(object):
 
     def crn_advance(self):
         """
-        Advance to the next RA iteration's baseline stream: one 2**127
-        jump ahead of the *current* iteration's baseline -- iteration
-        k's baseline is `orc_root + k*2**127` by induction (docs/rng-
-        interface-design.md §2). True under both crnflag values as of
-        §12 step 4b's cutover: `_next_seed`/`rng` are no longer touched
-        by hit()'s own crnflag=False replications either (that path is
-        coordinate-derived now, from the fixed `_orc_root`, tracked
-        separately in `_replications_drawn` -- see hit()), so this
-        method is the *only* thing that ever advances them, for either
-        crnflag value, and always by exactly one clean 2**127 hop from
-        wherever the last call (or set_crnflag()) left off. Before this
-        step, crnflag=False's jump additionally absorbed however far
-        hit()'s own order-dependent walk had moved `rng`/`_next_seed`
-        mid-iteration; that source of movement is gone.
+        Advance to the next RA iteration. Every default- and CRN-branch
+        coordinate carries `_iteration` as its `stream`, so this one
+        increment moves both branches to a stream disjoint from every
+        earlier iteration's: iteration k's CRN baseline is
+        `stream_at(_orc_root, k, 0)`, i.e. `orc_root + k*2**127` for the
+        MRG family (docs/rng-interface-design.md §2).
 
         Also resets `_replications_drawn` (hit()'s crnflag=False
         continuation tracking, §4.1): a new iteration's coordinate space
-        is disjoint from the last one's (the `iteration*ITER_STRIDE`
-        term), so no continuation state from the previous iteration
-        could be meaningful here even if kept.
+        is disjoint from the last one's, so no continuation state from
+        the previous iteration could be meaningful here even if kept.
+        The cached CRN baseline (`_crn_baseline`) is keyed on the
+        iteration it was computed for, so it needs no reset here -- the
+        next crnflag=True hit() sees the mismatch and recomputes.
 
-        Kept as a public method, unlike the crn_reset/crn_check/
-        crn_setobs/crn_nextobs helpers this replaces (removed -- nothing
-        outside Oracle called them): MOCOMPASS/MOPBnB, two in-tree,
-        crnflag=False-only solvers, call `orc.crn_advance()` directly,
-        once, at the end of their own solve() (see docs/mocompass-
-        mopbnb-known-issues.md and docs/rng-interface-design.md §4.2) --
-        removing the solver-facing surface entirely is a later, separate
-        step (§4.3's sync=), not this one.
+        §12 step 9: this used to jump `rng` itself one ITER_STRIDE
+        forward and re-read `_iteration_baseline_seed`/`_next_seed` from
+        it, a second, stateful implementation of the position
+        `stream_at` computes directly. That model is gone; nothing here
+        touches `rng`, for either crnflag value or any generator.
 
-        **Debt, recorded not fixed (§12 step 6c):** this method, together
-        with `_advance_replication()` and `hit()`'s own `crnflag=True`
-        branch, is a second implementation of the same "compute a
-        replication's position, aggregate the result" logic
-        `_hit_via_coordinate` already provides -- incremental, stateful
-        `rng`/`_next_seed` mutation here, versus a stateless
-        `stream_at(orc_root, stream, offset)` computation there. They
-        are proven equivalent (by induction, in this method's own
-        docstring above, and empirically, via `get_endseed() ==
-        _next_seed` in `tests/test_oracle_endseed.py`) -- proven, not
-        assumed, but proof of equivalence is not the same as one
-        implementation, and two implementations of the same logic is
-        exactly the shape that drifts, the same lesson the
-        `_hit_opt_in`/`hit()` convergence note (§12 step 4a, since
-        resolved when both became `_hit_via_coordinate`) already draws
-        from. (`bump()`, which used to make this a third instance, was
-        removed outright rather than converged -- no in-tree caller, so
-        there was nothing for a unification to preserve.) Not fixed
-        here: unifying this one would mean removing the `rng`-mutation
-        model `crn_advance()`'s own public surface still exposes, a
-        real change in kind, not a relabeling -- exactly the "no golden
-        moves" boundary this step was scoped to stay inside.
-        **Reclassified, §12 step 6c-completion:**
-        this is no longer only drift-risk -- it is what blocks `--crn`
-        from working under any non-MRG generator, since nothing here
-        routes through a selected backend at all. See CLAUDE.md's
-        "Known open items" and docs/rng-interface-design.md §12 step
-        6c-completion's own entry.
+        Kept as a public method for now: RASolver.rasolve() calls it
+        once per RA iteration, and MOCOMPASS/MOPBnB call it once at the
+        end of their own solve() (see docs/mocompass-mopbnb-known-
+        issues.md and docs/rng-interface-design.md §4.2). Removing the
+        solver-facing surface is its own step (§11 open question 7).
         """
-        if self.crnflag:
-            self._next_seed = self._iteration_baseline_seed
-        # §12 step 6b: crn_advance() is called every RA iteration
-        # regardless of crnflag (RASolver.rasolve()'s own loop, and
-        # MOCOMPASS/MOPBnB's own once-at-the-end call) -- but under
-        # crnflag=False, self.rng/_next_seed/_iteration_baseline_seed
-        # are never read again for anything that matters
-        # (_hit_via_coordinate's default branch never touches self.rng
-        # at all, and hit()'s CRN branch -- the only other reader -- is
-        # unreachable under crnflag=False). set_crnflag() already blocks
-        # crnflag=True for any backend without get_next_prnstream, so
-        # this check only ever matters for crnflag=False here -- for
-        # every MRG-family backend (crnflag True or False), this branch
-        # always runs, so behavior there is unchanged from before this
-        # step. Confirmed directly, not assumed: full suite unchanged
-        # on both venvs, no golden moved.
-        if hasattr(self._backend, 'get_next_prnstream'):
-            self.rng = self._backend.get_next_prnstream(self._next_seed)
-            self._iteration += 1
-            self._iteration_baseline_seed = self.rng.get_seed()
-            self._next_seed = self.rng.get_seed()
-        else:
-            self._iteration += 1
+        self._iteration += 1
         self._replications_drawn = {}
 
-    def _advance_replication(self):
+    def _crn_baseline_stream(self):
         """
-        Jump `rng` one 2**76 hop past the Oracle's own tracked position
-        (_next_seed), discarding whatever `rng` currently holds --
-        whatever g() itself just drew, or whatever a solver may have
-        set it to directly (see `rng`'s own docstring above) -- exactly
-        as crn_nextobs() always discarded both by resetting to
-        crn_obsold before jumping, regardless of what g() or external
-        code did to `rng` in between. _next_seed then advances to
-        match.
-        """
-        self.rng.seed(self._next_seed)
-        self._backend.jump_substream(self.rng)
-        self._next_seed = self.rng.get_seed()
+        The current iteration's CRN baseline stream,
+        `stream_at(_orc_root, _iteration, 0)` -- computed once per
+        iteration and cached in `_crn_baseline`, never drawn from.
+        Callers take `advance()`d copies of it.
 
-    def _hit_via_coordinate(self, x, m, visit, sync, start_replication=0):
+        **The cache is the performance of `--crn`, not an optimization
+        to simplify away.** `stream_at` is a full jump from the root
+        (~1.5-2 ms for MRG32k3a); `advance()` by a cached stride is
+        ~10 µs. An RA iteration makes many hit() calls and one baseline
+        serves all of them, so without the cache every crnflag=True
+        hit() would pay the full jump -- roughly 80x its cost before
+        §12 step 9 converged this branch onto `_hit_via_coordinate`.
+        Measured, not assumed: docs/hit-cost-baseline.md, regenerated
+        by docs/bench_hit_cost.py.
+
+        Returns
+        -------
+        Stream
+        """
+        cached = self._crn_baseline
+        if cached is None or cached[0] != self._iteration:
+            cached = (self._iteration, self._backend.stream_at(self._orc_root, self._iteration, 0))
+            self._crn_baseline = cached
+        return cached[1]
+
+    def _hit_via_coordinate(self, x, m, visit, sync, start_replication=0, crn=False):
         """
         The explicit-coordinate replication path (docs/rng-interface-
         design.md §4.1/§4.3), computed fresh from the Oracle's fixed
         `_orc_root` via the selected backend's own `stream_at`/`advance`
-        -- never touches `rng`/`_iteration_baseline_seed`/`_next_seed`,
-        the CRN branch's own state, at all.
+        -- the one replication loop every hit() call runs through, for
+        every branch (§12 step 9). Never touches `rng`.
+
+        Three coordinate shapes, one loop:
+
+        - default (`sync is None`, `crn` False): `stream = _iteration`,
+          `offset = offset_within_iteration(x, visit, replication, W)`,
+          replications `REPL_RESERVE_STRIDE` apart.
+        - CRN (`crn` True): `stream = _iteration`, `offset =
+          replication*REPL_STRIDE` -- the default branch's stream with
+          the point and visit terms dropped (CRN is point-independent by
+          construction, §2) and the sync branch's wide stride. The
+          first replication's stream is an `advance()`d copy of the
+          cached iteration baseline (`_crn_baseline_stream()`), not a
+          fresh `stream_at` call: same position, a small fraction of
+          the cost.
+        - sync (`sync` an int): the caller-chosen axis, below.
 
         §12 step 6b: generalized off the MRG-only mechanism step 6c left
         in place (raw jump_seed_n chaining on a bare seed tuple, then
@@ -1680,8 +1639,12 @@ class Oracle(object):
         genuinely two-dimensional sync coordinate would need, scoped
         out of this step (no in-tree caller exercises `sync=` at all).
 
-        Two callers, unified here on purpose (docs/rng-interface-
-        design.md §12 step 4a's own convergence note): hit()'s explicit
+        Three callers, unified here on purpose (docs/rng-interface-
+        design.md §12 step 4a's own convergence note, completed by step
+        9): hit()'s own `crnflag=True` path (`crn=True`,
+        `start_replication` always 0 -- every CRN hit() restarts at the
+        iteration baseline, which is what makes the streams common
+        across points); hit()'s explicit
         `visit!=0`/`sync=<int>` arguments (`start_replication` always 0
         there -- no continuation concept for an explicitly independent
         block, or for a solver-controlled sync axis whose own caller,
@@ -1734,6 +1697,9 @@ class Oracle(object):
         start_replication : int
             Non-negative. Which replication index this call's block
             starts at.
+        crn : bool
+            True for hit()'s own `crnflag=True` path. Requires `sync is
+            None` and `visit == 0`; `x` is not part of the coordinate.
 
         Returns
         -------
@@ -1767,12 +1733,26 @@ class Oracle(object):
             base = backend.SYNC_ROLE_OFFSET + sync * backend.SYNC_STRIDE + start_replication * backend.REPL_STRIDE
             stride = backend.REPL_STRIDE
             stream, offset = divmod(base, backend.ITER_STRIDE)
+            first = backend.stream_at(self._orc_root, stream, offset)
+        elif crn:
+            stride = backend.REPL_STRIDE
+            stream = self._iteration
+            offset = start_replication * stride
+            # advance(), not the cached baseline itself: the baseline
+            # must never be drawn from (it serves every hit() in this
+            # iteration), and g() is about to draw from `first`.
+            first = self._crn_baseline_stream().advance(offset)
         else:
             W = backend.point_width(len(x))
             stream = self._iteration
             offset = backend.offset_within_iteration(x, visit, start_replication, W)
             stride = backend.REPL_RESERVE_STRIDE
-        streams = [backend.stream_at(self._orc_root, stream, offset)]
+            first = backend.stream_at(self._orc_root, stream, offset)
+        # The reserve check below applies to the default branch only:
+        # CRN and sync space replications REPL_STRIDE apart, far beyond
+        # anything a g() call could draw.
+        check_reserve = sync is None and not crn
+        streams = [first]
         for _ in range(m - 1):
             streams.append(streams[-1].advance(stride))
         # §12 step 8: this block's own replications span
@@ -1809,7 +1789,7 @@ class Oracle(object):
                 # -- the adapter delegates to the same underlying
                 # stream, so wrapping doesn't affect the count.
                 isfeasi, oval = self.g(x, ensure_random_compatible(s))
-                if sync is None and s.raw_consumed() > reserve:
+                if check_reserve and s.raw_consumed() > reserve:
                     raise ReplicationDrawOverflow(
                         'a single replication of x={0} drew {1} raw values, '
                         'exceeding its reserved block of {2} (2**REPL_RESERVE_BITS) '
@@ -1870,9 +1850,13 @@ class Oracle(object):
 
         Notes
         -----
-        crnflag=True keeps the original mutable-`rng` mechanism (§2's
-        formula, unchanged since step 3). crnflag=False routes through
-        `_hit_via_coordinate` (docs/rng-interface-design.md §12 step
+        Every branch routes through `_hit_via_coordinate` (docs/rng-
+        interface-design.md §12 step 9). crnflag=True: every call
+        restarts at the iteration's baseline, replications REPL_STRIDE
+        apart, the same streams for every point (§2's formula,
+        bit-identical to the mutable-`rng` mechanism it replaced --
+        tests/test_oracle_coordinate_migration.py). crnflag=False
+        (docs/rng-interface-design.md §12 step
         4b): coordinate-derived, order-independent by construction --
         different points visited in any order within one iteration no
         longer share a mutable walk position at all. Continuation
@@ -1909,63 +1893,7 @@ class Oracle(object):
             self._replications_drawn[key] = start + m
             return result
 
-        d = self.num_obj
-        dr = range(d)
-        isfeas = False
-        obmean = []
-        obse = []
-        mr = range(m)
-        self.rng.seed(self._iteration_baseline_seed)
-        self._next_seed = self._iteration_baseline_seed
-        if m == 1:
-            isfeas, objd = self.g(x, self.rng)
-            obmean = objd
-            obse = [0 for o in objd]
-            self._advance_replication()
-        else:
-            feas = []
-            objm = []
-            # take replications in parallel
-            if self.simpar > 1:
-                for i in mr:
-                    # orccls/rngcls were already sent once, at worker
-                    # start (Oracle.set_simpar) -- each job here carries
-                    # only what actually varies per replication.
-                    cseed = self.rng.get_seed()
-                    self.req_q.put((x, cseed))
-                    self._advance_replication()
-                for i in mr:
-                    # block until parallel results are ready
-                    isfeasi, oval = self.res_q.get()
-                    feas.append(isfeasi)
-                    objm.append(oval)
-            # do not take replications in parallel
-            else:
-                for i in mr:
-                    isfeasi, oval = self.g(x, self.rng)
-                    feas.append(isfeasi)
-                    objm.append(oval)
-                    self._advance_replication()
-            if all(feas):
-                isfeas = True
-                obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
-                obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
-                obse = tuple([sqrt(obvar[i]/m) for i in dr])
-        # §12 step 8: this iteration's replications span
-        # [0, m*REPL_STRIDE) within stream=_iteration -- the last
-        # position actually touched is one less than that upper bound,
-        # same reasoning as _hit_via_coordinate's own _touch_coordinate
-        # call (§12 step 6c). `self._iteration*ITER_STRIDE` was always
-        # an exact multiple of ITER_STRIDE, so `(self._iteration,
-        # m*REPL_STRIDE - 1)` is the same (stream, offset) pair
-        # `divmod(self._iteration*ITER_STRIDE + m*REPL_STRIDE - 1,
-        # ITER_STRIDE)` always computed -- direct now (§12 step 6b),
-        # not routed through a flat integer only the MRG family has an
-        # ITER_STRIDE to divide by (the CRN branch stays MRG-only
-        # regardless -- see set_crnflag()'s own guard -- so
-        # self._backend.REPL_STRIDE/ITER_STRIDE are always defined here).
-        self._touch_coordinate(self._iteration, m * self._backend.REPL_STRIDE - 1)
-        return isfeas, obmean, obse
+        return self._hit_via_coordinate(x, m, 0, None, crn=True)
 
     def g(self, x, rng):
         """

@@ -262,29 +262,22 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   generated-and-diffed treatment as the CLI-help/`listitems` blocks
   (live introspection of each registered solver's `__init__`, diffed
   against the table), rather than leave it untracked indefinitely.
-- Two parallel implementations of replicate-and-aggregate now exist:
-  `hit()`'s CRN branch (incremental, unmigrated) and `_hit_via_coordinate`
-  (coordinate-derived). Proven equivalent by induction and
-  one empirical test, which is exactly the shape that drifts —
-  `_hit_opt_in` already diverged once on the `m==1` variance case.
-  (A third, `bump()`, existed until step 6b removed it outright — no
-  in-tree caller, so there was nothing for a unification to preserve;
-  see "Fixed on this branch" and `KNOWN_ISSUES.md` issue 14.)
-  **Reclassified, found preparing step 6b's own `--generator` wiring,
-  now landed:** this was recorded purely as drift-risk; it is also a
-  hard blocker. `hit()`'s CRN branch (`crn_advance()`/
-  `_advance_replication()`) never moved off incremental `rng`/
-  `_next_seed` mutation and the MRG-specific `get_next_prnstream`/
-  `jump_substream` calls that back it — there is no coordinate concept
-  for `--crn` to route through for any non-MRG generator at all.
-  `--generator=philox4x32` combined with `--crn` now raises a clear,
-  named `NotImplementedError` at `Oracle.set_crnflag()` time (mirroring
-  MOCOMPASS/MOPBnB's own outright `--crn` refusal), and the limitation
-  is documented in `--generator`'s own CLI help and the README, not
-  only in the error a user hits — CRN is the framework facility for
-  algorithm testing, so "Philox is supported" carries a real asterisk,
-  said up front now. The unification itself (CRN-branch convergence)
-  is still open — see "Still in flight."
+- **Closed (rng-interface-design.md §12 step 9, MRG family):** there
+  were two parallel implementations of replicate-and-aggregate --
+  `hit()`'s CRN branch (incremental `rng`/`_next_seed` mutation) and
+  `_hit_via_coordinate`. The CRN branch now routes through
+  `_hit_via_coordinate` (`crn=True`), so there is one replication loop.
+  `_next_seed`, `_iteration_baseline_seed` and `_advance_replication()`
+  are gone; `crn_advance()` only increments `_iteration`; `hit()` never
+  touches `Oracle.rng`. The per-iteration baseline stream is cached
+  (`_crn_baseline_stream()`) -- that cache is what keeps a CRN `hit()`
+  at ~20 µs instead of ~1.6 ms; see `docs/hit-cost-baseline.md` before
+  touching it. No golden moved.
+  **Still open:** `--generator=philox4x32` with `--crn` or `sync=`
+  still raises `NotImplementedError` (Philox has no `REPL_STRIDE` and
+  no two-dimensional sync coordinate yet). The asterisk on "Philox is
+  supported" in `--generator`'s CLI help and the README stays until
+  that lands -- see "Still in flight."
 - `SYNC_ROLE_OFFSET` (2^175) exceeds `ISP_STRIDE` (2^159), so `sync=`
   and multi-path `testsolve()` are incompatible. No in-tree caller
   exercises the combination today, but MOCOMPASS is the natural `sync=`
@@ -348,14 +341,11 @@ The decisions below are landed, not pending. Full reasoning in
 
 ## Still in flight
 
-- CRN-branch convergence: unify `crn_advance()`/`_advance_replication()`/
-  `hit()`'s own `crnflag=True` path onto `_hit_via_coordinate`'s
-  stateless `Stream.advance()`-based mechanism, closing the `--crn`/
-  `sync=` guard non-MRG generators hit today. Scoped out of step 6b
-  deliberately (real, traced work — see docs/rng-interface-design.md
-  §12, the step after step 8) — not attempted inline because it changes
-  what `_next_seed`/`_iteration_baseline_seed` are, with several
-  existing tests asserting on both directly.
+- `--crn` and `sync=` under Philox: the CRN-branch convergence itself
+  has landed for the MRG family (see "Known open items"). What remains
+  is a CRN replication stride and a two-dimensional sync coordinate for
+  Philox, designed together with the `SYNC_ROLE_OFFSET`/`ISP_STRIDE`
+  fix below since the sync layout is shared.
 - Executor rework: work expressed as data (points, sample sizes,
   explicit seeds), seeds as computed values rather than object state,
   pluggable backends (serial, process pool, Spark) behind one interface

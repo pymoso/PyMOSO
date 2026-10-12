@@ -2928,8 +2928,8 @@ exactly as `docs/end-seed-scope.md` says.
    Explicitly not sequenced relative to MRG31k3p/Philox onboarding
    (steps 5-6) — independent concerns, could land before, after, or
    between them.
-9. **[not started — scoped out of step 6b, recorded here so it doesn't
-   go undiscovered]** CRN-branch convergence: unify `crn_advance()`/
+9. **[preserving — done for the MRG family; Philox `--crn`/`sync=`
+   still open, see the end of this entry]** CRN-branch convergence: unify `crn_advance()`/
    `_advance_replication()`/`hit()`'s own `crnflag=True` path onto
    `_hit_via_coordinate`'s stateless, `Stream.advance()`-based mechanism
    instead of the incremental `rng`/`_next_seed` mutation model it still
@@ -2997,3 +2997,39 @@ exactly as `docs/end-seed-scope.md` says.
    cache is the performance of `--crn`, not an optimization to be
    simplified away.** Anyone removing it should re-run
    `docs/bench_hit_cost.py` first.
+
+   **Landed (MRG family).** `hit()`'s `crnflag=True` path now calls
+   `_hit_via_coordinate(..., crn=True)`: `stream = _iteration`, `offset
+   = replication*REPL_STRIDE`, the first replication an `advance()`d
+   copy of the cached iteration baseline. `_next_seed` and
+   `_iteration_baseline_seed` were removed rather than turned into
+   `Stream` objects as sketched above -- once the baseline is a cached
+   `Stream` computed from `_iteration`, neither has anything left to
+   hold. `_advance_replication()` is gone; `crn_advance()` is
+   `_iteration += 1` plus the continuation reset; `hit()` no longer
+   draws from or reseeds `Oracle.rng` on any branch.
+
+   Checked, not assumed: no golden moved on 3.10 or 3.14;
+   `tests/test_oracle_coordinate_migration.py` compares the full seed
+   every replication's `g()` is handed against §2's formula through
+   real `hit()` calls, and passed unchanged before and after; CRN
+   `hit(x, m=1)` measures 30/18 µs after (24/19 before), default path
+   unchanged.
+
+   Two observable differences, neither reachable from an in-tree
+   caller:
+   - `hit(x, 1)` under `crnflag=True` for an *infeasible* `x` used to
+     return `g()`'s own objective tuple and a zero vector beside
+     `isfeas=False`; it now returns two empty lists, as the default
+     path always has. `RASolver.estimate()` reads neither when
+     `isfeas` is false.
+   - Under `crnflag=True` with `simpar > 1`, an `m == 1` call used to
+     run `g()` in the parent process; it now goes to a worker like any
+     other replication. Same seed, same result.
+
+   **Still open:** Philox. It has no `REPL_STRIDE`, so
+   `set_crnflag(True)` still raises, and `sync=` still uses the
+   flat-then-divmod formula only the MRG family can express. Both need
+   a decision on Philox's own strides and on the sync zone's layout,
+   which is shared with the `SYNC_ROLE_OFFSET`/`ISP_STRIDE` defect
+   (`mrg32k3a.py`), so the two are designed together.

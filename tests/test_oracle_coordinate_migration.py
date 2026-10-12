@@ -154,6 +154,65 @@ def test_crn_multiple_iterations_and_replications_all_match_the_formula():
 
 
 # ---------------------------------------------------------------------------
+# §12 step 9: properties of the converged CRN branch itself
+# ---------------------------------------------------------------------------
+
+def test_crn_hit_never_moves_the_oracles_own_rng():
+    """The Oracle's construction stream identifies the generator and
+    supplies the root; hit() and crn_advance() must not draw from it or
+    reseed it. Each replication gets its own stream."""
+    orc = _fresh_crn_oracle()
+    before = orc.rng.get_seed()
+    orc.hit((1,), 3)
+    orc.crn_advance()
+    orc.hit((2,), 2)
+    assert orc.rng.get_seed() == before
+    assert orc.log == [
+        _expected_seed(0 * ITER_STRIDE + 0 * REPL_STRIDE),
+        _expected_seed(0 * ITER_STRIDE + 1 * REPL_STRIDE),
+        _expected_seed(0 * ITER_STRIDE + 2 * REPL_STRIDE),
+        _expected_seed(1 * ITER_STRIDE + 0 * REPL_STRIDE),
+        _expected_seed(1 * ITER_STRIDE + 1 * REPL_STRIDE),
+    ]
+
+
+def test_crn_baseline_is_computed_once_per_iteration_not_once_per_hit(monkeypatch):
+    """stream_at is a full jump from the root (~1.5-2 ms); a CRN hit()
+    is ~20 microseconds only because one baseline per iteration serves
+    every hit() in it (docs/hit-cost-baseline.md). Counted here so that
+    removing the cache fails a test, not just a benchmark nobody ran."""
+    from pymoso.prng import mrg32k3a
+    calls = []
+    real_stream_at = mrg32k3a.stream_at
+
+    def counting_stream_at(seed, stream, offset):
+        calls.append((stream, offset))
+        return real_stream_at(seed, stream, offset)
+
+    monkeypatch.setattr(mrg32k3a, "stream_at", counting_stream_at)
+    orc = _fresh_crn_oracle()
+    for x in [(1,), (2,), (3,), (1,)]:
+        orc.hit(x, 2)
+    assert calls == [(0, 0)]
+    orc.crn_advance()
+    orc.crn_advance()   # an iteration with no hit() at all costs nothing
+    for x in [(4,), (5,)]:
+        orc.hit(x, 3)
+    assert calls == [(0, 0), (2, 0)]
+
+
+def test_crn_repeat_hit_restarts_at_the_iteration_baseline():
+    """Today's CRN definition, pinned so a change to it is deliberate
+    (docs/rng-interface-design.md §11 open question 11): a second
+    hit() on the same point in the same iteration replays replications
+    0..m-1 rather than continuing at m."""
+    orc = _fresh_crn_oracle()
+    first = _crn_replicate(orc, (7,), 3)
+    second = _crn_replicate(orc, (7,), 3)
+    assert first == second
+
+
+# ---------------------------------------------------------------------------
 # §7.1 item 10: order-independence -- confirmed still failing at step 3
 # ---------------------------------------------------------------------------
 
