@@ -1351,37 +1351,17 @@ class Oracle(object):
 
         Also resolves `self._backend` (the selected generator's own
         module, from `type(self.rng)`, §12 step 6b) -- set_crnflag() is
-        already this class's own authoritative initialization point
-        (see `_orc_root`'s own comment below), so this is the natural
-        place to fail loudly and immediately if `crnflag=True` was
-        requested under a generator the CRN branch cannot serve yet
-        (Philox: no REPL_STRIDE), rather than deep inside the first
-        hit().
+        this class's own authoritative initialization point (see
+        `_orc_root`'s own comment below). Every registered generator
+        supports both crnflag values (§12 step 9).
 
         Parameters
         ----------
         crnflag: bool
-
-        Raises
-        ------
-        NotImplementedError
-            `crnflag` is True and the selected generator has no
-            REPL_STRIDE (only the MRG family does today).
         """
         self.crnflag = crnflag
         backend = registry.backend_for_stream(self.rng)
         self._backend_name = registry.GENERATOR_NAMES[backend]
-        if crnflag and not hasattr(backend, 'REPL_STRIDE'):
-            raise NotImplementedError(
-                '--crn is not supported under {0} yet: the CRN branch '
-                'spaces replications REPL_STRIDE apart within an '
-                'iteration\'s stream, and this generator has no such '
-                'stride defined. Select mrg32k3a or mrg31k3p instead, '
-                'or omit --crn. See docs/rng-interface-design.md §12 '
-                'step 9 and CLAUDE.md\'s "Known open items".'.format(
-                    self._backend_name
-                )
-            )
         self._iteration = 0
         self._crn_baseline = None
         # Fixed for the Oracle's lifetime, unlike `_iteration` above:
@@ -1727,9 +1707,6 @@ class Oracle(object):
             (default and CRN branches).
         SyncOverflow
             `sync` is at or past the backend's `SYNC_CAPACITY`.
-        NotImplementedError
-            `sync` is not None, and the selected backend defines no
-            sync strides yet.
         """
         backend = self._backend
         d = self.num_obj
@@ -1762,13 +1739,6 @@ class Oracle(object):
                 )
             )
         if sync is not None:
-            if not hasattr(backend, 'SYNC_STRIDE'):
-                raise NotImplementedError(
-                    'sync= is not supported under {0} yet -- it has no '
-                    'sync strides defined (docs/rng-interface-design.md '
-                    '§12 step 9). No in-tree caller uses sync= '
-                    'today.'.format(self._backend_name)
-                )
             if sync >= backend.SYNC_CAPACITY:
                 raise SyncOverflow(
                     'sync={0} does not fit in the {1} sync values one '

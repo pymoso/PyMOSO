@@ -57,10 +57,6 @@ def test_default_generator_is_mrg32k3a():
     assert registry.DEFAULT_GENERATOR == 'mrg32k3a'
 
 
-def test_crn_capable_is_exactly_the_mrg_family():
-    assert registry.CRN_CAPABLE == {'mrg32k3a', 'mrg31k3p'}
-
-
 def test_get_generator_unknown_name_raises_named_error():
     with pytest.raises(KeyError):
         registry.get_generator('not-a-real-generator')
@@ -127,8 +123,7 @@ def test_mrg31k3p_endseed_advances_and_does_not_collide():
 
 # ---------------------------------------------------------------------------
 # Philox4x32: real solving under crnflag=False -- the actual point of
-# this step. crnflag=True is explicitly refused (see the guard tests
-# below), so only the non-CRN path is exercised for correctness here.
+# this step. --crn and sync= under Philox are covered further below.
 # ---------------------------------------------------------------------------
 
 def _fresh_philox_oracle(dim=1):
@@ -202,33 +197,106 @@ def test_philox_simpar_pickles_and_matches_serial():
 
 
 # ---------------------------------------------------------------------------
-# The --crn guard: Philox has no CRN branch at all (no get_next_prnstream/
-# jump_substream) -- must raise clearly, at set_crnflag() time, not fail
-# opaquely deep inside _advance_iteration()'s first real call.
+# --crn and sync= under Philox (docs/rng-interface-design.md §12 step 9).
+# Both raised NotImplementedError until Philox had CRN/sync strides of
+# its own; the three tests that pinned the refusal are replaced by tests
+# of the behaviour, each observed failing (NotImplementedError) first.
 # ---------------------------------------------------------------------------
 
-def test_philox_crnflag_true_raises_notimplementederror():
+def _first_draw(seed, stream, offset):
+    return philox_stream_at(seed, stream, offset).random()
+
+
+def _fresh_philox_crn_oracle():
     rng = philox_stream_at((12345, 12345), 0, 0)
     orc = LoggingOracle(rng)
-    with pytest.raises(NotImplementedError):
-        orc.set_crnflag(True)
+    orc.set_crnflag(True)
+    orc.simpar = 1
+    return orc
 
 
-def test_philox_crnflag_true_error_names_the_generator_and_alternatives():
-    rng = philox_stream_at((12345, 12345), 0, 0)
-    orc = LoggingOracle(rng)
-    with pytest.raises(NotImplementedError, match='philox4x32'):
-        orc.set_crnflag(True)
+def test_philox_crn_replications_match_the_coordinate_formula():
+    """Iteration k, replication r is drawn at stream k, offset
+    r*REPL_STRIDE -- Philox's own REPL_STRIDE -- for several
+    iterations."""
+    from pymoso.prng import philox4x32
+    orc = _fresh_philox_crn_oracle()
+    expected = []
+    for k in range(3):
+        if k > 0:
+            orc._advance_iteration()
+        orc.hit((k,), 4)
+        expected += [_first_draw(orc._orc_root, k, r * philox4x32.REPL_STRIDE) for r in range(4)]
+    assert orc.log == expected
+    assert len(set(orc.log)) == len(orc.log)
 
 
-def test_philox_sync_raises_notimplementederror():
-    """sync= also depends on the flat ITER_STRIDE-based machinery only
-    the MRG family has (§12's CRN-convergence step, scoped out of 6b) --
-    checked directly through hit(), not just _hit_via_coordinate in
-    isolation."""
+def test_philox_crn_shares_streams_across_points_within_an_iteration():
+    orc = _fresh_philox_crn_oracle()
+    orc.hit((11,), 3)
+    orc.hit((22,), 3)
+    assert orc.log[:3] == orc.log[3:]
+    orc._advance_iteration()
+    orc.hit((11,), 3)
+    assert set(orc.log[6:]).isdisjoint(orc.log[:3])
+
+
+def test_philox_crn_and_default_paths_draw_from_different_positions():
+    crn = _fresh_philox_crn_oracle()
+    crn.hit((5,), 3)
+    default = _fresh_philox_oracle()
+    default.hit((5,), 3)
+    # replication 0 of the origin-coded point aside, CRN's wide stride
+    # and the default branch's point-coded offsets never coincide
+    assert set(crn.log[1:]).isdisjoint(default.log)
+
+
+def test_philox_sync_matches_the_coordinate_formula_and_is_point_independent():
+    from pymoso.prng import philox4x32 as P
     orc = _fresh_philox_oracle()
-    with pytest.raises(NotImplementedError):
-        orc.hit((5,), 1, sync=0)
+    orc.hit((5,), 3, sync=7)
+    orc.hit((99,), 3, sync=7)
+    stream = P.SYNC_ZONE_STREAM_START + 7 // P.SYNC_PER_STREAM
+    base = (7 % P.SYNC_PER_STREAM) * P.SYNC_STRIDE
+    expected = [_first_draw(orc._orc_root, stream, base + r * P.REPL_STRIDE) for r in range(3)]
+    assert orc.log[:3] == expected
+    assert orc.log[3:] == expected
+    orc.hit((5,), 3, sync=8)
+    assert set(orc.log[6:]).isdisjoint(expected)
+
+
+def test_philox_solves_end_to_end_under_crn():
+    res, end_seed = solve(ProbTPA, RPERLE, (40, 40), budget=400, generator='philox4x32',
+                          seed=(12345, 12345), crn=True, simpar=1)
+    assert res
+    res2, end_seed2 = solve(ProbTPA, RPERLE, (40, 40), budget=400, generator='philox4x32',
+                            seed=(12345, 12345), crn=True, simpar=1)
+    assert (res, end_seed) == (res2, end_seed2)
+    res3, _ = solve(ProbTPA, RPERLE, (40, 40), budget=400, generator='philox4x32',
+                    seed=(12345, 12345), crn=False, simpar=1)
+    assert res3
+
+
+def test_philox_testsolve_under_crn_with_several_paths():
+    kwargs = dict(budget=300, generator='philox4x32', seed=(12345, 12345), isp=3, crn=True)
+    serial = testsolve(TPATester, RPERLE, (40, 40), proc=1, **kwargs)
+    parallel = testsolve(TPATester, RPERLE, (40, 40), proc=2, **kwargs)
+    assert serial == parallel
+
+
+@pytest.mark.parametrize("name", sorted(registry.GENERATORS))
+def test_every_registered_generator_defines_the_coordinate_constants(name):
+    """Oracle looks these up on whichever backend is selected; a
+    generator missing one would fail deep inside the first hit()."""
+    backend = registry.GENERATORS[name]
+    for const in ("OFFSET_CAPACITY", "REPL_RESERVE_STRIDE", "REPL_STRIDE", "REPL_COUNT_LIMIT",
+                  "ISP_ITER_MARGIN", "ISP_STREAM_SPAN", "SYNC_ZONE_STREAM_START",
+                  "SYNC_STRIDE", "SYNC_PER_STREAM", "SYNC_CAPACITY"):
+        assert isinstance(getattr(backend, const), int), (name, const)
+    assert backend.REPL_COUNT_LIMIT * backend.REPL_STRIDE <= backend.OFFSET_CAPACITY
+    assert backend.SYNC_PER_STREAM * backend.SYNC_STRIDE <= backend.OFFSET_CAPACITY
+    assert backend.SYNC_ZONE_STREAM_START == backend.ISP_ITER_MARGIN < backend.ISP_STREAM_SPAN
+    assert backend.SYNC_CAPACITY == (backend.ISP_STREAM_SPAN - backend.SYNC_ZONE_STREAM_START) * backend.SYNC_PER_STREAM
 
 
 # ---------------------------------------------------------------------------
@@ -286,16 +354,6 @@ def test_testsolve_accepts_non_default_generator(generator):
 def test_solve_unknown_generator_raises_named_error():
     with pytest.raises(KeyError):
         solve(ProbTPA, RPERLE, (40, 40), generator='not-a-real-generator', budget=500)
-
-
-def test_solve_crn_under_philox_raises_through_the_library_layer():
-    with pytest.raises(NotImplementedError, match='philox4x32'):
-        solve(ProbTPA, RPERLE, (40, 40), generator='philox4x32', crn=True, budget=500)
-
-
-def test_testsolve_crn_under_philox_raises_through_the_library_layer():
-    with pytest.raises(NotImplementedError, match='philox4x32'):
-        testsolve(TPATester, RPERLE, (40, 40), generator='philox4x32', crn=True, budget=500)
 
 
 def test_solve_with_no_generator_still_uses_mrg32k3a_default():

@@ -76,13 +76,15 @@ def test_sync_zone_starts_and_ends_inside_the_path_slot(backend):
     assert backend.ISP_ITER_MARGIN == backend.SYNC_ZONE_STREAM_START
 
 
-@pytest.mark.parametrize("backend", MRG_FAMILY, ids=_ids(MRG_FAMILY))
-@pytest.mark.parametrize("sync", [0, 1, 7, 2 ** 19 - 1, 2 ** 19, 10 ** 12])
-def test_a_sync_hit_stays_inside_its_own_paths_slot(backend, sync):
+@pytest.mark.parametrize("backend", ALL_BACKENDS, ids=_ids(ALL_BACKENDS))
+@pytest.mark.parametrize("fraction", [0, 1, 7, "stream_boundary", "middle", "last"])
+def test_a_sync_hit_stays_inside_its_own_paths_slot(backend, fraction):
+    sync = {"stream_boundary": backend.SYNC_PER_STREAM, "middle": backend.SYNC_CAPACITY // 2,
+            "last": backend.SYNC_CAPACITY - 1}.get(fraction, fraction)
     (orc,), _ = _path_oracles(backend, 1)
     orc.hit((3,), 2, sync=sync)
     stream, _ = orc.get_high_water_mark()
-    assert stream < _slot_width(backend)
+    assert backend.SYNC_ZONE_STREAM_START <= stream < _slot_width(backend)
 
 
 @pytest.mark.parametrize("backend", MRG_FAMILY, ids=_ids(MRG_FAMILY))
@@ -99,10 +101,11 @@ def test_the_old_cross_path_sync_collision_is_gone(backend):
     assert orc0.log[-1] != orc1.log[-1]
 
 
-@pytest.mark.parametrize("backend", MRG_FAMILY, ids=_ids(MRG_FAMILY))
+@pytest.mark.parametrize("backend", ALL_BACKENDS, ids=_ids(ALL_BACKENDS))
 def test_two_paths_never_share_a_sync_seed_across_a_battery(backend):
     (orc0, orc1), _ = _path_oracles(backend, 2)
-    values = [0, 1, 2, 2 ** 19 - 1, 2 ** 19, 2 ** 30, backend.SYNC_CAPACITY - 1]
+    values = sorted({0, 1, 2, backend.SYNC_PER_STREAM, backend.SYNC_PER_STREAM + 1,
+                     backend.SYNC_CAPACITY // 2, backend.SYNC_CAPACITY - 1})
     for orc in (orc0, orc1):
         for sync in values:
             orc.hit((3,), 2, sync=sync)
@@ -114,7 +117,7 @@ def test_two_paths_never_share_a_sync_seed_across_a_battery(backend):
 # Boundaries raise; nothing wraps or spills
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("backend", MRG_FAMILY, ids=_ids(MRG_FAMILY))
+@pytest.mark.parametrize("backend", ALL_BACKENDS, ids=_ids(ALL_BACKENDS))
 def test_sync_value_past_the_zone_raises(backend):
     (orc,), _ = _path_oracles(backend, 1)
     orc.hit((3,), 1, sync=backend.SYNC_CAPACITY - 1)     # last valid value
@@ -129,8 +132,6 @@ def test_iteration_past_the_default_zone_raises(backend, crn):
     """The halved iteration headroom is a real ceiling: the last valid
     iteration works, the next one raises rather than drawing from the
     sync zone."""
-    if crn and not hasattr(backend, "REPL_STRIDE"):
-        pytest.skip("no CRN branch for this generator yet")
     (orc,), _ = _path_oracles(backend, 1, crn=crn)
     orc._iteration = backend.ISP_ITER_MARGIN - 1
     orc.hit((3,), 1)
@@ -154,7 +155,7 @@ def test_replication_block_must_fit_entirely_default_branch(backend):
     assert len(orc.log) == 1
 
 
-@pytest.mark.parametrize("backend", MRG_FAMILY, ids=_ids(MRG_FAMILY))
+@pytest.mark.parametrize("backend", ALL_BACKENDS, ids=_ids(ALL_BACKENDS))
 def test_sync_zone_endseed_carry_is_bounded_by_the_slot(backend):
     (orc,), _ = _path_oracles(backend, 1)
     orc._high_water_mark = (backend.ISP_STREAM_SPAN - 2, backend.OFFSET_CAPACITY - 1)
@@ -177,3 +178,31 @@ def test_builtin_sample_size_schedule_cannot_approach_the_iteration_ceiling():
     assert 1.2 ** 3800 > 0 and 1.1 ** 7400 > 0
     for backend in ALL_BACKENDS:
         assert backend.ISP_ITER_MARGIN > 100_000 * 4_000
+
+
+@pytest.mark.parametrize("backend", ALL_BACKENDS, ids=_ids(ALL_BACKENDS))
+@pytest.mark.parametrize("mode", ["crn", "sync"])
+def test_replication_block_must_fit_entirely_crn_and_sync_branches(backend, mode):
+    """CRN and sync blocks always start at replication 0, so the limit
+    is on m itself. Checked without running m replications: the raise
+    comes before anything is drawn."""
+    (orc,), _ = _path_oracles(backend, 1, crn=(mode == "crn"))
+    kwargs = {"sync": 3} if mode == "sync" else {}
+    with pytest.raises(prng_base.ReplicationOverflow):
+        orc.hit((3,), backend.REPL_COUNT_LIMIT + 1, **kwargs)
+    assert orc.log == []
+
+
+@pytest.mark.parametrize("backend", ALL_BACKENDS, ids=_ids(ALL_BACKENDS))
+def test_last_crn_replication_ends_exactly_at_the_streams_capacity(backend):
+    """The CRN block's own arithmetic at its far end: replication
+    REPL_COUNT_LIMIT-1 starts REPL_STRIDE short of OFFSET_CAPACITY or
+    earlier, so a full-size block never leaves its stream."""
+    last_start = (backend.REPL_COUNT_LIMIT - 1) * backend.REPL_STRIDE
+    assert last_start + backend.REPL_STRIDE <= backend.OFFSET_CAPACITY
+
+
+def test_philox_strides_are_derived_from_its_own_budget_not_copied_from_mrg():
+    assert philox4x32.REPL_STRIDE == philox4x32.OFFSET_CAPACITY // philox4x32.REPL_COUNT_LIMIT
+    assert philox4x32.REPL_STRIDE != mrg32k3a.REPL_STRIDE
+    assert philox4x32.SYNC_PER_STREAM == 1

@@ -146,9 +146,7 @@ options:
   -h, --help            show this help message and exit
   --budget BUDGET       Set the simulation budget [default: 200]
   --odir ODIR           Set the output file directory name. [default: testrun]
-  --crn                 Set if common random numbers are desired. Only
-                        mrg32k3a and mrg31k3p support --crn; philox4x32 does
-                        not (see --generator).
+  --crn                 Set if common random numbers are desired.
   --seed <s>            Set the random number seed, as comma-separated
                         integers with no spaces -- 6 for mrg32k3a/mrg31k3p, 2
                         for philox4x32 (see --generator), e.g. --seed
@@ -156,9 +154,7 @@ options:
                         are validated against whichever generator is selected.
   --generator {mrg31k3p,mrg32k3a,philox4x32}
                         Set the pseudo-random number generator [default:
-                        mrg32k3a]. Only mrg32k3a and mrg31k3p support --crn;
-                        philox4x32 does not (its own CRN mechanism does not
-                        exist yet -- see docs/rng-interface-design.md).
+                        mrg32k3a].
   --param <param> <val>
                         Specify a solver-specific parameter <param> <val>.
                         Repeatable.
@@ -182,9 +178,7 @@ options:
   -h, --help            show this help message and exit
   --budget BUDGET       Set the simulation budget [default: 200]
   --odir ODIR           Set the output file directory name. [default: testrun]
-  --crn                 Set if common random numbers are desired. Only
-                        mrg32k3a and mrg31k3p support --crn; philox4x32 does
-                        not (see --generator).
+  --crn                 Set if common random numbers are desired.
   --seed <s>            Set the random number seed, as comma-separated
                         integers with no spaces -- 6 for mrg32k3a/mrg31k3p, 2
                         for philox4x32 (see --generator), e.g. --seed
@@ -192,9 +186,7 @@ options:
                         are validated against whichever generator is selected.
   --generator {mrg31k3p,mrg32k3a,philox4x32}
                         Set the pseudo-random number generator [default:
-                        mrg32k3a]. Only mrg32k3a and mrg31k3p support --crn;
-                        philox4x32 does not (its own CRN mechanism does not
-                        exist yet -- see docs/rng-interface-design.md).
+                        mrg32k3a].
   --param <param> <val>
                         Specify a solver-specific parameter <param> <val>.
                         Repeatable.

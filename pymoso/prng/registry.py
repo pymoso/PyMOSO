@@ -32,18 +32,6 @@ DEFAULT_GENERATOR = 'mrg32k3a'
 # (e.g. Oracle.set_crnflag()/self._backend).
 GENERATOR_NAMES = {module: name for name, module in GENERATORS.items()}
 
-# Generators whose Oracle-internal CRN mechanism (get_next_prnstream/
-# jump_substream) actually exists. MRG32k3a/MRG31k3p share it (both
-# random.Random subclasses with the same jump-ahead shape); Philox has
-# no jump-ahead and no such functions at all -- structurally, not just
-# incidentally, unable to back the CRN branch as it stands today. `--crn`
-# combined with a generator outside this set raises, at generator-
-# selection time, rather than reaching a coordinate-shaped AttributeError
-# deep in chnbase.py. See docs/rng-interface-design.md §12's CRN
-# convergence step (scoped out of 6b, not forgotten) for what would
-# actually close this gap.
-CRN_CAPABLE = {'mrg32k3a', 'mrg31k3p'}
-
 
 # §12 step 6b: reverse lookup, Stream class -> owning generator module.
 # Oracle.set_crnflag() resolves its own backend from type(self.rng) via

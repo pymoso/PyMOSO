@@ -2975,8 +2975,8 @@ exactly as `docs/end-seed-scope.md` says.
    Explicitly not sequenced relative to MRG31k3p/Philox onboarding
    (steps 5-6) — independent concerns, could land before, after, or
    between them.
-9. **[preserving — done for the MRG family; Philox `--crn`/`sync=`
-   still open, see the end of this entry]** CRN-branch convergence: unify `crn_advance()`/
+9. **[done — preserving for the MRG family, new capability for
+   Philox; see the end of this entry]** CRN-branch convergence: unify `crn_advance()`/
    `_advance_replication()`/`hit()`'s own `crnflag=True` path onto
    `_hit_via_coordinate`'s stateless, `Stream.advance()`-based mechanism
    instead of the incremental `rng`/`_next_seed` mutation model it still
@@ -3074,9 +3074,39 @@ exactly as `docs/end-seed-scope.md` says.
      run `g()` in the parent process; it now goes to a worker like any
      other replication. Same seed, same result.
 
-   **Still open:** Philox. It has no `REPL_STRIDE`, so
-   `set_crnflag(True)` still raises, and `sync=` still uses the
-   flat-then-divmod formula only the MRG family can express. Both need
-   a decision on Philox's own strides and on the sync zone's layout,
-   which is shared with the `SYNC_ROLE_OFFSET`/`ISP_STRIDE` defect
-   (`mrg32k3a.py`), so the two are designed together.
+   **Landed (Philox).** `--crn` and `sync=` now work under every
+   registered generator; `set_crnflag()` and `_hit_via_coordinate` no
+   longer raise `NotImplementedError`, and `registry.CRN_CAPABLE` is
+   gone. Philox's strides are derived from its own budget:
+
+   - The CRN and sync branches carry no point code or visit, so a
+     stream's whole `OFFSET_CAPACITY` (`2**118` counter positions) is
+     available to replications. `REPL_STRIDE = OFFSET_CAPACITY /
+     REPL_COUNT_LIMIT = 2**118 / 2**30 = 2**88` counter positions per
+     replication.
+   - `SYNC_STRIDE = REPL_COUNT_LIMIT * REPL_STRIDE = 2**118`, one whole
+     stream, so `SYNC_PER_STREAM = 1`: each sync value gets its own
+     key. `SYNC_CAPACITY = 2**30` per isp path.
+   - Both ends raise: `ReplicationOverflow` past `REPL_COUNT_LIMIT`
+     replications, `ReplicationDrawOverflow` if one replication draws
+     more than `REPL_STRIDE` positions. `Philox4x32Stream.advance()`
+     itself wraps at `2**128`, so those checks are what keep a block
+     inside its stream.
+
+   **A pattern worth naming: this is the second time a Philox constant
+   nearly inherited an MRG-specific value.** The first draft of
+   `REPL_STRIDE` here was `2**76`, mrg32k3a.py's figure. That number is
+   L'Ecuyer's substream distance for MRG32k3a -- a fact about that
+   generator's published stream structure -- and means nothing for a
+   counter; it was proposed because it fit, and `SYNC_STRIDE = 2**106`
+   followed from it. Step 6c-completion found the same thing in the
+   offset budget: a 127-bit layout sized to `ITER_STRIDE = 2**127`,
+   applied to a generator whose own capacity is 118 bits, exceeding it
+   silently. Both times the MRG value *worked* arithmetically, which is
+   why it was not questioned. The rule this entry leaves behind: a new
+   generator's constants are derived from that generator's own widths
+   and this project's budget anchors, and a value that matches another
+   generator's is a coincidence to be justified, not a default. The
+   same care applies in reverse to the MRG family's own `ITER_STRIDE`
+   and `REPL_STRIDE`, which are L'Ecuyer's and are kept because goldens
+   depend on them, not because they were sized for this framework.

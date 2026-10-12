@@ -224,6 +224,53 @@ ISP_ITER_MARGIN = 1 << 30
 SYNC_ZONE_STREAM_START = ISP_ITER_MARGIN
 ISP_STREAM_SPAN = 2 * ISP_ITER_MARGIN  # 2**31
 
+# CRN and sync replication spacing (docs/rng-interface-design.md §12
+# step 9). Derived from this generator's own budget, not taken from the
+# MRG family:
+#
+# The CRN and sync branches put no point code or visit in the offset
+# (§2, §4.3), so a stream's whole OFFSET_CAPACITY is available to
+# replications alone. Divided evenly among the REPL_COUNT_LIMIT
+# replications a block may address, each replication gets
+#
+#   REPL_STRIDE = OFFSET_CAPACITY / REPL_COUNT_LIMIT = 2**118 / 2**30 = 2**88
+#
+# counter positions (4 raw words each) before it would reach the next
+# replication's start. Both ends raise rather than wrap: a replication
+# index at or past REPL_COUNT_LIMIT raises ReplicationOverflow, and a
+# single replication drawing more than REPL_STRIDE positions raises
+# ReplicationDrawOverflow (chnbase.py's _hit_via_coordinate checks
+# both; the second is not reachable by any real g(), but it is checked,
+# not assumed). advance() itself would wrap silently at 2**128, so
+# these two checks are what keep a block inside its stream.
+#
+# NOT mrg32k3a.py's 2**76. That figure is L'Ecuyer's substream distance
+# for MRG32k3a -- a property of that generator's published stream
+# structure, with no meaning for a counter. It happens to fit here, and
+# was the first draft of this constant for that reason alone. This is
+# the second time a Philox constant nearly inherited an MRG-specific
+# value: the offset budget did the same at step 6c-completion (a
+# 127-bit layout sized to ITER_STRIDE, silently exceeding this module's
+# own 118-bit capacity). Constants here are derived from COUNTER_BITS/
+# KEY_BITS and this module's own anchors, or they are wrong by default.
+REPL_STRIDE = OFFSET_CAPACITY // REPL_COUNT_LIMIT  # 2**88
+assert REPL_STRIDE * REPL_COUNT_LIMIT == OFFSET_CAPACITY
+
+# One sync value's replication range is REPL_COUNT_LIMIT replications
+# at REPL_STRIDE spacing -- which, by the derivation above, is exactly
+# one whole stream. So each sync value gets a key of its own
+# (SYNC_PER_STREAM = 1): the natural shape for a generator that reaches
+# a stream by indexing, and a consequence of the arithmetic, not a
+# separate choice. SYNC_CAPACITY, the sync values one isp path holds,
+# is then the number of keys in its sync zone: 2**30 (~1.07e9), clear
+# of the same 10**9 budget anchor the iteration margin is sized
+# against (a solver's `sync` is typically a per-point replication
+# count, itself bounded by --budget). At or past it: SyncOverflow.
+SYNC_STRIDE = REPL_COUNT_LIMIT * REPL_STRIDE  # 2**118, one whole stream
+SYNC_PER_STREAM = OFFSET_CAPACITY // SYNC_STRIDE  # 1
+SYNC_CAPACITY = (ISP_STREAM_SPAN - SYNC_ZONE_STREAM_START) * SYNC_PER_STREAM  # 2**30
+assert SYNC_PER_STREAM * SYNC_STRIDE == OFFSET_CAPACITY
+
 
 def point_width(dim):
     """

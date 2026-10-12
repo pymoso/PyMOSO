@@ -65,8 +65,7 @@ def _add_common_options(subp):
     subp.add_argument('--odir', default='testrun',
                        help='Set the output file directory name. [default: testrun]')
     subp.add_argument('--crn', action='store_true',
-                       help='Set if common random numbers are desired. Only mrg32k3a and '
-                            'mrg31k3p support --crn; philox4x32 does not (see --generator).')
+                       help='Set if common random numbers are desired.')
     # §3.7/§12 step 6b: one comma-separated token, not nargs='+' -- an
     # unbounded nargs='+' greedily consumes every following argv token,
     # including the required <problem>/<solver>/<x> positionals,
@@ -89,10 +88,8 @@ def _add_common_options(subp):
                             'Arity and content are validated against whichever generator is '
                             'selected.')
     subp.add_argument('--generator', choices=sorted(registry.GENERATORS), default=registry.DEFAULT_GENERATOR,
-                       help='Set the pseudo-random number generator [default: {0}]. Only '
-                            'mrg32k3a and mrg31k3p support --crn; philox4x32 does not (its own '
-                            'CRN mechanism does not exist yet -- see '
-                            'docs/rng-interface-design.md).'.format(registry.DEFAULT_GENERATOR))
+                       help='Set the pseudo-random number generator [default: {0}].'.format(
+                           registry.DEFAULT_GENERATOR))
     subp.add_argument('--param', nargs=2, action='append', metavar=('<param>', '<val>'),
                        help='Specify a solver-specific parameter <param> <val>. Repeatable.')
 

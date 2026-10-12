@@ -287,11 +287,14 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   (`_crn_baseline_stream()`) -- that cache is what keeps a CRN `hit()`
   at ~20 µs instead of ~1.6 ms; see `docs/hit-cost-baseline.md` before
   touching it. No golden moved.
-  **Still open:** `--generator=philox4x32` with `--crn` or `sync=`
-  still raises `NotImplementedError` (Philox has no `REPL_STRIDE` and
-  no two-dimensional sync coordinate yet). The asterisk on "Philox is
-  supported" in `--generator`'s CLI help and the README stays until
-  that lands -- see "Still in flight."
+  `--crn` and `sync=` now also work under Philox, with strides derived
+  from its own budget (`REPL_STRIDE = 2^88`, one sync value per key) --
+  not MRG's `2^76`, which was the first draft and the second time a
+  Philox constant nearly inherited an MRG-specific value (see the end
+  of §12 step 9). Every registered generator supports both `crnflag`
+  values. The README's `--generator` prose still says Philox does not
+  support `--crn`; that sentence is wrong now and goes in the Phase 6
+  README rewrite (the generated CLI-help block is already current).
 - **Closed:** `SYNC_ROLE_OFFSET` (2^175) exceeded `ISP_STRIDE` (2^159):
   a path's sync zone lay 2^16 slots above its own. The sync zone is now
   nested inside each isp path's slot (`SYNC_ZONE_STREAM_START` =
@@ -358,11 +361,6 @@ The decisions below are landed, not pending. Full reasoning in
 
 ## Still in flight
 
-- `--crn` and `sync=` under Philox: the CRN-branch convergence itself
-  has landed for the MRG family (see "Known open items"). What remains
-  is a CRN replication stride and a two-dimensional sync coordinate for
-  Philox, designed together with the `SYNC_ROLE_OFFSET`/`ISP_STRIDE`
-  fix below since the sync layout is shared.
 - Executor rework: work expressed as data (points, sample sizes,
   explicit seeds), seeds as computed values rather than object state,
   pluggable backends (serial, process pool, Spark) behind one interface
