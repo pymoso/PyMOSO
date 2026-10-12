@@ -1879,6 +1879,50 @@ existing code, surfaced rather than guessed.
     index) — worth confirming against a real run rather than assumed
     identical, since a general `MOSOSolver`'s `sync` values aren't
     guaranteed to grow the way `calc_m` does.
+11. **[open — deferred to the executor design] What does `--crn` mean
+    for a solver with no RA iterations?** Today CRN is defined per RA
+    iteration: every `hit()` in iteration *k* starts again from that
+    iteration's baseline, so two points draw common streams at each
+    replication index, and `RASolver.rasolve` moves the baseline once
+    per iteration. A general `MOSOSolver` has no iteration the framework
+    can see. Under `--crn` every `hit()` it makes, for the whole run,
+    therefore starts from the same baseline: a second `hit(x, m)` on a
+    point replays that point's first `m` replications instead of adding
+    new ones. Confirmed directly (two `hit()` calls in one iteration
+    return identical results, same point or different points). This is
+    why MOCOMPASS and MOPBnB refuse `--crn`.
+
+    Removing the solver-facing `crn_advance()` (open question 7) does
+    not change this. The replay comes from no iteration ever advancing
+    during the run, not from the one `crn_advance()` call both solvers
+    make at the end; deleting that call leaves the replay exactly as it
+    was. Their refusal therefore stays, with the reason corrected.
+
+    One candidate definition that would work for every solver: under
+    `--crn`, the replication index **continues per point** within an
+    iteration, the way the default path's `_replications_drawn` already
+    continues it -- a point's *j*-th replication, however many `hit()`
+    calls it took to get there, uses the stream at replication index
+    *j*, common to every point. Arguments for it:
+
+    - It is what MOCOMPASS's own `self.seeds` bookkeeping was reaching
+      for (§4.3): keyed on `nx[x]`, the count of replications a point
+      has taken so far, so that two points at equal sample effort share
+      streams. Per-point continuation gives exactly that, with no
+      solver-side state.
+    - It makes CRN the default path with the point and visit terms
+      dropped from the coordinate, rather than a separate rule about
+      rewinding -- one fewer concept.
+    - It should be invisible to RASolver-family solvers, which cache
+      per point (`gbar`/`sehat`, §4.1) and so do not `hit()` the same
+      point twice in an iteration. That is an expectation to be checked
+      against the CRN goldens, not a result.
+
+    Against deciding it now: it changes what `--crn` means
+    framework-wide, and a solver that deliberately re-hits a point under
+    CRN to *replay* it (none in-tree) would behave differently. It
+    belongs with the executor design, where CRN is being expressed as
+    coordinates anyway.
 
 ## 12. Step list
 
@@ -2929,3 +2973,27 @@ exactly as `docs/end-seed-scope.md` says.
    step, precisely because neither has anywhere to route to without it.
    Until this lands, "Philox is supported" keeps the asterisk step 6b's
    own CLI help and README text document.
+
+   **Measured before starting, and the reason the convergence keeps a
+   cached per-iteration baseline** (`docs/bench_hit_cost.py`, full
+   table in `docs/hit-cost-baseline.md`; MRG32k3a, microseconds per
+   call):
+
+   | operation | Python 3.10 | Python 3.14 |
+   |---|---|---|
+   | `hit(x, m=1)`, CRN branch, before convergence | 24 | 19 |
+   | `hit(x, m=1)`, default (`_hit_via_coordinate`) | 2,173 | 1,647 |
+   | `stream_at(root, stream, 0)` | 1,992 | 1,559 |
+   | `Stream.advance(REPL_STRIDE)` | 13 | 7 |
+
+   `_hit_via_coordinate` opens every block with one `stream_at` call, a
+   full jump from the root, and that call is nearly all of the default
+   path's cost. The CRN branch has never paid it: it holds the
+   iteration's baseline seed and takes only cached jumps from there.
+   Converging it by simply calling `_hit_via_coordinate` as written
+   would make every CRN `hit()` roughly 80x slower. The converged code
+   therefore computes the iteration's baseline stream once per
+   iteration and reuses it for every `hit()` in that iteration. **That
+   cache is the performance of `--crn`, not an optimization to be
+   simplified away.** Anyone removing it should re-run
+   `docs/bench_hit_cost.py` first.
