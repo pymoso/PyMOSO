@@ -736,6 +736,62 @@ stopped anyone reaching it.
 
 ---
 
+### 17. Normal variates differ in the last bit between Python 3.11 and 3.12, so a seed does not reproduce across that boundary
+
+**Affects:** every version on Python 3.12 or later, 1.1.0 included
+(`bsm` is the same code at the `v1.1.0` tag), and this branch, with
+all three generators -- they share one normal variate. **Severity:**
+low in effect, as far as has been observed; real as a
+reproducibility defect, because "same seed, same numbers" is what the
+package promises.
+
+**What happens.** `prng.mrg32k3a.bsm`, the inverse-normal
+approximation behind `normalvariate`, adds the terms of its
+polynomials with the built-in `sum()`. CPython 3.12 changed `sum()`
+for floats: it now carries a compensation term, so that the result is
+closer to the exact sum than adding left to right gives. The uniforms
+are unaffected -- they are integer arithmetic. The normal variates
+built from them are not: on one machine, from the same stream,
+**8,153 of 20,000 normal variates differ between Python 3.11 and
+Python 3.12**, each in its last bit or two (largest relative
+difference 5.9e-16).
+
+So a run on Python 3.12 or later is not bit-for-bit the run that
+Python 3.10 or 3.11 gives from the same seed. The golden baselines
+were captured on 3.10.
+
+**What was observed, which is less than that implies -- and that is
+itself worth knowing.** Every whole-run comparison made so far is
+*identical* across Python 3.10, 3.11, 3.12, 3.13 and 3.14: the golden
+suite, and each whole-run hash in the Databricks kit
+(docs/databricks/) -- sample paths, replication-level solves with and
+without CRN, Philox, 1,024 sample paths' results. The only thing that
+moved was the kit's probe of raw variate values, which is how this
+was found. A difference in the sixteenth significant digit of a
+variate has to survive averaging over replications and then change
+the outcome of a comparison between two estimates before a solver's
+choice of point changes, and in these runs it never did. That is the
+same story as the end seed (docs/end-seed-scope.md): the suite's
+whole-run detectors do not see changes at this level, so their
+agreement is not evidence that the numbers agree. It can move a
+result; it has not been seen to.
+
+**Not fixed.** The repair is small -- add the terms left to right,
+explicitly, which is what Python up to 3.11 computes and what the
+goldens record -- but it changes every normal variate that currently
+differs on Python 3.12 and later, which is where most users now are.
+That is a deliberate change to numerical output, to be made on
+purpose and announced, not slipped in. Until then: results are
+reproducible from a seed on one side of the 3.12 boundary, and not
+across it.
+
+Found building the Databricks kit, by computing its known-good
+values under five Python versions before trusting them. A cluster's
+driver and executors always run the same Python version (Spark
+requires it), so this does not affect agreement within a run.
+
+---
+
 ## Behavior changes introduced by this migration
 
 These aren't defects inherited from some past pymoso version — they
