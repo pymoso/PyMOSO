@@ -33,6 +33,15 @@ test = ["pytest", "pytest-timeout"]
 # value. Separate from `spark` because it serves that case with no
 # Spark anywhere: a laptop notebook should not need pyspark for it.
 notebook = ["cloudpickle"]
+# A Spark session to hand to pymoso.backends.spark.SparkBackend, for
+# running one locally. NOT for Databricks or any cluster that already
+# provides Spark: install `pymoso[notebook]` there, never PyPI's
+# pyspark over the runtime's own.
+spark = ["pymoso[notebook]", "pyspark>=3.5"]
+# What tests/test_spark_backend.py needs beyond `spark` to open a Spark
+# Connect session as well as a classic one. The CI `extras` job
+# installs `.[test,spark,spark-test]`; it also needs a JVM.
+spark-test = ["pyspark[connect]>=3.5"]
 # Placeholder: declared so the structure exists. Empty.
 numerics = []
 
@@ -54,6 +63,7 @@ packages = [
     "pymoso.prng",
     "pymoso.problems",
     "pymoso.testers",
+    "pymoso.backends",
 ]
 
 [tool.setuptools.dynamic]

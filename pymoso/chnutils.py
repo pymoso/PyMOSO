@@ -108,6 +108,15 @@ def solve(problem, solver, x0, **kwargs):
     simpar = kwargs.pop('simpar', DEFAULT_SIMPAR)
     crn = kwargs.pop('crn', DEFAULT_CRN)
     pool_backend = kwargs.pop('backend', None)
+    if getattr(pool_backend, 'remote', False) and simpar < 2:
+        raise ValueError(
+            'solve() was given a remote backend and simpar={0}. With a remote '
+            'backend, simpar is the number of tasks each of the solver\'s '
+            'requests for replications is divided into, and it has to be at '
+            'least 2. Before choosing one: sending replications to a cluster '
+            'is slower than running them here unless one replication costs '
+            'roughly 100 ms or more (docs/spark-backend.md).'.format(simpar)
+        )
     paramtups = []
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
@@ -163,6 +172,13 @@ def testsolve(tester, solver, x0, **kwargs):
     ranx0 = kwargs.pop('ranx0', DEFAULT_RANX0)
     crn = kwargs.pop('crn', DEFAULT_CRN)
     pool_backend = kwargs.pop('backend', None)
+    if getattr(pool_backend, 'remote', False) and proc != DEFAULT_PROC:
+        raise ValueError(
+            'testsolve() was given a remote backend and proc={0}. proc is the '
+            'number of worker processes on this machine; a remote backend '
+            'runs every sample path as a task of its own and decides for '
+            'itself how many run at once. Leave proc out.'.format(proc)
+        )
     paramtups = []
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
@@ -610,7 +626,8 @@ def run_paths(tester, solver, jobs, num_proc=1, tester_instance=None, backend=No
         process.
     backend : backend or None
         Where the worker processes are (`pool.LocalBackend` describes
-        what a backend is). Defaults to this machine.
+        what a backend is). Defaults to this machine. A remote backend
+        is sent every path as a task, whatever `num_proc` is.
 
     Returns
     -------
@@ -624,12 +641,12 @@ def run_paths(tester, solver, jobs, num_proc=1, tester_instance=None, backend=No
         `num_proc` is above 1 and `tester` or `solver` cannot be sent
         to a worker process (executor.ClassRef).
     """
-    workers = min(num_proc, len(jobs))
-    if workers <= 1:
-        state = (tester_instance if tester_instance is not None else tester(), solver)
-        return combine_runs([run_path(state, job) for job in jobs])
     if backend is None:
         backend = LocalBackend()
+    workers = len(jobs) if backend.remote else min(num_proc, len(jobs))
+    if workers <= 1 and not (backend.remote and jobs):
+        state = (tester_instance if tester_instance is not None else tester(), solver)
+        return combine_runs([run_path(state, job) for job in jobs])
     refs = (ClassRef(tester, remote=backend.remote), ClassRef(solver, remote=backend.remote))
     with backend.pool(workers, _open_path_worker, refs) as pool:
         return combine_runs(pool.run([(run_path, (job,)) for job in jobs]))
@@ -689,7 +706,9 @@ def par_diff(rundata, tester, num_proc, backend=None):
         Number of processes to use
     backend : backend or None
         Where the worker processes are (`pool.LocalBackend` describes
-        what a backend is). Defaults to this machine.
+        what a backend is). Defaults to this machine. A remote backend
+        is sent every path's metrics as a task, whatever `num_proc`
+        is.
 
     Returns
     -------
@@ -697,11 +716,11 @@ def par_diff(rundata, tester, num_proc, backend=None):
         keys are the isp number and values are the metric data
     """
     num_isp = len(rundata)
-    workers = min(num_proc, num_isp)
-    if workers <= 1:
-        return {i: gen_metric(copy.deepcopy(rundata[i]), tester) for i in range(num_isp)}
     if backend is None:
         backend = LocalBackend()
+    workers = num_isp if backend.remote else min(num_proc, num_isp)
+    if workers <= 1 and not (backend.remote and num_isp):
+        return {i: gen_metric(copy.deepcopy(rundata[i]), tester) for i in range(num_isp)}
     with backend.pool(workers, _open_metric_worker, (ClassRef(type(tester), remote=backend.remote),)) as pool:
         metrics = pool.run([(_metric_task, (rundata[i],)) for i in range(num_isp)])
     return dict(enumerate(metrics))

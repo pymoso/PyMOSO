@@ -105,3 +105,57 @@ jobs:
 
       - name: Run doctests
         run: uv run --no-project python -m pytest --doctest-modules pymoso/chnutils.py -v
+
+  extras:
+    # The optional dependencies, installed and exercised: cloudpickle
+    # (the `notebook` extra: classes sent to workers by value) and
+    # pyspark (the `spark` extra: pymoso.backends.spark against a local
+    # cluster and a local Spark Connect server). The jobs above install
+    # `.[test]` only, so there the tests for these skip -- which is
+    # also what a broken extra, a renamed one or a missing JVM would
+    # look like. PYMOSO_REQUIRE_EXTRAS turns each of those skips into a
+    # failure here (tests/_extras.py), so this job cannot pass by not
+    # running what it exists to run.
+    #
+    # The other half of the boundary is the jobs above: they are the
+    # proof that pymoso works with none of this installed, and
+    # tests/test_dependency_boundary.py keeps that true statically and
+    # at runtime.
+    #
+    # Linux only: Spark on Windows needs winutils, and nothing here is
+    # platform-specific that the `test` matrix does not already cover
+    # (tests/test_remote_backend.py runs the Spark-free part of the
+    # backend in all fifteen cells). Both ends of the Python range,
+    # because cloudpickle ships bytecode and pyspark has its own
+    # version floor. What this cannot cover -- executors on another
+    # host, a Databricks runtime -- is listed in docs/spark-backend.md.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.14"]
+    env:
+      PYMOSO_REQUIRE_EXTRAS: cloudpickle,pyspark,grpc
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Create virtual environment
+        run: uv venv --python ${{ matrix.python-version }}
+
+      - name: Install pymoso with its declared extras -- nothing else
+        run: uv pip install -e ".[test,spark,spark-test]"
+
+      # --no-project: see the note at this step in the `test` job.
+      - name: Run tests
+        run: uv run --no-project python -m pytest tests/ -v -rs
