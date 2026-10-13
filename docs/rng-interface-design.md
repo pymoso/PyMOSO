@@ -2143,6 +2143,28 @@ existing code, surfaced rather than guessed.
     this one was written; if that idea is recorded elsewhere, it
     belongs next to this one.
 
+16. **[candidate — recorded in Phase 4, not started] Bulk variate
+    draws.** The one place numpy was found to pay
+    (`docs/numpy-findings.md`). A scalar draw costs 4.3 µs (MRG
+    family) or 1.6 µs (Philox) in pure Python; numpy draws at about
+    0.003 µs. A simulation that draws thousands of variates per
+    replication spends its time there. Sketch: an optional method on
+    the stream (`random_array(n)` and the variates built on it),
+    available when the `numerics` extra is installed, starting with
+    Philox -- counter-based, 32-bit integer arithmetic that numpy does
+    exactly, so the bulk draw can be bit-identical to `n` scalar
+    draws and `raw_consumed()` can account for it. The MRG recurrence
+    is sequential and its products exceed 64 bits; it is a poor
+    target. Needs a conformance test that bulk equals scalar, and a
+    user simulation that actually draws that much: no built-in
+    problem does.
+
+    What numpy was *not* adopted for, so that it is not proposed
+    again: the jump (78-86% of a cheap serial run, and arithmetic
+    numpy cannot do exactly -- entry 14 is the lever) and aggregation
+    (it would move solution values, for a slowdown at RA sample
+    sizes).
+
 ## 12. Step list
 
 Each step names what lands and whether it's behavior-preserving (goldens
@@ -3427,3 +3449,41 @@ exactly as `docs/end-seed-scope.md` says.
     (entry 14), infeasible-point memory (entry 13), prefetch (entry
     15). MOCOMPASS and MOPBnB were not converted to `hit_many`; both
     have large unconditional loops and would batch well.
+
+12. **[preserving — done] A backend seam, by-value transport, and a
+    Spark backend (Phase 4).** No golden moved.
+    `docs/spark-backend.md` is the full record; this is what changed
+    relative to steps 10 and 11.
+
+    - *The seam is the pool, not the executor.* A *backend*
+      (`pool.LocalBackend`) hands out the pool that `--simpar`,
+      `--proc` and metric computation run on. A new `Executor`
+      subclass could not have carried sample paths, which have never
+      gone through `Executor.run` (step 11); the pool is what the two
+      kinds of job share. `PoolExecutor` takes its pool from the
+      backend, so replication-level dispatch came with it.
+    - *`backends/remote.py`* rebuilds the pool contract on "run this
+      function on these bytes": per-process state in place of an
+      initializer hook, exceptions returned as data, a version check.
+      No Spark in it; tested in every CI cell.
+      *`backends/spark.py`* is one method, on `spark.range()` and a
+      UDF because a Spark Connect session has no `sparkContext`.
+    - *Tasks are safe to retry* because a block and a path compute
+      their streams from coordinates -- §2's finding, cashed in a
+      third time.
+    - *Correction to step 10's "A cloudpickle handle ... is a third
+      subclass":* by value is a third form of `ClassRef`, since
+      testers and solvers travel as `ClassRef`s and not as handles.
+      For a remote backend everything outside pymoso goes by value,
+      because "the parent can pickle it by reference" says nothing
+      about another machine.
+    - *Replication-level dispatch to a cluster loses below roughly
+      100 ms per replication and tops out near 3-5x.* Offered because
+      it is the only thing that helps a single `solve()`; the
+      backend warns when it is losing.
+    - *numpy: measured and not adopted* (`docs/numpy-findings.md`;
+      entry 16 is the one candidate).
+
+    Not in this step: the cheaper jump (entry 14), infeasible-point
+    memory (13), prefetch (15), converting MOCOMPASS/MOPBnB to
+    `hit_many`, and anything for high-dimensional problems.

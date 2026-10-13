@@ -429,6 +429,54 @@ its block and aggregating its result in separate steps so that
 `hit_many` can share them. The base-stream cache that keeps `--crn`
 cheap is intact.
 
+## After the backend seam and the Spark backend (Phase 4)
+
+Phase 4 put a backend between these features and their pool, and
+added a remote one. Nothing on the local path was meant to get
+slower. Whether anything did was checked two ways, and only one of
+them is usable.
+
+**The three benchmark scripts were re-run, and that run cannot be
+compared with the tables above.** Partway through it the machine
+started doing other work (one core held at about 90% by an unrelated
+process; load average 4 to 5 against an idle baseline). The code that
+does not involve Phase 4 at all shows it: a bare `stream_at` measured
+1,762 µs against 1,559 µs recorded, and a Moderate replication's
+`g()` 5.04 ms against 4.42 ms. For the record, and not as a
+comparison, at 6 workers on Python 3.14 that run gave: `--simpar`
+1-D Light 1.38x, Moderate 2.52x, Heavy 2.79x; 2-D batched Light
+1.91x, Moderate 3.02x, Heavy 3.14x; `--proc` Light 3.93x, Moderate
+4.79x, Heavy 4.58x. All are 5-20% under the Phase 3 tables, on a
+machine short of a core. The structural figures -- calls, points per
+call, the 35.1-35.7% sequential share, every bound -- reproduced
+exactly.
+
+**So the question was asked directly instead:** the commit before
+Phase 4 (`24c4f5f`) against the Phase 4 tree, the same five
+measurements, seven rounds each, alternating which went first, on the
+same busy machine. Medians; WORK/HEAD above 1 means Phase 4 is slower.
+
+| Measurement | Python 3.14: before, after, ratio | Python 3.10: before, after, ratio |
+|---|---|---|
+| `hit(x, m=8)`, `crn=True`, a new point each call | 312 µs, 300 µs, 0.96 | 431 µs, 438 µs, 1.02 |
+| `hit(x, m=8)`, `crn=False` | 1,669 µs, 1,601 µs, 0.96 | 2,138 µs, 2,169 µs, 1.01 |
+| serial `solve`, RPERLE on ProbTPA, budget 5,000 | 1.096 s, 1.107 s, 1.01 | 1.435 s, 1.463 s, 1.02 |
+| `simpar=6`, RPERLE on ProbExpensiveBiModerate, budget 600 | 1.298 s, 1.318 s, 1.02 | 1.612 s, 1.621 s, 1.01 |
+| `proc=6`, 12 Moderate paths | 0.692 s, 0.690 s, 1.00 | 0.860 s, 0.865 s, 1.01 |
+
+Every ratio is within 4% of 1 and inside the spread of its own seven
+runs (the two versions' minimum-to-maximum ranges overlap in every
+row). No change is measurable, which is what the change predicts: the
+local backend is asked for a pool once per run and adds nothing per
+call.
+
+The recorded baselines above therefore stand, un-refreshed. Re-run
+the three scripts on a quiet machine before quoting a Phase 4 number
+against them.
+
+Sending replications to a cluster has its own break-even, far from
+anything in this document: `docs/spark-backend.md`.
+
 ## What would raise the ceiling now
 
 - **Speculative prefetch of the sequential part**

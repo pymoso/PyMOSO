@@ -371,6 +371,12 @@ still works for such a class. Carrying a class like that to a worker
 needs pickling by value (cloudpickle, as an optional extra), which is
 not implemented.
 
+*Since Phase 4:* implemented. With cloudpickle installed
+(`pip install pymoso[notebook]`) such a class is sent by value and
+`proc=N`/`simpar=N` work with it, under every start method. Without
+cloudpickle the `ValueError` above is unchanged except that it names
+the extra. docs/spark-backend.md.
+
 Verified on Linux under `fork`, `forkserver` and `spawn`. macOS and
 Windows are covered by the CI matrix only.
 

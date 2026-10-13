@@ -42,7 +42,9 @@ spark = ["pymoso[notebook]", "pyspark>=3.5"]
 # Connect session as well as a classic one. The CI `extras` job
 # installs `.[test,spark,spark-test]`; it also needs a JVM.
 spark-test = ["pyspark[connect]>=3.5"]
-# Placeholder: declared so the structure exists. Empty.
+# Empty, and deliberately: numpy was measured against the framework's
+# own arithmetic and not adopted. docs/numpy-findings.md says why, and
+# names the one thing that would belong here.
 numerics = []
 
 [project.urls]

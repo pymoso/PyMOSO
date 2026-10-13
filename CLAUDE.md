@@ -213,12 +213,70 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   without new data. The overhead itself is the problem, so the
   cheaper jump (rng-interface-design.md §11 entry 14) is the
   better-motivated fix. Moderate and Heavy are unaffected.
-- **Behaviour change to record in the CHANGELOG (Phase 6), and it
-  matters for Phase 4's notebook audience:** `testsolve(proc>1)` with a
-  tester or solver class defined in a notebook cell, a REPL or inside
-  a function worked under fork and now raises `ValueError` under every
-  start method. `proc=1` still works. The remedy is a cloudpickle
-  `ClassRef`, as an optional extra; not built.
+- **Behaviour change to record in the CHANGELOG (Phase 6):**
+  `testsolve(proc>1)` (and `simpar>1`) with a class defined in a
+  notebook cell, a REPL or inside a function worked under fork, and
+  since Phase 3 raises `ValueError` under every start method.
+  **Closed for anyone with cloudpickle (Phase 4):** `pip install
+  pymoso[notebook]` and such a class is sent by value. Without it the
+  `ValueError` stands and names the extra. So the CHANGELOG entry is
+  "needs the `notebook` extra", not "no longer works".
+- **Closed (Phase 4): Spark, and notebook-defined classes.**
+  `docs/spark-backend.md` is the record and, until the Phase 6 README
+  rewrite, the only user documentation for either. What to know
+  before touching it:
+  - A *backend* (`pool.LocalBackend`) hands out the pool. The seam is
+    the pool and not `Executor`, because sample paths never went
+    through `Executor.run`. `solve`/`testsolve`/`par_diff` take
+    `backend=`.
+  - `pymoso/backends/remote.py` has no Spark in it and is tested in
+    all fifteen cells with a fresh-interpreter backend;
+    `backends/spark.py` is one method. It uses `spark.range()` and a
+    UDF **because a Spark Connect session has no `sparkContext`**
+    (verified locally). That Databricks serverless/shared clusters
+    are Connect-only is from memory, NOT checked against a runtime.
+  - `ClassRef` has three forms: by reference, source bundle, by value
+    (cloudpickle). `remote=True` sends everything outside pymoso by
+    value: "pickles in the parent" proves nothing about another
+    machine, and that -- not a shared filesystem -- was the real gap.
+    The source bundle ships text and never needed a shared
+    filesystem; an earlier brief said otherwise.
+  - **Replication-level dispatch to Spark (`solve(simpar=N,
+    backend=)`) is slower than plain `solve()` below roughly 100 ms
+    per replication and tops out near 3-5x.** 0.46x at 4 ms, 0.95x at
+    13 ms, 3.05x at 110 ms, 3.24x at 0.5 s (RPERLE, six executors,
+    one machine, single runs). Offered anyway because it is the only
+    thing that helps a single `solve()`. The backend raises
+    `SlowDispatchWarning` when dispatch costs more than the work.
+    Do not "optimize" it without re-reading `docs/simpar-ceiling.md`:
+    the ceiling is the solver's call pattern.
+  - A task checks `pymoso.__version__` against the sender's.
+  - **Not verified by anything:** executors on another host, a
+    Databricks runtime, driver and executors on different hardware
+    (variates use `math.log`; cross-architecture bit-identity is not
+    established), pyspark 3.5 (the declared floor), scale.
+- **Two corrections to recorded decisions (Phase 4),** each noted
+  where the original was written: by-value transport is a form of
+  `ClassRef`, not a `ProblemHandle` subclass (that plan predates
+  testers and solvers travelling); and cloudpickle is its own extra,
+  `notebook`, which `spark` depends on, not part of `spark` only.
+- **numpy was measured and not adopted -- a result, not a deferral.**
+  `docs/numpy-findings.md`. 78-86% of a cheap serial run on the MRG
+  family is the modular matrix jump, which numpy cannot do exactly;
+  numpy aggregation differs from `statistics` in over half of samples,
+  so it would move solution values, and is slower than a plain loop at
+  RA sample sizes; Philox already makes the jump free (1.1 µs against
+  1.6 ms). The `numerics` extra is empty on purpose. The one candidate
+  is bulk variate draws inside a user's `g()`
+  (rng-interface-design.md §11 entry 16). Do not re-propose numpy for
+  the framework's own arithmetic without data that contradicts that
+  document.
+- **Four notebook usability defects, found in Phase 4 and not fixed;
+  to be proposed separately:** unknown keywords to
+  `solve`/`testsolve` are silently accepted; a list `x0` fails with
+  `cannot use 'list' as a set element`; every extra keyword goes
+  through `float()`; and the transport refusal still ends "define it
+  in a .py file", which is wrong advice on Databricks.
 - **API removed in Phase 3, also for the CHANGELOG:**
   `chnbase.mp_worker`, `chnbase.mp_replicate`, `chnutils.par_runs`,
   `chnutils.do_work`, and `Oracle`'s `req_q`/`res_q`/`proc`
@@ -376,6 +434,18 @@ The decisions below are landed, not pending. Full reasoning in
   problems, the built-in solvers will not serve them whatever the
   executor does. That needs a solver that does not enumerate
   neighbourhoods -- new algorithmic work, not executor work.
+  **Phase 4 finding that qualifies the two paragraphs above -- reported,
+  NOT acted on, and not yet discussed:** at the default radius 1,
+  `get_nbors` returns `2*dim` points and enumerates `3**dim` to find
+  them (box, then distance filter). With a direct construction
+  substituted in a scratch script, RPERLE at budget 300 gave identical
+  results at dim 3-12, took 2.2 s instead of 56 s at dim 12, and
+  returned at dim 20 (28 s) and dim 50 (26 s). So "structural, not a
+  tuning problem" is too strong at radius 1: it is one helper's
+  implementation. Not established: solution quality in high dimension,
+  other scaling limits, radius above 1, or iteration-order sensitivity
+  of callers beyond that one comparison. `docs/spark-backend.md` has
+  the table. Whether to fix `get_nbors` is an open decision.
 
 ## Still in flight
 
@@ -390,8 +460,8 @@ The decisions below are landed, not pending. Full reasoning in
   base-stream cache that keeps `--crn` fast lives in each worker.
   `testsolve()` paths are a second job type on the same pool, not
   blocks. Goldens unchanged throughout.
-  **Not yet:** a cloudpickle `ClassRef` for notebook-defined classes,
-  and Spark.
+  **Landed (Phase 4):** a by-value `ClassRef` and a Spark backend,
+  both behind the backend seam -- see "Known open items".
 - **Batching across `hit()` calls landed (Phase 3) and is worth less
   than Phase 2 predicted.** `Oracle.hit_many` and
   `RASolver.estimate_many`, used by `upsample`, `pli` and `get_ncn`.
@@ -447,9 +517,25 @@ The decisions below are landed, not pending. Full reasoning in
   the executor work needs to be developed, not just eventually
   validated. This choice has already caught one bug that was invisible
   on 3.10.
-- CI runs 3.10-3.14. Note: CI had never actually executed until
+- CI runs 3.10-3.14 on three operating systems, plus `clean-clone`
+  and (Phase 4) `extras` on Linux at 3.10 and 3.14. Note: CI had never actually executed until
   recently — every "all green" before that was a local run. Don't
   assume a green history means a verified one.
+- `.venv-extras` — CPython 3.14, editable install of
+  `.[test,spark,spark-test]`, with a JRE unpacked at
+  `.venv-extras/jre` (there is no system Java on this machine).
+  Excluded via `.git/info/exclude` like the other two. Run it as
+  `JAVA_HOME=$PWD/.venv-extras/jre
+  PYMOSO_REQUIRE_EXTRAS=cloudpickle,pyspark,grpc
+  .venv-extras/bin/python -m pytest tests/`. The other two venvs must
+  stay extras-free: they are the local stand-in for "works with
+  nothing optional installed".
+- The optional-dependency boundary is enforced, not intended:
+  `tests/test_dependency_boundary.py` (static and run-time) plus the
+  CI `extras` job, in which a test that would skip for a missing
+  extra or JVM fails instead (`tests/_extras.py`,
+  `PYMOSO_REQUIRE_EXTRAS`). A new lazy import of a third-party module
+  in the core has to be added to that test's allowlist by hand.
 - Use `uv`, never plain pip. Never install into system Python.
 
 ## Working agreement

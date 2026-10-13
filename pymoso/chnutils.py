@@ -1035,6 +1035,16 @@ def get_nbors(x, r=1):
     set of tuple of int
         The neighborhood of 'x'
 
+    Notes
+    -----
+    The cost is `(2*floor(r) + 1) ** len(x)` whatever is returned: the
+    whole box around 'x' is generated and then filtered by distance.
+    At `r=1` that is `3**dim` points examined to return `2*dim`. This
+    is what keeps the built-in RA solvers to roughly nine dimensions,
+    and no executor or backend changes it -- it runs in the solver.
+    docs/spark-backend.md, "The dimension limit a cluster does not
+    move", has the measurements.
+
     Examples
     --------
     >>> sorted(get_nbors((0,), 1))

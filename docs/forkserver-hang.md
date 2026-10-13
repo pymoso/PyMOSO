@@ -208,6 +208,43 @@ treats both as implementations of the same seam -- a problem handle
 that a worker loads -- and `cloudpickle` stays an optional dependency
 of whichever backend wants it (docs/rng-interface-design.md, §11).
 
+**Correction (Phase 4 of the 2.0.0 work).** Three statements in this
+section, and one in the brief that Phase 4 started from, turned out
+wrong when the remote case was actually built and measured. They are
+left in place above; this is what replaced them. Details and
+measurements: docs/spark-backend.md.
+
+1. *"No shared filesystem access to `probarg`'s original path" is not
+   a problem the source bundle has.* The section above lists "a file
+   path (if shared storage can be assumed)" among the options, and
+   Phase 4's brief stated that Phase 3's transport "assumes a shared
+   filesystem for source-bundle handles". It does not. The bundle
+   that was built reads the user's files in the parent and ships
+   their **text**; the worker never opens a path. Checked directly: a
+   handle was built, its directory deleted, and the handle loaded in
+   a fresh process started in another directory, where it simulated
+   correctly. A source bundle crosses to another machine as it is.
+2. *The real gap was somewhere else: a class sent by reference that
+   only the parent can import.* `build_transport_descriptor` returned
+   a class unchanged whenever `pickle.dumps(cls)` succeeded in the
+   parent. On one machine that is a fair test. For a worker on
+   another machine it proves nothing, and a class from a module on
+   the driver's path failed on a Spark executor with
+   `ModuleNotFoundError` -- the same failure this document opened
+   with, by a route the forkserver fix did not touch. For a remote
+   backend only pymoso's own classes now go by reference; everything
+   else goes by value.
+3. *By-value transport is a form of `ClassRef`, not "a problem handle
+   that a worker loads".* The paragraph above was written when a
+   problem was the only thing that travelled. Since Phase 3 a tester
+   and a solver travel too, as `ClassRef`s. A by-value problem handle
+   would have left a notebook's tester and solver unable to travel.
+4. *cloudpickle is not "an optional dependency of whichever backend
+   wants it".* It has its own extra, `notebook`, because it serves a
+   case with no backend in it: `simpar=2` or `proc=2` from a laptop
+   notebook, on the ordinary worker pool. The `spark` extra depends
+   on `notebook`.
+
 ## Fourth multiprocessing lifecycle finding
 
 In order found on this project:
@@ -269,3 +306,6 @@ computation all run on it. Against the four findings:
 
 Not done: a by-value (cloudpickle) transport for classes with no
 source file. Those are refused with a clear error rather than hanging.
+
+(Done in Phase 4: `pip install pymoso[notebook]`. Without cloudpickle
+they are still refused, and the error names the extra.)
