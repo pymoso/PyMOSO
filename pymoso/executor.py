@@ -381,10 +381,9 @@ def build_transport_descriptor(cls, remote=False):
             return descriptor
         raise ValueError(
             f"{cls.__name__} has no locatable source file, so it cannot be "
-            "sent to a worker process. This happens for a class "
-            "defined interactively (a REPL or notebook), not loaded from a "
-            ".py file. " + _NOTEBOOK_EXTRA + " Or define it in a .py file, "
-            "or run without --simpar/--proc (or with them set to 1)."
+            "sent to a worker process as it is. This is the case for a "
+            "class defined interactively, in a notebook cell or a REPL. "
+            + _NOTEBOOK_EXTRA + " " + _OTHER_WAYS
         ) from e
     try:
         pickle.dumps(cls)
@@ -395,18 +394,25 @@ def build_transport_descriptor(cls, remote=False):
         raise ValueError(
             f"{cls.__name__} cannot be sent to a worker process: a worker "
             "finds a class again by its module and name, and this one "
-            f"cannot be found that way ({e}). This happens for a class "
+            f"cannot be found that way ({e}). This is the case for a class "
             "defined inside a function, or in a module that was loaded "
-            "without being made importable. " + _NOTEBOOK_EXTRA + " Or "
-            "define it at the top level of a .py file, or run without "
-            "--simpar/--proc (or with them set to 1)."
+            "without being made importable. " + _NOTEBOOK_EXTRA + " "
+            + _OTHER_WAYS
         ) from e
     return cls
 
 
+# The remedy that works wherever the class was defined comes first.
+# "Define it in a .py file" used to be the advice, and it is the wrong
+# advice in a notebook -- most of all a hosted one.
 _NOTEBOOK_EXTRA = (
-    "Installing cloudpickle (`pip install pymoso[notebook]`) lets such a "
-    "class be sent by value."
+    "Install cloudpickle and it is sent by value: `pip install "
+    "pymoso[notebook]`, or `%pip install pymoso[notebook]` in a notebook."
+)
+_OTHER_WAYS = (
+    "Outside a notebook, defining it at the top level of a .py file "
+    "works too. Or run with simpar and proc left at 1, which needs no "
+    "worker process."
 )
 
 

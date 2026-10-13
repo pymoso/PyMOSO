@@ -155,3 +155,43 @@ def test_a_parameter_that_is_not_a_number_is_refused_by_name(value):
         with pytest.raises(TypeError, match="betaeps") as refused:
             call()
         assert "number" in str(refused.value)
+
+
+# ---------------------------------------------------------------------------
+# What to do about a class that cannot be sent to a worker
+# ---------------------------------------------------------------------------
+
+def _refusal(cls, monkeypatch):
+    import sys
+    from pymoso.executor import ClassRef
+    monkeypatch.setitem(sys.modules, 'cloudpickle', None)       # as where the `notebook` extra is not installed
+    with pytest.raises(ValueError) as refused:
+        ClassRef(cls)
+    return str(refused.value)
+
+
+def test_the_advice_for_a_class_with_no_source_leads_with_the_notebook_extra(monkeypatch):
+    """The remedy used to end "define it in a .py file", which is the
+    wrong advice where the class was defined in a notebook -- most of
+    all on a hosted one, where there is no obvious file to put it in.
+    The extra comes first; the file is the alternative outside a
+    notebook."""
+    namespace = {'__name__': 'a_module_that_is_not_in_sys_modules'}
+    exec("from pymoso.chnbase import Oracle\nclass Interactive(Oracle):\n    pass\n", namespace)
+    message = _refusal(namespace['Interactive'], monkeypatch)
+    assert "no locatable source" in message
+    assert message.index("pymoso[notebook]") < message.index(".py file")
+    assert "Outside a notebook" in message
+    assert "Define it in a .py file and try again" not in message
+
+
+def test_the_advice_for_a_class_defined_inside_a_function_does_too(monkeypatch):
+    def make():
+        class Local(ProbTPA):
+            pass
+        return Local
+
+    message = _refusal(make(), monkeypatch)
+    assert "cannot be sent to a worker process" in message
+    assert message.index("pymoso[notebook]") < message.index(".py file")
+    assert "Outside a notebook" in message
