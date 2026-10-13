@@ -120,3 +120,38 @@ def test_x0_is_not_checked_when_starting_points_are_drawn():
     and a CLI user has to pass something."""
     res, _ = testsolve(TPATester, RPERLE, (0,), budget=100, seed=SEED, isp=2, ranx0=True)
     assert len(res) == 2
+
+
+# ---------------------------------------------------------------------------
+# Solver parameters that are not numbers
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("value", [2, 2.0, True])
+def test_a_numeric_parameter_reaches_the_solver_as_the_float_it_always_was(value):
+    """Every solver parameter has always been passed through float().
+    That is unchanged, so no result moves."""
+    seen = {}
+
+    class Spy(RPERLE):
+        def __init__(self, orc, **kwargs):
+            seen.update(kwargs)
+            super().__init__(orc, **kwargs)
+
+    solve(ProbTPA, Spy, (30, 30), budget=60, seed=SEED, mconst=value)
+    assert seen["mconst"] == float(value) and type(seen["mconst"]) is float
+    seen.clear()
+    testsolve(TPATester, Spy, (30, 30), budget=60, seed=SEED, isp=1, mconst=value)
+    assert seen["mconst"] == float(value) and type(seen["mconst"]) is float
+
+
+@pytest.mark.parametrize("value", ["x", "2", None, [2], (1, 2)])
+def test_a_parameter_that_is_not_a_number_is_refused_by_name(value):
+    """It used to be `could not convert string to float: 'x'`, with no
+    word of which keyword -- or, for the string "2", to work."""
+    for call in (
+        lambda: solve(ProbTPA, RPERLE, (30, 30), budget=60, seed=SEED, betaeps=value),
+        lambda: testsolve(TPATester, RPERLE, (30, 30), budget=60, seed=SEED, isp=2, betaeps=value),
+    ):
+        with pytest.raises(TypeError, match="betaeps") as refused:
+            call()
+        assert "number" in str(refused.value)

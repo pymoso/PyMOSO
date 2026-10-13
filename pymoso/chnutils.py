@@ -125,6 +125,42 @@ def starting_point(x0, dim):
     return point
 
 
+def solver_params(kwargs):
+    """
+    The keyword arguments solve() and testsolve() did not take for
+    themselves, as the solver's parameters: `(name, float)` pairs.
+
+    Every parameter has always been passed through `float()`, and
+    still is, so a number reaches a solver exactly as it did. What
+    changed is what happens to something that is not a number: it is
+    refused here, by name. It used to fail as `could not convert
+    string to float: 'x'`, with no word of which keyword -- or, for a
+    string such as "2", to be converted without comment.
+
+    Parameters
+    ----------
+    kwargs : dict
+
+    Returns
+    -------
+    list of (str, float)
+
+    Raises
+    ------
+    TypeError
+        A value is not a real number.
+    """
+    params = []
+    for name, value in kwargs.items():
+        if not isinstance(value, numbers.Real):
+            raise TypeError(
+                'solver parameter {0}={1!r} is not a number. Solver parameters '
+                'are numbers; each is passed to the solver as a float.'.format(name, value)
+            )
+        params.append((name, float(value)))
+    return params
+
+
 def solve(problem, solver, x0, **kwargs):
     """
     Uses a specified MOSO algorithm to solve a MOSO problem.
@@ -165,10 +201,7 @@ def solve(problem, solver, x0, **kwargs):
             'is slower than running them here unless one replication costs '
             'roughly 100 ms or more (docs/spark-backend.md).'.format(simpar)
         )
-    paramtups = []
-    for i, p in enumerate(kwargs):
-        ptup = (p, float(kwargs[p]))
-        paramtups.append(ptup)
+    paramtups = solver_params(kwargs)
     ## generate all prn streams
     orcstream, solvstream = get_solv_prnstreams(seed, backend)
     orc = problem(orcstream)
@@ -228,10 +261,7 @@ def testsolve(tester, solver, x0, **kwargs):
             'runs every sample path as a task of its own and decides for '
             'itself how many run at once. Leave proc out.'.format(proc)
         )
-    paramtups = []
-    for i, p in enumerate(kwargs):
-        ptup = (p, float(kwargs[p]))
-        paramtups.append(ptup)
+    paramtups = solver_params(kwargs)
     x0stream, orc_root = _testsolve_roots(isp, seed, backend)
     currtest = tester()
     if not ranx0:
