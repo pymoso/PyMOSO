@@ -3523,8 +3523,7 @@ exactly as `docs/end-seed-scope.md` says.
       from one machine. Measured since on three Databricks clusters:
       0.4-1.0x at 20-28 ms, 1.7-2.9x at 83-112 ms, 4-6x at 1.5-1.7 s;
       `docs/spark-backend.md`, "On a real cluster".) Offered because
-      it is the only thing that helps a single `solve()`; the
-      backend warns when it is losing.
+      it is the only thing that helps a single `solve()`.
     - *numpy: measured and not adopted* (`docs/numpy-findings.md`;
       entry 16 is the one candidate).
 

@@ -252,9 +252,17 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
     not "optimize" it without re-reading `docs/simpar-ceiling.md`:
     the ceiling is the solver's call pattern, and the cluster runs at
     `simpar=6` sat just under their computed bounds.
-  - `SlowDispatchWarning` compares task work time with wall time. It
-    under-reports when many tasks slow each other down (it stayed
-    silent on a run that was 0.98x). Known, not fixed.
+  - **A backend does not judge whether dispatching was worth it, by
+    decision.** A run-time warning for losing dispatch existed in the
+    Phase 4 commits and was removed before release: it measured task
+    work over wall time (the flaw behind the bogus 9.55x), stayed
+    silent on the one cluster run it existed to catch, and second-
+    guessed the user's compute decisions unasked. Do not re-add it or
+    anything that runs work the user did not ask for in order to
+    advise them. For the CHANGELOG (Phase 6): it never shipped, so
+    its removal is not a user-facing change, but the Phase 4 commit
+    messages mention it. A user-called measurement is the intended
+    replacement (proposed, not built).
   - A task checks `pymoso.__version__` against the sender's;
     confirmed raising on a real cluster.
   - **Multi-host bit-identity is ESTABLISHED, within x86-64 and

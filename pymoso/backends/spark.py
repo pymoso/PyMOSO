@@ -35,9 +35,8 @@ The ceiling is the solver's, not Spark's: an RA solver asks for a
 handful of replications at a time and waits for the answer
 (docs/simpar-ceiling.md). `simpar` above about 6 gained nothing
 until a replication cost over a second. For a cheap simulation use
-`simpar=N` without a backend, or nothing. A `SlowDispatchWarning` is
-raised during the run if dispatch is costing more than the work it
-carries; it can miss the case where many tasks slow each other down.
+`simpar=N` without a backend, or nothing. Nothing in pymoso will tell
+you during a run that dispatch is losing: time a short run both ways.
 docs/spark-backend.md has the measurements and the design.
 
 What the cluster needs: the same version of pymoso on the executors

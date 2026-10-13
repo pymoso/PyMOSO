@@ -92,12 +92,12 @@ batched bounds in `docs/simpar-ceiling.md` are 5.5x to 11.5x, and
 35-46% of an RA run's replications are requested one point at a time
 by necessity. Two hundred cores buy at most that.
 
-Three things say this to a user who did not read this page: the
-`pymoso.backends.spark` module docstring; the error `solve()` raises
-for a remote backend without a `simpar`; and `SlowDispatchWarning`,
-raised once during a run when the backend's dispatch time exceeds the
-time its tasks spent working — that is, when the same work run in
-place would have finished sooner.
+Two things say this to a user who did not read this page: the
+`pymoso.backends.spark` module docstring, and the error `solve()`
+raises for a remote backend without a `simpar`. Nothing says it
+during a run. Whether a cluster pays for a particular simulation is
+for the user to measure, on purpose: time a short run with and
+without `backend=`.
 
 For sample paths none of this applies. Twelve paths, RSPLINE:
 
@@ -328,11 +328,12 @@ under some load, and in run 3 under a changing number of workers
 (its 500,000 tier cost 548 ms against 390 ms on the same CPU model in
 run 2).
 
-The same weakness is in `SlowDispatchWarning`, which compares the
-same two quantities: it fired on the cheap tier in five of six runs
-and stayed silent in run 2 at `simpar=32`, where the printed `x` was
-1.49 and the run was no faster than plain `solve()` (0.98x). The
-warning can under-report when tasks crowd each other. Not fixed.
+(The `warn` column of the `R` lines records a run-time warning the
+backend had when these runs were made. It compared the same two
+quantities as `x`, shared its flaw -- it stayed silent in run 2 at
+`simpar=32`, a run that was no faster than plain `solve()` -- and has
+been removed. The column is kept because the blocks are reproduced
+as they were typed.)
 
 ### Still untested
 

@@ -107,7 +107,3 @@ def test_a_version_mismatch_is_raised_by_name(report):
     name, message, _ = report["version_mismatch"]
     assert name == "VersionMismatch" and "0.0.0-not-this-one" in message
 
-
-def test_cheap_replications_on_spark_warn(report):
-    assert report["cheap_replications_warned"] == ["SlowDispatchWarning"]
-    assert report["cheap_replications_jobs"] >= 20

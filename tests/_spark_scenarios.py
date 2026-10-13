@@ -22,13 +22,11 @@ import os
 import pathlib
 import sys
 import tempfile
-import warnings
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import _by_value_classes as mine
 import pymoso
-from pymoso.backends import remote
 from pymoso.backends.spark import SparkBackend
 from pymoso.chnbase import Oracle
 from pymoso.chnutils import par_diff, solve, testsolve
@@ -157,59 +155,50 @@ def main(mode):
                 return solve(problem, solver, x0, **kwargs)
             return make(backend()) == make(None)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', remote.SlowDispatchWarning)
-            out['paths_builtin'] = paths(TPATester, RPERLE, (40, 40))
-            out['paths_main'] = paths(MainTester, MainSolver, (20, 20))
-            out['paths_driver_only_module'] = paths(mine.DriverOnlyTester, mine.DriverOnlySolver, (20, 20))
-            out['replications_builtin'] = replications(ProbTPA, RPERLE, (40, 40))
-            out['replications_builtin_crn'] = replications(ProbTPA, RPERLE, (40, 40), crn=True)
-            out['replications_main'] = replications(MainProblem, MainSolver, (20, 20))
-            out['replications_driver_only_module'] = replications(mine.DriverOnlyProblem, RPERLE, (20, 20))
+        out['paths_builtin'] = paths(TPATester, RPERLE, (40, 40))
+        out['paths_main'] = paths(MainTester, MainSolver, (20, 20))
+        out['paths_driver_only_module'] = paths(mine.DriverOnlyTester, mine.DriverOnlySolver, (20, 20))
+        out['replications_builtin'] = replications(ProbTPA, RPERLE, (40, 40))
+        out['replications_builtin_crn'] = replications(ProbTPA, RPERLE, (40, 40), crn=True)
+        out['replications_main'] = replications(MainProblem, MainSolver, (20, 20))
+        out['replications_driver_only_module'] = replications(mine.DriverOnlyProblem, RPERLE, (20, 20))
 
-            with tempfile.TemporaryDirectory() as directory:
-                with open(os.path.join(directory, 'userproblem.py'), 'w') as f:
-                    f.write(USER_PROBLEM)
-                with open(os.path.join(directory, 'helper.py'), 'w') as f:
-                    f.write('def penalty(x):\n    return (x[0] - 10) ** 2 + (x[1] - 10) ** 2\n')
-                user = load_user_module('pymoso.problems.userproblem', os.path.join(directory, 'userproblem.py'))
-                out['paths_user_files'] = paths(user.UserTester, RPERLE, (20, 20))
-                out['replications_user_files'] = replications(user.UserProblem, RPERLE, (20, 20))
+        with tempfile.TemporaryDirectory() as directory:
+            with open(os.path.join(directory, 'userproblem.py'), 'w') as f:
+                f.write(USER_PROBLEM)
+            with open(os.path.join(directory, 'helper.py'), 'w') as f:
+                f.write('def penalty(x):\n    return (x[0] - 10) ** 2 + (x[1] - 10) ** 2\n')
+            user = load_user_module('pymoso.problems.userproblem', os.path.join(directory, 'userproblem.py'))
+            out['paths_user_files'] = paths(user.UserTester, RPERLE, (20, 20))
+            out['replications_user_files'] = replications(user.UserProblem, RPERLE, (20, 20))
 
-            res, _ = testsolve(MainTester, MainSolver, (20, 20), budget=300, seed=SEED, isp=3)
-            out['metrics'] = par_diff(res, MainTester(), 1, backend=backend()) == par_diff(res, MainTester(), 1)
+        res, _ = testsolve(MainTester, MainSolver, (20, 20), budget=300, seed=SEED, isp=3)
+        out['metrics'] = par_diff(res, MainTester(), 1, backend=backend()) == par_diff(res, MainTester(), 1)
 
-            def failure(run):
-                try:
-                    run()
-                except Exception as e:
-                    chain, link = [], e
-                    while link is not None:
-                        chain.append(type(link).__name__)
-                        link = link.__cause__ or link.__context__
-                    return [type(e).__name__, str(e), chain]
-                return None
-
-            out['raising_serial'] = failure(lambda: solve(RaisingProblem, RPERLE, (20, 20), budget=100, seed=SEED))
-            out['raising_spark'] = failure(
-                lambda: solve(RaisingProblem, RPERLE, (20, 20), budget=100, seed=SEED, simpar=2, backend=backend()))
-
-            stale = backend()
-            sent = pymoso.backends.spark.__version__
-            pymoso.backends.spark.__version__ = '0.0.0-not-this-one'
+        def failure(run):
             try:
-                out['version_mismatch'] = failure(
-                    lambda: testsolve(TPATester, RPERLE, (40, 40), budget=100, seed=SEED, isp=2, backend=stale))
-            finally:
-                pymoso.backends.spark.__version__ = sent
+                run()
+            except Exception as e:
+                chain, link = [], e
+                while link is not None:
+                    chain.append(type(link).__name__)
+                    link = link.__cause__ or link.__context__
+                return [type(e).__name__, str(e), chain]
+            return None
 
-        chatty = backend()
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter('always')
-            solve(ProbTPA, RPERLE, (40, 40), budget=150, seed=SEED, simpar=3, backend=chatty)
-        out['cheap_replications_warned'] = [w.category.__name__ for w in caught if issubclass(w.category, remote.SlowDispatchWarning)]
-        out['cheap_replications_jobs'] = chatty.jobs
-        out['cheap_replications_ms_per_job'] = round(chatty.dispatch_seconds / chatty.jobs * 1e3, 1)
+        out['raising_serial'] = failure(lambda: solve(RaisingProblem, RPERLE, (20, 20), budget=100, seed=SEED))
+        out['raising_spark'] = failure(
+            lambda: solve(RaisingProblem, RPERLE, (20, 20), budget=100, seed=SEED, simpar=2, backend=backend()))
+
+        stale = backend()
+        sent = pymoso.backends.spark.__version__
+        pymoso.backends.spark.__version__ = '0.0.0-not-this-one'
+        try:
+            out['version_mismatch'] = failure(
+                lambda: testsolve(TPATester, RPERLE, (40, 40), budget=100, seed=SEED, isp=2, backend=stale))
+        finally:
+            pymoso.backends.spark.__version__ = sent
+
     finally:
         spark.stop()
     print('PYMOSO-SPARK-SCENARIOS ' + json.dumps(out))

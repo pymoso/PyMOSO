@@ -28,7 +28,7 @@ import pytest
 import _remote_tasks
 from _extras import need
 import pymoso
-from pymoso.backends.remote import RemoteBackend, SlowDispatchWarning, VersionMismatch
+from pymoso.backends.remote import RemoteBackend, VersionMismatch
 from pymoso.chnutils import par_diff, solve, testsolve
 from pymoso.commands.basecomm import load_user_module
 from pymoso.pool import RemoteTraceback, WorkerError
@@ -36,12 +36,7 @@ from pymoso.problems.probtpa import ProbTPA
 from pymoso.solvers.rperle import RPERLE
 from pymoso.testers.tpatester import TPATester
 
-pytestmark = [
-    pytest.mark.timeout(180),
-    # Every workload here is far too cheap to be worth dispatching, and
-    # the backend says so. The tests of that warning ask for it.
-    pytest.mark.filterwarnings("ignore::pymoso.backends.remote.SlowDispatchWarning"),
-]
+pytestmark = pytest.mark.timeout(180)
 
 SUBPROCESS_TIMEOUT = 120
 SEED = (12345,) * 6
@@ -80,8 +75,10 @@ class FreshInterpreterBackend(RemoteBackend):
         self.cwd = cwd
         self.path = path
         self.version = version
+        self.jobs = 0                                       # dispatches made
 
     def dispatch(self, init_payload, payloads):
+        self.jobs += 1
         script = WORKER.format(path="sys.path.insert(0, {0!r})".format(self.path) if self.path else "")
         order = list(reversed(range(len(payloads))))
         result = subprocess.run(
@@ -299,40 +296,20 @@ def test_a_pool_must_be_open_and_only_once(elsewhere):
     pool.close()
 
 
-# ---------------------------------------------------------------------------
-# Saying so when dispatch is losing time
-# ---------------------------------------------------------------------------
-
-def test_a_backend_warns_once_when_dispatch_costs_more_than_the_work():
-    backend = RemoteBackend()
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        for _ in range(RemoteBackend.WARN_AFTER - 1):
-            backend.account(0.080, 0.020)
-        assert caught == []                                 # too early to judge
-        backend.account(0.080, 0.020)
-        backend.account(0.080, 0.020)
-    assert [w.category for w in caught] == [SlowDispatchWarning]
-    message = str(caught[0].message)
-    assert "100 ms" in message and "docs/spark-backend.md" in message
-    assert backend.jobs == RemoteBackend.WARN_AFTER + 1
-
-
-def test_a_backend_that_pays_does_not_warn():
-    backend = RemoteBackend()
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        for _ in range(3 * RemoteBackend.WARN_AFTER):
-            backend.account(0.25, 1.2)                      # six tasks of 200 ms, done in 250 ms
-    assert caught == []
-
-
-def test_cheap_replications_on_a_remote_backend_warn(elsewhere):
-    """End to end: ProbTPA costs microseconds a replication, and a
-    fresh interpreter per dispatch costs tens of milliseconds."""
+def test_a_backend_passes_no_judgement_on_what_it_dispatches(elsewhere):
+    """Cheap replications on a remote backend are slower than no
+    backend. Nothing warns about it and nothing keeps score: a
+    run-time warning once did, measured the wrong thing, and was
+    removed (docs/spark-backend.md). Whether dispatch pays is the
+    user's question to ask."""
+    import pymoso.backends.remote as remote
+    assert not hasattr(remote, "SlowDispatchWarning")
     backend = FreshInterpreterBackend(elsewhere)
-    with pytest.warns(SlowDispatchWarning, match="Running without backend= would be faster"):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         solve(ProbTPA, RPERLE, (40, 40), budget=150, seed=SEED, simpar=3, backend=backend)
+    assert backend.jobs >= 20
+    assert not any(hasattr(backend, name) for name in ("account", "dispatch_seconds", "work_seconds"))
 
 
 # ---------------------------------------------------------------------------

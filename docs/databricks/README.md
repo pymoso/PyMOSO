@@ -34,7 +34,13 @@ numbers must not be quoted.
 4. **Treat the embedded Python-version split as provisional.** If
    KNOWN_ISSUES.md issue 17 is fixed, the `core` value stops
    depending on the Python version and `core_expected()` should go.
-5. **It has only ever met classic sessions on x86-64.** Serverless,
+5. **Port it to the current backend.** The notebook imports a
+   run-time warning and reads timing counters from the backend
+   (`dispatch_seconds`, `work_seconds`, `jobs`) that pymoso no longer
+   has: both were removed after these runs. Its identity and timing
+   parts fail against a current pymoso until they time things
+   themselves.
+6. **It has only ever met classic sessions on x86-64.** Serverless,
    Spark Connect on Databricks, non-x86 executors and a cluster of
    fixed size are the things it was built to measure and did not get
    the chance to.

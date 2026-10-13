@@ -30,8 +30,6 @@ guarantee from its cluster.
 """
 import hashlib
 import pickle
-import time
-import warnings
 from collections import OrderedDict
 
 from .. import __version__
@@ -40,11 +38,6 @@ from ..pool import _describe, _rebuild
 
 class VersionMismatch(RuntimeError):
     """The pymoso that ran a task is not the pymoso that sent it."""
-
-
-class SlowDispatchWarning(RuntimeWarning):
-    """Dispatching to this backend is costing more time than the work
-    it carries."""
 
 
 # Worker-side: the state each initializer produced in this process,
@@ -71,12 +64,9 @@ def run_task(init_payload, task_payload, version):
     Returns
     -------
     bytes
-        Pickle of `('ok', result, seconds)` or
-        `('error', description, seconds)`, where `description` is what
-        `pool._rebuild` takes and `seconds` is how long this call
-        took here.
+        Pickle of `('ok', result)` or `('error', description)`, where
+        `description` is what `pool._rebuild` takes.
     """
-    started = time.perf_counter()
     try:
         if version != __version__:
             raise VersionMismatch(
@@ -100,10 +90,10 @@ def run_task(init_payload, task_payload, version):
     except Exception as e:
         message = ('error', _describe(e))
     try:
-        return pickle.dumps(message + (time.perf_counter() - started,))
+        return pickle.dumps(message)
     except Exception as e:
         # The result itself would not pickle.
-        return pickle.dumps(('error', _describe(e), time.perf_counter() - started))
+        return pickle.dumps(('error', _describe(e)))
 
 
 class RemotePool:
@@ -135,19 +125,15 @@ class RemotePool:
         payloads = [pickle.dumps(task) for task in tasks]
         if not payloads:
             return []
-        started = time.perf_counter()
         answers = self._backend.dispatch(self._init_payload, payloads)
-        elapsed = time.perf_counter() - started
-        results, worked = [], 0.0
+        results = []
         failure = None
         for answer in answers:
-            kind, value, seconds = pickle.loads(answer)
-            worked += seconds
+            kind, value = pickle.loads(answer)
             if kind == 'ok':
                 results.append(value)
             elif failure is None:
                 failure = _rebuild(value)
-        self._backend.account(elapsed, worked)
         if failure is not None:
             raise failure
         return results
@@ -176,25 +162,12 @@ class RemoteBackend:
     remote : bool
         True: classes from outside pymoso are sent by value
         (`executor.ClassRef`).
-    jobs : int
-        How many times `dispatch` has been called.
-    dispatch_seconds : float
-        Wall time spent in those calls, as seen from here.
-    work_seconds : float
-        Time the tasks themselves took, summed over tasks, as measured
-        where they ran.
+
+    A backend does not time what it dispatches or pass judgement on
+    whether dispatching was worth it. Whether a cluster pays for a
+    given simulation is the user's question to ask, deliberately.
     """
     remote = True
-
-    # Dispatches to look at before judging whether dispatch pays. One
-    # call says little: the first also pays for starting the workers.
-    WARN_AFTER = 20
-
-    def __init__(self):
-        self.jobs = 0
-        self.dispatch_seconds = 0.0
-        self.work_seconds = 0.0
-        self._warned = False
 
     def pool(self, workers, initializer=None, initargs=()):
         """`workers` is not used: the cluster decides how many tasks
@@ -217,36 +190,3 @@ class RemoteBackend:
             What each call returned, in the order of `payloads`.
         """
         raise NotImplementedError
-
-    def account(self, dispatch_seconds, work_seconds):
-        """
-        Record one dispatch, and say so -- once -- if dispatching is
-        losing time.
-
-        The tasks of a dispatch run concurrently, so a dispatch that
-        pays takes less wall time here than its tasks took in total.
-        When the wall time is *more* than that total, the same work
-        run in this process, one task after another, would have
-        finished sooner. That is the usual outcome of sending cheap
-        replications to a cluster (docs/spark-backend.md), and nothing
-        else would tell the user.
-        """
-        self.jobs += 1
-        self.dispatch_seconds += dispatch_seconds
-        self.work_seconds += work_seconds
-        if self._warned or self.jobs < self.WARN_AFTER or self.dispatch_seconds <= self.work_seconds:
-            return
-        self._warned = True
-        warnings.warn(
-            'this backend is slower than no backend at all for this run so far: '
-            '{0} dispatches took {1:.1f} s here to do {2:.1f} s of work ({3:.0f} ms '
-            'of overhead per dispatch against {4:.0f} ms of work). Running without '
-            'backend= would be faster. Sending replications to a cluster pays only '
-            'when one replication costs roughly 100 ms or more, and then by a few '
-            'times at most; see docs/spark-backend.md.'.format(
-                self.jobs, self.dispatch_seconds, self.work_seconds,
-                (self.dispatch_seconds - self.work_seconds) / self.jobs * 1e3,
-                self.work_seconds / self.jobs * 1e3,
-            ),
-            SlowDispatchWarning, stacklevel=2,
-        )
