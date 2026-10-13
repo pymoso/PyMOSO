@@ -23,3 +23,20 @@ class DrawsNine(_OneObjective):
         for _ in range(9):
             rng.random()
         return True, (0.0,)
+
+
+class SometimesInfeasible(Oracle):
+    """Two dimensions; a replication is infeasible when its first draw
+    is below 0.35, so whether a point is feasible differs from one
+    block of replications to the next."""
+
+    def __init__(self, rng):
+        self.num_obj = 2
+        self.dim = 2
+        super().__init__(rng)
+
+    def g(self, x, rng):
+        u = rng.random()
+        if u < 0.35:
+            return False, (None, None)
+        return True, (x[0] + u, x[1] - u)

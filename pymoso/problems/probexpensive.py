@@ -36,6 +36,11 @@ reference, rather than passed at construction time:
   something a freshly started worker cannot reconstruct. Fixing the
   cost in a concrete, statically-defined subclass avoids that
   regardless of start method.
+
+ProbExpensiveBi and its tiers, at the end of this module, are the same
+idea in two dimensions with two objectives (ProbTPA's distribution).
+They exist because the one-dimensional problem above cannot show
+cross-point batching at all -- see ProbExpensiveBi's docstring.
 """
 from hashlib import sha256
 
@@ -161,3 +166,90 @@ class ProbExpensiveHeavy(ProbExpensive):
     """
     burn_units = 60_000
 
+
+class ProbExpensiveBi(Oracle):
+    """
+    An Oracle simulating the same problem as ProbTPA -- two dimensions,
+    two objectives -- plus the same tunable CPU burn per replication as
+    ProbExpensive.
+
+    Why a second expensive problem. Under --simpar, replications from
+    different points can run together only where a solver estimates
+    several points before it looks at any result
+    (RASolver.estimate_many). On a one-dimensional problem that never
+    happens: R-SPLINE's simplex has two vertices and one is always
+    already estimated, and its neighbourhood search stops at the first
+    improvement. So ProbExpensive's benchmarks cannot observe batching
+    whatever it does (docs/simpar-ceiling.md). This problem, solved
+    with a bi-objective solver, can.
+
+    Not registered in pymoso.problems: it is a benchmark and test
+    fixture, and `pymoso listitems` does not list it.
+
+    Attributes
+    ----------
+    num_obj : int, 2
+    dim : int, 2
+    burn_units : int, class attribute, default 0
+
+    Parameters
+    ----------
+    rng : prng.MRG32k3a object
+
+    See also
+    --------
+    problems.probtpa.ProbTPA
+    """
+    burn_units = 0
+
+    def __init__(self, rng):
+        self.num_obj = 2
+        self.dim = 2
+        super().__init__(rng)
+
+    def g(self, x, rng):
+        """
+        Simulates one replication: ProbTPA.g, after the burn.
+
+        Parameters
+        ----------
+        x : tuple of int
+        rng : prng.MRG32k3a object
+
+        Returns
+        -------
+        isfeas : bool
+        tuple of float
+            simulated objective values
+        """
+        xr = range(0, 51)
+        isfeas = True
+        for xi in x:
+            if not xi in xr:
+                isfeas = False
+        obj1 = None
+        obj2 = None
+        if isfeas:
+            _burn(self.burn_units)
+            z1 = rng.normalvariate(0, 1)
+            z2 = rng.normalvariate(0, 1)
+            z3 = rng.normalvariate(0, 1)
+            xi = [z1**2, z2**2, z3**2]
+            obj1 = (x[0]/10.0 - 2.0*xi[0])**2 + (x[1]/10.0 - xi[1])**2
+            obj2 = (x[0]**2)/100.0 + (x[1]/10.0 - 2.0*xi[2])**2
+        return isfeas, (obj1, obj2)
+
+
+class ProbExpensiveBiLight(ProbExpensiveBi):
+    """ProbExpensiveBi at ProbExpensiveLight's cost: burn_units=2,000."""
+    burn_units = 2_000
+
+
+class ProbExpensiveBiModerate(ProbExpensiveBi):
+    """ProbExpensiveBi at ProbExpensiveModerate's cost: burn_units=20,000."""
+    burn_units = 20_000
+
+
+class ProbExpensiveBiHeavy(ProbExpensiveBi):
+    """ProbExpensiveBi at ProbExpensiveHeavy's cost: burn_units=60,000."""
+    burn_units = 60_000

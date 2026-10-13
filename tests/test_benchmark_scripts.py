@@ -43,10 +43,14 @@ def test_bench_hit_cost_runs(capsys):
 
 def test_bench_simpar_ceiling_runs(capsys):
     bench = _load("bench_simpar_ceiling")
-    from pymoso.problems.probexpensive import ProbExpensiveLight
-    bench.main(tiers=[("Smoke", ProbExpensiveLight, 60)], workers=(2,))
+    from pymoso.problems.probexpensive import ProbExpensiveBi, ProbExpensiveLight
+    from pymoso.solvers.rperle import RPERLE
+    from pymoso.solvers.rspline import RSPLINE
+    bench.main(tiers=[("Smoke", ProbExpensiveLight, RSPLINE, (97,), 60),
+                      ("Smoke 2-D", ProbExpensiveBi, RPERLE, (30, 30), 150)], workers=(2,))
     out = capsys.readouterr().out
     assert "Smoke" in out and "workers=2" in out and "infinite workers" in out
+    assert "upsample" in out and "cannot be batched" in out
 
 
 def test_bench_parallel_dispatch_sweeps_and_reports(tmp_path):

@@ -411,8 +411,10 @@ class RASolver(MOSOSolver):
         ghat = {}
         xbest = None
         fxbest = None
+        # The whole simplex is estimated whatever the results are.
+        estimates = self.estimate_many(simp)
         for i in range(q + 1):
-            isfeas, fx, vx = self.estimate(simp[i])
+            isfeas, fx, vx = estimates[i]
             if isfeas:
                 isfeas2, fx, vx = self.estimate(simp[i], e, kcon)
                 if isfeas2:
@@ -520,6 +522,110 @@ class RASolver(MOSOSolver):
                 stop_loop = True
         return xs, fxs, sexs, n
 
+    def _simulate(self, call, *args):
+        """
+        Call into the oracle, reporting anything its simulation raises
+        as a RuntimeError that names the problem and the likely cause.
+
+        Parameters
+        ----------
+        call : callable
+            `self.orc.hit` or `self.orc.hit_many`.
+        args
+            Its arguments.
+        """
+        try:
+            return call(*args)
+        except TypeError as e:
+            raise RuntimeError(
+                'Unable to simulate {0}. Ensure the g signature is g(self, x, rng) '
+                'and returns isfeas, (obj1, obj2, ...). Message: {1}'.format(type(self.orc).__name__, e)
+            ) from e
+        except ZeroDivisionError as e:
+            raise RuntimeError(
+                'Unable to simulate {0}. Message: {1}'.format(type(self.orc).__name__, e)
+            ) from e
+        except ValueError as e:
+            raise RuntimeError(
+                'Unable to simulate {0}. Ensure the g signature is g(self, x, rng) '
+                'and returns isfeas, (obj1, obj2, ...). Message: {1}'.format(type(self.orc).__name__, e)
+            ) from e
+        except AttributeError as e:
+            raise RuntimeError(
+                'Unable to simulate {0}. Are you missing an import? Message: {1}'.format(type(self.orc).__name__, e)
+            ) from e
+        except IndexError as e:
+            raise RuntimeError(
+                'Unable to simulate {0}. Ensure len(obj1, obj2, ..) == num_obj. Message: {1}'.format(type(self.orc).__name__, e)
+            ) from e
+        except Exception as e:
+            raise RuntimeError(
+                'Unable to simulate {0}. Message: {1}'.format(type(self.orc).__name__, e)
+            ) from e
+
+    def estimate_many(self, points):
+        """
+        The same results, and the same effect on `gbar`, `sehat` and
+        `num_calls`, as `[self.estimate(x) for x in points]` -- with
+        every point that needs simulating submitted to the oracle
+        together (`Oracle.hit_many`), so that under `--simpar` the
+        workers share all of their replications rather than one
+        point's at a time (docs/simpar-ceiling.md).
+
+        Use it wherever a set of points is estimated before any of the
+        results is looked at. It cannot help where the next point
+        depends on the last result (`ne`'s first-improvement search,
+        `spli`'s line search).
+
+        Parameters
+        ----------
+        points : iterable of tuple of int
+
+        Returns
+        -------
+        list of (isfeas, fx, vx)
+            One per point, in order, each as `estimate(x)` returns it.
+
+        Notes
+        -----
+        An infeasible point is not stored, so `estimate` simulates it
+        again each time it is asked. A point that occurs more than
+        once in `points` is therefore simulated in rounds: once with
+        everything else, then again -- only if that came back
+        infeasible -- for its next occurrence. That is exactly what
+        the one-at-a-time loop does, and it has to be reproduced:
+        each repeat draws further replications, which can change the
+        point's outcome (a problem whose feasibility is random) and
+        can move the end seed.
+        """
+        points = list(points)
+        m = self.m
+        results = [None]*len(points)
+        remaining = range(len(points))
+        while remaining:
+            batch = []
+            in_batch = set()
+            later = []
+            for i in remaining:
+                x = points[i]
+                if x in self.gbar:
+                    results[i] = (True, self.gbar[x], self.sehat[x])
+                elif x in in_batch:
+                    later.append(i)
+                else:
+                    in_batch.add(x)
+                    batch.append(i)
+            if batch:
+                outcomes = self._simulate(self.orc.hit_many, [(points[i], m) for i in batch])
+                for i, (isfeas, fx, vx) in zip(batch, outcomes):
+                    if isfeas:
+                        self.num_calls += m
+                        self.gbar[points[i]] = fx
+                        self.sehat[points[i]] = vx
+                    results[i] = (isfeas, fx, vx)
+            remaining = later
+        return results
+
     def estimate(self, x, con=float('inf'), nobj=0):
         """
         Wraps simulation calls, updates the number of simulation calls,
@@ -555,34 +661,7 @@ class RASolver(MOSOSolver):
         #if not, perform sampling
         else:
             #print('in: ', self.orc.rng.get_seed())
-            try:
-                isfeas, fx, vx = self.orc.hit(x, m)
-            except TypeError as e:
-                raise RuntimeError(
-                    'Unable to simulate {0}. Ensure the g signature is g(self, x, rng) '
-                    'and returns isfeas, (obj1, obj2, ...). Message: {1}'.format(type(self.orc).__name__, e)
-                ) from e
-            except ZeroDivisionError as e:
-                raise RuntimeError(
-                    'Unable to simulate {0}. Message: {1}'.format(type(self.orc).__name__, e)
-                ) from e
-            except ValueError as e:
-                raise RuntimeError(
-                    'Unable to simulate {0}. Ensure the g signature is g(self, x, rng) '
-                    'and returns isfeas, (obj1, obj2, ...). Message: {1}'.format(type(self.orc).__name__, e)
-                ) from e
-            except AttributeError as e:
-                raise RuntimeError(
-                    'Unable to simulate {0}. Are you missing an import? Message: {1}'.format(type(self.orc).__name__, e)
-                ) from e
-            except IndexError as e:
-                raise RuntimeError(
-                    'Unable to simulate {0}. Ensure len(obj1, obj2, ..) == num_obj. Message: {1}'.format(type(self.orc).__name__, e)
-                ) from e
-            except Exception as e:
-                raise RuntimeError(
-                    'Unable to simulate {0}. Message: {1}'.format(type(self.orc).__name__, e)
-                ) from e
+            isfeas, fx, vx = self._simulate(self.orc.hit, x, m)
             if isfeas:
                 #print('out: ', self.orc.rng.get_seed())
                 self.num_calls += m
@@ -615,8 +694,8 @@ class RASolver(MOSOSolver):
     Subset of 'mcS' which are feasible
         """
         outset = set()
-        for s in mcS:
-            isfeas, fs, ses = self.estimate(s)
+        points = list(mcS)
+        for s, (isfeas, fs, ses) in zip(points, self.estimate_many(points)):
             if isfeas:
                 outset |= {s}
         return outset
@@ -880,22 +959,23 @@ class RLESolver(RASolver):
         delN = get_setnbors(mcS, r)
         delzero = tuple(0 for i in dr)
         # defintion 9 (a) -- check for strict domination in the deleted nbors
-        for s in mcS:
+        # Every deleted neighbour is estimated whatever the results
+        # are, so they are estimated together.
+        pairs = [(s, x) for s in mcS for x in get_nbors(s, r) - mcS]
+        estimates = self.estimate_many([x for s, x in pairs])
+        for (s, x), (isfeas, fx, sex) in zip(pairs, estimates):
             fs = self.gbar[s]
             ses = self.sehat[s]
             #dels = tuple(self.calc_delta(ses[i]) for i in dr)
-            snb = get_nbors(s, r) - mcS
-            for x in snb:
-                isfeas, fx, sex = self.estimate(x)
-                if isfeas:
-                    #delx = tuple(self.calc_delta(sex[i]) for i in dr)
-                    if does_strict_dominate(fx, fs, delzero, delzero):
-                        ncn |= {x}
-                    # if does_strict_dominate(fs, fx, delzero, delzero):
-                    #     nisdom |= {x}
+            if isfeas:
+                #delx = tuple(self.calc_delta(sex[i]) for i in dr)
+                if does_strict_dominate(fx, fs, delzero, delzero):
+                    ncn |= {x}
+                # if does_strict_dominate(fs, fx, delzero, delzero):
+                #     nisdom |= {x}
         # definition 9 (b) initialization
-        for x in delN - ncn:
-            isfeas, fx, sex = self.estimate(x)
+        candidates = list(delN - ncn)
+        for x, (isfeas, fx, sex) in zip(candidates, self.estimate_many(candidates)):
             if isfeas:
                 # definition 9 (b) (i) initialization
                 notweakdom = True
