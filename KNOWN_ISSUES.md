@@ -661,6 +661,81 @@ code before the fix on Python 3.10 and 3.14.
 
 ---
 
+### 16. `--budget` is checked only between RA iterations, so a run can simulate many times its budget
+
+(Numbered after 15 for the reason given there: an entry's number is
+an identifier, not a position.)
+
+**Affects:** all 1.x versions, including 1.1.0 (the loop is unchanged
+from the `v1.1.0` tag: `while self.num_calls < budget:` in
+`RASolver.rasolve`; not re-measured there) and this branch. Every RA
+solver: RPERLE, RMINRLE, RPE, RSPLINE. **Severity:** low in one or two
+dimensions; high for anyone with an expensive simulation and more
+than a few dimensions, because the simulation budget is the one
+control they have over cost.
+
+**What happens.** `rasolve` documents the budget as the "Total number
+of calls allowed to orc.g across all iterations". It is not a limit. An
+RA solver tests it once per retrospective-approximation iteration,
+before starting the next one, and an iteration, once started, runs to
+completion whatever it costs. The work in one iteration -- every
+neighbour of every point in the current solution, at that iteration's
+sample size -- grows with the dimension and with the size of the
+solution set.
+
+Counted by the solver's own `simcalls`, default generator:
+
+| Problem | dim | Budget asked for | Simulations counted |
+|---|---|---|---|
+| ProbTPA, RPERLE | 2 | 100 / 1,000 / 10,000 | 186 / 1,099 / 10,299 |
+| ProbTPC, RPERLE | 3 | 100 / 1,000 / 10,000 | 171 / 1,027 / 10,292 |
+| BSProb, RPERLE | 9 | 100 / 1,000 / 10,000 | 660 / 3,681 / 12,673 |
+| scratch quadratic, RPERLE | 20 | 1,000 | 9,546 |
+| scratch quadratic, RPERLE | 50 | 1,000 | 473,901 |
+| the same, Philox | 50 | 1,000 | 57,570 |
+
+So a user who asks for 1,000 simulations of a 50-dimensional model
+can get 474,000 -- and how many depends on the path the search takes,
+which is why the last two rows differ by a factor of eight. At a
+second per simulation that is five days in place of a quarter of an
+hour, with no warning and nothing in the output to say why until the
+run ends and `simcalls` is read.
+
+The count also understates the work, separately: replications of a
+point that turns out infeasible are run and not counted
+(docs/rng-interface-design.md §11 entry 13).
+
+**Why it was not noticed.** In the dimensions the built-in problems
+have, the overshoot is a fraction of one iteration and looks like
+rounding. And until Phase 4 the built-in solvers could not be run
+much above nine dimensions at all, for an unrelated reason
+(`get_nbors`; see the note below), so the regime where this matters
+was unreachable.
+
+**Not fixed.** It is the algorithms' own stopping rule, and changing
+it changes results: stopping inside an iteration means returning a
+solution from a partly estimated iteration, or discarding the
+iteration and returning the previous one. Either is a decision about
+the method, not a patch. What a user can do today: read
+`simcalls` (the per-iteration counts in `testsolve`'s results) from a
+cheap trial run before committing an expensive one.
+
+**A related correction, recorded here so that it is found.** For most
+of this branch's life the built-in solvers' limit of about nine
+dimensions was described -- by the maintainer, repeatedly, in
+`CLAUDE.md`, in docs/rng-interface-design.md §3.4 and in the brief for
+Phase 4 -- as structural: the solvers enumerate neighbourhoods, so
+high dimension would need a new solver. That was wrong, and had not
+been measured. It was one helper's implementation: `chnutils.get_nbors`
+built a `3**dim` box to return `2*dim` points. It is fixed, with
+results unchanged (docs/rng-interface-design.md §3.4's correction;
+docs/spark-backend.md, "High dimension";
+tests/test_get_nbors_equivalence.py). Removing that wall is what
+exposed this issue: it was always there, behind something that
+stopped anyone reaching it.
+
+---
+
 ## Behavior changes introduced by this migration
 
 These aren't defects inherited from some past pymoso version — they
