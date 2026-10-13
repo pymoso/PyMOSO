@@ -255,6 +255,28 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
     Databricks runtime, driver and executors on different hardware
     (variates use `math.log`; cross-architecture bit-identity is not
     established), pyspark 3.5 (the declared floor), scale.
+- **The Databricks run (time-boxed, October 2026).**
+  `docs/databricks/`: a paste-in notebook that measures the Spark
+  backend on a real cluster (identity across machines, scaling,
+  replication-level break-even, Connect or classic) and prints one
+  checksummed block to be typed out by hand, plus `dbx_kit.py`
+  (`gen`, `verify`, `localtest`). Its README is the run sheet. The
+  notebook embeds known-good hashes and a fingerprint of `pymoso/`:
+  **any change to `pymoso/` before the run means re-running `gen`**,
+  or the cluster prints `tree_ok=FAIL`. No results are recorded yet.
+- **Found building it, NOT fixed, not yet discussed: results depend
+  on the Python version in the last bit.** `prng.mrg32k3a.bsm` (the
+  normal variate, shared by all three generators) adds its terms with
+  the built-in `sum()`, and Python 3.12 made `sum()` compensate for
+  rounding. 8,153 of 20,000 normal variates differ between 3.11 and
+  3.12 on one machine (relative 5.9e-16). No golden and no whole-run
+  hash in the kit moved, on 3.10-3.14 -- the same weak-detector story
+  as the end seed. A fix (explicit left-to-right addition, which is
+  what 3.10, where the goldens were captured, computes) would make
+  3.12+ match 3.10 and is a behaviour change on 3.12+.
+- **pyspark 3.5 (the declared floor) is now tried:** the notebook
+  passes on pyspark 3.5.9 with Python 3.11 in classic mode. Connect on
+  3.5 is not (no local Connect server in that distribution).
 - **Two corrections to recorded decisions (Phase 4),** each noted
   where the original was written: by-value transport is a form of
   `ClassRef`, not a `ProblemHandle` subclass (that plan predates
