@@ -42,17 +42,11 @@ import re
 import shlex
 import shutil
 import subprocess
-import multiprocessing
 import sys
 
 import pytest
 
 from _pymoso_cli import pymoso_argv
-
-# The known --proc gap follows the multiprocessing start method, not the
-# Python version: it reproduces wherever the default is not fork (3.14+
-# on Linux, and every version on macOS and Windows).
-_NON_FORK = multiprocessing.get_start_method() != "fork"
 
 pytestmark = pytest.mark.timeout(90)
 
@@ -143,26 +137,18 @@ def _run_example(cmd, tmp_path):
 
 @pytest.mark.parametrize("cmd", CLI_EXAMPLES, ids=range(len(CLI_EXAMPLES)))
 def test_readme_cli_example_is_invocable(cmd, tmp_path):
-    # KNOWN_ISSUES.md issue 7: testsolve()'s --proc path ships a live,
-    # already-seeded Oracle instance per job, not a class reference, so
-    # the --simpar source-bundle transport fix doesn't cover it -- it
-    # still hangs on Python 3.14+ (forkserver) for a dynamically-loaded
-    # file. chnutils.par_runs uses multiprocessing.Pool unconditionally
-    # (not gated behind --proc > 1), so this isn't limited to examples
-    # that spell out --proc: confirmed directly, two examples with no
-    # --proc at all (just `testsolve ... mytester.py RPERLE`, relying
-    # on the default) also hang on 3.14 during a real matrix run, not
-    # just the one that says --proc=20. Checked before running, not
-    # after timing out at 60s. See
-    # tests/test_multifile_transport.py::test_multifile_problem_under_proc_matches_serial,
-    # which reproduces this exact gap on demand.
-    if "testsolve" in cmd and (".py" in cmd) and _NON_FORK:
-        pytest.xfail(
-            "KNOWN_ISSUES.md issue 7: testsolve() + a dynamically-loaded "
-            "file hangs on Python 3.14+ (forkserver), regardless of --proc "
-            "-- see "
-            "tests/test_multifile_transport.py::test_multifile_problem_under_proc_matches_serial"
-        )
+    # KNOWN_ISSUES.md issue 7. The four `testsolve ... mytester.py`
+    # examples were skipped here with pytest.xfail() on non-fork start
+    # methods until testsolve() stopped sending live objects to
+    # workers. Run by hand against the code before that change, on
+    # Python 3.14 (forkserver): the three with --metric hung, in the
+    # metric computation, which pickled a tester instance whose class
+    # no worker could import; the one without --metric passed, and had
+    # been passing all along -- pymoso/examples/mytester.py puts its
+    # own directory on sys.path, which a forkserver worker inherits.
+    # Of the three, two use the default --proc=1 and now run in one
+    # process with nothing transported; only the --proc=20 example
+    # sends anything to a worker.
     proc = _run_example(cmd, tmp_path)
     assert proc.returncode == 0, (cmd, proc.stdout, proc.stderr)
 

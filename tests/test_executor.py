@@ -8,6 +8,7 @@ meet, stated against the serial one: a replication's outcome is a
 function of its problem, point and coordinate, and of nothing else.
 """
 import dataclasses
+import multiprocessing
 import pickle
 
 import pytest
@@ -15,11 +16,16 @@ import pytest
 from pymoso import executor as ex
 from pymoso.chnbase import Oracle
 from pymoso.executor import (
-    ClassHandle, Executor, InProcessHandle, ProblemHandle, Replication, ReplicationBlock, SerialExecutor,
+    ClassHandle, ClassRef, Executor, InProcessHandle, PoolExecutor, ProblemHandle, Replication,
+    ReplicationBlock, SerialExecutor, split_blocks,
 )
 from pymoso.prng import base as prng_base
 from pymoso.prng import mrg32k3a, mrg31k3p, philox4x32
 from pymoso.problems.probtpa import ProbTPA
+from pymoso.solvers.rperle import RPERLE
+from pymoso.testers.tpatester import TPATester
+
+import _executor_problems as problems
 
 ALL = [("mrg32k3a", mrg32k3a), ("mrg31k3p", mrg31k3p), ("philox4x32", philox4x32)]
 generators = pytest.mark.parametrize("name,backend", ALL, ids=[n for n, _ in ALL])
@@ -312,3 +318,196 @@ def test_mp_cleanup_closes_the_executor_and_a_later_hit_reopens_it():
     assert orc._executor is None
     orc.hit((2,), 1)
     assert orc._executor is not None and orc._executor is not first
+
+
+# ---------------------------------------------------------------------------
+# Classes in transportable form
+# ---------------------------------------------------------------------------
+
+def test_a_class_ref_carries_any_importable_class_and_survives_pickling():
+    for cls in (ProbTPA, RPERLE, TPATester):
+        ref = pickle.loads(pickle.dumps(ClassRef(cls)))
+        assert ref.load() is cls and ref.name == cls.__name__
+
+
+def test_a_class_defined_inside_a_function_is_refused_before_any_worker_exists():
+    """It has a source file, so the older check let it through; under
+    fork it would even work. It cannot be found again by name."""
+    def make():
+        class Local(Oracle):
+            pass
+        return Local
+
+    with pytest.raises(ValueError, match="cannot be sent to a worker process"):
+        ClassRef(make())
+    with pytest.raises(ValueError, match="cannot be sent to a worker process"):
+        ClassHandle(make())
+
+
+# ---------------------------------------------------------------------------
+# Splitting blocks into chunks of replications
+# ---------------------------------------------------------------------------
+
+def _replications(blocks):
+    """Every replication of `blocks` as (x, stream, offset), in order."""
+    return [(b.x, b.stream, b.offset + i * b.stride) for b in blocks for i in range(b.count)]
+
+
+@pytest.mark.parametrize("counts", [[5], [1], [3, 4], [1, 1, 1, 1, 1, 1, 1], [7, 1, 2], [2, 9, 1, 1, 6]])
+@pytest.mark.parametrize("parts", [1, 2, 3, 4, 6, 50])
+def test_split_blocks_is_the_same_replications_in_even_chunks(counts, parts):
+    root = _root(mrg32k3a)
+    blocks = [ReplicationBlock((i,), root, i % 2, 1000 * i, 16, n) for i, n in enumerate(counts)]
+    chunks, owners = split_blocks(blocks, parts)
+    total = sum(counts)
+    assert len(chunks) == min(parts, total)
+    assert _replications([piece for chunk in chunks for piece in chunk]) == _replications(blocks)
+    sizes = [sum(piece.count for piece in chunk) for chunk in chunks]
+    assert max(sizes) - min(sizes) <= 1 and all(piece.count >= 1 for chunk in chunks for piece in chunk)
+    for chunk, owner in zip(chunks, owners):
+        assert [piece.x for piece in chunk] == [blocks[i].x for i in owner]
+
+
+def test_split_blocks_of_nothing_is_nothing():
+    assert split_blocks([], 4) == ([], [])
+
+
+# ---------------------------------------------------------------------------
+# The pool backend meets the serial backend's contract
+# ---------------------------------------------------------------------------
+
+pool_pytestmark = pytest.mark.timeout(120)
+start_methods = pytest.mark.parametrize("method", multiprocessing.get_all_start_methods())
+
+
+def _pool(workers, method):
+    return PoolExecutor(workers, context=multiprocessing.get_context(method))
+
+
+@pool_pytestmark
+@start_methods
+@generators
+def test_pool_results_equal_serial_results_for_any_worker_count(name, backend, method):
+    root = _root(backend)
+    stride, wide = backend.REPL_RESERVE_STRIDE, backend.REPL_STRIDE
+    blocks = [ReplicationBlock((40, 40), root, 0, 0, stride, 5),
+              ReplicationBlock((12, 7), root, 1, 9 * stride, stride, 1),
+              ReplicationBlock((3, 3), root, 2, 0, wide, 7),              # a CRN-shaped block
+              ReplicationBlock((4, 4), root, 2, 0, wide, 7),
+              ReplicationBlock((40, 41), root, 0, 77 * stride, stride, 3)]
+    with SerialExecutor().open(ClassHandle(ProbTPA), name) as executor:
+        expected = executor.run(blocks)
+    for workers in (1, 2, 5):
+        with _pool(workers, method).open(ClassHandle(ProbTPA), name) as executor:
+            assert executor.run(blocks) == expected
+            assert executor.run(blocks[::-1]) == expected[::-1]
+            assert executor.run([]) == []
+            assert [executor.run([b])[0] for b in blocks] == expected
+
+
+@pool_pytestmark
+def test_pool_lifecycle_and_refusals():
+    executor = PoolExecutor(2)
+    block = ReplicationBlock((40, 40), _root(mrg32k3a), 0, 0, 1 << 14, 2)
+    with pytest.raises(RuntimeError):
+        executor.run([block])
+    executor.close()
+    with pytest.raises(TypeError, match="cannot be sent to another process"):
+        executor.open(InProcessHandle(_oracle(mrg32k3a)), "mrg32k3a")
+    with pytest.raises(KeyError):
+        executor.open(ClassHandle(ProbTPA), "not-a-generator")
+    assert executor.open(ClassHandle(ProbTPA), "mrg32k3a") is executor
+    with pytest.raises(RuntimeError):
+        executor.open(ClassHandle(ProbTPA), "mrg32k3a")
+    assert len(executor.run([block])[0]) == 2
+    executor.close()
+    executor.close()
+    with pytest.raises(RuntimeError):
+        executor.run([block])
+    with pytest.raises(ValueError):
+        PoolExecutor(0)
+    assert issubclass(PoolExecutor, Executor)
+
+
+@pool_pytestmark
+@start_methods
+def test_an_exception_in_g_is_raised_in_the_caller_as_itself_not_a_hang(method):
+    """KNOWN_ISSUES.md issue 15, at the executor."""
+    root = _root(mrg32k3a)
+    fine = ReplicationBlock((1,), root, 0, 0, 1 << 14, 4)
+    bad = ReplicationBlock((13,), root, 0, 1 << 20, 1 << 14, 4)
+    with _pool(2, method).open(ClassHandle(problems.RaisesAtThirteen), "mrg32k3a") as executor:
+        with pytest.raises(ZeroDivisionError, match=r"boom at \(13,\)"):
+            executor.run([fine, bad, fine])
+        assert len(executor.run([fine])[0]) == 4        # and the executor still works
+
+
+@pool_pytestmark
+@start_methods
+def test_the_draw_reserve_is_enforced_in_the_worker(method):
+    """The mechanism this replaced could not check it under --simpar."""
+    root = _root(mrg32k3a)
+    with _pool(2, method).open(ClassHandle(problems.DrawsNine), "mrg32k3a") as executor:
+        assert len(executor.run([ReplicationBlock((1,), root, 0, 0, 9, 4)])[0]) == 4
+        with pytest.raises(prng_base.ReplicationDrawOverflow):
+            executor.run([ReplicationBlock((1,), root, 0, 0, 8, 4)])
+
+
+@pool_pytestmark
+@start_methods
+def test_a_problem_that_cannot_be_loaded_in_a_worker_fails_at_open(method):
+    """KNOWN_ISSUES.md issue 7's failure class: the worker cannot build
+    the problem. It has to be an error at open, not a hang at the first
+    replication."""
+    handle = ClassHandle(ProbTPA)
+    handle._ref.descriptor = {"files": {"broken": "import a_module_that_does_not_exist\n"},
+                              "entry": "broken", "class_name": "Nothing"}
+    with pytest.raises(ImportError, match="Could not resolve import order"):
+        _pool(2, method).open(handle, "mrg32k3a")
+
+
+# ---------------------------------------------------------------------------
+# Oracle.set_simpar selects the backend
+# ---------------------------------------------------------------------------
+
+@pool_pytestmark
+@generators
+@pytest.mark.parametrize("crn", [False, True])
+def test_hit_under_simpar_equals_hit_serially(name, backend, crn):
+    def run(simpar):
+        orc = ProbTPA(backend.stream_at(backend.DEFAULT_SEED, 0, 0))
+        orc.set_crnflag(crn)
+        with orc.set_simpar(simpar):
+            out = [orc.hit((40, 40), 5), orc.hit((41, 40), 1), orc.hit((40, 40), 3), orc.hit((7, 9), 4, sync=2)]
+            return out, orc.get_endseed()
+    assert run(3) == run(1)
+
+
+@pool_pytestmark
+def test_set_simpar_owns_its_workers_on_every_exit_path():
+    orc = ProbTPA(mrg32k3a.MRG32k3a(mrg32k3a.DEFAULT_SEED))
+    orc.set_crnflag(False)
+    with pytest.raises(KeyError):
+        with orc.set_simpar(2):
+            orc.hit((40, 40), 2)
+            processes = [w.process for w in orc._executor._pool._workers]
+            assert len(processes) == 2 and all(p.is_alive() for p in processes)
+            raise KeyError("leaving")
+    assert orc._executor is None
+    assert not any(p.is_alive() for p in processes)
+    orc.set_simpar(2)
+    orc.hit((40, 40), 2)
+    processes = [w.process for w in orc._executor._pool._workers]
+    orc.mp_cleanup()
+    assert not any(p.is_alive() for p in processes)
+    clone = pickle.loads(pickle.dumps(orc))             # no processes travel with a copy
+    assert clone._executor is None
+
+
+def test_set_simpar_refuses_an_untransportable_class_before_starting_anything():
+    namespace = {}
+    exec("from pymoso.chnbase import Oracle\nclass Interactive(Oracle):\n    pass\n", namespace)
+    orc = namespace["Interactive"](mrg32k3a.MRG32k3a(mrg32k3a.DEFAULT_SEED))
+    with pytest.raises(ValueError, match="no locatable source"):
+        orc.set_simpar(2)
+    orc.set_simpar(1)                                   # serially it is fine

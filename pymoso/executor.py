@@ -34,19 +34,29 @@ one block. What bounds parallel speedup today is that parallelism is
 confined to one `hit()` call; a caller that submits several points at
 once is the fix, and needs no change here.
 
-This module has one backend, `SerialExecutor`, which reproduces what
-`Oracle.hit()` did inline before it existed, bit for bit. `--simpar`
-and `--proc` still run through their own older mechanisms
-(`Oracle.set_simpar`, `chnutils.par_runs`).
+Two backends. `SerialExecutor` runs everything in the calling process,
+bit for bit what `Oracle.hit()` did inline before this module existed.
+`PoolExecutor` runs the same blocks on worker processes (`--simpar`),
+each worker holding a `SerialExecutor` of its own, on the one process
+lifecycle the package has (pymoso/pool.py).
+
+Whole sample paths (`--proc`) are not replication blocks and do not go
+through `Executor.run`: a path carries a solver and a tester, returns a
+result dict, and runs a `SerialExecutor` of its own inside its worker.
+They are a second kind of job on the same pool -- see
+`chnutils.testsolve`. What the two share is the pool and `ClassRef`,
+the transportable form of a class.
 """
 import inspect
 import os
+import pickle
 import sys
 import types
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import NamedTuple
 
+from .pool import WorkerPool
 from .prng import registry
 from .prng.base import ReplicationDrawOverflow, ensure_random_compatible
 
@@ -113,7 +123,7 @@ def simulate_with_class(orccls, x, stream):
     One replication of `x` from a problem *class*: construct an
     instance over `stream`, then call its `g()`. This is what a worker
     that was handed a class (not a live instance) does per replication
-    -- the recipe `chnbase.mp_replicate` has always used.
+    -- the recipe `--simpar` workers have always used.
 
     Parameters
     ----------
@@ -200,12 +210,42 @@ class InProcessHandle(ProblemHandle):
         return _InstanceSimulator(self._instance)
 
 
+class ClassRef:
+    """
+    A class in a form that can be sent to a worker process and turned
+    back into the class there: the class itself when a fresh process
+    can import it, a source bundle when it was loaded from a
+    user-supplied file -- see `build_transport_descriptor`. Problems,
+    solvers and testers all travel this way.
+
+    Parameters
+    ----------
+    cls : class
+
+    Raises
+    ------
+    ValueError
+        `cls` cannot be transported: it has no source file (defined in
+        a REPL or notebook), or it cannot be found again by name
+        (defined inside a function). Raised here, in the parent,
+        whatever the start method -- `fork` would carry such a class
+        across by inheritance, and the same code would then fail on
+        macOS, on Windows, and on Linux from Python 3.14.
+    """
+
+    def __init__(self, cls):
+        self.descriptor = build_transport_descriptor(cls)
+        self.name = cls.__name__
+
+    def load(self):
+        """The class, reconstructed if it travelled as a source
+        bundle."""
+        return reconstruct_transport_descriptor(self.descriptor)
+
+
 class ClassHandle(ProblemHandle):
     """
-    A problem class, in transportable form: either the class itself
-    (it pickles by reference, because a fresh process can import it) or
-    a source bundle (it was loaded from a user-supplied file and has no
-    importable module) -- see `build_transport_descriptor`. Each
+    A problem class, in transportable form (`ClassRef`). Each
     replication constructs a fresh instance (`simulate_with_class`).
 
     Parameters
@@ -215,18 +255,21 @@ class ClassHandle(ProblemHandle):
     Raises
     ------
     ValueError
-        `orccls` has no locatable source at all (defined
-        interactively). The source-bundle transport cannot carry it.
+        `orccls` cannot be transported -- see `ClassRef`.
     """
     transportable = True
 
     def __init__(self, orccls):
-        self.descriptor = build_transport_descriptor(orccls)
+        self._ref = ClassRef(orccls)
+
+    @property
+    def descriptor(self):
+        return self._ref.descriptor
 
     def load(self):
         """The problem class, reconstructed if it travelled as a
         source bundle."""
-        return reconstruct_transport_descriptor(self.descriptor)
+        return self._ref.load()
 
     def simulator(self):
         return _ClassSimulator(self.load())
@@ -234,9 +277,8 @@ class ClassHandle(ProblemHandle):
 
 def build_transport_descriptor(cls):
     """
-    Build whatever a --simpar worker process needs to reconstruct cls,
-    once per worker rather than once per replication -- see
-    Oracle.set_simpar, the broadcast point this is built at.
+    Build whatever a worker process needs to reconstruct cls. It is
+    sent once per worker, when the pool opens, not once per job.
 
     A class loaded normally (built-in problems/testers, or anything
     else genuinely importable) is returned as-is: it already pickles
@@ -275,8 +317,9 @@ def build_transport_descriptor(cls):
     ------
     ValueError
         cls has no locatable source at all (defined interactively, not
-        loaded from a .py file) -- --simpar cannot transport it to a
-        worker process. Raised here, at worker-creation time, rather
+        loaded from a .py file), or does not pickle by reference
+        (defined inside a function) -- it cannot be transported to a
+        worker process. Raised here, before any worker exists, rather
         than left to surface as a hang once a job is dispatched.
     """
     module = sys.modules.get(cls.__module__)
@@ -287,10 +330,22 @@ def build_transport_descriptor(cls):
     except (TypeError, OSError) as e:
         raise ValueError(
             f"{cls.__name__} has no locatable source file, so it cannot be "
-            "sent to a --simpar worker process. This happens for a class "
+            "sent to a worker process. This happens for a class "
             "defined interactively (a REPL or notebook), not loaded from a "
             ".py file. Define it in a .py file and try again, or run "
-            "without --simpar."
+            "without --simpar/--proc (or with them set to 1)."
+        ) from e
+    try:
+        pickle.dumps(cls)
+    except Exception as e:
+        raise ValueError(
+            f"{cls.__name__} cannot be sent to a worker process: a worker "
+            "finds a class again by its module and name, and this one "
+            f"cannot be found that way ({e}). This happens for a class "
+            "defined inside a function, or in a module that was loaded "
+            "without being made importable. Define it at the top level "
+            "of a .py file, or run without --simpar/--proc (or with "
+            "them set to 1)."
         ) from e
     return cls
 
@@ -518,9 +573,8 @@ class SerialExecutor(Executor):
         replication order -- the "turn a coordinate into a stream" half
         of running a block, without the simulation.
 
-        `Oracle`'s own `--simpar` path uses this to get the seeds it
-        queues for its workers, until that path moves behind this
-        interface as a backend of its own.
+        Separate from `run` so that the coordinate cost can be timed
+        on its own (docs/bench_simpar_ceiling.py).
 
         Parameters
         ----------
@@ -554,3 +608,159 @@ class SerialExecutor(Executor):
                 outcomes.append(Replication(isfeas, objectives, drawn))
             results.append(outcomes)
         return results
+
+
+def _open_worker_executor(problem, generator):
+    """A pool worker's state: a SerialExecutor of its own, opened over
+    the transported problem. Its base-stream cache is per worker, which
+    is what keeps --crn blocks cheap there too."""
+    return SerialExecutor().open(problem, generator)
+
+
+def _run_blocks(executor, blocks):
+    return executor.run(blocks)
+
+
+def split_blocks(blocks, parts):
+    """
+    Divide `blocks` into at most `parts` chunks of nearly equal
+    replication count, cutting a block wherever a chunk boundary falls
+    inside it.
+
+    A block of `count` replications starting at `offset` is the same
+    work as its first `k` replications followed by a block of `count -
+    k` starting at `offset + k*stride`: a replication's stream is a
+    function of its coordinate alone. That is what lets the unit of
+    parallel work be the replication, not the hit() call or the point.
+
+    Parameters
+    ----------
+    blocks : sequence of ReplicationBlock
+    parts : int
+        At least 1.
+
+    Returns
+    -------
+    chunks : list of list of ReplicationBlock
+        Non-empty chunks, in order: concatenated, they are `blocks`
+        with some blocks cut into consecutive pieces.
+    owners : list of list of int
+        `owners[c][j]` is the index in `blocks` that `chunks[c][j]` is
+        a piece of.
+    """
+    total = sum(block.count for block in blocks)
+    chunks, owners = [], []
+    if total == 0:
+        return chunks, owners
+    parts = min(parts, total)
+    taken = 0                       # replications placed so far
+    index, used = 0, 0              # current block, and how much of it is placed
+    for part in range(parts):
+        # Chunk boundaries at round(total * k / parts): sizes differ by
+        # at most one.
+        size = total * (part + 1) // parts - taken
+        chunk, owner = [], []
+        while size > 0:
+            block = blocks[index]
+            take = min(size, block.count - used)
+            if take > 0:
+                chunk.append(ReplicationBlock(
+                    x=block.x, root=block.root, stream=block.stream,
+                    offset=block.offset + used * block.stride, stride=block.stride, count=take,
+                ))
+                owner.append(index)
+                used += take
+                size -= take
+                taken += take
+            if used == block.count:
+                index, used = index + 1, 0
+        chunks.append(chunk)
+        owners.append(owner)
+    return chunks, owners
+
+
+class PoolExecutor(Executor):
+    """
+    Runs replications on worker processes: `--simpar`.
+
+    `open` starts `workers` processes (pymoso/pool.py owns them) and
+    sends each the problem, once; each opens a `SerialExecutor` over
+    it. `run` divides everything it is given -- all the blocks of the
+    call, together -- into at most `workers` chunks of replications
+    and runs one per worker. So the parallelism available to a call
+    is its total replication count, whether that is one point's `m` or
+    forty points' (docs/simpar-ceiling.md).
+
+    The worker, not the parent, turns each coordinate into a stream,
+    so that cost runs in parallel too; and the worker enforces each
+    replication's draw reserve, which the mechanism this replaced
+    could not do at all under `--simpar`.
+
+    Cutting a block costs something: each piece pays its own jump to
+    its starting offset (~1.5 ms for MRG32k3a on the default branch,
+    docs/hit-cost-baseline.md). The pieces run in parallel, so wall
+    time still falls; total CPU rises. A simulation much cheaper than
+    that jump does not benefit from `--simpar` in the first place.
+
+    Parameters
+    ----------
+    workers : int
+        At least 1.
+    context : multiprocessing context or None
+        Defaults to the platform's default start method.
+
+    Raises (from `open`)
+    --------------------
+    TypeError
+        The problem handle is not transportable (`InProcessHandle`).
+    Exception
+        Whatever loading the problem raised in a worker -- for
+        instance an ImportError from a user file's own imports. It is
+        raised here, at open, not left to surface as a hang.
+    """
+
+    def __init__(self, workers, context=None):
+        if workers < 1:
+            raise ValueError('an executor needs at least one worker, got {0}'.format(workers))
+        self.workers = workers
+        self._context = context
+        self._pool = None
+
+    def open(self, problem, generator):
+        if self._pool is not None:
+            raise RuntimeError('this executor is already open; close() it first')
+        registry.get_generator(generator)      # raises for an unknown name
+        if not problem.transportable:
+            raise TypeError(
+                '{0} cannot be sent to another process; a pool executor needs a '
+                'transportable problem handle such as ClassHandle.'.format(type(problem).__name__)
+            )
+        self._pool = WorkerPool(self.workers, _open_worker_executor, (problem, generator), self._context).open()
+        return self
+
+    def close(self):
+        pool, self._pool = self._pool, None
+        if pool is not None:
+            pool.close()
+
+    def run(self, blocks):
+        if self._pool is None:
+            raise RuntimeError('this executor is not open')
+        blocks = list(blocks)
+        chunks, owners = split_blocks(blocks, self.workers)
+        outcomes = self._pool.run([(_run_blocks, (chunk,)) for chunk in chunks])
+        results = [[] for _ in blocks]
+        for owner, pieces in zip(owners, outcomes):
+            for index, piece in zip(owner, pieces):
+                results[index].extend(piece)
+        return results
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pool = self._pool
+        if exc_type is not None and pool is not None:
+            # Leaving on an exception: stop the workers without waiting
+            # for whatever they are in the middle of.
+            self._pool = None
+            pool.__exit__(exc_type, exc_val, exc_tb)
+        self.close()
+        return False

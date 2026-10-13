@@ -58,3 +58,49 @@ def test_infeasible_x0_with_simpar_exits_rather_than_hanging(tmp_path):
         )
     assert proc.returncode != 0, (proc.stdout, proc.stderr)
     assert "infeasible" in proc.stdout
+
+
+# ---------------------------------------------------------------------------
+# KNOWN_ISSUES.md issue 15: an exception in g() under --simpar.
+#
+# The worker loop this replaced did not catch anything: the worker died
+# with the exception, nothing came back, and the parent waited for that
+# replication's result with no timeout. Observed failing first, against
+# the code before the worker pool (pymoso/pool.py), on Python 3.10 and
+# 3.14: the dead worker's traceback reached stderr, pymoso itself
+# reported nothing, and the run was still going when the timeout killed
+# it. The same problem without --simpar reported the error and exited
+# immediately, then as now.
+# ---------------------------------------------------------------------------
+
+RAISING_SRC = '''\
+from pymoso.chnbase import Oracle
+
+class RaisingProb(Oracle):
+    def __init__(self, rng):
+        self.num_obj = 1
+        self.dim = 1
+        super().__init__(rng)
+
+    def g(self, x, rng):
+        if x[0] < 97:
+            raise ZeroDivisionError("boom at {0}".format(x))
+        return True, (x[0]**2 + rng.normalvariate(0, 3),)
+'''
+
+
+@pytest.mark.parametrize("simpar", [1, 2])
+def test_an_exception_in_g_is_reported_with_or_without_simpar(simpar, tmp_path):
+    (tmp_path / 'raisingprob.py').write_text(RAISING_SRC)
+    cmd = ["pymoso", "solve", f"--simpar={simpar}", "--budget=200", "raisingprob.py", "RSPLINE", "97"]
+    try:
+        proc = subprocess.run(pymoso_argv(cmd), cwd=tmp_path, capture_output=True,
+                               text=True, timeout=SUBPROCESS_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        pytest.fail(
+            "pymoso did not exit within {0}s -- an exception in g() under "
+            "--simpar is hanging the run again instead of being reported "
+            "(KNOWN_ISSUES.md issue 15).".format(SUBPROCESS_TIMEOUT)
+        )
+    assert proc.returncode != 0, (proc.stdout, proc.stderr)
+    assert "Unable to simulate RaisingProb" in proc.stdout and "boom at" in proc.stdout

@@ -8,7 +8,7 @@ from random import Random
 import traceback
 import importlib.util
 import importlib
-from ..chnutils import testsolve, par_diff, par_runs, DEFAULT_SEED
+from ..chnutils import testsolve, par_diff, DEFAULT_SEED
 from ..prng import registry
 
 

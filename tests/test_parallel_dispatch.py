@@ -11,35 +11,29 @@ test suite as a committed artifact). What's asserted instead:
 
 - total simulation calls identical regardless of worker count
 - results identical across worker counts, fixed seed
-- number of jobs dispatched -- the direct measure of batching. Today
-  that's 1 job per replication for --simpar (chnbase.Oracle.hit's
-  parallel branch puts one (x, seed) per replication onto req_q) and 1
-  job per independent sample path for --proc (chnutils.par_runs calls
-  apply_async once per joblist entry, and joblist has exactly `isp`
-  entries) -- confirmed empirically below, not just read off the
-  source, so this is a real "before" number for the executor rework to
-  diff against.
+- how work is dispatched -- the direct measure of batching. Both
+  features run on pymoso/pool.py's WorkerPool. --simpar divides each
+  executor call's replications into at most `simpar` chunks, one task
+  per chunk, and every replication is run exactly once; --proc sends
+  one task per independent sample path, and with --proc=1 starts no
+  worker process at all. (Before the pool these were one job per
+  replication on a raw Queue, and one job per path on a
+  multiprocessing.Pool that was used even at --proc=1.)
 - one loose ratio guard (parallel wall time vs. serial) to catch a
   pathological regression -- generous enough to survive a shared,
   possibly-contended CI runner; this is not a performance claim.
 
-Job counts are instrumented by monkeypatching the same constructor
-production code calls (chnbase.Queue, chnutils.mp.Pool) rather than
-guessing from source, the same swap-the-constructor pattern
-tests/test_rng_consumption.py uses for RecordingMRG32k3a. A naive
-composition-wrapper wound up not being safe to use for the Queue side
-of that -- see make_counting_queue's docstring for why (it hung under
-the 'forkserver' start method) -- hence the module-level timeout below,
-matching test_simpar_worker_lifecycle.py/test_multifile_transport.py's
-existing convention of bounding tests that touch multiprocessing so a
+Dispatch is observed by wrapping WorkerPool.run, which runs in the
+calling process. The module-level timeout matches
+test_simpar_worker_lifecycle.py/test_multifile_transport.py's
+convention of bounding tests that touch multiprocessing so a
 regression fails fast instead of hanging CI.
 """
 import time
 
 import pytest
 
-from pymoso import chnbase as chnbase_module
-from pymoso import chnutils as chnutils_module
+from pymoso import pool as pool_module
 from pymoso.chnutils import get_solv_prnstreams, isp_run, testsolve
 from pymoso.prng import mrg32k3a as mrg32k3a_backend
 from pymoso.problems.probexpensive import ProbExpensiveModerate
@@ -68,85 +62,26 @@ def run_solve(simpar, budget=BUDGET, seed=SEED):
     return res['itersoln'][lastnu], res['simcalls'][lastnu], res['endseed']
 
 
-def make_counting_queue(counter, real_queue_factory, *args, **kwargs):
-    """
-    Build a real multiprocessing Queue (not a wrapper class) and rebind
-    its .put instance attribute to count calls before delegating.
-
-    This has to be the genuine Queue object, not a composition wrapper:
-    chnbase.Oracle.set_simpar hands req_q/res_q to Process(...,
-    args=(self.req_q, self.res_q, ...)), and under the 'forkserver'
-    start method (3.14's default, unlike 'fork' on 3.10-3.13) those
-    args cross a real pickling boundary. Queue has its own registered
-    reducer for that; an arbitrary user-defined wrapper class holding a
-    Queue by composition does not, and hangs rather than erroring
-    cleanly. The instance-level .put override only needs to be visible
-    parent-side anyway: chnbase.py's Oracle.hit() calls req_q.put()
-    from the caller's own process, never from inside a worker (only
-    .get() runs there), so it doesn't matter that the override wouldn't
-    survive being unpickled into a worker.
-    """
-    q = real_queue_factory(*args, **kwargs)
-    real_put = q.put
-
-    def counting_put(*a, **kw):
-        counter['n'] += 1
-        return real_put(*a, **kw)
-
-    q.put = counting_put
-    return q
-
-
-class CountingPool:
-    """
-    Wraps a real multiprocessing Pool, counting .apply_async() calls --
-    one per independent sample path dispatched by --proc. Unlike
-    req_q/res_q above, a Pool object itself is never handed to a
-    Process as an arg -- chnutils.par_runs creates and uses it entirely
-    parent-side (Pool manages its own worker processes internally) -- so
-    it never crosses a pickling boundary and a composition wrapper is
-    fine here.
-    """
-
-    def __init__(self, counter, real_pool_factory, *args, **kwargs):
-        self._pool = real_pool_factory(*args, **kwargs)
-        self._counter = counter
-
-    def apply_async(self, *args, **kwargs):
-        self._counter['n'] += 1
-        return self._pool.apply_async(*args, **kwargs)
-
-    def __enter__(self):
-        self._pool.__enter__()
-        return self
-
-    def __exit__(self, *exc_info):
-        return self._pool.__exit__(*exc_info)
-
-    def __getattr__(self, name):
-        return getattr(self._pool, name)
-
-
 @pytest.fixture
-def count_simpar_jobs(monkeypatch):
-    counter = {'n': 0}
-    real_queue_factory = chnbase_module.Queue
-    monkeypatch.setattr(
-        chnbase_module, 'Queue',
-        lambda *a, **kw: make_counting_queue(counter, real_queue_factory, *a, **kw),
-    )
-    return counter
+def pool_runs(monkeypatch):
+    """Every WorkerPool.run call made during the test, as its list of
+    tasks; and every pool opened, as its worker count."""
+    seen = {'runs': [], 'opened': []}
+    real_run = pool_module.WorkerPool.run
+    real_open = pool_module.WorkerPool.open
 
+    def run(self, tasks):
+        tasks = list(tasks)
+        seen['runs'].append(tasks)
+        return real_run(self, tasks)
 
-@pytest.fixture
-def count_proc_jobs(monkeypatch):
-    counter = {'n': 0}
-    real_pool_factory = chnutils_module.mp.Pool
-    monkeypatch.setattr(
-        chnutils_module.mp, 'Pool',
-        lambda *a, **kw: CountingPool(counter, real_pool_factory, *a, **kw),
-    )
-    return counter
+    def open_(self):
+        seen['opened'].append(self.workers)
+        return real_open(self)
+
+    monkeypatch.setattr(pool_module.WorkerPool, 'run', run)
+    monkeypatch.setattr(pool_module.WorkerPool, 'open', open_)
+    return seen
 
 
 # ---------------------------------------------------------------------------
@@ -163,13 +98,22 @@ def test_simpar_num_calls_and_results_match_serial(simpar):
 
 
 @pytest.mark.parametrize("simpar", [2, 4])
-def test_simpar_dispatches_one_job_per_replication(simpar, count_simpar_jobs):
+def test_simpar_dispatches_at_most_one_chunk_per_worker_and_every_replication_once(simpar, pool_runs):
     _, calls, _ = run_solve(simpar=simpar)
-    assert count_simpar_jobs['n'] == calls, (
-        f"--simpar dispatched {count_simpar_jobs['n']} jobs for {calls} simulation calls -- "
-        "expected exactly one job per replication (today's unbatched dispatch; "
-        "see docs/upstream-simpar.md)."
-    )
+    assert pool_runs['opened'] == [simpar]
+    assert pool_runs['runs'], "nothing was dispatched to the pool"
+    replications = 0
+    for tasks in pool_runs['runs']:
+        assert 1 <= len(tasks) <= simpar
+        sizes = [sum(block.count for block in chunk) for _, (chunk,) in tasks]
+        assert max(sizes) - min(sizes) <= 1, "chunks should be as even as the replication count allows"
+        replications += sum(sizes)
+    assert replications == calls
+
+
+def test_simpar_1_starts_no_worker_process(pool_runs):
+    run_solve(simpar=1)
+    assert pool_runs == {'runs': [], 'opened': []}
 
 
 # ---------------------------------------------------------------------------
@@ -189,15 +133,19 @@ def test_proc_num_calls_and_results_match_serial(proc):
     assert endseed == serial_endseed
 
 
-@pytest.mark.parametrize("proc", [1, 2])
-def test_proc_dispatches_one_job_per_independent_sample_path(proc, count_proc_jobs):
+@pytest.mark.parametrize("proc", [2, 3])
+def test_proc_dispatches_one_task_per_independent_sample_path(proc, pool_runs):
     isp = 3
     testsolve(ExpensiveTester, RSPLINE, X0, budget=BUDGET, seed=SEED, isp=isp, proc=proc, crn=False)
-    assert count_proc_jobs['n'] == isp, (
-        f"--proc dispatched {count_proc_jobs['n']} jobs for isp={isp} -- expected exactly "
-        "one job per independent sample path, regardless of proc (today's dispatch "
-        "granularity; chnutils.par_runs)."
-    )
+    assert pool_runs['opened'] == [proc]
+    assert [len(tasks) for tasks in pool_runs['runs']] == [isp]
+
+
+def test_proc_1_starts_no_worker_process(pool_runs):
+    """The serial path is serial: no pool, so none of a pool's failure
+    modes (CLAUDE.md: --proc used a Pool even at --proc=1)."""
+    testsolve(ExpensiveTester, RSPLINE, X0, budget=BUDGET, seed=SEED, isp=3, proc=1, crn=False)
+    assert pool_runs == {'runs': [], 'opened': []}
 
 
 # ---------------------------------------------------------------------------

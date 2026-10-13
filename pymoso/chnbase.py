@@ -17,61 +17,11 @@ from .prng import registry
 from .prng.base import (
     ReplicationOverflow, IterationOverflow, SyncOverflow, PointCodeCollision, one_past,
 )
-from multiprocessing import Queue, Process
 from .executor import (
-    ReplicationBlock, SerialExecutor, InProcessHandle, simulate_with_class,
+    ReplicationBlock, SerialExecutor, PoolExecutor, InProcessHandle, ClassHandle,
     build_transport_descriptor, reconstruct_transport_descriptor,
 )
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
-
-
-def mp_replicate(orccls, x, rngcls, seed):
-    """
-    Wrap `Oracle.g` in a top-level function for use with multiprocessing.
-
-    Parameters
-    ----------
-    orccls : Oracle class
-    x : tuple of int
-    rngcls : random.Random class
-    seed : tuple of int
-
-    Returns
-    -------
-    isfeas : bool
-    objvals : tuple of float
-
-    See also
-    --------
-    Oracle.replicate
-    """
-
-    # One replication from a problem class: executor.simulate_with_class
-    # is the single statement of that recipe (construct over the
-    # unwrapped stream, hand g() its random.Random-compatible view).
-    return simulate_with_class(orccls, x, rngcls(seed))
-
-
-def mp_worker(input, output, descriptor, rngcls):
-    """
-    Worker loop for parallel replication. `descriptor` is reconstructed
-    into `orccls` ONCE, at worker start -- the broadcast pattern (see
-    Oracle.set_simpar) -- not re-sent per job, so per-job payloads on
-    `input` carry only (x, seed), not the problem class.
-
-    Parameters
-    ----------
-    input : multiprocessing.Queue object
-        Yields (x, seed) tuples.
-    output : multiprocessing.Queue object
-    descriptor : Oracle class or dict
-        See build_transport_descriptor/reconstruct_transport_descriptor.
-    rngcls : random.Random class
-    """
-    orccls = reconstruct_transport_descriptor(descriptor)
-    for x, seed in iter(input.get, 'STOP'):
-        result = mp_replicate(orccls, x, rngcls, seed)
-        output.put(result)
 
 
 class MOSOSolver(object):
@@ -1056,14 +1006,17 @@ class Oracle(object):
     that sharing across points *is* what "common random numbers" means
     here); under crnflag=False, at `stream_at(_orc_root, k,
     offset_within_iteration(x, visit, r, W))`.
-    _executor : executor.SerialExecutor, or None
+    _executor : executor.Executor, or None
     What actually runs replications: hit() describes each call as a
     `ReplicationBlock` and hands it over (pymoso/executor.py). Opened
-    lazily, on the first hit(), over this instance -- so `g()` is
-    called on this very object, with whatever state it carries. It
-    also holds the per-stream cache that keeps crnflag=True hit()s
-    cheap; see SerialExecutor's own docstring before touching that.
-    `None` until first needed, and again after mp_cleanup().
+    lazily, on the first hit(). By default a SerialExecutor over this
+    instance -- so `g()` is called on this very object, with whatever
+    state it carries; after set_simpar(n > 1), a PoolExecutor of n
+    worker processes over this Oracle's class. The serial one (here,
+    or inside each worker) holds the per-stream cache that keeps
+    crnflag=True hit()s cheap; see SerialExecutor's own docstring
+    before touching that. `None` until first needed, and again after
+    mp_cleanup().
     _orc_root : tuple of int
     Fixed for the Oracle's entire lifetime (set once, in set_crnflag(),
     never reassigned) -- the reference point every hit() coordinate is
@@ -1144,7 +1097,15 @@ class Oracle(object):
 
     def set_simpar(self, simpar):
         """
-        Intialize processes when parallel replications is enabled.
+        Choose how many processes run this Oracle's replications.
+
+        With `simpar` of 1, replications run in this process. Above 1,
+        they run on that many worker processes
+        (`executor.PoolExecutor`): the workers are started on the
+        first hit(), are sent this Oracle's *class*, and construct a
+        fresh instance per replication -- so a problem whose `g()`
+        depends on per-instance state set after construction cannot
+        use it.
 
         Parameters
         ----------
@@ -1159,38 +1120,34 @@ class Oracle(object):
             __exit__ on every exit path (normal return, exception, or
             KeyboardInterrupt), not only when the caller's own code
             happens to reach an explicit mp_cleanup() call.
+
+        Raises
+        ------
+        ValueError
+            `simpar` is above 1 and this Oracle's class cannot be sent
+            to a worker process (executor.ClassRef). Raised here,
+            before any worker exists.
         """
+        self._close_executor()
+        self._class_handle = ClassHandle(type(self)) if simpar > 1 else None
         self.simpar = simpar
-        if self.simpar > 1:
-            descriptor = build_transport_descriptor(type(self))
-            rngcls = type(self.rng)
-            self.req_q = Queue()
-            self.res_q = Queue()
-            self.proc = []
-            for i in range(self.simpar):
-                p = Process(target=mp_worker, args=(self.req_q, self.res_q, descriptor, rngcls))
-                p.start()
-                self.proc.append(p)
         return self
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.mp_cleanup()
+        self._close_executor(abandon=exc_type is not None)
         return False
 
 
     def mp_cleanup(self):
         """
-        Terminate all multiprocessing processes created in `__init__`. Call
-        this after simulation is complete.
+        Stop whatever is running this Oracle's replications, worker
+        processes included. Call this after simulation is complete, or
+        use `with orc.set_simpar(n):`. A later hit() starts again.
         """
         self._close_executor()
-        if self.simpar > 1:
-            for p in self.proc:
-                p.terminate()
-                p.join()
 
 
     def set_crnflag(self, crnflag):
@@ -1488,28 +1445,46 @@ class Oracle(object):
         """
         The executor that runs this Oracle's replications, opened on
         first use: a `SerialExecutor` over this very instance
-        (`InProcessHandle(self)`), for the selected generator.
+        (`InProcessHandle(self)`), or -- after `set_simpar(n)` with n
+        above 1 -- a `PoolExecutor` of n workers over this Oracle's
+        class.
 
-        Lazy for two reasons. `set_crnflag()` is what fixes the
-        generator, and it runs after construction. And `testsolve()`
-        pickles each path's Oracle into a worker *before* any hit(), so
-        an executor created here is created in the process that uses
-        it. It is dropped (`_close_executor`) by `set_crnflag()` and
-        `mp_cleanup()`, and reopened on the next hit() if there is one.
+        Lazy because `set_crnflag()` is what fixes the generator, and
+        it runs after construction. It is dropped (`_close_executor`)
+        by `set_crnflag()`, `set_simpar()` and `mp_cleanup()`, and
+        reopened on the next hit() if there is one.
 
         Returns
         -------
-        executor.SerialExecutor
+        executor.Executor
         """
         if self._executor is None:
-            self._executor = SerialExecutor().open(InProcessHandle(self), self._backend_name)
+            handle = getattr(self, '_class_handle', None)
+            if handle is not None:
+                self._executor = PoolExecutor(self.simpar).open(handle, self._backend_name)
+            else:
+                self._executor = SerialExecutor().open(InProcessHandle(self), self._backend_name)
         return self._executor
 
-    def _close_executor(self):
+    def _close_executor(self, abandon=False):
+        """`abandon`: do not wait for work in progress (an exception is
+        propagating)."""
         executor = getattr(self, '_executor', None)
-        if executor is not None:
-            executor.close()
         self._executor = None
+        if executor is not None:
+            if abandon:
+                executor.__exit__(Exception, None, None)
+            else:
+                executor.close()
+
+    def __getstate__(self):
+        # An Oracle is plain data plus, possibly, live worker
+        # processes. A copy does not get the processes; it opens its
+        # own executor on its first hit().
+        state = self.__dict__.copy()
+        if isinstance(state.get('_executor'), PoolExecutor):
+            state['_executor'] = None
+        return state
 
     def _hit_via_coordinate(self, x, m, visit, sync, start_replication=0, crn=False):
         """
@@ -1593,7 +1568,7 @@ class Oracle(object):
         more than one raw value (every built-in problem) ran its own
         consumption into the position reserved for the next
         replication, so replications were not actually independent.
-        The serial branch below still enforces the reserve at runtime
+        The executor still enforces the reserve at runtime
         -- raising ReplicationDrawOverflow if a single replication
         draws more than 2**REPL_RESERVE_BITS raw values (this
         generator's own REPL_RESERVE_BITS, per §12 step 6c-completion's
@@ -1601,13 +1576,9 @@ class Oracle(object):
         MRG-shaped budget regardless of which backend was selected) --
         via `Stream.raw_consumed()` now (§12 step 6b), replacing the
         removed set_class_cache()/.generate monkeypatch, which reached
-        into an MRG-only attribute no other backend has. Not enforced
-        under simpar>1 (the coordinate fix itself still applies there
-        -- only the runtime draw-count check does not, since a worker
-        process draws in a different process than this one and there
-        is no cheap way to observe its count here; --proc/--simpar's
-        own known fragility, see CLAUDE.md, is reason enough not to add
-        cross-process bookkeeping for this).
+        into an MRG-only attribute no other backend has. Enforced
+        under simpar>1 too: the check runs wherever the replication
+        does, in the worker, and the exception comes back.
 
         Parameters
         ----------
@@ -1629,8 +1600,8 @@ class Oracle(object):
         Raises
         ------
         ReplicationDrawOverflow
-            A single replication (serial path only) drew more raw
-            values than its reserved block holds.
+            A single replication drew more raw values than its
+            reserved block holds.
         ReplicationOverflow
             The block's last replication index is past the selected
             backend's `REPL_COUNT_LIMIT`.
@@ -1640,10 +1611,17 @@ class Oracle(object):
         SyncOverflow
             `sync` is at or past the backend's `SYNC_CAPACITY`.
         """
+        block = self._block_for(x, m, visit, sync, start_replication, crn)
+        return self._aggregate(self._get_executor().run([block])[0])
+
+    def _block_for(self, x, m, visit, sync, start_replication=0, crn=False):
+        """
+        The "where" half of `_hit_via_coordinate` (see its docstring):
+        check that the block may be where it is, record it in the
+        high-water mark and the point-code table, and return it as a
+        `ReplicationBlock`. Nothing is run.
+        """
         backend = self._backend
-        d = self.num_obj
-        dr = range(d)
-        mr = range(m)
         # Every axis raises at its own boundary, before anything is
         # drawn -- nothing below wraps or spills into a neighbouring
         # zone (docs/rng-interface-design.md, the SYNC_ROLE_OFFSET/
@@ -1718,25 +1696,25 @@ class Oracle(object):
         # itself.
         extra_stream, last_offset = divmod(offset + m * stride - 1, backend.OFFSET_CAPACITY)
         self._touch_coordinate(stream + extra_stream, last_offset)
-        feas = []
-        objm = []
-        executor = self._get_executor()
-        if self.simpar > 1:
-            # --simpar still runs through set_simpar()'s own worker
-            # loop, not through an executor backend: the executor only
-            # supplies each replication's stream, and the raw seed is
-            # queued for a worker as before. (No draw-count check on
-            # this path -- the count stays in the worker.)
-            for s in executor.streams(block):
-                self.req_q.put((x, s.get_seed()))
-            for _ in mr:
-                isfeasi, oval = self.res_q.get()
-                feas.append(isfeasi)
-                objm.append(oval)
-        else:
-            for replication in executor.run([block])[0]:
-                feas.append(replication.isfeas)
-                objm.append(replication.objectives)
+        return block
+
+    def _aggregate(self, replications):
+        """
+        One block's replications as hit() reports them.
+
+        Parameters
+        ----------
+        replications : list of executor.Replication
+
+        Returns
+        -------
+        isfeas, obmean, obse : as hit()
+        """
+        m = len(replications)
+        dr = range(self.num_obj)
+        mr = range(m)
+        feas = [replication.isfeas for replication in replications]
+        objm = [replication.objectives for replication in replications]
         isfeas = False
         obmean = []
         obse = []
@@ -1809,6 +1787,44 @@ class Oracle(object):
         itself).
         """
 
+        block = self._plan_hit(x, m, visit, sync)
+        return self._aggregate(self._get_executor().run([block])[0])
+
+    def hit_many(self, requests):
+        """
+        The same results as `[self.hit(x, m) for x, m in requests]`,
+        with every replication of every request handed to the executor
+        together.
+
+        Under `set_simpar(n)` that is the difference between n workers
+        sharing one point's `m` replications and sharing all of them
+        (docs/simpar-ceiling.md). Serially there is no difference at
+        all. It is safe because a replication's stream is a function
+        of its coordinate, not of the order replications run in.
+
+        A point that appears twice gets two consecutive blocks, as two
+        hit() calls would give it (crnflag=False), or the same block
+        twice (crnflag=True).
+
+        Parameters
+        ----------
+        requests : iterable of (tuple of int, int)
+            `(x, m)` pairs.
+
+        Returns
+        -------
+        list of (isfeas, obmean, obse)
+            One per request, in order, each as hit() returns it.
+        """
+        blocks = [self._plan_hit(x, m) for x, m in requests]
+        if not blocks:
+            return []
+        return [self._aggregate(replications) for replications in self._get_executor().run(blocks)]
+
+    def _plan_hit(self, x, m, visit=0, sync=None):
+        """hit()'s argument checks and coordinate bookkeeping, without
+        running anything: the block a hit(x, m, visit, sync) call made
+        now would run. Advances the per-point continuation."""
         assert(m >= 1)
         if sync is not None:
             if visit != 0:
@@ -1823,16 +1839,16 @@ class Oracle(object):
         if visit < 0:
             raise ValueError('visit must be non-negative, got {0}'.format(visit))
         if sync is not None or visit != 0:
-            return self._hit_via_coordinate(x, m, visit, sync)
+            return self._block_for(x, m, visit, sync)
 
         if not self.crnflag:
             key = (x, visit)  # visit == 0 here, always
             start = self._replications_drawn.get(key, 0)
-            result = self._hit_via_coordinate(x, m, visit, None, start_replication=start)
+            block = self._block_for(x, m, visit, None, start_replication=start)
             self._replications_drawn[key] = start + m
-            return result
+            return block
 
-        return self._hit_via_coordinate(x, m, 0, None, crn=True)
+        return self._block_for(x, m, 0, None, crn=True)
 
     def g(self, x, rng):
         """

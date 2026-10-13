@@ -27,19 +27,15 @@ tests/test_expensive_oracle.py, not just claimed here.
 Two things need it to be resolvable from the class alone, by
 reference, rather than passed at construction time:
 
-- A --simpar worker rebuilds an Oracle from just (class, seed)
-  (chnbase.mp_replicate) -- there is no channel for extra per-instance
-  state to cross into that call.
-- --proc's testsolve() path pickles a fully-built Oracle instance
-  through multiprocessing.Pool, which pickles task data internally
-  even under the 'fork' start method (a Pool's workers communicate
-  through a real Queue/pipe, unlike a bare Process under fork, whose
-  args are just inherited memory). A dynamically-constructed class
-  (e.g. via type()) or a mutated global/env var would pickle-by-
-  reference to a class a fresh worker import can't reconstruct under
-  'spawn'/'forkserver' -- exactly the start method 3.14's forkserver
-  default would hit. Fixing the cost in a concrete, statically-defined
-  subclass avoids that regardless of start method.
+- A --simpar worker rebuilds an Oracle from just (class, stream)
+  (executor.simulate_with_class) -- there is no channel for extra
+  per-instance state to cross into that call.
+- A --proc worker is sent the tester's class and builds the path's
+  Oracle itself (chnutils.run_path). A dynamically-constructed class
+  (e.g. via type()) or a mutated global/env var would refer to
+  something a freshly started worker cannot reconstruct. Fixing the
+  cost in a concrete, statically-defined subclass avoids that
+  regardless of start method.
 """
 from hashlib import sha256
 
@@ -164,3 +160,4 @@ class ProbExpensiveHeavy(ProbExpensive):
     overhead is unambiguously negligible.
     """
     burn_units = 60_000
+

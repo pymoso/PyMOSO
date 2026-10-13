@@ -36,9 +36,8 @@ def positive_int(value):
     """
     argparse type= validator: accept only positive integers. Used for
     --budget/--simpar/--isp/--proc so a non-positive process/replication
-    count is rejected at the CLI boundary instead of reaching mp.Pool
-    (which raises an opaque error for a non-positive process count) or
-    another downstream crash. Replaces the separate
+    count is rejected at the CLI boundary instead of reaching the
+    worker pool or another downstream crash. Replaces the separate
     basecomm.validate_positive_int check from commit 82c177b.
 
     Parameters

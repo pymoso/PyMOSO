@@ -9,10 +9,12 @@ solve
 testsolve
 get_testsolve_prnstreams
 get_solv_prnstreams
-do_work
+get_path_prnstreams
 combine_runs
 isp_run
-par_runs
+PathJob
+run_path
+run_paths
 gen_metric
 par_diff
 does_weak_dominate
@@ -36,8 +38,11 @@ dH
 
 from itertools import product, filterfalse
 from math import ceil, floor, sqrt
-import multiprocessing as mp
+import copy
+from dataclasses import dataclass
 from statistics import mean, variance
+from .executor import ClassRef
+from .pool import WorkerPool
 from .prng import registry
 from .prng.base import one_past, ensure_random_compatible, IspOverflow, RoleDrawOverflow
 
@@ -151,34 +156,28 @@ def testsolve(tester, solver, x0, **kwargs):
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
         paramtups.append(ptup)
-    orcstreams, solvstreams, x0stream, endseed, orc_root = get_testsolve_prnstreams(isp, seed, backend)
-    joblist = []
+    x0stream, orc_root = _testsolve_roots(isp, seed, backend)
     currtest = tester()
-    orclst = []
+    # A path is described as data (PathJob) and built where it runs:
+    # nothing live -- no Oracle, no stream -- crosses a process
+    # boundary. Random starting points are the one thing a path cannot
+    # rebuild for itself: they are drawn here, in path order, from one
+    # shared stream, so path t's depends on the t draws before it.
+    jobs = []
     for i in range(isp):
         if ranx0:
             x0 = currtest.get_ranx0(x0stream)
-        paramlst = [('solvprn', solvstreams[i]), ('x0', x0), ]
-        orc = currtest.ranorc(orcstreams[i])
-        orc.set_crnflag(crn)
-        orc.set_simpar(1)
-        orclst.append(orc)
-        ## create arguments for (unknown) optional named parameters
-        if paramtups:
-            paramlst.extend(paramtups)
-        paramargs = dict(paramlst)
-        mainparms = (solver, budget, orc)
-        joblist.append((mainparms, paramargs))
+        jobs.append(PathJob(
+            path=i, x0=x0, budget=budget, seed=seed, generator=generator, crn=crn, params=tuple(paramtups),
+        ))
     check_role_draws(x0stream, backend, 'x0')
-    res = par_runs(joblist, proc)
-    for o in orclst:
-        o.mp_cleanup()
+    res = run_paths(tester, solver, jobs, proc, tester_instance=currtest)
     # docs/rng-interface-design.md §12 step 8 stage 2 / §12 step 6c: the
     # real endseed, aggregated across every isp path's own oracle-role
     # high-water mark (crossing the --proc worker boundary via each
     # path's own result dict -- see Oracle.get_high_water_mark()'s
-    # docstring for why a dict field, not the orc objects here, which
-    # under --proc/--simpar never ran in this process at all).
+    # docstring for why a dict field: under --proc the Oracle that ran
+    # a path lived in a worker and never existed in this process).
     #
     # Path t's own Oracle stream is relative to `orc_root + t*ISP_STRIDE`
     # (get_testsolve_prnstreams's own construction); since
@@ -333,6 +332,63 @@ def get_testsolve_prnstreams(num_trials, iseed, backend):
     return orcprn_lst, solprn_lst, xprn, iseed, orc_root
 
 
+def _testsolve_roots(num_trials, iseed, backend):
+    """
+    What testsolve() itself needs from the stream layout
+    (get_testsolve_prnstreams documents it): the x0 stream and the
+    oracle role's root. Each path's own two streams are built where the
+    path runs (get_path_prnstreams).
+
+    Returns
+    -------
+    xprn : random.Random
+    orc_root : tuple of int
+
+    Raises
+    ------
+    IspOverflow
+    """
+    if num_trials > backend.ISP_MAX_PATHS:
+        raise IspOverflow(
+            '{0} independent sample paths requested, but the stream '
+            'layout holds at most {1} under {2}. See KNOWN_ISSUES.md '
+            'issue 10.'.format(num_trials, backend.ISP_MAX_PATHS, registry.GENERATOR_NAMES[backend])
+        )
+    xprn = ensure_random_compatible(backend.stream_at(iseed, 0, 0))
+    orc_root = backend.stream_at(iseed, backend.ISP_STREAM_SPAN, 0).root_seed()
+    return xprn, orc_root
+
+
+def get_path_prnstreams(path, iseed, backend):
+    """
+    One sample path's two streams, computed from the run's seed and the
+    path's index alone -- the same streams get_testsolve_prnstreams
+    returns at that index, whatever the number of paths
+    (tests/test_path_jobs.py holds the two together). This is what lets
+    a worker process be told "path 5" rather than be sent path 5's
+    live, seeded objects.
+
+    Parameters
+    ----------
+    path : int
+        Non-negative.
+    iseed : tuple of int
+        The run's starting seed, in the selected `backend`'s own shape.
+    backend : module
+
+    Returns
+    -------
+    orcstream : Stream object
+        Unwrapped; becomes the path's Oracle.rng.
+    solvstream : random.Random
+        Handed to the path's solver.
+    """
+    orc_root = backend.stream_at(iseed, backend.ISP_STREAM_SPAN, 0).root_seed()
+    orcstream = backend.stream_at(orc_root, path * backend.ISP_STREAM_SPAN, 0)
+    solvstream = ensure_random_compatible(backend.stream_at(iseed, 1 + path, 0))
+    return orcstream, solvstream
+
+
 def get_solv_prnstreams(iseed, backend):
     """
     Create a random number stream for the algorithm to use and an
@@ -372,34 +428,6 @@ def get_solv_prnstreams(iseed, backend):
     solvstream = ensure_random_compatible(backend.stream_at(iseed, 0, 0))
     orcstream = backend.stream_at(iseed, 1, 0)
     return orcstream, solvstream
-
-
-def do_work(func, args, kwargs=None):
-    """
-    Wrap a function with arguments and return the result for
-    multiprocessing routines.
-
-    Parameters
-    ----------
-    func
-        Function to be called in multiprocessing
-    args : tuple
-        Positional arguments to 'func'
-    kwargs : dict
-        Keyword arguments to 'func'
-
-    Returns
-    -------
-    result
-        Output of 'func(args, kwargs)'
-    """
-    # needed for use in the Python parallelization functions (e.g. apply_async)
-    # ¯\_(ツ)_/¯
-    if kwargs:
-        result = func(*args, **kwargs)
-    else:
-        result = func(*args)
-    return result
 
 
 def combine_runs(runsets):
@@ -485,34 +513,109 @@ def check_role_draws(stream, backend, role):
         )
 
 
-def par_runs(joblst, num_proc=1):
+@dataclass(frozen=True)
+class PathJob:
     """
-    Solve many problems in parallel.
+    One independent sample path of a testsolve() run, as data: enough
+    for any process that has the tester and solver classes to run it
+    and get the same result.
+
+    Attributes
+    ----------
+    path : int
+        The path's index. With `seed` it fixes the path's oracle and
+        solver streams (get_path_prnstreams).
+    x0 : tuple of int
+    budget : int
+    seed : tuple of int
+        The run's starting seed, not the path's.
+    generator : str
+        A registered generator name.
+    crn : bool
+    params : tuple of (str, float)
+        Solver parameters.
+    """
+    path: int
+    x0: tuple
+    budget: int
+    seed: tuple
+    generator: str
+    crn: bool
+    params: tuple = ()
+
+
+def run_path(state, job):
+    """
+    Run one sample path. Called in the process that runs the path: a
+    pool worker, or the caller's own when there is one process.
 
     Parameters
     ----------
-    joblist : list of tuple
-        Each tuple is length 2. 'tuple[0]' is tuple of positional
-        arguments, 'tuple[1]' is dict of keyword arguments.
+    state : (tester instance, solver class)
+    job : PathJob
+
+    Returns
+    -------
+    dict
+        Output of a 'chnbase.MOSOSolver.solve' call
+    """
+    tester, solver = state
+    backend = registry.get_generator(job.generator)
+    orcstream, solvstream = get_path_prnstreams(job.path, job.seed, backend)
+    orc = tester.ranorc(orcstream)
+    orc.set_crnflag(job.crn)
+    paramargs = dict([('solvprn', solvstream), ('x0', job.x0)] + list(job.params))
+    with orc.set_simpar(1):
+        return isp_run(solver, job.budget, orc, **paramargs)
+
+
+def _open_path_worker(tester_ref, solver_ref):
+    """A path worker's state: the tester, instantiated once, and the
+    solver class -- each rebuilt from its transportable form."""
+    return tester_ref.load()(), solver_ref.load()
+
+
+def run_paths(tester, solver, jobs, num_proc=1, tester_instance=None):
+    """
+    Run sample paths, `num_proc` at a time.
+
+    With `num_proc` of 1 the paths run in this process, one after
+    another, and no worker process exists. Above 1 they run on a
+    `pool.WorkerPool`, one task per path; the tester and solver
+    classes are sent to each worker once (`executor.ClassRef` -- so a
+    class loaded from a user-supplied file travels as a source bundle,
+    under every start method), and each task is a `PathJob`.
+
+    Parameters
+    ----------
+    tester : class
+    solver : chnbase.MOSOSolver class
+    jobs : list of PathJob
     num_proc : int
         Number of processes to use in parallel. Default is 1.
+    tester_instance : object or None
+        An existing instance of `tester` to use when running in this
+        process.
 
     Returns
     -------
     runtots : dict
-        Contains the results of every chnbase.MOSOSOlver.solve call
+        Contains the results of every chnbase.MOSOSOlver.solve call,
+        keyed by position in `jobs`.
+
+    Raises
+    ------
+    ValueError
+        `num_proc` is above 1 and `tester` or `solver` cannot be sent
+        to a worker process (executor.ClassRef).
     """
-    NUM_PROCESSES = num_proc
-    rundict = []
-    #print(joblst)
-    with mp.Pool(NUM_PROCESSES) as p:
-        worklist = [(isp_run, (e[0]), (e[1])) for e in joblst]
-        app_rd = [p.apply_async(do_work, job) for job in worklist]
-        for r in app_rd:
-            myitem = r.get()
-            rundict.append(myitem)
-    runtots = combine_runs(rundict)
-    return runtots
+    workers = min(num_proc, len(jobs))
+    if workers <= 1:
+        state = (tester_instance if tester_instance is not None else tester(), solver)
+        return combine_runs([run_path(state, job) for job in jobs])
+    refs = (ClassRef(tester), ClassRef(solver))
+    with WorkerPool(workers, _open_path_worker, refs) as pool:
+        return combine_runs(pool.run([(run_path, (job,)) for job in jobs]))
 
 
 def gen_metric(rundat, tester):
@@ -541,9 +644,22 @@ def gen_metric(rundat, tester):
     return met_data
 
 
+def _open_metric_worker(tester_ref):
+    return tester_ref.load()()
+
+
+def _metric_task(tester, rundat):
+    return gen_metric(rundat, tester)
+
+
 def par_diff(rundata, tester, num_proc):
     """
-    Compute metrics in parallel.
+    Compute metrics, `num_proc` sample paths at a time.
+
+    With `num_proc` of 1 they are computed in this process, each from
+    a copy of its path's data (a `metric` may consume the sets it is
+    given). Above 1 they run on a `pool.WorkerPool`; each worker
+    builds its own instance of the tester's class.
 
     Parameters
     ----------
@@ -559,19 +675,13 @@ def par_diff(rundata, tester, num_proc):
     hddict : dict
         keys are the isp number and values are the metric data
     """
-    NUM_PROCESSES = num_proc
     num_isp = len(rundata)
-    joblist = []
-    for i in range(num_isp):
-        joblist.append((rundata[i], tester))
-    hddict = dict()
-    with mp.Pool(NUM_PROCESSES) as p:
-        worklist = [(gen_metric, (e)) for e in joblist]
-        app_rd = [p.apply_async(do_work, job) for job in worklist]
-        for i, r in enumerate(app_rd):
-            myitem = r.get()
-            hddict[i] = myitem
-    return hddict
+    workers = min(num_proc, num_isp)
+    if workers <= 1:
+        return {i: gen_metric(copy.deepcopy(rundata[i]), tester) for i in range(num_isp)}
+    with WorkerPool(workers, _open_metric_worker, (ClassRef(type(tester)),)) as pool:
+        metrics = pool.run([(_metric_task, (rundata[i],)) for i in range(num_isp)])
+    return dict(enumerate(metrics))
 
 
 def does_weak_dominate(g1, g2, delta1, delta2):

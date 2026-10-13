@@ -25,25 +25,14 @@ through one of those two:
   call paths that use each (ProbTPA and BSProb respectively), not just by
   reading CPython's source.
 
-COVERAGE BOUNDARY, found while building this: this file's recorder sees
-everything a solve()-based scenario draws (simpar=1 never touches a
-Pool), but for testsolve() it only sees draws made in the parent
-process, not draws made inside a pool worker. chnutils.testsolve()
-always dispatches each independent sample path's actual replication
-work through a multiprocessing.Pool (chnutils.par_runs) -- unconditionally,
-not gated behind proc > 1, so even --proc=1 runs replications in a
-worker process, not the caller's. A recorder monkeypatched into the
-parent process cannot observe draws made inside that worker, regardless
-of start method (fork's copy-on-write would carry the patch across;
-spawn/forkserver's fresh re-import would not, and this environment
-defaults to forkserver -- see the --proc=1 case below, which is why it
-only checks parent-process work: stream creation and get_ranx0, not
-TPATester.g()'s own draws). Recording testsolve()'s in-pool
-replications, if ever wanted, needs a mechanism that survives the pool
-boundary (e.g. a start method forced to 'fork', or per-worker patching
-via the pool initializer) -- out of scope here. The ProbTPA/BSProb
-checks below sidestep this entirely by calling Oracle.g() directly,
-not through solve()/testsolve().
+COVERAGE BOUNDARY, now closed for --proc=1. testsolve() used to run
+every sample path through a multiprocessing.Pool, even at --proc=1, so
+a recorder patched into this process saw only the parent's own draws
+(stream creation and get_ranx0) and nothing a path drew. With one
+process there is no pool any more (chnutils.run_paths): the path runs
+here, and the recorder sees its solver's and its Oracle's draws too.
+With --proc above 1 the boundary is still there -- a worker started by
+spawn or forkserver imports the unpatched module.
 """
 from pymoso.prng.mrg32k3a import MRG32k3a
 from pymoso.chnutils import testsolve
@@ -139,7 +128,15 @@ def test_getrandbits_draw_sequence_matches_baseline(monkeypatch):
         budget=60, seed=(12345,) * 6, isp=1, proc=1, crn=False, ranx0=True,
     )
 
-    assert sink == [('getrandbits', 6, 44), ('getrandbits', 6, 1)]
+    # get_ranx0's two choice() calls, as before...
+    assert sink[:2] == [('getrandbits', 6, 44), ('getrandbits', 6, 1)]
+    # ...and then, because --proc=1 now runs the path in this process,
+    # everything the path itself drew: no further getrandbits (RPERLE
+    # and ProbTPA draw through random() alone), and at least the
+    # budget's worth of replications at three normal variates each.
+    rest = sink[2:]
+    assert all(kind == 'random' for kind, *_ in rest)
+    assert len(rest) >= 60
 
 
 # ---------------------------------------------------------------------------

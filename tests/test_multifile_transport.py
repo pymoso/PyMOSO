@@ -26,17 +26,11 @@ py-spy. A detector never observed detecting isn't proven to work.
 import ast
 import re
 import subprocess
-import multiprocessing
 import sys
 
 import pytest
 
 from _pymoso_cli import pymoso_argv
-
-# The known --proc gap follows the multiprocessing start method, not the
-# Python version: it reproduces wherever the default is not fork (3.14+
-# on Linux, and every version on macOS and Windows).
-_NON_FORK = multiprocessing.get_start_method() != "fork"
 
 pytestmark = pytest.mark.timeout(90)
 
@@ -127,18 +121,18 @@ def test_multifile_problem_under_simpar_matches_serial(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# testsolve()'s --proc path (KNOWN_ISSUES.md issue 7): a structurally
-# different mechanism from --simpar (chnutils.par_runs, a
-# multiprocessing.Pool dispatching one job per independent sample path,
-# each job carrying a fully-constructed, already-seeded Oracle instance
-# -- not a class reference), so the source-bundle fix in this commit
-# (which reconstructs classes) does not cover it. Documented as
-# reproducible, not suspected, with its own fixture, same discipline as
-# the --simpar test above. xfail is conditional on Python 3.14+: this
-# is the same fork-vs-forkserver split as issue 7, not a universal
-# failure -- unconditional xfail would XPASS (and fail, strict=True) on
-# 3.10-3.13, where fork's copy-on-write inheritance already makes this
-# work today.
+# testsolve()'s --proc path (KNOWN_ISSUES.md issue 7). It used to send
+# each worker a fully-constructed, already-seeded Oracle instance
+# through a multiprocessing.Pool, which a worker started by forkserver
+# or spawn could not unpickle (the instance's class lives in a module
+# only this process loaded) -- and the dead worker left the parent
+# waiting forever. A path is now sent as data (chnutils.PathJob) and
+# the tester and solver classes as source bundles, once per worker.
+#
+# Observed failing first, against the code before that change, on
+# Python 3.14 (forkserver): `ModuleNotFoundError: No module named
+# 'myproblem'` in the worker, then a hang until the timeout. It was a
+# strict xfail on non-fork start methods until then.
 # ---------------------------------------------------------------------------
 
 MYTESTER_SRC = '''\
@@ -158,39 +152,70 @@ class MyTester(object):
         self.get_ranx0 = get_ranx0
 
     def metric(self, eles):
-        return 0.0
+        return float(sum(abs(x[0]) for x in eles))
 '''
 
 
-@pytest.mark.xfail(
-    condition=_NON_FORK,
-    strict=True,
-    reason=(
-        "KNOWN_ISSUES.md issue 7: testsolve()'s --proc path "
-        "(chnutils.par_runs, multiprocessing.Pool) ships a "
-        "fully-constructed, already-seeded Oracle instance per job, not a "
-        "class reference -- reconstructing a live object with RNG state is "
-        "a different problem from reconstructing a class, so the "
-        "source-bundle transport fix (this commit) does not cover it. "
-        "Remove this xfail only once --proc has its own fix and its own "
-        "passing version of this test."
-    ),
-)
-def test_multifile_problem_under_proc_matches_serial(tmp_path):
-    (tmp_path / 'helper.py').write_text(HELPER_SRC)
-    (tmp_path / 'myproblem.py').write_text(PROBLEM_SRC)
-    (tmp_path / 'mytester.py').write_text(MYTESTER_SRC)
+MYSOLVER_SRC = '''\
+from pymoso.chnbase import RLESolver
+from solverhelper import same
 
-    cmd = ["pymoso", "testsolve", "--budget=200", "--proc=2", "mytester.py", "RPERLE", "40"]
+class MySolver(RLESolver):
+    def accel(self, warm_start):
+        return same(warm_start)
+'''
+
+SOLVERHELPER_SRC = '''\
+def same(points):
+    return points
+'''
+
+
+def run_testsolve(tmp_path, odir, extra_args, solver="RPERLE"):
+    cmd = ["pymoso", "testsolve", "--budget=200", "--isp=2", "--metric", f"--odir={odir}",
+           "--seed", ",".join(SEED), *extra_args, "mytester.py", solver, "40"]
     try:
         proc = subprocess.run(pymoso_argv(cmd), cwd=tmp_path, capture_output=True, text=True,
                                timeout=SUBPROCESS_TIMEOUT)
     except subprocess.TimeoutExpired:
         pytest.fail(
             f"{' '.join(cmd)} did not complete within {SUBPROCESS_TIMEOUT}s -- "
-            "reproduces KNOWN_ISSUES.md issue 7's --proc gap."
+            "KNOWN_ISSUES.md issue 7's --proc hang has regressed."
         )
-    assert proc.returncode == 0, proc.stderr
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "Error" not in proc.stdout, proc.stdout
+    # Per-path results and metrics, by file name with the run's own
+    # name removed. The summary file is left out: it records run times.
+    files = {f.name.replace(odir, ""): f.read_text()
+             for f in (tmp_path / odir).iterdir() if f.name != f"{odir}.txt"}
+    assert sorted(files) == ["ispdata_0_.txt", "ispdata_1_.txt", "metrics_0_.txt", "metrics_1_.txt"]
+    return end_seed(proc), files
+
+
+def write_fixture(tmp_path):
+    (tmp_path / 'helper.py').write_text(HELPER_SRC)
+    (tmp_path / 'myproblem.py').write_text(PROBLEM_SRC)
+    (tmp_path / 'mytester.py').write_text(MYTESTER_SRC)
+
+
+def test_multifile_problem_under_proc_matches_serial(tmp_path):
+    """Two paths on two workers, so paths and metrics both really cross
+    a process boundary (with one path, or --proc=1, nothing does)."""
+    write_fixture(tmp_path)
+    serial = run_testsolve(tmp_path, "serial_run", ["--proc=1"])
+    parallel = run_testsolve(tmp_path, "parallel_run", ["--proc=2"])
+    assert parallel == serial
+
+
+def test_custom_solver_file_under_proc_matches_serial(tmp_path):
+    """A solver can be a user-supplied file too, with imports of its
+    own, and reaches a worker the same way a problem does."""
+    write_fixture(tmp_path)
+    (tmp_path / 'mysolver.py').write_text(MYSOLVER_SRC)
+    (tmp_path / 'solverhelper.py').write_text(SOLVERHELPER_SRC)
+    serial = run_testsolve(tmp_path, "serial_run", ["--proc=1"], solver="mysolver.py")
+    parallel = run_testsolve(tmp_path, "parallel_run", ["--proc=2"], solver="mysolver.py")
+    assert parallel == serial
 
 
 # ---------------------------------------------------------------------------
