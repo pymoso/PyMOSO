@@ -233,11 +233,14 @@ def test_build_transport_descriptor_passes_builtin_classes_through_unchanged():
     assert build_transport_descriptor(ProbTPA) is ProbTPA
 
 
-def test_build_transport_descriptor_raises_clear_error_for_interactive_class():
+def test_build_transport_descriptor_raises_clear_error_for_interactive_class(monkeypatch):
     """A class with no locatable source (defined interactively -- a
     REPL or notebook, not loaded from a .py file) must raise a clear
     error naming the limitation, not silently attempt transport and
-    hang once a --simpar job is actually dispatched to it."""
+    hang once a --simpar job is actually dispatched to it. That is
+    the behaviour without cloudpickle; with it the class travels by
+    value (test_by_value_transport.py)."""
+    monkeypatch.setitem(sys.modules, 'cloudpickle', None)       # as where the `notebook` extra is not installed
     from pymoso.chnbase import build_transport_descriptor, Oracle
 
     ns = {}
@@ -268,6 +271,7 @@ def test_build_transport_descriptor_raises_clear_error_for_interactive_class():
     msg = str(exc_info.value)
     assert 'Interactive' in msg
     assert 'no locatable source' in msg
+    assert 'pymoso[notebook]' in msg
 
 
 def test_reconstruct_transport_descriptor_resolves_cross_file_dependency():

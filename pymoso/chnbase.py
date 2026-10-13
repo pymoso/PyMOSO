@@ -1213,7 +1213,8 @@ class Oracle(object):
             before any worker exists.
         """
         self._close_executor()
-        self._class_handle = ClassHandle(type(self)) if simpar > 1 else None
+        remote = getattr(backend, 'remote', False)
+        self._class_handle = ClassHandle(type(self), remote=remote) if simpar > 1 else None
         self._pool_backend = backend
         self.simpar = simpar
         return self

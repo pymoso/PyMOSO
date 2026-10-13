@@ -28,9 +28,12 @@ dependencies = []
 # exactly `-e ".[test]"` and nothing else, so a test-time dependency
 # that is not declared here fails CI rather than passing by accident.
 test = ["pytest", "pytest-timeout"]
-# Placeholders: declared now so the structure exists before the Spark
-# executor and numerics work need them. Empty until then.
-spark = []
+# Sending a class that has no source file -- one defined in a notebook
+# cell or a REPL -- to a worker process (simpar/proc above 1), by
+# value. Separate from `spark` because it serves that case with no
+# Spark anywhere: a laptop notebook should not need pyspark for it.
+notebook = ["cloudpickle"]
+# Placeholder: declared so the structure exists. Empty.
 numerics = []
 
 [project.urls]

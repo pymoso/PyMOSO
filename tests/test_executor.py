@@ -10,6 +10,7 @@ function of its problem, point and coordinate, and of nothing else.
 import dataclasses
 import multiprocessing
 import pickle
+import sys
 
 import pytest
 
@@ -263,11 +264,13 @@ def test_class_handle_gives_the_same_results_as_the_live_instance(name, backend)
         assert executor.run(blocks) == expected
 
 
-def test_class_handle_refuses_a_class_with_no_source():
+def test_class_handle_refuses_a_class_with_no_source(monkeypatch):
+    monkeypatch.setitem(sys.modules, 'cloudpickle', None)       # as where the `notebook` extra is not installed
     namespace = {}
     exec("from pymoso.chnbase import Oracle\nclass Interactive(Oracle):\n    pass\n", namespace)
-    with pytest.raises(ValueError, match="no locatable source"):
+    with pytest.raises(ValueError, match="no locatable source") as refused:
         ClassHandle(namespace["Interactive"])
+    assert "pymoso[notebook]" in str(refused.value)
 
 
 def test_transport_functions_are_still_importable_from_chnbase():
@@ -330,9 +333,11 @@ def test_a_class_ref_carries_any_importable_class_and_survives_pickling():
         assert ref.load() is cls and ref.name == cls.__name__
 
 
-def test_a_class_defined_inside_a_function_is_refused_before_any_worker_exists():
+def test_a_class_defined_inside_a_function_is_refused_before_any_worker_exists(monkeypatch):
     """It has a source file, so the older check let it through; under
-    fork it would even work. It cannot be found again by name."""
+    fork it would even work. It cannot be found again by name. (With
+    cloudpickle it travels by value: test_by_value_transport.py.)"""
+    monkeypatch.setitem(sys.modules, 'cloudpickle', None)       # as where the `notebook` extra is not installed
     def make():
         class Local(Oracle):
             pass
@@ -504,7 +509,8 @@ def test_set_simpar_owns_its_workers_on_every_exit_path():
     assert clone._executor is None
 
 
-def test_set_simpar_refuses_an_untransportable_class_before_starting_anything():
+def test_set_simpar_refuses_an_untransportable_class_before_starting_anything(monkeypatch):
+    monkeypatch.setitem(sys.modules, 'cloudpickle', None)       # as where the `notebook` extra is not installed
     namespace = {}
     exec("from pymoso.chnbase import Oracle\nclass Interactive(Oracle):\n    pass\n", namespace)
     orc = namespace["Interactive"](mrg32k3a.MRG32k3a(mrg32k3a.DEFAULT_SEED))

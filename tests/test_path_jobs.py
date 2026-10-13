@@ -9,6 +9,7 @@ the parent used to build, which is what these tests hold down.
 """
 import multiprocessing
 import pickle
+import sys
 
 import pytest
 
@@ -92,12 +93,15 @@ def test_an_exception_in_a_path_is_raised_in_the_caller():
             testsolve(TPATester, RPERLE, (999, 999), budget=100, seed=(12345,) * 6, isp=2, proc=proc, crn=False)
 
 
-def test_a_tester_that_cannot_be_transported_is_refused_only_when_it_would_have_to_be():
+def test_a_tester_that_cannot_be_transported_is_refused_only_when_it_would_have_to_be(monkeypatch):
     """A behaviour change, recorded: a tester defined where a worker
     cannot find it (here, inside a function; in practice a notebook
     cell) used to work with proc > 1 under the fork start method and
-    nowhere else. It now raises under every start method, and still
-    works with proc=1."""
+    nowhere else. Without cloudpickle it now raises under every start
+    method, and still works with proc=1. With cloudpickle (the
+    `notebook` extra) it travels by value:
+    test_by_value_transport.py."""
+    monkeypatch.setitem(sys.modules, 'cloudpickle', None)       # as where the `notebook` extra is not installed
     class LocalTester(TPATester):
         pass
 

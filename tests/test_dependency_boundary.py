@@ -41,8 +41,10 @@ OPTIONAL = ("numpy", "cloudpickle", "pyspark")
 
 # (file relative to pymoso/, top-level module) for every import of
 # something outside the standard library and pymoso that sits inside a
-# function in the core. Empty means the core has none.
-LAZY_OPTIONAL_IMPORTS = set()
+# function in the core.
+LAZY_OPTIONAL_IMPORTS = {
+    ("executor.py", "cloudpickle"),      # ClassRef, by value: the `notebook` extra
+}
 
 SUBPROCESS_TIMEOUT = 120
 

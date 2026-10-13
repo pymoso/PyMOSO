@@ -175,11 +175,16 @@ class ProblemHandle:
         Whether this handle may be sent to another process. A backend
         that runs work elsewhere must refuse one that is not.
 
-    Subclasses implement `simulator()`. Adding a transport -- pickling
-    a class by value with cloudpickle, for a problem defined in a
-    notebook cell, which has no source file to bundle -- means adding a
-    subclass here, behind an optional dependency. The executor
-    interface does not change (docs/forkserver-hang.md's correction).
+    Subclasses implement `simulator()`.
+
+    Correction (Phase 4). This docstring used to say that pickling a
+    class by value, for a problem defined in a notebook cell, would be
+    a further subclass here. It is not: it is a third form of
+    `ClassRef`. The earlier plan was made when a problem was the only
+    thing that travelled; since Phase 3 a tester and a solver travel
+    too, as `ClassRef`s and not as handles, and a by-value handle
+    would have left a notebook's tester and solver unable to travel.
+    The executor interface is unchanged either way.
     """
     transportable = False
 
@@ -215,26 +220,33 @@ class ClassRef:
     A class in a form that can be sent to a worker process and turned
     back into the class there: the class itself when a fresh process
     can import it, a source bundle when it was loaded from a
-    user-supplied file -- see `build_transport_descriptor`. Problems,
-    solvers and testers all travel this way.
+    user-supplied file, and the class pickled by value (cloudpickle,
+    the `notebook` extra) when it is neither -- see
+    `build_transport_descriptor`. Problems, solvers and testers all
+    travel this way.
 
     Parameters
     ----------
     cls : class
+    remote : bool
+        Whether the worker may be somewhere that cannot import what
+        this process can (`pool.LocalBackend` describes the flag).
+        Default False.
 
     Raises
     ------
     ValueError
         `cls` cannot be transported: it has no source file (defined in
-        a REPL or notebook), or it cannot be found again by name
-        (defined inside a function). Raised here, in the parent,
-        whatever the start method -- `fork` would carry such a class
-        across by inheritance, and the same code would then fail on
-        macOS, on Windows, and on Linux from Python 3.14.
+        a REPL or notebook) or cannot be found again by name (defined
+        inside a function), and cloudpickle is not installed or cannot
+        pickle it. Raised here, in the parent, whatever the start
+        method -- `fork` would carry such a class across by
+        inheritance, and the same code would then fail on macOS, on
+        Windows, and on Linux from Python 3.14.
     """
 
-    def __init__(self, cls):
-        self.descriptor = build_transport_descriptor(cls)
+    def __init__(self, cls, remote=False):
+        self.descriptor = build_transport_descriptor(cls, remote=remote)
         self.name = cls.__name__
 
     def load(self):
@@ -251,6 +263,8 @@ class ClassHandle(ProblemHandle):
     Parameters
     ----------
     orccls : Oracle class
+    remote : bool
+        As for `ClassRef`. Default False.
 
     Raises
     ------
@@ -259,8 +273,8 @@ class ClassHandle(ProblemHandle):
     """
     transportable = True
 
-    def __init__(self, orccls):
-        self._ref = ClassRef(orccls)
+    def __init__(self, orccls, remote=False):
+        self._ref = ClassRef(orccls, remote=remote)
 
     @property
     def descriptor(self):
@@ -275,7 +289,7 @@ class ClassHandle(ProblemHandle):
         return _ClassSimulator(self.load())
 
 
-def build_transport_descriptor(cls):
+def build_transport_descriptor(cls, remote=False):
     """
     Build whatever a worker process needs to reconstruct cls. It is
     sent once per worker, when the pool opens, not once per job.
@@ -305,49 +319,150 @@ def build_transport_descriptor(cls):
     layout with subdirectories, or `from .sibling import x`, isn't
     supported by either).
 
+    A class that is neither -- defined interactively, in a notebook
+    cell or a REPL, so that it has no source file; or inside a
+    function, so that it cannot be found again by name -- is pickled
+    *by value* with cloudpickle when cloudpickle is installed (the
+    `notebook` extra): the class's own code travels in the payload,
+    with whatever functions and constants of its defining namespace it
+    uses. What does not travel by value is any module the class
+    imports; those are imported again in the worker, by name.
+
+    With `remote=True` the worker may be on another machine, where
+    "this process can import it" says nothing. Then only pymoso's own
+    classes go by reference -- pymoso has to be installed there
+    anyway -- and a class from any other module goes by value, its
+    module's own functions and classes with it. (A source bundle is
+    text and travels anywhere; it is unchanged.)
+
     Parameters
     ----------
     cls : Oracle class
+    remote : bool
+        Default False.
 
     Returns
     -------
-    cls, unchanged, or a dict source-bundle descriptor
+    cls, unchanged; a dict source-bundle descriptor (keys `files`,
+    `entry`, `class_name`); or a dict by-value descriptor (keys
+    `by_value`, `class_name`)
 
     Raises
     ------
     ValueError
         cls has no locatable source at all (defined interactively, not
         loaded from a .py file), or does not pickle by reference
-        (defined inside a function) -- it cannot be transported to a
-        worker process. Raised here, before any worker exists, rather
-        than left to surface as a hang once a job is dispatched.
+        (defined inside a function), or -- for a remote worker -- is
+        not part of pymoso; and cloudpickle is not installed, or
+        cannot pickle it. Raised here, before any worker exists,
+        rather than left to surface as a hang once a job is
+        dispatched.
     """
     module = sys.modules.get(cls.__module__)
     if module is not None and getattr(module, '__pymoso_dynamic__', False):
         return _build_source_bundle(cls, module)
+    if remote:
+        if _is_pymoso_class(cls):
+            return cls
+        descriptor = _build_by_value(cls, with_module=True)
+        if descriptor is None:
+            raise ValueError(
+                f"{cls.__name__} cannot be sent to a remote worker: it is "
+                "not part of pymoso, so the worker's machine may be unable "
+                "to import it, and sending it by value needs cloudpickle, "
+                "which is not installed. " + _NOTEBOOK_EXTRA
+            )
+        return descriptor
     try:
         inspect.getfile(cls)
     except (TypeError, OSError) as e:
+        descriptor = _build_by_value(cls)
+        if descriptor is not None:
+            return descriptor
         raise ValueError(
             f"{cls.__name__} has no locatable source file, so it cannot be "
             "sent to a worker process. This happens for a class "
             "defined interactively (a REPL or notebook), not loaded from a "
-            ".py file. Define it in a .py file and try again, or run "
-            "without --simpar/--proc (or with them set to 1)."
+            ".py file. " + _NOTEBOOK_EXTRA + " Or define it in a .py file, "
+            "or run without --simpar/--proc (or with them set to 1)."
         ) from e
     try:
         pickle.dumps(cls)
     except Exception as e:
+        descriptor = _build_by_value(cls)
+        if descriptor is not None:
+            return descriptor
         raise ValueError(
             f"{cls.__name__} cannot be sent to a worker process: a worker "
             "finds a class again by its module and name, and this one "
             f"cannot be found that way ({e}). This happens for a class "
             "defined inside a function, or in a module that was loaded "
-            "without being made importable. Define it at the top level "
-            "of a .py file, or run without --simpar/--proc (or with "
-            "them set to 1)."
+            "without being made importable. " + _NOTEBOOK_EXTRA + " Or "
+            "define it at the top level of a .py file, or run without "
+            "--simpar/--proc (or with them set to 1)."
         ) from e
     return cls
+
+
+_NOTEBOOK_EXTRA = (
+    "Installing cloudpickle (`pip install pymoso[notebook]`) lets such a "
+    "class be sent by value."
+)
+
+
+def _is_pymoso_class(cls):
+    """Whether a worker that has pymoso installed, and nothing else of
+    this process's, can find `cls` by name."""
+    if cls.__module__ != 'pymoso' and not cls.__module__.startswith('pymoso.'):
+        return False
+    try:
+        return pickle.loads(pickle.dumps(cls)) is cls
+    except Exception:
+        return False
+
+
+def _build_by_value(cls, with_module=False):
+    """
+    `cls` pickled by value, or None when cloudpickle is not installed.
+
+    Parameters
+    ----------
+    cls : class
+    with_module : bool
+        Also send by value everything else `cls` uses from its own
+        module, where cloudpickle would otherwise leave a reference to
+        a module it sees is importable here.
+
+    Raises
+    ------
+    ValueError
+        cloudpickle is installed and cannot pickle `cls`.
+    """
+    try:
+        import cloudpickle
+    except ImportError:
+        return None
+    module = sys.modules.get(cls.__module__)
+    registered = False
+    # Not if the user registered it themselves: undoing ours would
+    # undo theirs.
+    if with_module and module is not None and module.__name__ not in cloudpickle.list_registry_pickle_by_value():
+        cloudpickle.register_pickle_by_value(module)
+        registered = True
+    try:
+        payload = cloudpickle.dumps(cls)
+    except Exception as e:
+        raise ValueError(
+            f"{cls.__name__} cannot be sent to a worker process: it has to "
+            f"be pickled by value, and that failed ({type(e).__name__}: {e}). "
+            "Something it uses from the namespace it was defined in -- an "
+            "open file, a lock, a database or Spark session -- cannot be "
+            "pickled. Create such things inside g(), not outside the class."
+        ) from e
+    finally:
+        if registered:
+            cloudpickle.unregister_pickle_by_value(module)
+    return {'by_value': payload, 'class_name': cls.__name__}
 
 
 def _build_source_bundle(cls, module):
@@ -382,6 +497,9 @@ def reconstruct_transport_descriptor(descriptor):
     acyclic dependency order among the bundled files without having to
     guess it upfront.
 
+    A by-value descriptor is unpickled. That needs cloudpickle
+    installed where this runs, and every module the class imports.
+
     Parameters
     ----------
     descriptor : Oracle class, or dict as built by
@@ -400,6 +518,12 @@ def reconstruct_transport_descriptor(descriptor):
     """
     if not isinstance(descriptor, dict):
         return descriptor
+    if 'by_value' in descriptor:
+        # A cloudpickle payload is an ordinary pickle; reading it needs
+        # cloudpickle importable here, since it names cloudpickle's own
+        # reconstruction functions. cloudpickle returns the same class
+        # object each time one process loads the same class.
+        return pickle.loads(descriptor['by_value'])
     files = descriptor['files']
     entry = descriptor['entry']
     modules = {}

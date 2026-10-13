@@ -630,7 +630,7 @@ def run_paths(tester, solver, jobs, num_proc=1, tester_instance=None, backend=No
         return combine_runs([run_path(state, job) for job in jobs])
     if backend is None:
         backend = LocalBackend()
-    refs = (ClassRef(tester), ClassRef(solver))
+    refs = (ClassRef(tester, remote=backend.remote), ClassRef(solver, remote=backend.remote))
     with backend.pool(workers, _open_path_worker, refs) as pool:
         return combine_runs(pool.run([(run_path, (job,)) for job in jobs]))
 
@@ -702,7 +702,7 @@ def par_diff(rundata, tester, num_proc, backend=None):
         return {i: gen_metric(copy.deepcopy(rundata[i]), tester) for i in range(num_isp)}
     if backend is None:
         backend = LocalBackend()
-    with backend.pool(workers, _open_metric_worker, (ClassRef(type(tester)),)) as pool:
+    with backend.pool(workers, _open_metric_worker, (ClassRef(type(tester), remote=backend.remote),)) as pool:
         metrics = pool.run([(_metric_task, (rundata[i],)) for i in range(num_isp)])
     return dict(enumerate(metrics))
 
