@@ -388,3 +388,42 @@ class WorkerPool:
             self._broken = self._broken or 'it is being torn down'
         self.close()
         return False
+
+
+class LocalBackend:
+    """
+    Where pooled work runs, when nothing else is asked for: worker
+    processes on this machine (`WorkerPool`).
+
+    A *backend* is the one thing `--simpar`, `--proc` and metric
+    computation need from wherever their work runs, and what
+    `solve(backend=...)`, `testsolve(backend=...)` and
+    `par_diff(backend=...)` accept. It has:
+
+    - `remote` : bool. False when its workers share this machine's
+      Python environment and can import whatever this process can.
+      True when they may not -- another machine, another environment --
+      in which case classes are sent to it by value wherever they are
+      not part of pymoso itself (`executor.ClassRef`).
+    - `pool(workers, initializer, initargs)`, returning an object with
+      `WorkerPool`'s shape and `WorkerPool.run`'s contract: `open()`
+      returning itself, `run(tasks)`, `close()`, and use as a context
+      manager. `initializer(*initargs)` runs once wherever tasks run
+      and its return value is passed to every task as its first
+      argument; a task is `(function, args)`; results come back in
+      order; if tasks raise, `run` raises what the earliest of them
+      raised, as that exception. `workers` is how many tasks may run
+      at once; a backend that schedules for itself may ignore it.
+
+    Parameters
+    ----------
+    context : multiprocessing context or None
+        Defaults to the platform's default start method.
+    """
+    remote = False
+
+    def __init__(self, context=None):
+        self._context = context
+
+    def pool(self, workers, initializer=None, initargs=()):
+        return WorkerPool(workers, initializer, initargs, self._context)

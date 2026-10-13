@@ -35,7 +35,7 @@ def _fake_run_paths_returning(hwm_per_path):
     oracle_high_water_mark and otherwise-empty content -- enough for
     testsolve()'s own combination logic, which only reads that one key
     plus whatever it copies through untouched."""
-    def fake(tester, solver, jobs, proc, tester_instance=None):
+    def fake(tester, solver, jobs, proc, tester_instance=None, backend=None):
         return {t: {'itersoln': {}, 'simcalls': {}, 'endseed': None,
                      'oracle_high_water_mark': hwm_per_path[t]}
                 for t in range(len(jobs))}

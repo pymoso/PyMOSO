@@ -42,7 +42,7 @@ import copy
 from dataclasses import dataclass
 from statistics import mean, variance
 from .executor import ClassRef
-from .pool import WorkerPool
+from .pool import LocalBackend
 from .prng import registry
 from .prng.base import one_past, ensure_random_compatible, IspOverflow, RoleDrawOverflow
 
@@ -88,6 +88,10 @@ def solve(problem, solver, x0, **kwargs):
     x0 : tuple of int
         Feasible starting point for the algorithms
     kwargs : dict
+        `budget`, `generator`, `seed`, `simpar`, `crn` and `backend`
+        (where `simpar` worker processes run; `pool.LocalBackend`
+        describes what a backend is) are taken from here. Everything
+        else is passed to the solver as a parameter.
 
     Returns
     -------
@@ -103,6 +107,7 @@ def solve(problem, solver, x0, **kwargs):
     seed = kwargs.pop('seed', backend.DEFAULT_SEED)
     simpar = kwargs.pop('simpar', DEFAULT_SIMPAR)
     crn = kwargs.pop('crn', DEFAULT_CRN)
+    pool_backend = kwargs.pop('backend', None)
     paramtups = []
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
@@ -117,7 +122,7 @@ def solve(problem, solver, x0, **kwargs):
     if paramtups:
         paramlst.extend(paramtups)
     paramargs = dict(paramlst)
-    with orc.set_simpar(simpar):
+    with orc.set_simpar(simpar, backend=pool_backend):
         res = isp_run(solver, budget, orc, **paramargs)
     lastnu = len(res['itersoln']) - 1
     return res['itersoln'][lastnu], res['endseed']
@@ -134,6 +139,11 @@ def testsolve(tester, solver, x0, **kwargs):
     x0 : tuple of int
         Feasible starting point for the algorithms
     kwargs : dict
+        `budget`, `generator`, `seed`, `isp`, `proc`, `ranx0`, `crn`
+        and `backend` (where `proc` worker processes run;
+        `pool.LocalBackend` describes what a backend is) are taken
+        from here. Everything else is passed to the solver as a
+        parameter.
 
     Returns
     -------
@@ -152,6 +162,7 @@ def testsolve(tester, solver, x0, **kwargs):
     proc = kwargs.pop('proc', DEFAULT_PROC)
     ranx0 = kwargs.pop('ranx0', DEFAULT_RANX0)
     crn = kwargs.pop('crn', DEFAULT_CRN)
+    pool_backend = kwargs.pop('backend', None)
     paramtups = []
     for i, p in enumerate(kwargs):
         ptup = (p, float(kwargs[p]))
@@ -171,7 +182,7 @@ def testsolve(tester, solver, x0, **kwargs):
             path=i, x0=x0, budget=budget, seed=seed, generator=generator, crn=crn, params=tuple(paramtups),
         ))
     check_role_draws(x0stream, backend, 'x0')
-    res = run_paths(tester, solver, jobs, proc, tester_instance=currtest)
+    res = run_paths(tester, solver, jobs, proc, tester_instance=currtest, backend=pool_backend)
     # docs/rng-interface-design.md §12 step 8 stage 2 / §12 step 6c: the
     # real endseed, aggregated across every isp path's own oracle-role
     # high-water mark (crossing the --proc worker boundary via each
@@ -575,13 +586,14 @@ def _open_path_worker(tester_ref, solver_ref):
     return tester_ref.load()(), solver_ref.load()
 
 
-def run_paths(tester, solver, jobs, num_proc=1, tester_instance=None):
+def run_paths(tester, solver, jobs, num_proc=1, tester_instance=None, backend=None):
     """
     Run sample paths, `num_proc` at a time.
 
     With `num_proc` of 1 the paths run in this process, one after
     another, and no worker process exists. Above 1 they run on a
-    `pool.WorkerPool`, one task per path; the tester and solver
+    pool from `backend` (`pool.WorkerPool` by default), one task per
+    path; the tester and solver
     classes are sent to each worker once (`executor.ClassRef` -- so a
     class loaded from a user-supplied file travels as a source bundle,
     under every start method), and each task is a `PathJob`.
@@ -596,6 +608,9 @@ def run_paths(tester, solver, jobs, num_proc=1, tester_instance=None):
     tester_instance : object or None
         An existing instance of `tester` to use when running in this
         process.
+    backend : backend or None
+        Where the worker processes are (`pool.LocalBackend` describes
+        what a backend is). Defaults to this machine.
 
     Returns
     -------
@@ -613,8 +628,10 @@ def run_paths(tester, solver, jobs, num_proc=1, tester_instance=None):
     if workers <= 1:
         state = (tester_instance if tester_instance is not None else tester(), solver)
         return combine_runs([run_path(state, job) for job in jobs])
+    if backend is None:
+        backend = LocalBackend()
     refs = (ClassRef(tester), ClassRef(solver))
-    with WorkerPool(workers, _open_path_worker, refs) as pool:
+    with backend.pool(workers, _open_path_worker, refs) as pool:
         return combine_runs(pool.run([(run_path, (job,)) for job in jobs]))
 
 
@@ -652,14 +669,15 @@ def _metric_task(tester, rundat):
     return gen_metric(rundat, tester)
 
 
-def par_diff(rundata, tester, num_proc):
+def par_diff(rundata, tester, num_proc, backend=None):
     """
     Compute metrics, `num_proc` sample paths at a time.
 
     With `num_proc` of 1 they are computed in this process, each from
     a copy of its path's data (a `metric` may consume the sets it is
-    given). Above 1 they run on a `pool.WorkerPool`; each worker
-    builds its own instance of the tester's class.
+    given). Above 1 they run on a pool from `backend`
+    (`pool.WorkerPool` by default); each worker builds its own
+    instance of the tester's class.
 
     Parameters
     ----------
@@ -669,6 +687,9 @@ def par_diff(rundata, tester, num_proc):
         Instantiated object such that 'tester.metric' is callable
     num_proc : int
         Number of processes to use
+    backend : backend or None
+        Where the worker processes are (`pool.LocalBackend` describes
+        what a backend is). Defaults to this machine.
 
     Returns
     -------
@@ -679,7 +700,9 @@ def par_diff(rundata, tester, num_proc):
     workers = min(num_proc, num_isp)
     if workers <= 1:
         return {i: gen_metric(copy.deepcopy(rundata[i]), tester) for i in range(num_isp)}
-    with WorkerPool(workers, _open_metric_worker, (ClassRef(type(tester)),)) as pool:
+    if backend is None:
+        backend = LocalBackend()
+    with backend.pool(workers, _open_metric_worker, (ClassRef(type(tester)),)) as pool:
         metrics = pool.run([(_metric_task, (rundata[i],)) for i in range(num_isp)])
     return dict(enumerate(metrics))
 

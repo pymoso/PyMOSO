@@ -56,7 +56,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from .pool import WorkerPool
+from .pool import LocalBackend
 from .prng import registry
 from .prng.base import ReplicationDrawOverflow, ensure_random_compatible
 
@@ -707,7 +707,11 @@ class PoolExecutor(Executor):
     workers : int
         At least 1.
     context : multiprocessing context or None
-        Defaults to the platform's default start method.
+        Defaults to the platform's default start method. Not used when
+        `backend` is given.
+    backend : backend or None
+        Where the workers are (`pool.LocalBackend` describes what a
+        backend is). Defaults to worker processes on this machine.
 
     Raises (from `open`)
     --------------------
@@ -719,11 +723,11 @@ class PoolExecutor(Executor):
         raised here, at open, not left to surface as a hang.
     """
 
-    def __init__(self, workers, context=None):
+    def __init__(self, workers, context=None, backend=None):
         if workers < 1:
             raise ValueError('an executor needs at least one worker, got {0}'.format(workers))
         self.workers = workers
-        self._context = context
+        self._backend = backend if backend is not None else LocalBackend(context)
         self._pool = None
 
     def open(self, problem, generator):
@@ -735,7 +739,7 @@ class PoolExecutor(Executor):
                 '{0} cannot be sent to another process; a pool executor needs a '
                 'transportable problem handle such as ClassHandle.'.format(type(problem).__name__)
             )
-        self._pool = WorkerPool(self.workers, _open_worker_executor, (problem, generator), self._context).open()
+        self._pool = self._backend.pool(self.workers, _open_worker_executor, (problem, generator)).open()
         return self
 
     def close(self):

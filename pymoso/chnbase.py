@@ -1175,7 +1175,7 @@ class Oracle(object):
         """
         return registry.GENERATORS[self._backend_name]
 
-    def set_simpar(self, simpar):
+    def set_simpar(self, simpar, backend=None):
         """
         Choose how many processes run this Oracle's replications.
 
@@ -1191,6 +1191,10 @@ class Oracle(object):
         ----------
         simpar : int
             Number of processes to use when performing simulation replications.
+        backend : backend or None
+            Where those processes are, when `simpar` is above 1
+            (`pool.LocalBackend` describes what a backend is). Defaults
+            to worker processes on this machine.
 
         Returns
         -------
@@ -1210,6 +1214,7 @@ class Oracle(object):
         """
         self._close_executor()
         self._class_handle = ClassHandle(type(self)) if simpar > 1 else None
+        self._pool_backend = backend
         self.simpar = simpar
         return self
 
@@ -1541,7 +1546,8 @@ class Oracle(object):
         if self._executor is None:
             handle = getattr(self, '_class_handle', None)
             if handle is not None:
-                self._executor = PoolExecutor(self.simpar).open(handle, self._backend_name)
+                backend = getattr(self, '_pool_backend', None)
+                self._executor = PoolExecutor(self.simpar, backend=backend).open(handle, self._backend_name)
             else:
                 self._executor = SerialExecutor().open(InProcessHandle(self), self._backend_name)
         return self._executor
