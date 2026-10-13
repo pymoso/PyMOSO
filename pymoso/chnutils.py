@@ -90,9 +90,10 @@ def starting_point(x0, dim):
     'list' as a set element".
 
     The components are not changed. Any real number is let through as
-    it is -- an int, a float, a numpy scalar -- and what the solver
-    and the oracle make of it is theirs to say. Only things that are
-    not numbers at all are refused here.
+    it is -- an int, a float, a numpy scalar -- and the oracle decides
+    whether the point is feasible (chnbase.Oracle's docstring says
+    what a point may be). Only things that are not numbers at all are
+    refused here.
 
     Parameters
     ----------
@@ -175,8 +176,11 @@ def solve(problem, solver, x0, **kwargs):
     ----------
     problem : chnbase.Oracle class
     solver : chnbase.MOSOSolver class
-    x0 : tuple of int
-        Feasible starting point for the algorithms
+    x0 : sequence of numbers
+        Feasible starting point for the algorithms: one number per
+        dimension of the problem. A whole number of any numeric type
+        (30, 30.0, a numpy integer) is the same point; the problem's
+        own g() decides whether the point is feasible.
     kwargs : dict
         `budget`, `generator`, `seed`, `simpar`, `crn` and `backend`
         (where `simpar` worker processes run; `pool.LocalBackend`
@@ -233,8 +237,8 @@ def testsolve(tester, solver, x0, **kwargs):
     ----------
     problem : chnbase.Oracle class
     solver : chnbase.MOSOSolver class
-    x0 : tuple of int
-        Feasible starting point for the algorithms
+    x0 : sequence of numbers
+        Feasible starting point for the algorithms, as for solve().
     kwargs : dict
         `budget`, `generator`, `seed`, `isp`, `proc`, `ranx0`, `crn`
         and `backend` (where `proc` worker processes run;

@@ -36,8 +36,11 @@ items 8-9 and docs/rng-interface-design.md §12 step 3's own note to
 that effect.
 """
 import hashlib
+import math
+import numbers
 import operator
 import random
+from fractions import Fraction
 from typing import Protocol, runtime_checkable
 
 
@@ -229,6 +232,13 @@ POINT_BITS = 127 - REPL_RESERVE_BITS - REPL_COUNT_BITS - VISIT_BITS  # 75,
                         # problem) still gets W = 75 // 9 = 8
 
 
+class PointNotEncodable(ValueError):
+    """A point has a component that is not a finite real number -- a
+    nan, an infinity, or not a number at all -- so it has no
+    coordinate. The Oracle reports such a point infeasible rather than
+    letting this out (chnbase.Oracle.hit)."""
+
+
 class PointCodeOverflow(ValueError):
     """A point's zigzag-encoded component doesn't fit in the W bits
     this problem's dimension leaves available. Raised, not silently
@@ -413,11 +423,72 @@ def point_code(x, W):
     return code
 
 
+def canonical_point(x):
+    """
+    A point's components as the numbers they are, whatever type they
+    arrived as: a Python int for every whole value, an exact Fraction
+    for every other finite real.
+
+    This is what makes a point's coordinate depend on its value and
+    not on its type. 30, 30.0, numpy.int64(30) and Fraction(30) are
+    the same point and get the same streams; so do 30.5 and
+    Fraction(61, 2). It also keeps fixed-width and floating-point
+    arithmetic out of the coordinate, which is integer arithmetic
+    throughout: left as it arrived, a numpy integer overflowed there
+    and a float failed in the generator's jump.
+
+    Parameters
+    ----------
+    x : sequence of numbers
+
+    Returns
+    -------
+    components : tuple of int or Fraction
+    whole : bool
+        True if every component is an int.
+
+    Raises
+    ------
+    PointNotEncodable
+        A component is not a finite real number.
+    """
+    components = []
+    whole = True
+    for position, v in enumerate(x):
+        try:
+            components.append(operator.index(v))        # int, bool, numpy integers
+            continue
+        except TypeError:
+            pass
+        if isinstance(v, numbers.Rational):
+            value = Fraction(v.numerator, v.denominator)
+        elif isinstance(v, numbers.Real):
+            as_float = float(v)
+            if math.isnan(as_float) or math.isinf(as_float):
+                raise PointNotEncodable(
+                    'component {0} of the point {1!r} is {2!r}, which is not a '
+                    'finite number'.format(position, tuple(x), v)
+                )
+            value = Fraction(as_float)
+        else:
+            raise PointNotEncodable(
+                'component {0} of the point {1!r} is {2!r}, which is not a real '
+                'number'.format(position, tuple(x), v)
+            )
+        if value.denominator == 1:
+            components.append(value.numerator)
+        else:
+            components.append(value)
+            whole = False
+    return tuple(components), whole
+
+
 def hash_point(x, point_bits):
     """
     A fixed, portable hash of a point into `point_bits` bits: blake2b
     over a canonical encoding (dimension, then each component in
-    decimal). Deliberately not Python's hash() -- that is an
+    decimal, or as numerator/denominator if it is not whole).
+    Deliberately not Python's hash() -- that is an
     implementation detail of one interpreter build, and this value
     decides which stream a replication draws from, so it has to be the
     same on every Python version and platform, forever
@@ -429,15 +500,22 @@ def hash_point(x, point_bits):
 
     Parameters
     ----------
-    x : tuple of int
+    x : sequence of numbers
     point_bits : int
 
     Returns
     -------
     int
         In [0, 2**point_bits).
+
+    Raises
+    ------
+    PointNotEncodable
     """
-    payload = '{0}:{1}'.format(len(x), ','.join(str(operator.index(v)) for v in x)).encode('ascii')
+    components, _ = canonical_point(x)
+    # str() of an int is its decimal form, as this payload has always
+    # had it; of a Fraction that is not whole, 'numerator/denominator'.
+    payload = '{0}:{1}'.format(len(components), ','.join(str(v) for v in components)).encode('ascii')
     digest = hashlib.blake2b(payload, digest_size=(point_bits + 7) // 8, person=b'pymoso-point').digest()
     return int.from_bytes(digest, 'big') & ((1 << point_bits) - 1)
 
@@ -460,9 +538,15 @@ def encode_point(x, point_bits=POINT_BITS):
     Points that fit are unaffected: same code as point_code, so no
     existing coordinate moves.
 
+    A point is encoded by its value (canonical_point): a whole-valued
+    component of any numeric type is the integer it equals. A point
+    with a component that is not whole has no positional code and is
+    always hashed, on its exact value; whether such a point means
+    anything is for the oracle's g() to say, not for this function.
+
     Parameters
     ----------
-    x : tuple of int
+    x : sequence of numbers
     point_bits : int
         The calling generator's own point field width.
 
@@ -476,7 +560,15 @@ def encode_point(x, point_bits=POINT_BITS):
         one field, so either kind can coincide with the other -- the
         caller must check every code it uses, not only hashed ones
         (chnbase.py's Oracle does).
+
+    Raises
+    ------
+    PointNotEncodable
+        A component is not a finite real number.
     """
+    x, whole = canonical_point(x)
+    if not whole:
+        return hash_point(x, point_bits), True
     W = point_width(len(x), point_bits)
     limit = 1 << W
     code = 0

@@ -348,12 +348,24 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
     dimension at the call (`chnutils.starting_point`). **Numbers pass
     through unchanged, by decision:** an integer-only rule and an
     auto-conversion of floats were each written and each withdrawn.
-    Only non-numbers are refused. What a float `x0` then does is not
-    uniform, and is worth knowing before anyone "fixes" it again:
-    under `--crn`, `(30.0, 30.0)` runs as `(30, 30)` and `(30.5, 30)`
-    is reported infeasible; without `--crn` both -- and a numpy
-    `int64` array -- raise "Unable to simulate ...", because the
-    point code is integer arithmetic. Pre-existing, unchanged.
+    Only non-numbers are refused there.
+  - **The point contract (Phase 4, decided): a point is a tuple of
+    numbers and the oracle decides feasibility, identically with and
+    without `--crn`.** `prng.base.canonical_point` encodes a point by
+    value: a whole number of any numeric type is its integer (so
+    `30.0` and `numpy.int64(30)` share `30`'s streams); a non-whole
+    number is hashed on its exact value and handed to `g()`; a point
+    with a nan, an infinity or a non-number has no coordinate and
+    `Oracle.hit` reports it infeasible without calling `g()`, in both
+    modes. Before this the default mode crashed on every one of those
+    (a numpy integer overflowed in the point code; a float failed in
+    the generator's jump) while `--crn`, which never encodes the
+    point, ran them. It was the numpy *type*, not magnitude: plain
+    Python ints up to 10^30 were checked and always worked. Integer
+    points encode exactly as before; no golden moved.
+    `tests/test_point_types.py`. For the CHANGELOG. The contract is
+    stated in `Oracle`'s docstring; the README should say it too
+    (Phase 6).
   - A solver parameter that is not a real number raises `TypeError`
     naming the keyword. Numbers still go through `float()` exactly as
     before. **A numeric string ("2") or a `Decimal` used to be

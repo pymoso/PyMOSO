@@ -16,6 +16,7 @@ from math import sqrt, ceil, floor
 from .prng import registry
 from .prng.base import (
     ReplicationOverflow, IterationOverflow, SyncOverflow, PointCodeCollision, one_past,
+    canonical_point, PointNotEncodable,
 )
 from .executor import (
     ReplicationBlock, SerialExecutor, PoolExecutor, InProcessHandle, ClassHandle,
@@ -1127,6 +1128,24 @@ class Oracle(object):
     Base class to implement black-box simulations that implicitly
     define a MOSO problem.
 
+    **What a point is.** A point is a tuple of numbers, and `g()`
+    decides whether it is feasible. That is the whole contract, and it
+    is the same with and without CRN:
+
+    - A whole number is the same point whatever type it arrives as:
+      30, 30.0, `numpy.int64(30)` and `Fraction(30)` are one point and
+      draw from the same streams. `g()` is handed the point as the
+      caller gave it.
+    - A number that is not whole (30.5) is passed to `g()` like any
+      other. A problem on the integers will call it infeasible, as
+      the built-in ones do; one that allows it may simulate it.
+    - A point with a component that is not a finite real number --
+      nan, an infinity, a string -- is reported infeasible without
+      `g()` being called: it cannot be given a random-number stream.
+
+    The built-in RA solvers search the integer lattice, so the points
+    they generate are integers wherever they start.
+
     Attributes
     ----------
     rng : Stream object
@@ -1889,7 +1908,7 @@ class Oracle(object):
 
         Parameters
         ----------
-        x : tuple of int
+        x : tuple of numbers
     point at which to simulate
     m : int
     number of replications to simulate 'x'
@@ -1910,7 +1929,9 @@ class Oracle(object):
         Returns
         -------
         isfeas : bool
-    indicates the feasibility of 'x'
+    indicates the feasibility of 'x'. False, with empty means and
+    standard errors and nothing simulated, for a point that has a
+    component which is not a finite real number (class docstring).
         obmean : tuple of float
     mean of each objective of 'm' simulations
         obse : tuple of float
@@ -1939,6 +1960,8 @@ class Oracle(object):
         """
 
         block = self._plan_hit(x, m, visit, sync)
+        if block is None:
+            return False, [], []
         return self._aggregate(self._get_executor().run([block])[0])
 
     def hit_many(self, requests):
@@ -1970,7 +1993,11 @@ class Oracle(object):
         blocks = [self._plan_hit(x, m) for x, m in requests]
         if not blocks:
             return []
-        return [self._aggregate(replications) for replications in self._get_executor().run(blocks)]
+        # A point that has no coordinate has no block; it is reported
+        # infeasible in its place (see _plan_hit).
+        planned = [block for block in blocks if block is not None]
+        ran = iter(self._get_executor().run(planned)) if planned else iter(())
+        return [self._aggregate(next(ran)) if block is not None else (False, [], []) for block in blocks]
 
     def _plan_hit(self, x, m, visit=0, sync=None):
         """hit()'s argument checks and coordinate bookkeeping, without
@@ -1989,6 +2016,17 @@ class Oracle(object):
                 raise ValueError('sync must be non-negative, got {0}'.format(sync))
         if visit < 0:
             raise ValueError('visit must be non-negative, got {0}'.format(visit))
+        # A point is a tuple of numbers and the oracle decides whether
+        # it is feasible. The one thing decided here is narrower: a
+        # point with a component that is not a finite real number has
+        # no coordinate, so it cannot be given a stream, and it is
+        # reported infeasible without g() being asked. Checked whatever
+        # crnflag is -- a CRN block never needs the point's code -- so
+        # that the two modes answer alike.
+        try:
+            canonical_point(x)
+        except (PointNotEncodable, TypeError):
+            return None
         if sync is not None or visit != 0:
             return self._block_for(x, m, visit, sync)
 
@@ -2005,9 +2043,15 @@ class Oracle(object):
         """
         Generate a single replication at point `x`.
 
+        Feasibility is decided here. `x` is whatever the caller or the
+        solver asked for -- a tuple of numbers, not necessarily of int
+        (see the class docstring) -- so a problem defined on integers
+        in a box should answer False for anything else, as a test like
+        `xi in range(lo, hi + 1)` does.
+
         Parameters
         ----------
-        x : tuple
+        x : tuple of numbers
         rng : random.Random object
 
         Returns

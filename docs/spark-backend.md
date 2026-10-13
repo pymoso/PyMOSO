@@ -770,8 +770,14 @@ phase closed (`tests/test_library_arguments.py`):
    sequence of numbers of the problem's dimension is accepted and
    becomes a tuple; the wrong length, or a component that is not a
    number, is refused at the call. Numbers are not converted or
-   judged: what a float starting point does is the solver's and the
-   oracle's to say.
+   judged there. A point is a tuple of numbers and the oracle decides
+   whether it is feasible, identically with and without `--crn`:
+   `30.0` or a numpy integer is the point `30`; `30.5` goes to the
+   problem's `g()`, which the built-in problems answer "infeasible";
+   and a point that cannot be given a stream at all (nan, an
+   infinity) is reported infeasible without being simulated. Before
+   this, each of those raised an unrelated error without `--crn` and
+   ran with it.
 3. Every extra keyword went through `float()` and a bad one failed
    without naming the keyword. Numbers convert as before; anything
    else raises `TypeError` naming it.
