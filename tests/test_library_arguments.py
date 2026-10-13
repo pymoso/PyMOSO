@@ -109,10 +109,29 @@ def test_x0_of_the_wrong_dimension_is_refused_at_the_call(x0):
         assert "{0}".format(len(x0)) in str(refused.value)
 
 
-@pytest.mark.parametrize("x0", [30, None, "30", (30.5, 30), ("30", "30"), (True, 30)])
-def test_x0_that_is_not_a_sequence_of_integers_is_refused_at_the_call(x0):
+@pytest.mark.parametrize("x0", [30, None, "30", ("30", "30"), (None, 30), ([30], 30)])
+def test_x0_that_is_not_a_sequence_of_numbers_is_refused_at_the_call(x0):
     with pytest.raises(TypeError, match="x0"):
         solve(ProbTPA, RPERLE, x0, budget=100, seed=SEED)
+
+
+@pytest.mark.parametrize("x0", [(30.0, 30.0), (30.5, 30), (True, 30)], ids=repr)
+def test_numbers_in_x0_are_passed_through_unchanged(x0):
+    """Refusing or converting a float was considered and decided
+    against: a number is let through as it is, and what happens to it
+    is the solver's and the oracle's to say. This holds only that the
+    library does not touch it."""
+    from pymoso.chnutils import starting_point
+    point = starting_point(x0, 2)
+    assert point == tuple(x0)
+    assert [type(c) for c in point] == [type(c) for c in x0]
+
+
+def test_a_numpy_array_is_accepted_as_x0_and_its_components_are_not_converted():
+    numpy = pytest.importorskip("numpy")
+    from pymoso.chnutils import starting_point
+    point = starting_point(numpy.array([30.0, 30.0]), 2)
+    assert isinstance(point, tuple) and all(isinstance(c, numpy.floating) for c in point)
 
 
 def test_x0_is_not_checked_when_starting_points_are_drawn():

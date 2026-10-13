@@ -81,41 +81,47 @@ DEFAULT_RANX0 = False
 
 def starting_point(x0, dim):
     """
-    A caller's starting point as the tuple of int the solvers work
-    with, or an error at the call that says what is wrong with it.
+    A caller's starting point as a tuple of the right length, or an
+    error at the call that says what is wrong with it.
 
-    The CLI has always done this for its own arguments
-    (commands/solve.py); the library took whatever it was given, and
-    a list failed deep inside a solver with "cannot use 'list' as a
-    set element".
+    The CLI has always turned its own x0 into a tuple and checked its
+    length (commands/solve.py); the library took whatever it was
+    given, and a list failed deep inside a solver with "cannot use
+    'list' as a set element".
+
+    The components are not changed. Any real number is let through as
+    it is -- an int, a float, a numpy scalar -- and what the solver
+    and the oracle make of it is theirs to say. Only things that are
+    not numbers at all are refused here.
 
     Parameters
     ----------
-    x0 : sequence of int
+    x0 : sequence of numbers
     dim : int
         The problem's dimension.
 
     Returns
     -------
-    tuple of int
+    tuple
+        The components of `x0`, unchanged.
 
     Raises
     ------
     TypeError
-        `x0` is not a sequence of integers.
+        `x0` is not a sequence of numbers.
     ValueError
         `x0` has the wrong number of components.
     """
     if isinstance(x0, (str, bytes)):
-        raise TypeError('x0 must be a sequence of integers, such as (30, 30); got the string {0!r}.'.format(x0))
+        raise TypeError('x0 must be a sequence of numbers, such as (30, 30); got the string {0!r}.'.format(x0))
     try:
         point = tuple(x0)
     except TypeError:
-        raise TypeError('x0 must be a sequence of integers, such as (30, 30); got {0!r}.'.format(x0)) from None
+        raise TypeError('x0 must be a sequence of numbers, such as (30, 30); got {0!r}.'.format(x0)) from None
     for component in point:
-        if isinstance(component, bool) or not isinstance(component, numbers.Integral):
+        if not isinstance(component, numbers.Real):
             raise TypeError(
-                'every component of x0 must be an integer; got {0!r} in x0={1!r}.'.format(component, x0)
+                'every component of x0 must be a number; got {0!r} in x0={1!r}.'.format(component, x0)
             )
     if len(point) != dim:
         raise ValueError(
