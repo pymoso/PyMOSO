@@ -52,7 +52,7 @@ jobs:
         run: uv run --no-project python -m pytest tests/ -v
 
       - name: Run doctests
-        run: uv run --no-project python -m pytest --doctest-modules pymoso/chnutils.py -v
+        run: uv run --no-project python -m pytest --doctest-modules pymoso/moso.py -v
 
   clean-clone:
     # Exists specifically to catch undeclared test-time dependencies:
@@ -104,7 +104,7 @@ jobs:
         run: uv run --no-project python -m pytest tests/ -v
 
       - name: Run doctests
-        run: uv run --no-project python -m pytest --doctest-modules pymoso/chnutils.py -v
+        run: uv run --no-project python -m pytest --doctest-modules pymoso/moso.py -v
 
   extras:
     # The optional dependencies, installed and exercised: cloudpickle

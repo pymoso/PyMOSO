@@ -30,7 +30,7 @@ from math import ceil, floor
 
 import pytest
 
-from pymoso import chnbase, chnutils
+from pymoso import chnbase, moso
 from pymoso.chnutils import edist, get_nbors, get_solv_prnstreams, isp_run
 from pymoso.prng import mrg32k3a
 from pymoso.problems.probtpa import ProbTPA
@@ -104,7 +104,7 @@ def test_only_points_within_reach_are_examined(monkeypatch):
     Counted, not timed: at radius 1 in ten dimensions the box has
     59,049 points and the neighbourhood 20."""
     examined = []
-    monkeypatch.setattr(chnutils, 'edist', lambda a, b: examined.append(b) or edist(a, b))
+    monkeypatch.setattr(moso, 'edist', lambda a, b: examined.append(b) or edist(a, b))
     x = (3,) * 10
     assert len(get_nbors(x, 1)) == 20
     assert len(examined) == 21                              # the 20 neighbours and x itself
@@ -122,8 +122,14 @@ def test_high_dimensions_return():
 
 
 def _whole_run(nbors, problem, solver, x0, crn, radius, monkeypatch):
+    # Two readers, and each reads its own module's name: the solver
+    # bases call `chnbase.get_nbors`, and `get_setnbors` calls the one
+    # beside it in `moso`. A patch on any other module's name for the
+    # same function (`chnutils.get_nbors` re-exports it) reaches
+    # neither. test_a_missing_neighbour_is_noticed_by_every_run fails
+    # if either of these two stops reaching its reader.
     with monkeypatch.context() as patch:
-        patch.setattr(chnutils, 'get_nbors', nbors)
+        patch.setattr(moso, 'get_nbors', nbors)
         patch.setattr(chnbase, 'get_nbors', nbors)
         orcstream, solvstream = get_solv_prnstreams((12345,) * 6, mrg32k3a)
         orc = problem(orcstream)
@@ -164,3 +170,23 @@ def test_insertion_order_is_what_keeps_results_the_same(monkeypatch):
         and _whole_run(shuffled, *run, monkeypatch) != _whole_run(enumerated_box, *run, monkeypatch)
     ]
     assert moved
+
+
+def test_a_missing_neighbour_is_noticed_by_every_run(monkeypatch):
+    """The patching itself, shown reaching both readers. A
+    neighbourhood one point short changes every radius-1 run when it
+    replaces `get_nbors` everywhere, and only half of them when it
+    reaches the solver bases and not `get_setnbors` -- which is what
+    happens, with nothing failing, if the function `get_setnbors`
+    calls is patched under a module name it does not read. Measured
+    when the helpers moved to `pymoso.moso` (Phase 5): 8 of 8 with
+    both, 4 of 8 with `chnbase` alone."""
+    def one_short(x, r=1):
+        return set(list(enumerated_box(x, r))[:-1])
+
+    runs = [run for run in RUNS if run[4] == 1]
+    unmoved = [
+        run for run in runs
+        if _whole_run(one_short, *run, monkeypatch) == _whole_run(enumerated_box, *run, monkeypatch)
+    ]
+    assert len(runs) == 8 and unmoved == []
