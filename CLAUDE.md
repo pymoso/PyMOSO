@@ -331,14 +331,29 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   `tests/test_library_arguments.py`. For the CHANGELOG, because each
   changes what a call does:
   - An unknown solver parameter raises `TypeError` naming it and
-    listing the accepted ones (it was silently ignored). Solvers
-    declare theirs in `PARAMS`; `chnbase.accepted_params` merges them.
+    listing the accepted ones (it was silently ignored).
     **A custom solver that calls `super().__init__(orc, **kwargs)`
     before reading its own parameters from kwargs now raises**; it
     must pop them first, as every built-in does.
+  - **`PARAMS` is new public API for solver authors, and the
+    CHANGELOG should present it as an addition, not only as the
+    source of that break.** A solver class lists the parameter names
+    it takes in a `PARAMS` tuple; `chnbase.accepted_params(cls)`
+    merges them up the class hierarchy, and
+    `chnbase.reject_unknown_params(self, kwargs)` is what a solver
+    that does not derive from `RASolver` calls after taking its own.
+    A custom solver that declares `PARAMS` gets its parameters named
+    in the error, and (below) in any generated documentation.
   - `x0` is converted to a tuple and checked against the problem's
-    dimension at the call (`chnutils.starting_point`). Its components
-    must be integers: strings, floats and bools are refused.
+    dimension at the call (`chnutils.starting_point`). **Numbers pass
+    through unchanged, by decision:** an integer-only rule and an
+    auto-conversion of floats were each written and each withdrawn.
+    Only non-numbers are refused. What a float `x0` then does is not
+    uniform, and is worth knowing before anyone "fixes" it again:
+    under `--crn`, `(30.0, 30.0)` runs as `(30, 30)` and `(30.5, 30)`
+    is reported infeasible; without `--crn` both -- and a numpy
+    `int64` array -- raise "Unable to simulate ...", because the
+    point code is integer arithmetic. Pre-existing, unchanged.
   - A solver parameter that is not a real number raises `TypeError`
     naming the keyword. Numbers still go through `float()` exactly as
     before. **A numeric string ("2") or a `Decimal` used to be
@@ -346,9 +361,15 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
     solvers was deliberately left out: it is a feature, to be asked
     for.
   - The two transport refusals lead with the `notebook` extra.
-  `PARAMS` is also what the README's hand-maintained parameter table
-  could now be generated from and diffed against (the follow-up
-  below).
+- **`pymoso.dispatch_cost` (Phase 4), for the CHANGELOG as a new
+  function.** `pymoso/backends/measure.py`. The user-called
+  replacement for the removed warning: one request for replications
+  timed in place and on a backend, wall time on both sides, the
+  numbers and no verdict. Keep it that way -- no defaults for the
+  request's size, no advice in its output (a test checks the printed
+  form), nothing automatic. It is exported from the top level through
+  a module `__getattr__` so the core still never imports `backends`
+  at module scope.
 - **API removed in Phase 3, also for the CHANGELOG:**
   `chnbase.mp_worker`, `chnbase.mp_replicate`, `chnutils.par_runs`,
   `chnutils.do_work`, and `Oracle`'s `req_q`/`res_q`/`proc`
@@ -447,9 +468,16 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   hand-maintained prose nothing diffs against solvers' actual `__init__`
   kwargs. Bringing MOCOMPASS/MOPBnB in-tree added their params to it by
   hand, which only grows the gap. Follow-up: bring it under the same
-  generated-and-diffed treatment as the CLI-help/`listitems` blocks
-  (live introspection of each registered solver's `__init__`, diffed
-  against the table), rather than leave it untracked indefinitely.
+  generated-and-diffed treatment as the CLI-help/`listitems` blocks,
+  rather than leave it untracked indefinitely.
+  **Phase 6 candidate, and now straightforward:** since Phase 4 every
+  built-in solver declares its parameters in `PARAMS`, and a test
+  holds each declaration to what the solver really accepts. The table
+  can be generated from `chnbase.accepted_params` and diffed, with no
+  introspection of `__init__`. It is the last solver-facing doc
+  surface that nothing enforces; `PARAMS` is what closes it. (Names
+  only: defaults and descriptions are not declared anywhere yet, and
+  the table has both.)
 - **Closed (rng-interface-design.md §12 step 9, MRG family):** there
   were two parallel implementations of replicate-and-aggregate --
   `hit()`'s CRN branch (incremental `rng`/`_next_seed` mutation) and
