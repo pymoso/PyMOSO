@@ -8,7 +8,7 @@ multi-objective discrete-optimization-via-simulation solver.
 from itertools import product
 from math import ceil, floor, log
 
-from ..chnbase import MOSOSolver
+from ..chnbase import MOSOSolver, reject_unknown_params
 from ..chnutils import get_setnbors, get_nondom, enorm, edist
 
 #*************************
@@ -61,6 +61,8 @@ class MOCOMPASS(MOSOSolver):
     chnbase.MOSOSolver
     """
 
+    PARAMS = ('numsamples', 'ub', 'lb')
+
     def __init__(self, orc, **kwargs):
         if orc.crnflag:
             raise RuntimeError(
@@ -88,6 +90,10 @@ class MOCOMPASS(MOSOSolver):
                 '{0} requires an upper and lower bound: specify --param ub '
                 '<somenumber> and --param lb <somenumber>.'.format(type(self).__name__)
             ) from e
+        # solve() hands every solver a starting point; this one has no
+        # use for it.
+        kwargs.pop('x0', None)
+        reject_unknown_params(self, kwargs)
         super().__init__(orc)
 
     def solve(self, budget):

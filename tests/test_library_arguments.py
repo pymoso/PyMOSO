@@ -1,0 +1,85 @@
+"""
+What solve() and testsolve() do with arguments that are wrong.
+
+Found driving the library from a notebook, where there is no CLI in
+front of it to parse and check: a misspelt solver parameter was
+silently ignored, a list for x0 failed deep inside a solver with a
+message about sets, and a parameter that was not a number failed
+without saying which one. Each now fails at the call, by name.
+"""
+import pytest
+
+from pymoso.chnutils import solve, testsolve
+from pymoso.problems.probtpa import ProbTPA
+from pymoso.solvers.mocompass import MOCOMPASS
+from pymoso.solvers.mopbnb import MOPBnB
+from pymoso.solvers.rminrle import RMINRLE
+from pymoso.solvers.rpe import RPE
+from pymoso.solvers.rperle import RPERLE
+from pymoso.solvers.rspline import RSPLINE
+from pymoso.problems.probsimpleso import ProbSimpleSO
+from pymoso.testers.tpatester import TPATester
+
+pytestmark = pytest.mark.timeout(120)
+
+SEED = (12345,) * 6
+
+
+# ---------------------------------------------------------------------------
+# Solver parameters that do not exist
+# ---------------------------------------------------------------------------
+
+def test_an_unknown_solver_parameter_is_refused_by_name_with_the_ones_that_exist():
+    with pytest.raises(TypeError) as refused:
+        solve(ProbTPA, RPERLE, (30, 30), budget=100, seed=SEED, betaesp=0.4)      # a typo for betaeps
+    message = str(refused.value)
+    assert "RPERLE" in message and "betaesp" in message
+    for accepted in ("betadel", "betaeps", "bconst", "mconst", "radius"):
+        assert accepted in message
+    assert "x0" not in message and "sprn" not in message        # supplied by solve(), not by the user
+
+
+def test_testsolve_refuses_one_too():
+    with pytest.raises(Exception, match="nosuchparam"):
+        testsolve(TPATester, RPERLE, (30, 30), budget=100, seed=SEED, isp=2, nosuchparam=3)
+
+
+@pytest.mark.parametrize("solver,problem,x0,accepted", [
+    (RPERLE, ProbTPA, (30, 30), {"radius", "mconst", "bconst", "betadel", "betaeps"}),
+    (RMINRLE, ProbTPA, (30, 30), {"radius", "mconst", "bconst", "betadel"}),
+    (RPE, ProbTPA, (30, 30), {"radius", "mconst", "bconst", "betaeps"}),
+    (RSPLINE, ProbSimpleSO, (40,), {"radius", "mconst", "bconst"}),
+])
+def test_every_parameter_a_solver_lists_is_one_it_takes(solver, problem, x0, accepted):
+    """The list in the error is the solver's own declaration; this
+    holds the declaration to what the solver really accepts."""
+    from pymoso.chnbase import accepted_params
+    assert set(accepted_params(solver)) == accepted
+    for name in sorted(accepted):
+        solve(problem, solver, x0, budget=60, seed=SEED, **{name: 2 if name == "radius" else 0.5 if name.startswith("beta") else 3})
+
+
+@pytest.mark.parametrize("solver,extra,accepted", [
+    (MOCOMPASS, {}, {"numsamples", "ub", "lb"}),
+    (MOPBnB, {}, {"subregions", "alpha", "delta", "R0", "ub", "lb"}),
+])
+def test_the_solvers_that_are_not_ra_solvers_refuse_unknown_parameters_too(solver, extra, accepted):
+    from pymoso.chnbase import accepted_params
+    assert set(accepted_params(solver)) == accepted
+    assert solve(ProbTPA, solver, (30, 30), budget=200, seed=SEED, ub=40, lb=20, **extra)
+    with pytest.raises(TypeError, match="nosuchparam"):
+        solve(ProbTPA, solver, (30, 30), budget=200, seed=SEED, ub=40, lb=20, nosuchparam=1)
+
+
+def test_a_custom_solver_declares_its_own_parameters_and_they_are_listed():
+    class Tuned(RPERLE):
+        PARAMS = ("stubbornness",)
+
+        def __init__(self, orc, **kwargs):
+            self.stubbornness = kwargs.pop("stubbornness", 1.0)
+            super().__init__(orc, **kwargs)
+
+    solve(ProbTPA, Tuned, (30, 30), budget=100, seed=SEED, stubbornness=2)
+    with pytest.raises(TypeError) as refused:
+        solve(ProbTPA, Tuned, (30, 30), budget=100, seed=SEED, stuborness=2)
+    assert "stubbornness" in str(refused.value) and "stuborness" in str(refused.value)

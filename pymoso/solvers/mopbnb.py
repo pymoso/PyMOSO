@@ -8,7 +8,7 @@ multi-objective probabilistic branch-and-bound solver.
 from math import ceil, log, sqrt
 from itertools import islice, product
 
-from ..chnbase import MOSOSolver
+from ..chnbase import MOSOSolver, reject_unknown_params
 from ..chnutils import get_nondom
 
 
@@ -57,6 +57,8 @@ class MOPBnB(MOSOSolver):
     chnbase.MOSOSolver
     """
 
+    PARAMS = ('subregions', 'alpha', 'delta', 'R0', 'ub', 'lb')
+
     def __init__(self, orc, **kwargs):
         if orc.crnflag:
             raise RuntimeError(
@@ -87,6 +89,10 @@ class MOPBnB(MOSOSolver):
                 '{0} requires an upper and lower bound: specify --param ub '
                 '<somenumber> and --param lb <somenumber>.'.format(type(self).__name__)
             ) from e
+        # solve() hands every solver a starting point; this one has no
+        # use for it.
+        kwargs.pop('x0', None)
+        reject_unknown_params(self, kwargs)
         super().__init__(orc)
 
     def solve(self, budget):

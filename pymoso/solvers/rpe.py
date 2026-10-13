@@ -24,6 +24,8 @@ class RPE(RASolver):
 	chnbase.RASolver
     """
 
+    PARAMS = ('betaeps',)
+
     def __init__(self, orc, **kwargs):
         self.betaeps = kwargs.pop('betaeps', 0.5)
         super().__init__(orc, **kwargs)

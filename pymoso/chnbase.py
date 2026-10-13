@@ -24,6 +24,60 @@ from .executor import (
 from .chnutils import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
 
 
+def accepted_params(solver):
+    """
+    The parameter names a solver class says it takes: the `PARAMS` of
+    the class and of every class it inherits from.
+
+    Parameters
+    ----------
+    solver : MOSOSolver class
+
+    Returns
+    -------
+    list of str
+        Sorted.
+    """
+    names = set()
+    for cls in solver.__mro__:
+        names.update(vars(cls).get('PARAMS', ()))
+    return sorted(names)
+
+
+def reject_unknown_params(solver, leftover):
+    """
+    Raise if a solver was given parameters nobody took.
+
+    Call it from a solver's `__init__` after every parameter the
+    solver understands has been popped from its keyword arguments. A
+    parameter left over is one no class in the solver's hierarchy
+    knows: a misspelling, or a parameter of some other solver. It used
+    to be dropped without a word, so a run with `betaesp=0.4` ran with
+    the default `betaeps` and said nothing.
+
+    Parameters
+    ----------
+    solver : MOSOSolver object
+    leftover : dict
+        What remains of the keyword arguments.
+
+    Raises
+    ------
+    TypeError
+    """
+    if not leftover:
+        return
+    accepted = accepted_params(type(solver))
+    raise TypeError(
+        '{0} was given {1} it does not have: {2}. It takes: {3}.'.format(
+            type(solver).__name__,
+            'a parameter' if len(leftover) == 1 else 'parameters',
+            ', '.join(sorted(leftover)),
+            ', '.join(accepted) if accepted else 'none',
+        )
+    )
+
+
 class MOSOSolver(object):
     """
     Base class for solver implentations.
@@ -114,6 +168,13 @@ class RASolver(MOSOSolver):
     PyMOSO
     """
 
+    # The parameters this class takes from its keyword arguments. A
+    # subclass that takes more lists its own in a PARAMS of its own
+    # (accepted_params merges them), and pops them before calling
+    # super().__init__(orc, **kwargs): whatever is still there when
+    # this __init__ has taken its own is refused.
+    PARAMS = ('radius', 'mconst', 'bconst')
+
     def __init__(self, orc, **kwargs):
         self.nbor_rad = kwargs.pop('radius', 1)
         self.mconst = kwargs.pop('mconst', 2)
@@ -125,6 +186,7 @@ class RASolver(MOSOSolver):
             raise TypeError(
                 '{0} requires an x0 and a random number seed (sprn).'.format(type(self).__name__)
             ) from e
+        reject_unknown_params(self, kwargs)
         super().__init__(orc)
 
     def solve(self, budget):
@@ -827,6 +889,8 @@ class RLESolver(RASolver):
     The method accel must be implemented to use a RLESolver in
     PyMOSO.
     """
+
+    PARAMS = ('betadel',)
 
     def __init__(self, orc, **kwargs):
         self.betadel = kwargs.pop('betadel', 0.5)
