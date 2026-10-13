@@ -16,11 +16,16 @@ proposing any work on `--simpar`'s speed.**
    - **on a one-dimensional problem there are never two such points,
      so the benchmark this document was built on cannot observe
      batching at all**;
-   - **on a two-dimensional bi-objective problem, 35-38% of all
-     replications are requested one point at a time by necessity**
-     (`ne()`'s first-improvement search and `spli()`'s line search),
-     and no batching can reach them. (RPERLE; up to 46% for the other
-     RA solvers; 18% in the one `--crn` run measured.)
+   - **on a two-dimensional bi-objective problem without `--crn`,
+     35-38% of all replications are requested one point at a time by
+     necessity** (`ne()`'s first-improvement search and `spli()`'s
+     line search), and no batching can reach them. (RPERLE; up to 46%
+     for the other RA solvers.)
+   - **that figure is a non-CRN number. Do not quote it for `--crn`.**
+     The one `--crn` run surveyed had a sequential share of 18%
+     against 35-46% without. That is one run, and `--crn` was not
+     benchmarked at all: no `--crn` speedup in this document is
+     measured, only that one bound computed.
 
    The ceiling is a property of the algorithms' call pattern. The
    executor cannot raise it further without reaching into solver
@@ -161,7 +166,9 @@ replications), by the routine that reached the oracle:
 | **sequential by necessity (`ne` + `spli`)** | | | | **38.5%** | |
 
 **38.5% of that run's replications cannot be combined with any other
-point's.** Across the benchmark workloads below the figure is
+point's.** That run, and every figure in the table below, is without
+`--crn`; the `--crn` share is lower and is described after the table.
+Across the benchmark workloads below the figure is
 35.1-35.7%. Without `--crn` it stayed between 35% and 46% in every run
 surveyed:
 
@@ -181,6 +188,13 @@ CRN the run does far more `upsample` and `get_ncn` work (71% of its
 replications, in calls averaging 9-10 points), and its batched bound
 at infinite workers is 28.9x against 9.4x. `--crn` runs were not
 benchmarked in this phase.
+
+So there are two sequential shares, and only one of them is
+established: **35-46% without `--crn`** (eight runs, three solvers,
+three problems) and **18% with it** (one run, one solver, one problem,
+one budget, bound computed and nothing timed). Anything said about
+`--simpar` under `--crn` on the strength of this document is an
+extrapolation from that single run.
 
 And without `--crn` the routines that can batch do not carry much: a
 batching call averages 1.5-2 points.

@@ -99,7 +99,22 @@ def test_estimate_many_is_estimate_in_a_loop_including_repeated_infeasible_point
     """SometimesInfeasible makes a point's feasibility differ between
     its first block of replications and its next, so a point listed
     several times is simulated once, twice or three times depending on
-    what came back -- the rounds in estimate_many's docstring."""
+    what came back -- the rounds in estimate_many's docstring.
+
+    THIS IS THE ONLY TEST THAT CATCHES A NAIVE estimate_many. A version
+    that simulates each distinct point once and skips the rounds passes
+    every golden in tests/golden/ and every whole-run test below
+    (verified by writing one): the end
+    seed and the reported solutions rarely depend on the blocks an
+    infeasible point is re-simulated with. It is the same blind spot
+    as the end seed's (docs/end-seed-scope.md) -- green goldens do not
+    show that replication-level consumption is unchanged. If you are
+    simplifying estimate_many and this test is the only thing in your
+    way, it is in your way on purpose; do not weaken it, and do not
+    replace SometimesInfeasible with a problem whose feasibility is a
+    fixed function of the point, which would make it pass vacuously
+    (the `any(...) and any(...)` assertion below guards that for the
+    non-CRN case only)."""
     points = [(i % 4, i % 3) for i in range(30)] + [(1, 1)] * 6
     loop = _solver(problems.SometimesInfeasible, backend, crn)
     expected = [loop.estimate(x) for x in points]
