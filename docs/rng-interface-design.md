@@ -2086,7 +2086,56 @@ existing code, surfaced rather than guessed.
     Deliberately not done in Phase 2, so that phase proves one thing
     (the interface, goldens unchanged); and its value changes once
     batching moves the jump out of the serial parent
-    (`docs/simpar-ceiling.md`).
+    (`docs/simpar-ceiling.md`). Still open after Phase 3, and its
+    value did change: the pool backend does the jump in the workers,
+    and cuts a block into one piece per worker, so a run now makes
+    *more* jumps than before, in parallel (step 11). A cheaper jump
+    would lower the CPU that costs and would lift the cheap-simulation
+    tier, which is the one the jump still bounds.
+
+15. **[candidate — declined for Phase 3, recorded so it is not lost]
+    Speculative prefetch for the sequential part of an RA solver.**
+    Phase 3's measurement (`docs/simpar-ceiling.md`, the per-routine
+    table) is that 35-46% of a bi-objective RA run's replications
+    (without `--crn`; 18% in the one `--crn` run surveyed) are
+    requested one point at a time *by necessity*: `ne()` stops at the
+    first improving neighbour, and `spli()`'s line search chooses each
+    step from the last result. `estimate_many` cannot touch them, and
+    they are what holds the batched bound where it is. Prefetching is
+    the only thing that could move that bound.
+
+    The idea: while the solver is waiting on point k of such a
+    sequence, idle workers simulate the points it will ask for next if
+    the answer goes one way -- `ne()`'s remaining neighbours, the line
+    search's next few steps (`x0 - s*gamma` for the following `s`,
+    fixed once `gamma` is known). When the solver does ask, the result
+    is already there.
+
+    It can be made golden-neutral, because a replication's outcome is
+    a function of its coordinate: a prefetched block is a cache entry
+    keyed by `(x, stream, offset, stride, count)`, consulted by
+    `Executor.run`, and it must bypass every piece of `Oracle`
+    bookkeeping (the per-point continuation count, the high-water
+    mark, the point-code table) until the solver really requests it.
+    A prefetched block that is never requested costs CPU and nothing
+    else.
+
+    What it would cost, and why it was declined here. Something has to
+    know what the solver will ask for next. Either the executor reaches
+    into solver logic, or each solver routine describes its own
+    possible futures to the executor. Both cross the boundary Phase 3
+    exists to establish -- a solver says *what* to simulate, the
+    executor decides *where and when* -- and the first undoes it. It is
+    also solver-specific work (one description per search routine),
+    its payoff is unmeasured (how often the speculated branch is the
+    one taken decides everything), and wasted simulation is a real
+    cost to a user who pays for compute. A proposal should start by
+    measuring the hit rate of the obvious speculations on the
+    benchmarks in `docs/simpar-ceiling.md`, before any design.
+
+    No "speculative warm start" entry existed in this section when
+    this one was written; if that idea is recorded elsewhere, it
+    belongs next to this one.
 
 ## 12. Step list
 
@@ -3314,3 +3363,61 @@ exactly as `docs/end-seed-scope.md` says.
 
     Not in this step: `--simpar` and `--proc` are untouched apart from
     `--simpar` asking the executor for its streams. No golden moved.
+
+11. **[preserving — done] One worker pool; `--simpar` and `--proc` on
+    it; batching across `hit()` calls (Phase 3).** No golden moved.
+
+    - *One lifecycle,* `pymoso/pool.py`'s `WorkerPool`, replacing
+      `Oracle.set_simpar`'s `Process`/`Queue` pair and both
+      `multiprocessing.Pool`s in `chnutils`. A context manager;
+      `multiprocessing.Process` with one pipe per worker. Everything
+      sent to a worker is pickled under every start method, `fork`
+      included, so nothing works by inheritance on one platform and
+      fails on another. A task's exception is raised in the caller; a
+      dead worker is an error, not a wait; workers exit when the
+      parent's end of their pipe closes. KNOWN_ISSUES.md issues 7, 8
+      and 15.
+    - *One pool, two kinds of job.* Replication blocks go through
+      `Executor.run` (`executor.PoolExecutor`, each worker holding a
+      `SerialExecutor`). A `testsolve()` sample path does not: it is a
+      `chnutils.PathJob` -- index, seed, generator name, `x0`, budget,
+      parameters -- run by `chnutils.run_path`, which rebuilds the
+      path's streams (`get_path_prnstreams`, a function of seed and
+      index alone since Phase 1) and runs a `SerialExecutor` of its
+      own. The two never nest. A path is not a block: it carries a
+      solver and a tester and returns a result dict; forcing it
+      through `run(blocks)` would have meant a second meaning for the
+      one method.
+    - *`ClassRef`* is the transportable form of any class -- problem,
+      solver, tester -- by reference or as a source bundle.
+      `ClassHandle` is a problem's `ClassRef` plus the simulate recipe.
+      No cloudpickle: everything with a source file is covered. A
+      class a worker could not find by name is refused in the parent
+      before any worker starts.
+    - *No pool for one process.* `--simpar=1` and `--proc=1` start no
+      worker.
+    - *The parallel unit is the replication.* `PoolExecutor.run`
+      divides all the replications of a call into at most `workers`
+      even chunks, cutting blocks where a boundary falls
+      (`split_blocks`). The worker computes the stream and enforces
+      the draw reserve.
+    - *Batching.* `Oracle.hit_many` and `RASolver.estimate_many`, used
+      by `upsample`, `pli` and `get_ncn` -- the three routines that
+      estimate a set of points before looking at any result. Sized by
+      measurement: such a call carries 1.5-2 points on average, so the
+      unit is simply "everything this call submits"; there is no
+      window and nothing to tune. `estimate_many` reproduces the
+      one-at-a-time loop exactly, including re-simulating a point that
+      came back infeasible each time it recurs (entry 13 would remove
+      that; until then it has to be matched, because a repeat draws
+      new replications).
+    - *What was measured* (`docs/simpar-ceiling.md`): the original
+      one-dimensional benchmark cannot observe batching at all; on a
+      two-dimensional bi-objective problem batching lifts the bound
+      modestly at 6 workers; and 35-46% of replications are sequential
+      by necessity (entry 15).
+
+    Not in this step: Spark, a cloudpickle handle, the cheaper jump
+    (entry 14), infeasible-point memory (entry 13), prefetch (entry
+    15). MOCOMPASS and MOPBnB were not converted to `hit_many`; both
+    have large unconditional loops and would batch well.

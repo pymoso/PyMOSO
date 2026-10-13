@@ -234,3 +234,38 @@ error-handling story) rather than about any one instance. Belongs in
 the case for an executor rework, not as four separate point fixes.
 
 No fix proposed or written here, per instruction — diagnosis only.
+
+## Resolution (Phase 3)
+
+Added after the fact; everything above is the diagnosis as written.
+
+The "argument about the design" above was acted on. There is now one
+construction site for worker processes, `pymoso/pool.py`'s
+`WorkerPool`, with one lifecycle, and `--simpar`, `--proc` and metric
+computation all run on it. Against the four findings:
+
+1. The error-path leak: a pool is a context manager and is torn down
+   on every exit path; teardown terminates a worker that is mid-task
+   rather than waiting for it.
+2. `--proc`'s separate mechanism: gone. With one process there is no
+   pool at all.
+3. This hang: nothing live is sent to a worker. Classes travel as
+   source bundles (`executor.ClassRef`) and a sample path as data
+   (`chnutils.PathJob`). The requirement stated above -- a worker gets
+   self-contained information independent of the parent's state -- is
+   also *enforced* now: the pool pickles everything it sends even
+   under `fork`, so a payload that only works by inheritance fails on
+   Linux too, in the parent, before a worker exists. And a worker that
+   cannot load what it was sent fails the run when the pool opens,
+   because the mechanism underneath the hang -- a dead worker's
+   exception never reaching the parent -- is closed separately
+   (KNOWN_ISSUES.md issue 15).
+4. The orphan leak: a worker exits when the parent's end of its pipe
+   closes, which happens however the parent dies. One start-method
+   trap was found doing it, the mirror image of this document's: the
+   naive version works under `forkserver` and `spawn` and fails under
+   `fork`, where a child inherits the parent's ends of every pipe
+   (KNOWN_ISSUES.md issue 8).
+
+Not done: a by-value (cloudpickle) transport for classes with no
+source file. Those are refused with a clear error rather than hanging.

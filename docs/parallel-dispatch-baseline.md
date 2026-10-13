@@ -1,5 +1,15 @@
 # Parallel dispatch baseline
 
+**The numbers committed in this file are the before-picture:** they
+were captured before the worker pool (pymoso/pool.py) replaced
+`--simpar`'s `Process`/`Queue` workers and `--proc`'s
+`multiprocessing.Pool`, and the two paragraphs below describe dispatch
+as it was then. The after-picture, set against these numbers, is in
+docs/simpar-ceiling.md ("After the worker pool and batching"). This
+script still runs against the current code, so regenerating this file
+overwrites the before-picture with the after one; regenerate into a
+different file unless that is what you mean to do.
+
 Before-picture for the executor rework (see CLAUDE.md's "Known open
 items"). Absolute timings only -- these are NOT enforced by the test
 suite (tests/test_parallel_dispatch.py owns the portable,

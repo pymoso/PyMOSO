@@ -315,17 +315,64 @@ symptom.** They dispatch through structurally different mechanisms:
   (30s timeout, not a hang eating the suite) before being marked as
   such.
 
-**Status:** `solve()`/`--simpar` fixed on this branch (source-bundle
-transport, `chnbase.py`) — see the commit implementing it for the
-mechanism. `testsolve()`/`--proc` **not fixed**; still hangs on Python
-3.14+, exactly as described above. Forcing `ctx =
-get_context('fork')` would unblock this specific hang but is a
-workaround, not a fix — forking a process holding threads or locks can
-deadlock the child, which is precisely why CPython moved off `fork` as
-the default; see `docs/forkserver-hang.md` for why this also needs to
-be solved in a way that survives a worker not sharing the parent's
-filesystem or process state at all (relevant to a longer-term
-distributed-execution goal for this project).
+**Status:** fixed on this branch, both halves.
+
+- `solve()`/`--simpar`: source-bundle transport (`pymoso/executor.py`),
+  as above.
+- `testsolve()`/`--proc`: nothing live is sent to a worker any more. A
+  sample path travels as data (`chnutils.PathJob`: the path's index,
+  the run's seed, the generator's name, `x0`, the budget, the solver
+  parameters) and the worker rebuilds the path's streams and its
+  `Oracle` from that. The tester and solver *classes* are sent once per
+  worker, as source bundles when they came from user-supplied files --
+  a custom solver file is covered the same way a problem is. Metric
+  computation (`--metric`, `chnutils.par_diff`) uses the same
+  transport; it used to pickle a tester *instance*, and was a second
+  place this hang occurred. With `--proc=1` (the default) no worker
+  process is started at all.
+- A worker that cannot load what it was sent now fails the run with
+  that error when the pool opens; it cannot become a hang
+  (`pymoso/pool.py`).
+
+The paragraph above describing the `--proc` path as unfixed is kept as
+the record of what was wrong.
+
+What the five skipped tests turned out to be, checked by running each
+against the code before the fix on Python 3.14 (forkserver):
+
+| Test | Before the fix | What it exercises now |
+|---|---|---|
+| README example, `testsolve ... --crn --seed ... mytester.py RPERLE` | **passed** | one process, nothing transported |
+| README example, `testsolve --metric mytester.py RPERLE` | hung, in the metric computation | one process, nothing transported |
+| README example, `testsolve --crn --metric --isp=100 mytester.py RPERLE` | hung, in the metric computation | one process, nothing transported |
+| README example, `testsolve --crn --metric --isp=100 --proc=20 mytester.py RPERLE` | hung, in the metric computation | paths and metrics on workers |
+| `test_multifile_problem_under_proc_matches_serial` | hung, in the paths | paths and metrics on workers |
+
+Two things follow. The first README example was never broken: it was
+skipped by a `pytest.xfail()` call made before the command ran, so
+nothing ever observed it. (`pymoso/examples/mytester.py` adds its own
+directory to `sys.path`, which a forkserver worker inherits, so the
+path's `Oracle` unpickled there; without `--metric` nothing else was
+sent.) And two of the three README examples that did hang are fixed by
+no longer using a pool for one process, not by transport. The
+transport itself is exercised by the `--proc=20` example,
+`tests/test_multifile_transport.py` (a multi-file problem and tester,
+and a multi-file custom solver, on two workers, compared with the
+serial run) and `tests/test_path_jobs.py` (every start method the
+platform has).
+
+**A behaviour change that comes with it.** `testsolve(..., proc=N)`
+with `N > 1` and a tester or solver class that a worker cannot find by
+name -- defined in a notebook cell, a REPL, or inside a function --
+used to work under the `fork` start method (Linux, Python 3.13 and
+earlier) and nowhere else. It now raises a `ValueError` naming the
+class, under every start method, before any worker starts. `proc=1`
+still works for such a class. Carrying a class like that to a worker
+needs pickling by value (cloudpickle, as an optional extra), which is
+not implemented.
+
+Verified on Linux under `fork`, `forkserver` and `spawn`. macOS and
+Windows are covered by the CI matrix only.
 
 ---
 
@@ -356,12 +403,33 @@ This is distinct from the already-fixed in-process error-path leak.
 That fix only covers exceptions the interpreter sees; it cannot cover
 the process being killed out from under itself.
 
-**Status:** not fixed. No Python-level exception-safety mechanism
-(context manager, `atexit`, signal handler) can fully close this gap
-for an unconditional external kill (`SIGKILL` cannot be caught at all);
-a real fix likely needs the worker side to detect its parent has died
-independently (e.g. checking the parent pid, or a heartbeat) rather
-than relying solely on the parent-side cleanup path.
+**Status:** fixed on this branch for an idle worker; bounded, not
+eliminated, for a busy one.
+
+No parent-side mechanism can close this gap (`SIGKILL` cannot be
+caught), so the workers notice for themselves. Every worker belongs to
+one pool (`pymoso/pool.py`) and blocks reading its own pipe from the
+parent. When the parent dies, however it dies, the operating system
+closes the parent's end and the worker reads end-of-file and exits.
+
+- An idle worker exits at once.
+- A worker in the middle of a task finishes that task first -- for
+  `--simpar` its share of the current replications, for `--proc` the
+  whole sample path it is running -- and exits when it fails to send
+  the result. It is not interrupted. For a long `--proc` path that is
+  a long time; the leak is now bounded by the work in hand rather than
+  indefinite.
+
+Under the `fork` start method this needed one more thing: a forked
+worker inherits the parent's ends of every pipe open at the time,
+including its own, which would hold them open after the parent's death.
+Each worker closes them as its first act. Without that step the test
+below fails under `fork` and passes under `forkserver` and `spawn`.
+
+`tests/test_worker_pool.py::test_workers_exit_when_the_parent_is_killed`
+kills a parent holding idle workers, and one holding busy workers,
+under every start method the platform has. Verified on Linux (`fork`,
+`forkserver`, `spawn`); macOS and Windows by the CI matrix only.
 
 ---
 
@@ -567,11 +635,23 @@ kills a run hung this way will meet issue 8 next.
 on once `g()` is known not to raise. If a `--simpar` run stops making
 progress, rerun it serially to see the error.
 
-**Status:** not fixed. The fix belongs to the process-pool executor
-backend: the executor interface returns each replication's outcome as
-data, an exception included, and re-raises it in the caller, so a
-worker failure cannot be silent. Until that backend replaces
-`Oracle.set_simpar`'s own worker loop, this hang remains.
+**Status:** fixed on this branch. `--simpar` runs on the process-pool
+executor backend (`executor.PoolExecutor`, on `pymoso/pool.py`). A
+worker catches whatever `g()` raises and sends it back; the caller
+raises it as that exception, with the worker's traceback attached, so
+`--simpar=2` reports exactly what `--simpar=1` does:
+
+```
+--simpar=1   RuntimeError: Unable to simulate RaisingProb. Message: boom at (94,)
+--simpar=2   RuntimeError: Unable to simulate RaisingProb. Message: boom at (94,)
+```
+
+If replications of several points are running when one fails, the
+error reported is the one a serial run would have met first. A worker
+that dies outright (killed, a segfault in an extension) is detected
+too, and reported as `pool.WorkerCrashed` rather than waited for.
+`tests/test_simpar_worker_lifecycle.py`, observed hanging against the
+code before the fix on Python 3.10 and 3.14.
 
 ---
 

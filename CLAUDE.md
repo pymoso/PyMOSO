@@ -1,136 +1,81 @@
 # PyMOSO
 
 Python package for multi-objective simulation optimization. Originally a
-PhD output (Cooper & Hunter 2018), now being modernized on the
-`pymoso-migration` branch, currently unpushed.
+PhD output (Cooper & Hunter 2018), now being modernized on the `dev-2.0`
+branch, checked out at `/srv/projects/PyMOSO` and pushed to `origin`.
 
 ## Canonical repository
 
-github.com/pymoso/PyMOSO — remote `origin` in this checkout. Both
-READMEs are nearly identical to HunterResearch/PyMOSO's stale fork
-(13 commits behind), so check the remote, not the content. The
-`dangerzone` branch is superseded by master. This file is tracked in git
-as of 2026-09-10 (previously gitignored, so it existed on one disk
-only). Edits to it are commits now.
+github.com/pymoso/PyMOSO — remote `origin` in this checkout.
+HunterResearch/PyMOSO was a stale snapshot and is now archived; the
+`stale-fork` remote that pointed at it was removed in Phase 0 of the
+2.0.0 work. `remote.pushDefault` is set to `origin` explicitly. This
+file is tracked in git; edits to it are commits.
 
-**Remote names are non-default here, deliberately, as of 2026-09-10.**
-`origin` used to point at HunterResearch/PyMOSO (the stale fork); it is
-now renamed `stale-fork`, and the remote that used to be named `pymoso`
-(github.com/pymoso/PyMOSO, canonical) is now `origin`, with
-`remote.pushDefault` also set to `origin` explicitly. Done while
-preparing the 1.1.0 release: `release-1.1.0` had no upstream tracking
-configured, and a reflexively-typed `git push -u origin ...` on it (or
-on any future branch) would have landed on the stale fork — a release
-tag pushed to the wrong repository is a mess to undo. If a fresh clone
-or session ever sees `origin` pointing at HunterResearch/PyMOSO again,
-that's the old layout; this checkout's `git remote -v` is
-authoritative, not this note.
-
-Version history is inconsistent upstream: `pymoso/master` installed as
-`1.0.7` while PyPI had `1.0.8`, so the released wheel corresponds to no
-commit. See "Version boundary: 1.1.0 released, this branch at 2.0.0
-development" below for this project's own version history. Don't
-assume git HEAD and the installed package agree; check both when
-behavior is in question.
+1.1.0 is released on PyPI from the `release-1.1.0` branch and tagged
+`v1.1.0`, with `master` pointing at it. Version history before that is
+inconsistent upstream: `pymoso/master` installed as `1.0.7` while PyPI
+had `1.0.8`, so that released wheel corresponds to no commit — the
+INFORMS archival snapshot (github.com/INFORMSJoC/2019.0902) is 1.0.8
+plus an uncommitted version bump.
 
 ## Version boundary: 1.1.0 released, this branch at 2.0.0 development
 
-**1.1.0 was released from `release-1.1.0`, branched at `b637a3e`**
-(`pymoso-migration`'s own history — §12 step 6c-completion, giving
-Philox its own offset-assembly budget). Everything through that commit
-is 1.1.0; everything on `pymoso-migration` after it, including this
-commit, is 2.0.0 development. `pymoso/__init__.py` on this branch now
-reads `2.0.0.dev0` accordingly.
+1.1.0 was released from `release-1.1.0`, branched at `b637a3e`.
+Everything after that commit on this branch is 2.0.0 development;
+`pymoso/__init__.py` reads `2.0.0.dev0`.
 
-What makes the line major, not minor: the `--seed` CLI syntax change
-(one comma-separated token, replacing the old six-space-separated-value
-form — a documented, user-visible break) and `Oracle.bump()`'s outright
-removal (a documented public-API break, no compatibility shim) both
-landed after `b637a3e`, so neither shipped in 1.1.0. The solver-facing
-`crn_*` surface's removal is decided (see "Settled RNG design" below)
-but **not yet landed** — still listed under "Known open items" above —
-so it isn't itself evidence for the boundary yet, only the direction
-this line is headed in.
+What makes the line major: the `--seed` CLI syntax change (one
+comma-separated token, replacing six space-separated values),
+`Oracle.bump()`'s removal, and the solver-facing `crn_*` surface's
+removal — all landed after `b637a3e`, none shipped in 1.1.0.
 
-**The two branches genuinely differ in content, not just version
-number.** `release-1.1.0` excludes MOCOMPASS/MOPBnB entirely (deferred
-to 2.0.0 as a deliberate decision — see that branch's `KNOWN_ISSUES.md`
-issue 14); `pymoso-migration` has them committed
-(`pymoso/solvers/mocompass.py`/`mopbnb.py`, `tests/test_mocompass_mopbnb_compat.py`
-— `fbc0fdf`, "Add MOCOMPASS and MOPBnB solvers (previously
-untracked)"; see "Known open items" above). Don't assume a diff between
-the two branches is only the commits between them; `release-1.1.0`
-also lacks files this branch has, and citations to
-`test_mocompass_mopbnb_compat.py` that are valid here (e.g.
-`tests/test_oracle_noncrn_default.py`'s own docstring) are dangling
-references on `release-1.1.0` — checked and fixed there specifically,
-not assumed to carry over.
+The two branches differ in content, not just version. `release-1.1.0`
+excludes MOCOMPASS/MOPBnB entirely; this branch has them committed.
+Don't assume a diff between them is only the commits between them.
 
-**`KNOWN_ISSUES.md` issue numbering has diverged between the two
-branches (recorded 2026-09-21; 2.0.0 work is paused, so this is
-unreconciled).** `release-1.1.0` renumbered its file by hand and
-updated every citation on that branch to match, so a
-`KNOWN_ISSUES.md issue N` reference means different things depending on
-the branch. This branch's committed file and all its citations (code
-comments, test docstrings, xfail reasons, docs) still use the old
-numbering, deliberately untouched. Where the old numberings agree
-(`release-1.1.0` before its renumbering, and this branch), the mapping
-to `release-1.1.0`'s new numbers is 1->1, 3->2, 4->3, 5->4, 6->5, 7->6,
-9->7, 10->8, 11->9, 8->12, 12->13. The old numberings disagree from 13
-on: this branch has 13 = `Oracle.bump()` removal, 14 = `testsolve()`
-path-0/last-path seed sharing, 15 = `mytester.py` `TabError`; release had
-13 = MOCOMPASS/MOPBnB exclusion, 14 = `mytester.py` `TabError`, and now
-has 14 = MOCOMPASS/MOPBnB exclusion, 11 = `TabError`, 10 =
-path-0/last-path seed sharing. Old issue 2 (`--simpar`,
-development-history only) was dropped from release's file, so its
-citations there dangle. Release's file also dropped the INFORMS
-archival cross-check section, which this branch's committed file still
-carries. `bump()` removal exists only on this branch; the MOCOMPASS/
-MOPBnB exclusion only on release. When 2.0.0 resumes, reconcile
-deliberately -- pick one numbering, then remap citations in one pass --
-rather than merging `KNOWN_ISSUES.md` textually: merging
-`release-1.1.0` into this branch will conflict on that file and
-mis-number every citation a merge auto-resolves.
-
-`docs/rng-interface-design.md` carries the same boundary note at its
-own head, step-by-step.
+`KNOWN_ISSUES.md` numbering: Phase 0 remapped this branch's citations
+to match the file's own headings, which already used release
+numbering for issues 1-9. Numbers diverge from 13 on — this branch has
+14 = `bump()` removal, 15 = `--simpar` exception hang (deliberately out
+of sequence, do not renumber); release has 14 = MOCOMPASS/MOPBnB
+exclusion. Nine citations to a dropped old issue 2 still dangle on both
+branches. Don't merge `KNOWN_ISSUES.md` textually between branches.
 
 ## Critical context
 
-  `choice()` picks, and 0 of 10 goldens moved. Consumption-sensitive
-  coverage lives in `tests/test_rng_consumption.py` (a recording RNG)
-  and `tests/test_solution_sensitivity.py`. See `docs/end-seed-scope.md`.
-- Golden baselines in `tests/golden/` were captured from `pymoso/master`
-  on CPython 3.10 and have since been deliberately regenerated several
-  times: after the jump-ahead fix, after step 4b's non-CRN cutover,
-  after the replication-spacing collision fix, and after both stages of
-  step 8's endseed rework. NEVER regenerate or edit them without being
-  asked. Superseded values are preserved in `tests/golden/README.md`
-  with the reason for each move.
+- **The end seed's scope changed in step 8 — the older "allocation
+  schedule only" warning is superseded.** It now reflects the run's
+  actual consumption via a computed high-water mark, so it
+  distinguishes runs that previously reported identical values. It
+  still does not fingerprint *which* values were drawn: a change to
+  replication-level consumption can leave every golden green, verified
+  the hard way when `getrandbits()` demonstrably changed which `x0`
+  values `choice()` picks and 0 of 10 goldens moved.
+  Consumption-sensitive coverage lives in
+  `tests/test_rng_consumption.py` (a recording RNG) and
+  `tests/test_solution_sensitivity.py`. `docs/end-seed-scope.md` has
+  been corrected twice as the thing it describes changed underneath it
+  — read it rather than assuming either version.
+- Golden baselines in `tests/golden/` have been deliberately
+  regenerated several times: after the jump-ahead fix, after step 4b's
+  non-CRN cutover, after the replication-spacing collision fix, after
+  both stages of step 8's endseed rework, and after Phase 1's
+  `testsolve` role-layout fix. NEVER regenerate or edit them without
+  being asked. Superseded values are preserved in
+  `tests/golden/README.md` with the reason for each move.
 - The RNG fix changes numerical output deliberately: end seeds and
   per-run solution values from 1.x will not reproduce bit-for-bit. This
   is an implementation fix, not a correction to the published
   convergence theory. See `KNOWN_ISSUES.md` issue 1.
 - README code blocks are generated from files under `pymoso/examples/`,
-  and tests assert byte-identity. Files are the source of truth; edit the
-  file and regenerate, never the README block directly. Same for the CLI
-  help and `listitems` blocks, generated from live parser output.
-- Docstring style differs from the earlier fork (`old-work`), which had a
-  numpy conversion this branch deliberately does not. Leave it alone —
+  and tests assert byte-identity. Files are the source of truth; edit
+  the file and regenerate, never the README block directly. Same for
+  the CLI help and `listitems` blocks, generated from live parser
+  output.
+- Docstring style differs from `release-1.1.0`'s. Leave it alone —
   converting would collide with the byte-identity assertions.
-- **The end seed's scope changed in step 8 — the older "allocation
-  schedule only" warning is superseded.** It now reflects the run's
-  actual consumption via a computed high-water mark, so it distinguishes
-  runs that previously reported identical values. It still does not
-  fingerprint *which* values were drawn: a change to replication-level
-  consumption can leave every golden green, verified the hard way when
-  `getrandbits()` demonstrably changed which `x0` values `choice()`
-  picks and 0 of 10 goldens moved. Consumption-sensitive coverage lives
-  in `tests/test_rng_consumption.py` (a recording RNG) and
-  `tests/test_solution_sensitivity.py`. `docs/end-seed-scope.md` has
-  been corrected twice as the thing it describes changed underneath it —
-  read it rather than assuming either version.
-
+  
 ## Fixed on this branch
 
 Jump-ahead float precision loss (exact integer arithmetic, permanent
@@ -206,24 +151,59 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
 
 ## Known open items
 
-- **`testsolve`'s `--proc` path** ships fully-constructed, seeded Oracle
-  instances rather than class references, so the source-bundle fix does
-  NOT transfer to it. Broken under forkserver on 3.14, with xfail tests
-  in place. Reconstructing a live object with RNG state is a different
-  problem from reconstructing a class — this is executor-rework
-  territory, not a point fix. See `docs/forkserver-hang.md` and
-  `KNOWN_ISSUES.md` issue 7.
-- `--proc` also uses `Pool` unconditionally, even at `--proc=1`, so the
-  serial path isn't actually serial and inherits parallel failure modes.
-- Dispatch granularity: `--simpar` dispatches one job per replication and
-  tops out at ~2.5-3x speedup regardless of worker count; `--proc`
-  dispatches per ISP and reaches ~5x, plateauing at 6 physical cores on
-  the benchmark machine. Numbers and method in
-  `docs/parallel-dispatch-baseline.md`. Batching is the fix.
-- Multiprocessing lifecycle bugs keep surfacing — the `--simpar` error-path
-  leak, orphaned workers on external kill, the forkserver transport gap,
-  `--proc`'s unconditional `Pool`, and `RandomCompatAdapter`'s pickling
-  hang. That's an argument about the design, not the instances.
+- **Closed (Phase 3):** `testsolve`'s `--proc` path shipped live,
+  seeded Oracle instances and hung under forkserver. A sample path is
+  now data (`chnutils.PathJob`), rebuilt in the worker; tester and
+  solver classes travel as `executor.ClassRef` (source bundle for user
+  files). `--proc=1` and `--simpar=1` start no worker process at all.
+  KNOWN_ISSUES.md issue 7 has the table of what each of the five old
+  xfails actually was: one README example had never failed, and two
+  went green from the in-process path rather than from transport.
+- **Closed (Phase 3):** one worker lifecycle, `pymoso/pool.py`
+  (`WorkerPool`), under `--simpar`, `--proc` and metric computation.
+  `Process` plus one pipe per worker, not `ProcessPoolExecutor`
+  (no public way to kill a worker mid-`g()` before 3.14) and not
+  `multiprocessing.Pool` (waits forever on a dead worker). Exception in
+  a worker (issue 15), dead worker, and killed parent (issue 8) are
+  each handled and tested under fork, forkserver and spawn on Linux.
+  Two things to know before touching it: everything sent to a worker
+  is pickled even under fork, deliberately, so nothing works by
+  inheritance on Linux and fails elsewhere; and a forked worker must
+  close the parent's pipe ends it inherited (`_PARENT_ENDS`) or it
+  never sees the parent die -- that one passes under forkserver and
+  spawn and fails only under fork.
+- **Issue 8 is bounded, not gone, for a busy worker:** a worker whose
+  parent is killed finishes the task in hand before exiting. For a
+  long `--proc` path that is the whole path.
+- **macOS and Windows are verified by CI only.** Nothing in Phase 3
+  was run on either locally; the parent-kill test's Windows liveness
+  check (ctypes `OpenProcess`) in particular has never executed
+  anywhere but a runner.
+- Dispatch: `--simpar` divides every executor call's replications into
+  at most `workers` even chunks; `--proc` sends one task per path.
+  What bounds `--simpar` is the solver's call pattern, not dispatch --
+  `docs/simpar-ceiling.md`, which now carries two corrections to that
+  story and should be read before proposing any speedup work.
+- **Regression, known and not fixed: `--simpar` got slower for cheap
+  simulations at high worker counts** (Light tier: 1.71x -> 1.53x at 6
+  workers and 1.64x -> 1.27x at 12 on 3.14). The pool cuts every call
+  into one piece per worker and each piece pays its own ~0.7 ms jump;
+  for a 0.46 ms replication, fewer pieces than workers is faster
+  (measured, `docs/simpar-ceiling.md`). Moderate and Heavy are
+  unaffected. The cheaper jump (rng-interface-design.md §11 entry 14)
+  removes the cause; choosing the piece count from measured times
+  would treat the symptom.
+- **Behaviour change to record in the CHANGELOG (Phase 6), and it
+  matters for Phase 4's notebook audience:** `testsolve(proc>1)` with a
+  tester or solver class defined in a notebook cell, a REPL or inside
+  a function worked under fork and now raises `ValueError` under every
+  start method. `proc=1` still works. The remedy is a cloudpickle
+  `ClassRef`, as an optional extra; not built.
+- **API removed in Phase 3, also for the CHANGELOG:**
+  `chnbase.mp_worker`, `chnbase.mp_replicate`, `chnutils.par_runs`,
+  `chnutils.do_work`, and `Oracle`'s `req_q`/`res_q`/`proc`
+  attributes. `Oracle.set_simpar()`/`mp_cleanup()` are kept, as the
+  owner of the Oracle's executor. `par_diff()` keeps its signature.
 - `hit()` returns `obse` as a list when `m==1` and a tuple otherwise.
 - `chnbase.py` and `chnutils.py` remain undecomposed — deliberately
   deferred until the executor rework reveals the real seams.
@@ -379,27 +359,43 @@ The decisions below are landed, not pending. Full reasoning in
 
 ## Still in flight
 
-- Executor rework. **Landed (Phase 2):** the interface and a serial
-  backend, `pymoso/executor.py`. Work is a `ReplicationBlock` (point,
-  root, `(stream, offset)`, stride, count); problems reach a backend
-  only as a `ProblemHandle`; `Executor.open/run/close` is the one
-  lifecycle, and `run` takes a list of blocks. `Oracle` computes
-  coordinates and does the checks; the backend turns coordinates into
-  streams and calls `g()`. `Oracle.hit()` runs through
-  `SerialExecutor` on every branch; goldens unchanged. The base-stream
-  cache that keeps `--crn` fast lives in `SerialExecutor` now.
-  **Not yet:** `--simpar` and `--proc` still use their own mechanisms
-  (`Oracle.set_simpar` borrows only `executor.streams()`), so
-  KNOWN_ISSUES.md issues 7, 8 and 15 are all still live. A process-pool
-  backend, a path-level job type for `--proc` (the replication-level
-  interface alone does not close issue 7's `--proc` half), a
-  cloudpickle `ProblemHandle` for notebook-defined problems, and Spark
-  come later.
-- **What the next phase is for:** cross-`hit()` batching, not dispatch
-  overhead. `--simpar`'s ceiling is that parallelism is confined to one
-  `hit()` call (`docs/simpar-ceiling.md`). The interface already takes
-  a list of blocks; what is missing is a caller that submits more than
-  one point at a time.
+- Executor rework. **Landed (Phases 2 and 3):** `pymoso/executor.py`
+  and `pymoso/pool.py`. Work is a `ReplicationBlock` (point, root,
+  `(stream, offset)`, stride, count); problems reach a backend only as
+  a `ProblemHandle`; `Executor.open/run/close` is the one lifecycle,
+  and `run` takes a list of blocks. `Oracle` computes coordinates and
+  does the checks; the backend turns coordinates into streams and
+  calls `g()`. Two backends: `SerialExecutor`, and `PoolExecutor`
+  (`--simpar`), whose workers each hold a `SerialExecutor` -- so the
+  base-stream cache that keeps `--crn` fast lives in each worker.
+  `testsolve()` paths are a second job type on the same pool, not
+  blocks. Goldens unchanged throughout.
+  **Not yet:** a cloudpickle `ClassRef` for notebook-defined classes,
+  and Spark.
+- **Batching across `hit()` calls landed (Phase 3) and is worth less
+  than Phase 2 predicted.** `Oracle.hit_many` and
+  `RASolver.estimate_many`, used by `upsample`, `pli` and `get_ncn`.
+  Measured (`docs/simpar-ceiling.md`): on a one-dimensional problem a
+  solver never has two points to submit, so the original RSPLINE
+  benchmark cannot observe batching at all -- `ProbExpensiveBi` (2-D,
+  bi-objective, not registered in `pymoso.problems`) exists for that
+  reason. Without `--crn`, 35-46% of an RA solver's replications
+  (38% for RPERLE on ProbTPA at budget 10,000) come from `ne()` and
+  the `spli()` line search, which choose each point from the last
+  result and cannot be batched. The one `--crn` run surveyed was 18%;
+  `--crn` was not benchmarked. That share, not dispatch and not the pool, is
+  what holds the bound. The only thing that would move it is
+  speculative prefetch (rng-interface-design.md §11 entry 15),
+  declined for Phase 3 because it puts solver logic in the executor.
+- `estimate_many` must reproduce the one-at-a-time loop exactly,
+  including re-simulating an infeasible point each time it recurs
+  (it does so in rounds). Whole-run tests and goldens do not catch a
+  version that skips this -- verified by trying one -- because the end
+  seed rarely depends on those blocks. `tests/test_batching.py`'s
+  `SometimesInfeasible` case is the detector. §11 entry 13 would
+  remove the need.
+- MOCOMPASS and MOPBnB still call `hit()` in loops and were not
+  converted to `hit_many`.
 - Deferred, with reasons, in rng-interface-design.md §11: per-point
   CRN continuation (11: not invisible to RA solvers), unifying
   `solve()`/`testsolve()` layouts (12: buys the executor nothing),
@@ -412,6 +408,12 @@ The decisions below are landed, not pending. Full reasoning in
   give a tunable per-replication cost for exercising parallel paths in
   the regime they're actually for. Cost is a class attribute, not a
   kwarg, because workers rebuild the Oracle from the class alone.
+  `ProbExpensiveBi` is the 2-D, two-objective counterpart, for anything
+  that needs several points submitted at once.
+- Anything that starts worker processes is tested under every start
+  method the platform has (`multiprocessing.get_all_start_methods()`),
+  not just the default. Classes and functions a worker must import
+  live in `tests/_*.py` helper modules, not in the test module.
 - Portable assertions (call counts, cross-worker-count result identity,
   job-dispatch counts) live in the suite. Absolute timings live in
   `docs/parallel-dispatch-baseline.md` as an artifact, never asserted on.
