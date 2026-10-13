@@ -131,3 +131,28 @@ This is not the "cheaper general jump" carried as a Phase 3 candidate
 (docs/rng-interface-design.md §11, entry 14) -- that one would shorten
 the exponentiation itself -- but it does reduce what that candidate
 has left to gain on small points.
+
+## At the end of Phase 4 (refreshed 2026-10-13)
+
+`python docs/bench_hit_cost.py`, twice on each Python, on the same
+machine with nothing else running (load average under 0.1 at the
+start). Both runs are shown. These are the figures to compare later
+work against; the tables above are the history of how they got here.
+
+| operation | Python 3.10.22 (µs), two runs | Python 3.14.8 (µs), two runs |
+|---|---|---|
+| `stream_at(root, stream, 0)` | 2,024, 2,007 | 1,569, 1,558 |
+| `stream_at(root, stream, point offset)` | 2,103, 2,089 | 1,632, 1,621 |
+| `Stream.advance(REPL_STRIDE)` | 13, 13 | 7, 7 |
+| `Stream.advance(REPL_RESERVE_STRIDE)` | 13, 13 | 7, 7 |
+| `hit(x, m=1), crn=True` | 36, 35 | 19, 19 |
+| `hit(x, m=8), crn=True` | 217, 221 | 137, 137 |
+| `hit(x, m=64), crn=True` | 1,374, 1,383 | 878, 888 |
+| `hit(x, m=1), crn=False` | 995, 971 | 743, 746 |
+| `hit(x, m=8), crn=False` | 1,180, 1,162 | 862, 868 |
+| `hit(x, m=64), crn=False` | 2,333, 2,318 | 1,594, 1,623 |
+
+Unchanged from Phase 3 within the spread of two runs: a serial `hit()`
+costs what it did before the backend seam, the by-value transport and
+the direct `get_nbors`, none of which is on this path.
+

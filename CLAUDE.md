@@ -271,18 +271,20 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
     (3.4x on 8 vCPUs, 6.5x on 16, 9.8x on 24) are lower bounds.
 - **The first CI run of the `extras` job was green** (2026-10-13,
   commit `baa7027`), with all fifteen `test` cells and `clean-clone`.
-- **The Databricks run: done, 2026-10-13.** `docs/spark-backend.md`,
-  "On a real cluster", has the three verified blocks and what they
-  establish; `docs/databricks/` has the notebook, `dbx_kit.py`
-  (`gen`, `verify`, `localtest`) and the blocks under `results/`.
-  The notebook's embedded known-good values are deliberately left as
-  the blocks were checked against (tree `e7e4dc1b`): **run `gen`
-  before any further cluster run.** Two things to change in the kit
-  first, both in its README: it counts executor hosts once, at the
-  start (useless under autoscaling), and its replication-level `x`
-  divides contended work by wall time, overstating high-`simpar`
-  speedups -- quote the tables in `docs/spark-backend.md`, never the
-  `x` column of a block's `k=32` rows.
+- **The Databricks run: done, 2026-10-13; the kit is finished and
+  ARCHIVED, not maintained.** The cluster access has ended.
+  `docs/spark-backend.md`, "On a real cluster", has the three
+  verified blocks and what they establish; `docs/databricks/` has the
+  notebook, `dbx_kit.py` and the blocks under `results/`. Do not
+  update the notebook's embedded values to match a later tree: they
+  are what keeps the three blocks verifiable. Its README lists what a
+  future run would need first.
+  **Never quote the `x` column of a block's `R` lines.** It is task
+  work time over wall time and overstates speedup under contention
+  (9.55 printed where the wall time gives 6.1). It misled the
+  maintainer, who repeated it as "nearly saturates its bound"; that
+  and an overstated CPU-diversity claim are recorded as corrections
+  in `docs/spark-backend.md`. Quote that document's tables.
 - **Results depend on the Python version in the last bit:
   KNOWN_ISSUES.md issue 17.** `prng.mrg32k3a.bsm` adds its terms with
   the built-in `sum()`, which Python 3.12 changed. 8,153 of 20,000
@@ -562,6 +564,15 @@ The decisions below are landed, not pending. Full reasoning in
 - Portable assertions (call counts, cross-worker-count result identity,
   job-dispatch counts) live in the suite. Absolute timings live in
   `docs/parallel-dispatch-baseline.md` as an artifact, never asserted on.
+- **Current timing baselines: refreshed at the end of Phase 4**
+  (2026-10-13, quiet machine, two runs of every figure shown).
+  `docs/simpar-ceiling.md`, "Baselines at the end of Phase 4", and
+  `docs/hit-cost-baseline.md`, "At the end of Phase 4". Compare later
+  work against those, not against the Phase 3 tables.
+  `docs/parallel-dispatch-baseline.md` is the pre-pool before-picture
+  and stays that way. **Check `uptime` before benchmarking:** Phase
+  4's first re-run was silently 10-14% slow because the machine was
+  busy, and only code that had not changed gave it away.
 
 ## Environments
 

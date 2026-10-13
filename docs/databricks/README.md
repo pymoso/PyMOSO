@@ -1,27 +1,45 @@
 # The Databricks run
 
-**Done, 2026-10-13: three runs, all verified.** The results and what
-they establish are in `docs/spark-backend.md`, "On a real cluster";
-the three blocks are in `results/` here and can be re-checked with
-`dbx_kit.py verify`. What follows is the run sheet as it was used.
+**Finished and archived, 2026-10-13.** Three runs were made, all
+verified; the cluster access they depended on has ended and no
+further run is planned. The results and what they establish are in
+`docs/spark-backend.md`, "On a real cluster". The three blocks are in
+`results/` and can still be re-checked:
 
-**Before any further run, regenerate the known-good values**
-(`dbx_kit.py gen`). The values embedded in the notebook are the ones
-the three blocks were checked against -- tree `e7e4dc1b`, commit
-`baa7027` -- and are left that way on purpose so the blocks stay
-verifiable. `pymoso/` has changed since, so the notebook as it stands
-would print `tree_ok=FAIL` on a cluster.
+    python docs/databricks/dbx_kit.py verify docs/databricks/results/<file>
 
-**Two things the kit should do differently next time,** both learned
-from the runs: record how many executor hosts each timing line
-actually used (it counts hosts once, at the start, and the clusters
-autoscaled); and measure replication-level speedup against an
-uncontended cost (its `x` divides contended work by wall time and
-overstates the speedup at high `simpar`).
+Nothing here is maintained. The notebook's embedded known-good values
+are left exactly as the blocks were checked against (tree `e7e4dc1b`,
+commit `baa7027`), which is what keeps the blocks verifiable -- and
+means the notebook as it stands would print `tree_ok=FAIL` against
+any later pymoso. No test covers this directory.
 
-One notebook, run once on a cluster nothing can be exported from. It
-prints about forty lines; those are typed out by hand and checked
-afterwards.
+**If anyone runs it again, it needs these first.** The first two are
+defects in the kit that the runs exposed; they are why some of its
+numbers must not be quoted.
+
+1. **Fix the `x` column of the `R` lines.** It is task work time over
+   wall time, and under contention it overstates the speedup (9.55
+   printed for 6.1). It misled the person the measurement was for.
+   Print the wall time, and a speedup against an uncontended cost per
+   replication -- for instance one measured by running a few blocks
+   alone first.
+2. **Record the executor hosts each timing line actually used.** The
+   kit counts hosts once, in the probe. The clusters autoscaled, so
+   no timing line has a known worker count. Have each task return its
+   hostname, or probe before and after every line.
+3. **Run `dbx_kit.py gen`** against the tree being installed, with a
+   second interpreter on the other side of Python 3.12 (see the end
+   of this file), and push before going.
+4. **Treat the embedded Python-version split as provisional.** If
+   KNOWN_ISSUES.md issue 17 is fixed, the `core` value stops
+   depending on the Python version and `core_expected()` should go.
+5. **It has only ever met classic sessions on x86-64.** Serverless,
+   Spark Connect on Databricks, non-x86 executors and a cluster of
+   fixed size are the things it was built to measure and did not get
+   the chance to.
+
+What follows is the run sheet as it was used.
 
 | File | What it is |
 |---|---|

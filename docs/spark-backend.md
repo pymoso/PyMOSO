@@ -148,6 +148,44 @@ block's `SUM`, and no other candidate node name did. The text below
 is the corrected, verified block. None of the four touched a hash or
 a measurement.
 
+> **Do not quote the `x` column of the `R` lines in the blocks
+> below.** It is the time the tasks spent working divided by the wall
+> time, both measured on the cluster. When tasks crowd each other
+> each one takes longer, and `x` counts that slowdown as work done.
+> At `simpar=32` it overstates the speedup by up to 1.6 times: it
+> prints 9.55 and 9.80 where the wall times give 6.1 and 6.2. Use the
+> table under "Replications inside one `solve()`", which does not have
+> the problem. The `x` in the `S` lines is a different quantity
+> (measured against one path running alone) and is sound.
+
+### Corrections to how these results were first read
+
+Two readings of these blocks were made, acted on, and then withdrawn.
+They are recorded because both were natural readings, and the next
+reader will be tempted by the same ones.
+
+1. **"A 1.7 s replication nearly saturates its bound: 9.55x against
+   10.04."** This was the maintainer's summary of run 3's last row,
+   given as an instruction for what this document should say. It took
+   the block's `x` at face value. The wall time gives 6.1x. The fault
+   is the measure, not the reader: the notebook printed a column
+   labelled `x` next to one labelled `bound` without saying that `x`
+   was work over wall time, and the person who commissioned the
+   measurement was misled by it within a day. The kit's design is
+   what should have prevented that, and did not.
+2. **"Bit-identity across two CPU generations, hosts=3."** True, but
+   not of the executors, which is how it was first put. Within every
+   run all executors were one CPU model (`cpus=1`). The two
+   generations are the driver against the executors. That is still a
+   real cross-machine comparison -- the driver computes the same
+   probe and the same whole runs -- and the comparison with the
+   machine the known-good values came from adds a third CPU family, a
+   second glibc and a second Python. But "executors of different
+   hardware agreed with each other" is not something these runs show.
+
+A third reading needed no correction but is easy to make: `hosts=`
+describes the moment of the probe, not the timings after it (below).
+
 ### What the runs establish
 
 - **Bit-identity across machines.** This was the open correctness

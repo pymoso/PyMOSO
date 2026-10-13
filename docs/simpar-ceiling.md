@@ -431,30 +431,21 @@ cheap is intact.
 
 ## After the backend seam and the Spark backend (Phase 4)
 
-Phase 4 put a backend between these features and their pool, and
-added a remote one. Nothing on the local path was meant to get
-slower. Whether anything did was checked two ways, and only one of
-them is usable.
+Phase 4 put a backend between these features and their pool, added a
+remote one, and replaced `get_nbors`. Nothing on the local path was
+meant to get slower. This section answers whether anything did, and
+then records the baselines as they stand at the end of the phase.
 
-**The three benchmark scripts were re-run, and that run cannot be
-compared with the tables above.** Partway through it the machine
-started doing other work (one core held at about 90% by an unrelated
-process; load average 4 to 5 against an idle baseline). The code that
-does not involve Phase 4 at all shows it: a bare `stream_at` measured
-1,762 µs against 1,559 µs recorded, and a Moderate replication's
-`g()` 5.04 ms against 4.42 ms. For the record, and not as a
-comparison, at 6 workers on Python 3.14 that run gave: `--simpar`
-1-D Light 1.38x, Moderate 2.52x, Heavy 2.79x; 2-D batched Light
-1.91x, Moderate 3.02x, Heavy 3.14x; `--proc` Light 3.93x, Moderate
-4.79x, Heavy 4.58x. All are 5-20% under the Phase 3 tables, on a
-machine short of a core. The structural figures -- calls, points per
-call, the 35.1-35.7% sequential share, every bound -- reproduced
-exactly.
+### Nothing on the local path changed
 
-**So the question was asked directly instead:** the commit before
-Phase 4 (`24c4f5f`) against the Phase 4 tree, the same five
-measurements, seven rounds each, alternating which went first, on the
-same busy machine. Medians; WORK/HEAD above 1 means Phase 4 is slower.
+The first re-run of the three benchmark scripts was made while the
+machine was doing other work (one core held at about 90% by an
+unrelated process) and was discarded: code Phase 4 does not touch
+measured 10-14% slow. In its place the commit before Phase 4
+(`24c4f5f`) was run against the Phase 4 tree directly -- the same
+five measurements, seven rounds each, alternating which went first,
+on that same busy machine. Medians; a ratio above 1 means Phase 4 is
+slower.
 
 | Measurement | Python 3.14: before, after, ratio | Python 3.10: before, after, ratio |
 |---|---|---|
@@ -465,14 +456,102 @@ same busy machine. Medians; WORK/HEAD above 1 means Phase 4 is slower.
 | `proc=6`, 12 Moderate paths | 0.692 s, 0.690 s, 1.00 | 0.860 s, 0.865 s, 1.01 |
 
 Every ratio is within 4% of 1 and inside the spread of its own seven
-runs (the two versions' minimum-to-maximum ranges overlap in every
-row). No change is measurable, which is what the change predicts: the
-local backend is asked for a pool once per run and adds nothing per
-call.
+runs. (That comparison predates the `get_nbors` change, which is not
+on any of these paths in one or two dimensions to a measurable
+degree: the refreshed figures below include it and agree with Phase
+3's.)
 
-The recorded baselines above therefore stand, un-refreshed. Re-run
-the three scripts on a quiet machine before quoting a Phase 4 number
-against them.
+### Baselines at the end of Phase 4
+
+Refreshed 2026-10-13 on the same machine (AMD Ryzen 5 5600X3D, 6
+cores, 12 threads) with nothing else running: load average under 0.1
+when the runs began. Each script was run twice on each Python and
+**both runs are shown**, so the spread is visible rather than
+described. These replace the Phase 3 tables above as the figures to
+compare later work against. Every structural figure -- calls, points
+per call, the sequential share, every bound -- reproduced exactly.
+
+`python docs/bench_simpar_ceiling.py`, the two-dimensional tiers
+(RPERLE), where batching can be observed:
+
+| Workload | Workers | `g()` per replication | Bound, one `hit()` at a time | Bound, batched | Observed, one point at a time (two runs) | Observed, batched (two runs) |
+|---|---|---|---|---|---|---|
+| Light, 2-D, Python 3.14 | 6 | 0.47 ms | 4.38x | 5.04x | 1.74x, 1.75x | 2.26x, 2.18x |
+| Light, 2-D, Python 3.14 | 12 | 0.47 ms | 6.38x | 8.23x | 1.52x, 1.51x | 1.98x, 1.94x |
+| Moderate, 2-D, Python 3.14 | 6 | 4.54 ms | 4.16x | 4.88x | 3.09x, 3.15x | 3.49x, 3.74x |
+| Moderate, 2-D, Python 3.14 | 12 | 4.54 ms | 4.16x | 6.32x | 3.08x, 3.11x | 3.48x, 3.60x |
+| Heavy, 2-D, Python 3.14 | 6 | 13.54 ms | 3.22x | 4.24x | 2.92x, 2.90x | 3.58x, 3.71x |
+| Heavy, 2-D, Python 3.14 | 12 | 13.54 ms | 3.22x | 5.10x | 2.89x, 2.89x | 3.76x, 3.70x |
+| Light, 2-D, Python 3.10 | 6 | 0.57 ms | 4.38x | 5.04x | 1.66x, 1.58x | 2.30x, 2.20x |
+| Light, 2-D, Python 3.10 | 12 | 0.57 ms | 6.38x | 8.23x | 1.57x, 1.50x | 2.06x, 1.98x |
+| Moderate, 2-D, Python 3.10 | 6 | 5.46 ms | 4.16x | 4.88x | 3.12x, 3.14x | 3.51x, 3.69x |
+| Moderate, 2-D, Python 3.10 | 12 | 5.46 ms | 4.16x | 6.32x | 3.14x, 3.12x | 3.63x, 3.68x |
+| Heavy, 2-D, Python 3.10 | 6 | 16.51 ms | 3.22x | 4.24x | 2.90x, 2.84x | 3.59x, 3.71x |
+| Heavy, 2-D, Python 3.10 | 12 | 16.51 ms | 3.22x | 5.10x | 2.89x, 2.88x | 3.67x, 3.70x |
+
+`python docs/bench_parallel_dispatch.py sweep`, `--simpar`, the
+one-dimensional tiers (RSPLINE; batching plays no part). Serial run,
+3.14 / 3.10: Light 0.35 s / 0.45 s; Moderate 1.00 s / 1.23 s; Heavy 1.22 s / 1.51 s.
+
+| Tier | Workers | Python 3.14 (two runs) | Python 3.10 (two runs) |
+|---|---|---|---|
+| Light | 2 | 1.11x, 1.11x | 1.37x, 1.36x |
+| Light | 4 | 1.63x, 1.59x | 1.68x, 1.69x |
+| Light | 6 | 1.59x, 1.78x | 1.61x, 1.52x |
+| Light | 8 | 1.44x, 1.43x | 1.45x, 1.42x |
+| Light | 12 | 1.44x, 1.29x | 1.42x, 1.49x |
+| Moderate | 2 | 1.63x, 1.64x | 1.67x, 1.67x |
+| Moderate | 4 | 2.51x, 2.52x | 2.64x, 2.65x |
+| Moderate | 6 | 2.85x, 3.02x | 2.53x, 2.93x |
+| Moderate | 8 | 2.92x, 2.86x | 2.81x, 2.81x |
+| Moderate | 12 | 2.85x, 2.82x | 2.86x, 2.81x |
+| Heavy | 2 | 1.62x, 1.63x | 1.66x, 1.67x |
+| Heavy | 4 | 2.86x, 2.84x | 2.97x, 2.90x |
+| Heavy | 6 | 3.14x, 3.12x | 3.14x, 3.16x |
+| Heavy | 8 | 3.09x, 3.13x | 3.18x, 3.20x |
+| Heavy | 12 | 3.11x, 3.10x | 3.17x, 3.17x |
+
+The same sweep, `--proc`, 12 sample paths. Serial run, 3.14 / 3.10:
+Light 1.04 s / 1.33 s; Moderate 2.94 s / 3.61 s; Heavy 3.09 s / 3.73 s.
+
+| Tier | Workers | Python 3.14 (two runs) | Python 3.10 (two runs) |
+|---|---|---|---|
+| Light | 2 | 1.94x, 1.93x | 1.97x, 1.95x |
+| Light | 4 | 3.75x, 3.76x | 3.68x, 3.83x |
+| Light | 6 | 4.87x, 4.88x | 5.37x, 5.50x |
+| Light | 8 | 4.93x, 5.38x | 5.42x, 5.38x |
+| Light | 12 | 5.30x, 5.27x | 5.55x, 5.93x |
+| Moderate | 2 | 1.95x, 1.96x | 1.97x, 1.95x |
+| Moderate | 4 | 3.83x, 3.86x | 3.86x, 3.86x |
+| Moderate | 6 | 5.53x, 5.39x | 5.38x, 5.59x |
+| Moderate | 8 | 5.52x, 5.63x | 5.67x, 5.43x |
+| Moderate | 12 | 5.86x, 5.82x | 5.78x, 5.77x |
+| Heavy | 2 | 1.95x, 1.94x | 1.97x, 1.97x |
+| Heavy | 4 | 3.85x, 3.81x | 3.87x, 3.86x |
+| Heavy | 6 | 5.52x, 5.63x | 5.45x, 5.43x |
+| Heavy | 8 | 5.49x, 5.49x | 5.53x, 5.47x |
+| Heavy | 12 | 6.00x, 5.99x | 5.94x, 5.77x |
+
+A serial `hit()`: `docs/hit-cost-baseline.md`, "At the end of Phase
+4".
+
+What these say against Phase 3's tables:
+
+- **The same, within the spread.** Batched at 6 workers on 3.14:
+  Light 2.26x and 2.18x (2.23x recorded), Moderate 3.49x and 3.74x
+  (3.71x), Heavy 3.58x and 3.71x (3.50x).
+- **Two runs of one cell differ by up to about 10%,** as Phase 3
+  said: Moderate 2-D at 6 workers gave 3.49x and 3.74x; Moderate 1-D
+  at 6 workers on 3.10 gave 2.53x and 2.93x.
+- **On the open question of the Light 1-D tier at 6 workers** (above:
+  1.71x before the pool, 1.53x after, noise or real?): these two runs
+  gave 1.59x and 1.78x on 3.14 for that cell. The spread of two
+  runs of the same code now covers both of the figures that prompted
+  the question. That is evidence for noise. It is not the interleaved
+  before-and-after comparison that section asked for, and does not
+  replace it.
+- The 12-worker Light figures (1.44x and 1.29x on 3.14) remain below
+  the 6-worker ones, as recorded.
 
 Sending replications to a cluster has its own break-even, far from
 anything in this document, and it has been measured on real
