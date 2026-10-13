@@ -242,8 +242,8 @@ class RemoteBackend:
             '{0} dispatches took {1:.1f} s here to do {2:.1f} s of work ({3:.0f} ms '
             'of overhead per dispatch against {4:.0f} ms of work). Running without '
             'backend= would be faster. Sending replications to a cluster pays only '
-            'when one replication costs roughly 100 ms or more, and then by at most '
-            '3-5x; see docs/spark-backend.md.'.format(
+            'when one replication costs roughly 100 ms or more, and then by a few '
+            'times at most; see docs/spark-backend.md.'.format(
                 self.jobs, self.dispatch_seconds, self.work_seconds,
                 (self.dispatch_seconds - self.work_seconds) / self.jobs * 1e3,
                 self.work_seconds / self.jobs * 1e3,

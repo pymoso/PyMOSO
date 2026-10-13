@@ -5,11 +5,12 @@ was measured and decided, and — until the README is rewritten — the
 only user-facing description of the Spark backend and the `notebook`
 extra.
 
-All measurements: 2026-10-12, AMD Ryzen 5 5600X3D (6 cores, 12
+Local measurements: 2026-10-12, AMD Ryzen 5 5600X3D (6 cores, 12
 threads), Python 3.14 unless noted, pyspark 4.2.0, MRG32k3a. Mostly
-single runs. **Every Spark figure here is from one machine** — Spark's
-`local` and `local-cluster` modes — and is therefore a lower bound on
-what a real cluster costs per job.
+single runs, on one machine — Spark's `local` and `local-cluster`
+modes. Cluster measurements: three runs on Databricks, 2026-10-13,
+in "On a real cluster" below, which is where the claims about
+identity across machines and about break-even now rest.
 
 ## Using it
 
@@ -51,9 +52,16 @@ worker pool.
 
 ## When replication-level dispatch pays
 
-**It is slower than plain `solve()` unless one replication costs
-roughly 100 ms or more, and it tops out near 3-5x however large the
-cluster is.**
+**It is slower than plain `solve()` for cheap replications, and it
+tops out at a few times faster however large the cluster is.** On
+three Databricks clusters (below): at 20-30 ms per replication it
+lost or broke even (0.4x to 1.0x); at 85-110 ms it won by 1.7x to
+2.9x; at 0.4-0.5 s by 3.6x to 4.4x; at 1.5-1.7 s by 4x to 6x.
+"Roughly 100 ms or more" remains the rule to give a user: below it
+the outcome depended on the cluster.
+
+The rest of this section is the local measurement that prediction
+was first made from.
 
 Every request a solver makes to the oracle becomes one Spark job, and
 a Spark job has a fixed cost that a local worker pool does not:
@@ -106,6 +114,337 @@ scales with the number of paths.
 Spark suits it. A practitioner with one expensive simulation runs
 `solve()` once, and replication-level dispatch is the only thing that
 helps them — which is why it is offered despite the table above.
+
+## On a real cluster
+
+Three runs on Azure Databricks, 2026-10-13, of
+`docs/databricks/pymoso_dbx_notebook.py` -- one notebook that probes
+the hardware, checks identity, sweeps sample paths and probes the
+replication-level break-even, and prints one checksummed block.
+Nothing could be exported from the cluster: each block was read off
+the screen and typed by hand, then checked with
+`docs/databricks/dbx_kit.py verify`. The three blocks are reproduced
+at the end of this section and kept in `docs/databricks/results/`.
+
+| | Run 1 | Run 2 | Run 3 |
+|---|---|---|---|
+| Runtime | DBR 17.3, Spark 4.0.0 | DBR 16.4, Spark 3.5.2 | DBR 17.3, Spark 4.0.0 |
+| Node type | Standard_D8s_v3 | Standard_D16s_v3 | Standard_D8s_v3 |
+| Session | classic, `sparkContext` present | classic | classic |
+| Executor hosts reached by the probe | 1 | 1 | 3 |
+| Python worker processes reached | 8 | 16 | 24 |
+| Python, libc | 3.12.3, glibc 2.39 | 3.12.3, glibc 2.39 | 3.12.3, glibc 2.39 |
+| Driver CPU | Xeon Platinum 8171M | Xeon Platinum 8370C | Xeon E5-2673 v4 |
+| Executor CPU | Xeon Platinum 8370C | Xeon Platinum 8370C | Xeon Platinum 8370C |
+| cloudpickle on the runtime | 3.0.0 | 2.2.1 | 3.0.0 |
+| Checks against local known-good values | 26 of 26 | 27 of 27 | 28 of 28 |
+
+**Transcription.** Runs 2 and 3 verified as typed. Run 1's file had
+four mistyped characters, all on environment lines (`kit =1`,
+`Standard_DBx_v3`, `glibc=2.39`, `aff=B`); each was flagged by its
+own line check. The corrected lines (`kit=1`, `Standard_D8s_v3`,
+`glibc-2.39`, `aff=8`) reproduce their typed check codes and the
+block's `SUM`, and no other candidate node name did. The text below
+is the corrected, verified block. None of the four touched a hash or
+a measurement.
+
+### What the runs establish
+
+- **Bit-identity across machines.** This was the open correctness
+  question: variates go through the platform's maths library, and
+  until these runs everything had been computed on one host. In every
+  run, every probe task on every executor produced the same floats
+  (`hashes=1 of=128`, for pymoso's own generators and for the maths
+  library function by function), identical to the driver's and to
+  the values computed beforehand on an AMD Ryzen with glibc 2.41 and
+  Python 3.14. Six whole runs through `SparkBackend` -- sample paths,
+  a built-in tester, replications with and without CRN, Philox, and a
+  problem that uses the maths library -- matched the same run on the
+  driver and the local values. So did every sweep line (up to 64
+  paths, 33,621 simulations) and every replication-level run.
+
+  Precisely what was different between the machines that agreed:
+  driver and executors were different CPU generations in runs 1 and 3
+  (Skylake-generation 8171M and Broadwell E5-2673 v4 against Ice Lake
+  8370C); run 3 spread tasks over three executor hosts; and the
+  cluster as a whole (Intel, glibc 2.39, Python 3.12) differs from
+  the machine the known-good values came from (AMD, glibc 2.41,
+  Python 3.14). What was *not* different: within each run every
+  executor was the same CPU model (`cpus=1`), and everything was
+  x86-64 Linux with glibc.
+- **Spark 3.5.2 as well as 4.0.0,** on a real runtime.
+- **The version check** raised `VersionMismatch`, by name, from an
+  executor.
+- **The installed tree was the expected one** on the driver and on
+  every executor (`tree_ok=PASS`), so the comparisons above are
+  between the same code.
+- **By-value transport on a real runtime's own cloudpickle** (2.2.1
+  and 3.0.0): the notebook's problem, tester and solver classes are
+  all defined in the notebook.
+
+### Two cautions that apply to every timing below
+
+**The clusters autoscaled, and the control to turn that off was
+greyed out.** In run 3 the worker count was seen to drift down toward
+one during the sweep and to be back at three by the 500,000-unit
+replication rows; a warm-up job had been used to bring the nodes up
+beforehand. So run 3's sweep understates what a stable three-node
+cluster would do, and its replication rows were not all measured on
+the same number of workers. **Read run 3's scaling numbers as a lower
+bound, not as a scaling measurement.**
+
+**The notebook counted hosts once, at the start.** The `hosts=` and
+`workers=` in each block are what the probe reached before any timing
+began. Nothing later in a block says how many workers existed at that
+moment. That is a limitation of the kit, and with autoscaling on it
+applies to all three runs: runs 1 and 2 were single-host at the probe
+although the UI reported more nodes, and nothing in the blocks rules
+out nodes having joined afterwards. (`E2 workers=1` is a
+configuration tag and read 1 even in run 3; it should be ignored.)
+Run 3 is the only run in which more than one executor host was
+observed at all.
+
+Timings are single runs.
+
+### Sample paths
+
+`x` is the speedup over running the same paths one after another on
+an idle executor (`n` times the time one path took alone, over the
+job's wall time).
+
+| Paths | Run 1 (8 vCPU): wall, per path, x | Run 2 (16 vCPU) | Run 3 (3 hosts, 24 vCPU, autoscaling) |
+|---|---|---|---|
+| 1 | 9.0 s, 8.72 s, 1.0 | 8.5 s, 8.42 s, 1.0 | 9.0 s, 8.71 s, 1.0 |
+| 2 | 8.9 s, 8.54 s, 2.0 | 8.5 s, 8.25 s, 2.0 | 8.7 s, 8.37 s, 2.0 |
+| 4 | 11.0 s, 9.11 s, 3.2 | 10.6 s, 8.70 s, 3.2 | 11.3 s, 9.05 s, 3.1 |
+| 8 | 22.2 s, 19.71 s, 3.1 | 11.1 s, 9.11 s, 6.0 | 11.3 s, 9.23 s, 6.1 |
+| 16 | 41.5 s, 19.42 s, 3.4 | 21.8 s, 19.15 s, 6.2 | 15.8 s, 11.81 s, 8.8 |
+| 32 | | 41.3 s, 18.91 s, 6.5 | 30.0 s, 17.32 s, 9.3 |
+| 64 | | | 56.6 s, 18.39 s, 9.8 |
+
+- **It scales with the number of paths until the hardware runs out,
+  as independent tasks should.** There is no call-pattern bound here
+  to compare with: the batched bounds in `docs/simpar-ceiling.md` are
+  about replications inside one `solve()` and correspond to the
+  `bound` column of the next table, not to this one.
+- **The plateau is at about 0.4 of the vCPU count:** 3.4x on 8, 6.5x
+  on 16, 9.8x on 24 (the last a lower bound). The reason is visible
+  in the per-path time, which doubles the moment concurrent paths
+  exceed half the vCPUs -- 9.1 s to 19.7 s between 4 and 8 paths in
+  run 1, 9.1 s to 19.2 s between 8 and 16 in run 2. That is what two
+  hardware threads sharing a core look like for a CPU-bound task. (An
+  inference from the timings; the instance type's threading was not
+  checked.) A vCPU count is not a core count for this workload.
+- **One path costs 8.4-9.0 s there and 2.65 s on the laptop the kit
+  was built on.** Per replication the cluster's cores were about
+  three times slower for this pure-Python work, which is why the
+  cost tiers below came out at 20 ms to 1.7 s where the local run of
+  the same notebook had 7 ms to 0.5 s.
+
+### Replications inside one `solve()`
+
+Each tier at `simpar` 6 and 32. "Cost" is the measured time of one
+replication at `simpar=6`. The speedup columns divide the work --
+simulations actually run times that cost -- by the wall time of the
+run's Spark jobs.
+
+| Tier | Simulations run (budget asked) | Spark jobs | Run 1: cost, x at 6, x at 32 | Run 2 | Run 3 |
+|---|---|---|---|---|---|
+| 20,000 | 1,182 (1,000) | 190 | 28 ms, 0.74, 0.76 | 20 ms, 0.97, 0.98 | 21 ms, 0.47, 0.42 |
+| 100,000 | 468 (300) | 50 | 112 ms, 2.59, 2.35 | 83 ms, 2.87, 2.93 | 84 ms, 1.78, 1.68 |
+| 500,000 | 468 (300) | 50 | 538 ms, 3.94, 3.67 | 390 ms, 4.08, 4.41 | 548 ms, 3.68, 3.63 |
+| 2,000,000 | 231 (100) | 20 | 1.60 s, 3.97, 6.20 | 1.54 s, 4.74, 5.32 | 1.71 s, 4.18, 6.12 |
+
+Bounds allowed by the solver's call pattern, from the blocks: 4.15,
+4.63, 4.63 and 4.91 at `simpar=6`; 5.88, 8.51, 8.51 and 10.04 at 32.
+
+- **Cheap replications lose or break even.** At 20-28 ms, 0.42x to
+  0.98x. One Spark job cost 130 ms in run 2 and 230-310 ms in runs 1
+  and 3, against 63-92 ms on one machine, and the solver makes 190 of
+  them.
+- **From about 85 ms it wins:** 1.7x to 2.9x at 83-112 ms, 3.6x to
+  4.4x at 0.4-0.5 s, 4x to 6x at 1.5-1.7 s. Break-even on these
+  clusters lies between roughly 30 and 85 ms per replication; the
+  runs do not locate it more closely than that.
+- **`simpar=6` runs sat close to their bound once replications were
+  expensive** (3.7-4.7 against 4.6-4.9). The ceiling there is the
+  solver's call pattern, as predicted.
+- **`simpar=32` bought nothing until replications cost over a
+  second.** In the three cheaper tiers the wall time at 32 was
+  between 7% shorter and 14% longer than at 6. At 1.5-1.7 s it was
+  11% to 36% shorter.
+
+**The `x` printed in the blocks overstates the speedup at
+`simpar=32`, and should not be quoted.** The notebook computed `x` as
+the time the tasks spent working divided by the wall time, both
+measured on the cluster. When many tasks run at once on shared cores,
+each replication takes longer -- `ms_rep` is 1.2 to 1.7 times higher
+in the `simpar=32` row than in the `simpar=6` row of every tier -- and that
+slowdown is counted as work done. Run 3's last row prints 9.55 against
+a bound of 10.04; its wall time was 64.7 s for 231 replications that
+cost 1.71 s each at `simpar=6`, which is 6.1x. Run 1's prints 9.80 on
+a machine whose sample-path sweep never exceeded 3.4x. The table above
+uses the `simpar=6` cost for both columns for that reason. It is
+still not a clean measure: the `simpar=6` cost was itself measured
+under some load, and in run 3 under a changing number of workers
+(its 500,000 tier cost 548 ms against 390 ms on the same CPU model in
+run 2).
+
+The same weakness is in `SlowDispatchWarning`, which compares the
+same two quantities: it fired on the cheap tier in five of six runs
+and stayed silent in run 2 at `simpar=32`, where the printed `x` was
+1.49 and the run was no faster than plain `solve()` (0.98x). The
+warning can under-report when tasks crowd each other. Not fixed.
+
+### Still untested
+
+- **Serverless, and Spark Connect on Databricks.** All three runs
+  were classic sessions with a `sparkContext`. That the backend's
+  `range()`-and-UDF route works under Connect is established only
+  against a local Connect server; that Databricks serverless and
+  shared-access clusters are Connect is still from memory.
+- **More than three executor hosts,** and any scaling curve on a
+  cluster of known, fixed size.
+- **Executors that are not x86-64,** a libc other than glibc, or
+  executors of mixed CPU models within one run.
+- **Python other than 3.12** on a cluster (3.10, 3.11 and 3.14 only
+  locally).
+
+### The blocks
+
+Each line ends with a check on that line, and `SUM` covers the block.
+`python docs/databricks/dbx_kit.py verify <file>` re-checks them and
+every hash; `docs/databricks/README.md` explains the columns.
+
+Run 1 -- DBR 17.3, Standard_D8s_v3, one executor host (with the four
+transcription corrections described above):
+
+```
+E1 kit=1 dbr=17.3 spark=4.0.0 pyspark=4.0.0 mode=classic sc=yes ~0f
+E2 node=Standard_D8s_v3 workers=1 exec_cores=? par=8 serverless=? ~18
+D1 py=3.12.3 arch=x86_64 libc=glibc-2.39 cores=8 cp=3.0.0 ~30
+D2 cpu=Intel(R)_Xeon(R)_Platinum_8171M_CPU_@_2.60GHz ~fe
+D3 pymoso=2.0.0.dev0 tree=e7e4dc1b tree_ok=PASS ~04
+D4 core=707b5a73 PASS libm=bd003174 PASS ~76
+P1 tasks=128 hosts=1 workers=8 err=0 secs=18.0 ~83
+P2 py=3.12.3 arch=x86_64 libc=glibc-2.39 cores=8 aff=8 ~a2
+P3 cpus=1 cpu=Intel(R)_Xeon(R)_Platinum_8370C_CPU_@_2.80GHz ~2d
+P4 pymoso=2.0.0.dev0 tree=e7e4dc1b trees=1 tree_ok=PASS cp=3.0.0 ~bc
+ID core h=707b5a73 hashes=1 of=128 drv=PASS loc=PASS ~be
+ID libm h=bd003174 hashes=1 of=128 drv=PASS loc=PASS ~b6
+I paths h=38124230 drv=PASS loc=PASS ~da
+I builtin h=23369797 drv=PASS loc=PASS ~6b
+I repl h=e80f92d8 drv=PASS loc=PASS ~f1
+I crn h=66b3450e drv=PASS loc=PASS ~1c
+I philox h=93b7367b drv=PASS loc=PASS ~77
+I libm h=cbc74a42 drv=PASS loc=PASS ~65
+I version raised=VersionMismatch PASS ~8e
+S units=20000 budget=400 | n wall_s task_s x sims h ok ~8d
+S 1 9.0 8.72 1.0 519 f8f0015e P ~f2
+S 2 8.9 8.54 2.0 1011 ff0c9928 P ~54
+S 4 11.0 9.11 3.2 2130 d3e53114 P ~c4
+S 8 22.2 19.71 3.1 4377 97932a35 P ~84
+S 16 41.5 19.42 3.4 8394 9e8c26fd P ~03
+S stop=plateau ~ed
+R | units k ms_rep req sims jobs ms_job x bound warn h ok ~43
+R 20000 6 28.1 1000 1182 190 237 0.74 4.15 Y 34fb189f P ~8c
+R 20000 32 34.5 1000 1182 190 231 0.93 5.88 Y 34fb189f P ~9e
+R 100000 6 112.0 300 468 50 404 2.59 4.63 n 9293efce P ~11
+R 100000 32 151.9 300 468 50 447 3.18 8.51 n 9293efce P ~dc
+R 500000 6 538.2 300 468 50 1280 3.93 4.63 n 9293efce P ~f0
+R 500000 32 744.9 300 468 50 1371 5.09 8.51 n 9293efce P ~a0
+R 2000000 6 1596.4 100 231 20 4650 3.97 4.91 n e80f92d8 P ~90
+R 2000000 32 2525.9 100 231 20 2976 9.80 10.04 n e80f92d8 P ~62
+Z secs=557 sections=env,probe,identity,sweep,repl ~1e
+SUM 24623227 lines=36
+```
+
+Run 2 -- DBR 16.4 (Spark 3.5.2), Standard_D16s_v3, one executor host:
+
+```
+E1 kit=1 dbr=16.4 spark=3.5.2 pyspark=3.5.2 mode=classic sc=yes ~34
+E2 node=Standard_D16s_v3 workers=1 exec_cores=? par=16 serverless=? ~bc
+D1 py=3.12.3 arch=x86_64 libc=glibc-2.39 cores=16 cp=2.2.1 ~7d
+D2 cpu=Intel(R)_Xeon(R)_Platinum_8370C_CPU_@_2.80GHz ~39
+D3 pymoso=2.0.0.dev0 tree=e7e4dc1b tree_ok=PASS ~04
+D4 core=707b5a73 PASS libm=bd003174 PASS ~76
+P1 tasks=128 hosts=1 workers=16 err=0 secs=5.5 ~82
+P2 py=3.12.3 arch=x86_64 libc=glibc-2.39 cores=16 aff=16 ~9a
+P3 cpus=1 cpu=Intel(R)_Xeon(R)_Platinum_8370C_CPU_@_2.80GHz ~2d
+P4 pymoso=2.0.0.dev0 tree=e7e4dc1b trees=1 tree_ok=PASS cp=2.2.1 ~cc
+ID core h=707b5a73 hashes=1 of=128 drv=PASS loc=PASS ~be
+ID libm h=bd003174 hashes=1 of=128 drv=PASS loc=PASS ~b6
+I paths h=38124230 drv=PASS loc=PASS ~da
+I builtin h=23369797 drv=PASS loc=PASS ~6b
+I repl h=e80f92d8 drv=PASS loc=PASS ~f1
+I crn h=66b3450e drv=PASS loc=PASS ~1c
+I philox h=93b7367b drv=PASS loc=PASS ~77
+I libm h=cbc74a42 drv=PASS loc=PASS ~65
+I version raised=VersionMismatch PASS ~8e
+S units=20000 budget=400 | n wall_s task_s x sims h ok ~8d
+S 1 8.5 8.42 1.0 519 f8f0015e P ~ce
+S 2 8.5 8.25 2.0 1011 ff0c9928 P ~70
+S 4 10.6 8.70 3.2 2130 d3e53114 P ~cc
+S 8 11.1 9.11 6.0 4377 97932a35 P ~29
+S 16 21.8 19.15 6.2 8394 9e8c26fd P ~46
+S 32 41.3 18.91 6.5 16665 b3a1c6e7 P ~08
+S stop=plateau ~ed
+R | units k ms_rep req sims jobs ms_job x bound warn h ok ~43
+R 20000 6 20.4 1000 1182 190 131 0.97 4.15 Y 34fb189f P ~eb
+R 20000 32 31.1 1000 1182 190 130 1.49 5.88 n 34fb189f P ~ba
+R 100000 6 83.2 300 468 50 271 2.87 4.63 n 9293efce P ~49
+R 100000 32 143.0 300 468 50 266 5.03 8.51 n 9293efce P ~4d
+R 500000 6 390.4 300 468 50 896 4.08 4.63 n 9293efce P ~ef
+R 500000 32 664.4 300 468 50 829 7.50 8.51 n 9293efce P ~f5
+R 2000000 6 1541.1 100 231 20 3753 4.74 4.91 n e80f92d8 P ~ba
+R 2000000 32 1835.2 100 231 20 3343 6.34 10.04 n e80f92d8 P ~c0
+Z secs=427 sections=env,probe,identity,sweep,repl ~91
+SUM 3b51d664 lines=37
+```
+
+Run 3 -- DBR 17.3, Standard_D8s_v3, three executor hosts, autoscaling:
+
+```
+E1 kit=1 dbr=17.3 spark=4.0.0 pyspark=4.0.0 mode=classic sc=yes ~0f
+E2 node=Standard_D8s_v3 workers=1 exec_cores=? par=24 serverless=? ~90
+D1 py=3.12.3 arch=x86_64 libc=glibc-2.39 cores=8 cp=3.0.0 ~30
+D2 cpu=Intel(R)_Xeon(R)_CPU_E5-2673_v4_@_2.30GHz ~df
+D3 pymoso=2.0.0.dev0 tree=e7e4dc1b tree_ok=PASS ~04
+D4 core=707b5a73 PASS libm=bd003174 PASS ~76
+P1 tasks=128 hosts=3 workers=24 err=0 secs=17.4 ~9a
+P2 py=3.12.3 arch=x86_64 libc=glibc-2.39 cores=8 aff=8 ~a2
+P3 cpus=1 cpu=Intel(R)_Xeon(R)_Platinum_8370C_CPU_@_2.80GHz ~2d
+P4 pymoso=2.0.0.dev0 tree=e7e4dc1b trees=1 tree_ok=PASS cp=3.0.0 ~bc
+ID core h=707b5a73 hashes=1 of=128 drv=PASS loc=PASS ~be
+ID libm h=bd003174 hashes=1 of=128 drv=PASS loc=PASS ~b6
+I paths h=38124230 drv=PASS loc=PASS ~da
+I builtin h=23369797 drv=PASS loc=PASS ~6b
+I repl h=e80f92d8 drv=PASS loc=PASS ~f1
+I crn h=66b3450e drv=PASS loc=PASS ~1c
+I philox h=93b7367b drv=PASS loc=PASS ~77
+I libm h=cbc74a42 drv=PASS loc=PASS ~65
+I version raised=VersionMismatch PASS ~8e
+S units=20000 budget=400 | n wall_s task_s x sims h ok ~8d
+S 1 9.0 8.71 1.0 519 f8f0015e P ~d1
+S 2 8.7 8.37 2.0 1011 ff0c9928 P ~7b
+S 4 11.3 9.05 3.1 2130 d3e53114 P ~b4
+S 8 11.3 9.23 6.1 4377 97932a35 P ~df
+S 16 15.8 11.81 8.8 8394 9e8c26fd P ~dc
+S 32 30.0 17.32 9.3 16665 b3a1c6e7 P ~9b
+S 64 56.6 18.39 9.8 33621 252eeae4 P ~0f
+S stop=plateau ~ed
+R | units k ms_rep req sims jobs ms_job x bound warn h ok ~43
+R 20000 6 20.6 1000 1182 190 270 0.47 4.15 Y 34fb189f P ~90
+R 20000 32 31.9 1000 1182 190 308 0.65 5.88 Y 34fb189f P ~d6
+R 100000 6 84.2 300 468 50 443 1.78 4.63 n 9293efce P ~e8
+R 100000 32 144.9 300 468 50 470 2.89 8.51 n 9293efce P ~f3
+R 500000 6 547.7 300 468 50 1392 3.68 4.63 n 9293efce P ~cb
+R 500000 32 753.1 300 468 50 1414 4.98 8.51 n 9293efce P ~40
+R 2000000 6 1714.7 100 231 20 4734 4.18 4.91 n e80f92d8 P ~5f
+R 2000000 32 2674.7 100 231 20 3236 9.55 10.04 n e80f92d8 P ~b9
+Z secs=650 sections=env,probe,identity,sweep,repl ~fc
+SUM 9a965c9e lines=38
+```
 
 ## High dimension: what a cluster does and does not change
 
@@ -346,13 +685,13 @@ Core pymoso has no dependencies. Kept true by:
 |---|---|
 | A backend computes what no backend computes | whole results and end seeds compared, every CI cell (`tests/test_remote_backend.py`) and on real Spark (`tests/test_spark_backend.py`); each comparison shown failing against a backend that answers out of order |
 | Payloads are self-contained | fresh isolated interpreter, other directory; Spark executors that provably cannot import the driver's modules |
-| Classic and Connect sessions | both, locally and in the `extras` job |
-| Python 3.10 and 3.14 with pyspark 4.2.0 | run by hand locally; the `extras` job has not run yet |
-| pyspark 3.5 (declared floor) | **not tried** |
-| Executors on another host | **no** — one machine throughout |
-| A Databricks runtime | **no** — by hand, by someone with one |
-| Driver and executors on different hardware or libm | **no**. Variates go through `math.log`; bit-identity across an x86 driver and ARM executors is not established. At path level each path runs wholly on one machine, so paths are self-consistent; at replication level one estimate can mix machines |
-| Scale | **no** |
+| Classic and Connect sessions | both, locally and in the CI `extras` job (first run 2026-10-13, both cells green, with all fifteen `test` cells and `clean-clone`) |
+| Python 3.10 and 3.14 with pyspark 4.2.0 | the `extras` job |
+| pyspark 3.5 (declared floor) | 3.5.9 locally with Python 3.11, classic; 3.5.2 on Databricks 16.4. Not under Connect |
+| Executors on other hosts | **yes** -- three Databricks runs, one with three executor hosts ("On a real cluster") |
+| A Databricks runtime | **yes**, classic sessions on DBR 16.4 and 17.3. **Not** serverless or shared-access |
+| Driver, executors and the reference machine on different hardware | **yes, within x86-64 and glibc**: Broadwell and Skylake drivers against Ice Lake executors, and all of them against an AMD Ryzen on a different glibc and Python. Every float agreed. **Not** established: non-x86 executors, another libc, mixed CPU models among the executors of one run |
+| Scale | three hosts, 24 vCPUs, on an autoscaling cluster. **Nothing larger, and no scaling curve on a cluster of fixed size** |
 
 ## Notebook use today
 

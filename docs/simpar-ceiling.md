@@ -475,7 +475,13 @@ the three scripts on a quiet machine before quoting a Phase 4 number
 against them.
 
 Sending replications to a cluster has its own break-even, far from
-anything in this document: `docs/spark-backend.md`.
+anything in this document, and it has been measured on real
+clusters: `docs/spark-backend.md`, "On a real cluster". That section
+also has the sample-path scaling numbers; they are not repeated here.
+One thing there bears on this document: at `simpar=6` the cluster
+runs reached 3.7-4.7x against batched bounds of 4.6-4.9 once a
+replication was expensive, so the bound computed from a solver's call
+pattern held on hardware it was not derived on.
 
 ## What would raise the ceiling now
 

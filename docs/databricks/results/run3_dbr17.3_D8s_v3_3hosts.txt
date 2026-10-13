@@ -1,0 +1,39 @@
+E1 kit=1 dbr=17.3 spark=4.0.0 pyspark=4.0.0 mode=classic sc=yes ~0f
+E2 node=Standard_D8s_v3 workers=1 exec_cores=? par=24 serverless=? ~90
+D1 py=3.12.3 arch=x86_64 libc=glibc-2.39 cores=8 cp=3.0.0 ~30
+D2 cpu=Intel(R)_Xeon(R)_CPU_E5-2673_v4_@_2.30GHz ~df
+D3 pymoso=2.0.0.dev0 tree=e7e4dc1b tree_ok=PASS ~04
+D4 core=707b5a73 PASS libm=bd003174 PASS ~76
+P1 tasks=128 hosts=3 workers=24 err=0 secs=17.4 ~9a
+P2 py=3.12.3 arch=x86_64 libc=glibc-2.39 cores=8 aff=8 ~a2
+P3 cpus=1 cpu=Intel(R)_Xeon(R)_Platinum_8370C_CPU_@_2.80GHz ~2d
+P4 pymoso=2.0.0.dev0 tree=e7e4dc1b trees=1 tree_ok=PASS cp=3.0.0 ~bc
+ID core h=707b5a73 hashes=1 of=128 drv=PASS loc=PASS ~be
+ID libm h=bd003174 hashes=1 of=128 drv=PASS loc=PASS ~b6
+I paths h=38124230 drv=PASS loc=PASS ~da
+I builtin h=23369797 drv=PASS loc=PASS ~6b
+I repl h=e80f92d8 drv=PASS loc=PASS ~f1
+I crn h=66b3450e drv=PASS loc=PASS ~1c
+I philox h=93b7367b drv=PASS loc=PASS ~77
+I libm h=cbc74a42 drv=PASS loc=PASS ~65
+I version raised=VersionMismatch PASS ~8e
+S units=20000 budget=400 | n wall_s task_s x sims h ok ~8d
+S 1 9.0 8.71 1.0 519 f8f0015e P ~d1
+S 2 8.7 8.37 2.0 1011 ff0c9928 P ~7b
+S 4 11.3 9.05 3.1 2130 d3e53114 P ~b4
+S 8 11.3 9.23 6.1 4377 97932a35 P ~df
+S 16 15.8 11.81 8.8 8394 9e8c26fd P ~dc
+S 32 30.0 17.32 9.3 16665 b3a1c6e7 P ~9b
+S 64 56.6 18.39 9.8 33621 252eeae4 P ~0f
+S stop=plateau ~ed
+R | units k ms_rep req sims jobs ms_job x bound warn h ok ~43
+R 20000 6 20.6 1000 1182 190 270 0.47 4.15 Y 34fb189f P ~90
+R 20000 32 31.9 1000 1182 190 308 0.65 5.88 Y 34fb189f P ~d6
+R 100000 6 84.2 300 468 50 443 1.78 4.63 n 9293efce P ~e8
+R 100000 32 144.9 300 468 50 470 2.89 8.51 n 9293efce P ~f3
+R 500000 6 547.7 300 468 50 1392 3.68 4.63 n 9293efce P ~cb
+R 500000 32 753.1 300 468 50 1414 4.98 8.51 n 9293efce P ~40
+R 2000000 6 1714.7 100 231 20 4734 4.18 4.91 n e80f92d8 P ~5f
+R 2000000 32 2674.7 100 231 20 3236 9.55 10.04 n e80f92d8 P ~b9
+Z secs=650 sections=env,probe,identity,sweep,repl ~fc
+SUM 9a965c9e lines=38

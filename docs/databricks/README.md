@@ -1,5 +1,24 @@
 # The Databricks run
 
+**Done, 2026-10-13: three runs, all verified.** The results and what
+they establish are in `docs/spark-backend.md`, "On a real cluster";
+the three blocks are in `results/` here and can be re-checked with
+`dbx_kit.py verify`. What follows is the run sheet as it was used.
+
+**Before any further run, regenerate the known-good values**
+(`dbx_kit.py gen`). The values embedded in the notebook are the ones
+the three blocks were checked against -- tree `e7e4dc1b`, commit
+`baa7027` -- and are left that way on purpose so the blocks stay
+verifiable. `pymoso/` has changed since, so the notebook as it stands
+would print `tree_ok=FAIL` on a cluster.
+
+**Two things the kit should do differently next time,** both learned
+from the runs: record how many executor hosts each timing line
+actually used (it counts hosts once, at the start, and the clusters
+autoscaled); and measure replication-level speedup against an
+uncontended cost (its `x` divides contended work by wall time and
+overstates the speedup at high `simpar`).
+
 One notebook, run once on a cluster nothing can be exported from. It
 prints about forty lines; those are typed out by hand and checked
 afterwards.

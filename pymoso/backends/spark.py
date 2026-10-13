@@ -20,22 +20,24 @@ wherever it runs.
 
 **`solve(simpar=N, backend=...)` is slower than plain `solve()` unless
 one replication of your simulation costs roughly 100 ms or more, and
-it tops out at about 3-5x however large the cluster is.** Every call a
-solver makes to the oracle becomes one Spark job, and a Spark job
-costs 60-130 ms before any work is done -- measured on one machine; a
-real cluster costs more. Measured with RPERLE, six executors:
+it tops out at a few times faster however large the cluster is.**
+Every call a solver makes to the oracle becomes one Spark job, and a
+Spark job cost 130-310 ms on the Databricks clusters this was
+measured on. Three clusters, RPERLE, `simpar=6`:
 
     cost of one replication     speedup over plain solve()
-    4 ms                        0.46x  (more than twice as slow)
-    13 ms                       0.95x
-    110 ms                      3.05x
-    0.5 s                       3.24x
+    20-28 ms                    0.5x to 1.0x  (slower, or no gain)
+    83-112 ms                   1.8x to 2.9x
+    0.4-0.5 s                   3.7x to 4.1x
+    1.5-1.7 s                   4.0x to 4.7x  (up to 6x at simpar=32)
 
 The ceiling is the solver's, not Spark's: an RA solver asks for a
 handful of replications at a time and waits for the answer
-(docs/simpar-ceiling.md). For a cheap simulation use `simpar=N`
-without a backend, or nothing. A `SlowDispatchWarning` is raised
-during the run if dispatch is costing more than the work it carries.
+(docs/simpar-ceiling.md). `simpar` above about 6 gained nothing
+until a replication cost over a second. For a cheap simulation use
+`simpar=N` without a backend, or nothing. A `SlowDispatchWarning` is
+raised during the run if dispatch is costing more than the work it
+carries; it can miss the case where many tasks slow each other down.
 docs/spark-backend.md has the measurements and the design.
 
 What the cluster needs: the same version of pymoso on the executors

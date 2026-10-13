@@ -242,41 +242,64 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
     The source bundle ships text and never needed a shared
     filesystem; an earlier brief said otherwise.
   - **Replication-level dispatch to Spark (`solve(simpar=N,
-    backend=)`) is slower than plain `solve()` below roughly 100 ms
-    per replication and tops out near 3-5x.** 0.46x at 4 ms, 0.95x at
-    13 ms, 3.05x at 110 ms, 3.24x at 0.5 s (RPERLE, six executors,
-    one machine, single runs). Offered anyway because it is the only
-    thing that helps a single `solve()`. The backend raises
-    `SlowDispatchWarning` when dispatch costs more than the work.
-    Do not "optimize" it without re-reading `docs/simpar-ceiling.md`:
-    the ceiling is the solver's call pattern.
-  - A task checks `pymoso.__version__` against the sender's.
-  - **Not verified by anything:** executors on another host, a
-    Databricks runtime, driver and executors on different hardware
-    (variates use `math.log`; cross-architecture bit-identity is not
-    established), pyspark 3.5 (the declared floor), scale.
-- **The Databricks run (time-boxed, October 2026).**
-  `docs/databricks/`: a paste-in notebook that measures the Spark
-  backend on a real cluster (identity across machines, scaling,
-  replication-level break-even, Connect or classic) and prints one
-  checksummed block to be typed out by hand, plus `dbx_kit.py`
-  (`gen`, `verify`, `localtest`). Its README is the run sheet. The
-  notebook embeds known-good hashes and a fingerprint of `pymoso/`:
-  **any change to `pymoso/` before the run means re-running `gen`**,
-  or the cluster prints `tree_ok=FAIL`. No results are recorded yet.
-- **Found building it, NOT fixed, not yet discussed: results depend
-  on the Python version in the last bit.** `prng.mrg32k3a.bsm` (the
-  normal variate, shared by all three generators) adds its terms with
-  the built-in `sum()`, and Python 3.12 made `sum()` compensate for
-  rounding. 8,153 of 20,000 normal variates differ between 3.11 and
-  3.12 on one machine (relative 5.9e-16). No golden and no whole-run
-  hash in the kit moved, on 3.10-3.14 -- the same weak-detector story
-  as the end seed. A fix (explicit left-to-right addition, which is
-  what 3.10, where the goldens were captured, computes) would make
-  3.12+ match 3.10 and is a behaviour change on 3.12+.
-- **pyspark 3.5 (the declared floor) is now tried:** the notebook
-  passes on pyspark 3.5.9 with Python 3.11 in classic mode. Connect on
-  3.5 is not (no local Connect server in that distribution).
+    backend=)`) loses or breaks even on cheap replications and tops
+    out at a few times faster.** Measured on three Databricks
+    clusters: 0.4-1.0x at 20-28 ms per replication, 1.7-2.9x at
+    83-112 ms, 3.6-4.4x at 0.4-0.5 s, 4-6x at 1.5-1.7 s. "Roughly
+    100 ms or more" is still the rule given to users. `simpar` above
+    6 gained nothing until a replication cost over a second. Offered
+    because it is the only thing that helps a single `solve()`. Do
+    not "optimize" it without re-reading `docs/simpar-ceiling.md`:
+    the ceiling is the solver's call pattern, and the cluster runs at
+    `simpar=6` sat just under their computed bounds.
+  - `SlowDispatchWarning` compares task work time with wall time. It
+    under-reports when many tasks slow each other down (it stayed
+    silent on a run that was 0.98x). Known, not fixed.
+  - A task checks `pymoso.__version__` against the sender's;
+    confirmed raising on a real cluster.
+  - **Multi-host bit-identity is ESTABLISHED, within x86-64 and
+    glibc** (it was the open correctness question). Three Databricks
+    runs, 26/27/28 of 26/27/28 checks: every float identical across
+    three executor hosts, between Broadwell and Skylake drivers and
+    Ice Lake executors, and against this AMD machine on a different
+    glibc and Python. **Still not verified:** non-x86 executors,
+    another libc, mixed CPU models among one run's executors,
+    serverless, Spark Connect on Databricks (all three runs were
+    classic sessions; the Connect claim is still from memory), more
+    than three hosts, and any scaling curve on a cluster of fixed
+    size -- the clusters autoscaled, so the sample-path numbers
+    (3.4x on 8 vCPUs, 6.5x on 16, 9.8x on 24) are lower bounds.
+- **The first CI run of the `extras` job was green** (2026-10-13,
+  commit `baa7027`), with all fifteen `test` cells and `clean-clone`.
+- **The Databricks run: done, 2026-10-13.** `docs/spark-backend.md`,
+  "On a real cluster", has the three verified blocks and what they
+  establish; `docs/databricks/` has the notebook, `dbx_kit.py`
+  (`gen`, `verify`, `localtest`) and the blocks under `results/`.
+  The notebook's embedded known-good values are deliberately left as
+  the blocks were checked against (tree `e7e4dc1b`): **run `gen`
+  before any further cluster run.** Two things to change in the kit
+  first, both in its README: it counts executor hosts once, at the
+  start (useless under autoscaling), and its replication-level `x`
+  divides contended work by wall time, overstating high-`simpar`
+  speedups -- quote the tables in `docs/spark-backend.md`, never the
+  `x` column of a block's `k=32` rows.
+- **Results depend on the Python version in the last bit:
+  KNOWN_ISSUES.md issue 17.** `prng.mrg32k3a.bsm` adds its terms with
+  the built-in `sum()`, which Python 3.12 changed. 8,153 of 20,000
+  normal variates differ between 3.11 and 3.12. No golden and no
+  whole-run hash has been seen to move across 3.10-3.14, which says
+  how little those detectors see, not that it cannot. Not fixed: the
+  fix changes results on 3.12+, and needs a decision.
+- **pyspark 3.5 (the declared floor) is verified in classic mode:**
+  3.5.9 locally and 3.5.2 on Databricks 16.4. Not under Connect.
+- **A source install has to build under the setuptools a user already
+  has.** `pip install git+...` failed on a Databricks runtime: pip
+  there builds without isolation, so `[build-system] requires` is
+  ignored and an older setuptools rejected `license = "MIT"`. The
+  license is now the table form and the floor is `setuptools>=61`
+  (`tests/test_packaging.py`). Current setuptools warns that the
+  table form ends 2027-02-18; switching back then brings the failure
+  back for old environments, so it is a decision, not a tidy-up.
 - **Two corrections to recorded decisions (Phase 4),** each noted
   where the original was written: by-value transport is a form of
   `ClassRef`, not a `ProblemHandle` subclass (that plan predates
