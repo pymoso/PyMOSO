@@ -86,7 +86,7 @@ def test_the_executors_are_not_the_driver(report):
 @pytest.mark.parametrize("scenario", [
     "paths_builtin", "paths_main", "paths_driver_only_module", "paths_user_files",
     "replications_builtin", "replications_builtin_crn", "replications_main",
-    "replications_driver_only_module", "replications_user_files", "metrics",
+    "replications_driver_only_module", "replications_user_files", "metrics", "dispatch_cost",
 ])
 def test_spark_computes_what_no_backend_computes(report, scenario):
     assert report[scenario] is True

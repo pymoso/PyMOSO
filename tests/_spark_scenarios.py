@@ -172,6 +172,9 @@ def main(mode):
             out['paths_user_files'] = paths(user.UserTester, RPERLE, (20, 20))
             out['replications_user_files'] = replications(user.UserProblem, RPERLE, (20, 20))
 
+        cost = pymoso.dispatch_cost(MainProblem, (20, 20), replications=6, parts=3, backend=backend(), jobs=2)
+        out['dispatch_cost'] = bool(cost.identical and len(cost.job_seconds) == 2 and cost.backend == 'SparkBackend')
+
         res, _ = testsolve(MainTester, MainSolver, (20, 20), budget=300, seed=SEED, isp=3)
         out['metrics'] = par_diff(res, MainTester(), 1, backend=backend()) == par_diff(res, MainTester(), 1)
 

@@ -36,7 +36,9 @@ handful of replications at a time and waits for the answer
 (docs/simpar-ceiling.md). `simpar` above about 6 gained nothing
 until a replication cost over a second. For a cheap simulation use
 `simpar=N` without a backend, or nothing. Nothing in pymoso will tell
-you during a run that dispatch is losing: time a short run both ways.
+you during a run that dispatch is losing. To find out for your own
+problem and cluster, call `pymoso.dispatch_cost`, which times one
+request both ways and reports the numbers.
 docs/spark-backend.md has the measurements and the design.
 
 What the cluster needs: the same version of pymoso on the executors

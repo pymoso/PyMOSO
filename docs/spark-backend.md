@@ -96,8 +96,21 @@ Two things say this to a user who did not read this page: the
 `pymoso.backends.spark` module docstring, and the error `solve()`
 raises for a remote backend without a `simpar`. Nothing says it
 during a run. Whether a cluster pays for a particular simulation is
-for the user to measure, on purpose: time a short run with and
-without `backend=`.
+for the user to measure, on purpose:
+
+```python
+from pymoso import dispatch_cost
+print(dispatch_cost(MyProblem, (30, 30), replications=8, parts=8, backend=backend))
+```
+
+runs one request of that size in place and as tasks on the backend,
+and prints how long each took and whether the results were identical.
+It measures wall time on both sides, so tasks crowding each other
+count against the backend and not for it. It measures one request at
+one point, costs several times the work it measures, and offers no
+verdict; `pymoso/backends/measure.py` says what the numbers do and do
+not mean. Called at a few replication costs it produces, for a user's
+own problem and cluster, the kind of table the next section has.
 
 For sample paths none of this applies. Twelve paths, RSPLINE:
 
@@ -754,8 +767,11 @@ phase closed (`tests/test_library_arguments.py`):
    It raises `TypeError`, naming it and listing the ones the solver
    takes.
 2. A list `x0` failed with `cannot use 'list' as a set element`. Any
-   sequence of integers of the problem's dimension is accepted; the
-   wrong length or type is refused at the call.
+   sequence of numbers of the problem's dimension is accepted and
+   becomes a tuple; the wrong length, or a component that is not a
+   number, is refused at the call. Numbers are not converted or
+   judged: what a float starting point does is the solver's and the
+   oracle's to say.
 3. Every extra keyword went through `float()` and a bad one failed
    without naming the keyword. Numbers convert as before; anything
    else raises `TypeError` naming it.
