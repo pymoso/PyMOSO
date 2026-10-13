@@ -609,6 +609,47 @@ means a solver that does not enumerate neighbourhoods, which is new
 algorithmic work, not executor work. This change only ensures the
 coordinate layer is not a second obstacle when that solver exists.
 
+**Correction (Phase 4). The two paragraphs above are wrong about the
+cause, and are left as written so the correction can be read against
+them.** They say the limit is structural -- "it is what
+'neighbourhood' means in these algorithms" -- and that serving high
+dimension needs a solver that does not enumerate neighbourhoods. That
+was asserted, repeated in `CLAUDE.md` and in Phase 4's own brief as a
+settled scoping fact, and never measured. It was one helper's
+implementation. At the default radius 1 a neighbourhood *is* `2*dim`
+points; `chnutils.get_nbors` generated the whole `3**dim` box and
+filtered it by distance to find them. The time was indeed "in
+`get_nbors`/`edist`", which is exactly what should have prompted the
+question.
+
+`get_nbors` now builds the neighbourhood directly, in the insertion
+order the box enumeration produced, so the returned set is identical
+element for element and position for position and no result changes
+(`tests/test_get_nbors_equivalence.py`, which keeps the old
+implementation as its reference; 1,066 points and 24 whole solver
+runs). One call at `dim=12` went from 372 ms to 0.09 ms.
+
+What is true now, and it is narrower than "dim 20 works": **the
+built-in solvers no longer stall on neighbourhood enumeration.**
+Behind it, measured (`docs/spark-backend.md`):
+
+- On the MRG family the jump is 95% of a high-dimensional run (1.5-2
+  ms per block, and the number of points grows with dimension).
+  RPERLE at budget 1,000: 5 s at `dim=20`, 330 s at `dim=50`. Philox:
+  0.3 s and 2.4 s.
+- The budget stops bounding the work (KNOWN_ISSUES.md issue 16): it
+  is checked between RA iterations, and one iteration's work grows
+  with dimension.
+- At radius above 1 the neighbourhood itself is large (87,480 points
+  at `r=2`, `dim=20`).
+- Solution quality in high dimension was checked on one easy
+  separable quadratic, where it was good. Nothing harder.
+
+So the Phase 4 scoping fact should read: high-dimensional users are
+not stopped by the solvers' neighbourhoods; they are slowed by the
+default generator's jump and surprised by the budget, and how well
+these algorithms *search* in high dimension is not established.
+
 ### 3.5 Should the interface expose jump-ahead at all?
 
 No. `stream_at(base_seed, coordinate)` is the only way to reach a stream.

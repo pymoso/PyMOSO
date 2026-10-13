@@ -85,10 +85,11 @@ def test_hashed_points_keep_every_property_the_exact_code_gives(backend):
 def test_a_problem_whose_points_need_the_hash_solves_end_to_end(monkeypatch):
     """A real solve() in which every point is hashed. dim=3 with
     components near 10**9 (the exact code holds 25 bits each, about
-    1.7e7) rather than dim=20: the in-tree RA solvers enumerate a
-    3**dim neighbourhood (chnutils.get_nbors), so they cannot run at
-    dim=20 whatever the point code does -- see docs/rng-interface-
-    design.md §3.4. This test is about the coordinate layer."""
+    1.7e7) rather than dim=20. (When this was written the in-tree RA
+    solvers could not run at dim=20 at all: get_nbors enumerated a
+    3**dim box. It no longer does -- docs/rng-interface-design.md
+    §3.4's correction -- but a small dimension keeps this test about
+    the coordinate layer, and quick.)"""
     CENTRE = 10 ** 9
     hashed_points = set()
     real_encode = prng_base.encode_point

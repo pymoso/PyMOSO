@@ -107,61 +107,105 @@ Spark suits it. A practitioner with one expensive simulation runs
 `solve()` once, and replication-level dispatch is the only thing that
 helps them — which is why it is offered despite the table above.
 
-## The dimension limit a cluster does not move
+## High dimension: what a cluster does and does not change
 
-The built-in RA solvers (RPERLE, RMINRLE, RPE, RSPLINE) call
-`chnutils.get_nbors`, which enumerates a box of `3**dim` points
-around a point. As recorded before Phase 4, RPERLE at budget 300
-takes 0.6 s at dim 3, 5 s at dim 6, 17 s at dim 9, and does not
-return at dim 20 (`3**20` is about 3.5 billion points). They stay
-practical to about nine dimensions, on a laptop or on a thousand
-executors: the enumeration is in the solver, on the driver, not in
-the simulation, so no backend reaches it.
+**Corrected during Phase 4.** This section first recorded, as the
+phase's brief did, that the built-in RA solvers are limited to about
+nine dimensions by something structural -- they enumerate a `3**dim`
+neighbourhood -- and that serving high-dimensional users would need a
+new solver. That was wrong. It was one helper's implementation, it is
+fixed, and what remains is different in kind.
 
-**Where a user hits it.** Someone arriving from a big-data setting
-with a 20- or 50-dimensional problem hits it in the first RA
-iteration, as a run that never returns and reports nothing — not as
-an error, and not as anything that looks like a dimension limit. The
-natural reaction, adding executors, does nothing.
+### What was wrong
 
-**A finding made while recording this, reported and not acted on.**
-The limit has been described as structural: the solvers enumerate
-neighbourhoods, so serving high dimension needs a different
-algorithm. At the default neighbourhood radius of 1 that is not what
-the measurement shows. `get_nbors(x, 1)` *returns* `2*dim` points (the
-points one step away along one axis); it enumerates `3**dim` to find
-them, by building the whole box and filtering by distance. With
-`get_nbors` replaced, in a scratch script only, by a direct
-construction of those `2*dim` points:
+`chnutils.get_nbors(x, 1)` returns `2*dim` points: the points one
+step away along one axis. It found them by generating the whole
+`3**dim` box around `x` and filtering by distance. RPERLE at budget
+300 took 0.6 s at dim 3, 17 s at dim 9, and did not return at dim 20.
 
-| dim | RPERLE, budget 300, as is | with direct radius-1 neighbours | same result |
-|---|---|---|---|
-| 3 | 0.19 s | 0.19 s | yes |
-| 6 | 0.94 s | 0.90 s | yes |
-| 9 | 4.4 s | 2.5 s | yes |
-| 12 | 56 s | 2.2 s | yes |
-| 20 | (not run; recorded as no return) | 28 s | — |
-| 50 | (not run) | 26 s | — |
+It now builds the neighbourhood directly. One call:
 
-(A scratch bi-objective quadratic on `[-20, 20]^dim`; single runs on
-a machine that was busy with other work, so read the ratios, not the
-seconds. Solutions and end seeds were compared where both versions
-ran.)
+| Radius | dim | Before | After | Points returned |
+|---|---|---|---|---|
+| 1 | 12 | 372 ms | 0.09 ms | 24 |
+| 1 | 50 | not runnable | 1.2 ms | 100 |
+| 2 | 9 | 1,193 ms | 4.1 ms | 2,868 |
+| 2 | 20 | not runnable | 279 ms | 87,480 |
+| 3 | 6 | 55 ms | 4.1 ms | 4,196 |
+| 3 | 12 | not runnable | 1,482 ms | 959,800 |
 
-So at radius 1 the wall is an implementation cost in one helper, not
-a property of the algorithm, and the solvers do return in 20 and 50
-dimensions without it. What this does **not** establish: that the
-solutions they return there are any good at a sensible budget; that
-nothing else scales badly further out; or anything about a radius
-above 1, where the neighbourhood really does grow quickly. And one
-caution for whoever takes it up: the function returns a set, and at
-least one caller iterates over it, so a replacement has to be checked
-for results that depend on iteration order — the comparison above
-found none at radius 1, on one problem.
+**No result changed, and that took care.** The function returns a
+set, solvers iterate over it, and a set's iteration order follows
+from insertion order. The new code inserts in the order the box
+enumeration did, so the set is the same element for element and
+position for position: 1,066 random points across dims 1-12 and radii
+0.5 to 3, and 96 whole solver runs (four RA solvers, four problems,
+with and without `--crn`, radii 1 to 3), on Python 3.10 and 3.14. The
+same neighbours inserted in reverse order changed 20 of those 96
+runs; shuffled, 40. A simpler rewrite would have been a behaviour
+change at radius above 1. `tests/test_get_nbors_equivalence.py` keeps
+the old implementation as its reference.
 
-It was out of Phase 4's scope by instruction, so nothing was changed.
-It is recorded here because the scoping statement Phase 4 was given
-is, on this evidence, too strong.
+### What is true now
+
+**The built-in solvers no longer stall on neighbourhood enumeration.**
+That is the whole claim. It is not "dim 20 works". RPERLE, budget
+1,000, on a scratch bi-objective quadratic over `[-20, 20]^dim`:
+
+| dim | Generator | Time | Simulations run | Share of time in the jump |
+|---|---|---|---|---|
+| 12 | MRG32k3a | 1.4 s | 2,418 | 95% |
+| 20 | MRG32k3a | 5.0 s | 9,546 | 95% |
+| 50 | MRG32k3a | 330 s | 473,901 | 95% |
+| 20 | Philox | 0.3 s | 10,083 | -- |
+| 50 | Philox | 2.4 s | 57,570 | -- |
+
+(Single runs on a machine that was busy with other work.)
+
+- **The default generator's jump is the next wall.** 1.5-2 ms per
+  block, and the number of points a solver touches grows with
+  dimension. `generator='philox4x32'` removes it. No backend does: it
+  is per block, wherever the block runs.
+- **The budget stops bounding the work** (KNOWN_ISSUES.md issue 16).
+  It is checked between RA iterations and one iteration's work grows
+  with dimension: a budget of 1,000 ran 10 times that at dim 20 and
+  58 to 474 times that at dim 50. On an expensive simulation this is
+  the thing a user will actually meet.
+- **Radius above 1** is a large neighbourhood in high dimension, and
+  every point in it is simulated.
+- **From about dim 12** points of ordinary size no longer fit the
+  exact point code and the hashed fallback is used ("correct or
+  raises"; no collision was raised in any run here).
+
+### Whether the answers are any good
+
+On the one problem tried, yes. It is an easy one: two separable convex
+quadratics with unit noise, started well off the front. The gap below
+is 0 on the true Pareto segment and 3.33 at the starting point; points
+that are efficient on the integer lattice sit at about 0.05-0.10,
+which is where dim 3 converges.
+
+| dim | Budget | RA iterations | Points returned | Median gap | Max gap |
+|---|---|---|---|---|---|
+| 3 | 100,000 | 44 | 10 | 0.049 | 0.095 |
+| 12 | 100,000 | 10 | 37 | 0.053 | 0.128 |
+| 20 | 100,000 | 4 | 58 | 0.054 | 0.095 |
+| 50 | 100,000 | 2 | 29 | 0.093 | 0.095 |
+
+RSPLINE on a single-objective quadratic reached the optimum exactly
+at dim 20 with budget 10,000 and was one step from it at dim 50.
+
+This shows the solvers are not useless in high dimension. It says
+nothing about harder landscapes, and at dim 50 only two RA iterations
+fit in 100,000 simulations. How well these algorithms search in high
+dimension is not established.
+
+### And a cluster
+
+None of the above is in the simulation, so no backend changes any of
+it: neighbourhoods are built by the solver on the driver, the jump is
+paid per block wherever the block runs, and the budget check is the
+solver's.
 
 ## Design
 

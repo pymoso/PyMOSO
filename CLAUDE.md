@@ -434,18 +434,28 @@ The decisions below are landed, not pending. Full reasoning in
   problems, the built-in solvers will not serve them whatever the
   executor does. That needs a solver that does not enumerate
   neighbourhoods -- new algorithmic work, not executor work.
-  **Phase 4 finding that qualifies the two paragraphs above -- reported,
-  NOT acted on, and not yet discussed:** at the default radius 1,
-  `get_nbors` returns `2*dim` points and enumerates `3**dim` to find
-  them (box, then distance filter). With a direct construction
-  substituted in a scratch script, RPERLE at budget 300 gave identical
-  results at dim 3-12, took 2.2 s instead of 56 s at dim 12, and
-  returned at dim 20 (28 s) and dim 50 (26 s). So "structural, not a
-  tuning problem" is too strong at radius 1: it is one helper's
-  implementation. Not established: solution quality in high dimension,
-  other scaling limits, radius above 1, or iteration-order sensitivity
-  of callers beyond that one comparison. `docs/spark-backend.md` has
-  the table. Whether to fix `get_nbors` is an open decision.
+  **CORRECTION (Phase 4): both paragraphs above are wrong about the
+  cause. Kept as written so the correction sits next to what it
+  corrects.** The dim-9 ceiling was asserted to be structural and to
+  need a new solver -- in this file, in rng-interface-design.md §3.4
+  and in Phase 4's brief -- and was never measured. It was one
+  helper's implementation: at radius 1 a neighbourhood is `2*dim`
+  points and `get_nbors` built the `3**dim` box to find them.
+  **Closed:** `get_nbors` now builds the neighbourhood directly, in
+  the old insertion order, so the returned set is identical element
+  for element and position for position; no golden moved.
+  - **The insertion order is load-bearing.** Solvers iterate the set;
+    the same points in another order moved results in 20-40 of 96
+    whole runs at radius 2 and 3. `tests/test_get_nbors_equivalence.py`
+    keeps the old implementation verbatim as the reference -- do not
+    tidy it, and do not "simplify" `get_nbors` to `{x +/- e_i}`.
+  - **The claim is "the built-in solvers no longer stall on
+    neighbourhood enumeration", NOT "dim 20 works".** Behind it: the
+    MRG jump is 95% of a high-dimensional run (RPERLE budget 1,000:
+    5 s at dim 20, 330 s at dim 50; Philox 0.3 s and 2.4 s); the
+    budget stops bounding the work (KNOWN_ISSUES.md issue 16); radius
+    above 1 is genuinely large in high dimension; and solution quality
+    there was checked on one easy quadratic only.
 
 ## Still in flight
 

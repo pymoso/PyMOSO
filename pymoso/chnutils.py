@@ -1037,34 +1037,58 @@ def get_nbors(x, r=1):
 
     Notes
     -----
-    The cost is `(2*floor(r) + 1) ** len(x)` whatever is returned: the
-    whole box around 'x' is generated and then filtered by distance.
-    At `r=1` that is `3**dim` points examined to return `2*dim`. This
-    is what keeps the built-in RA solvers to roughly nine dimensions,
-    and no executor or backend changes it -- it runs in the solver.
-    docs/spark-backend.md, "The dimension limit a cluster does not
-    move", has the measurements.
+    Built directly: the work is proportional to the number of
+    neighbours returned, not to the `(2r+1)**dim` box around 'x'.
+    Through Phase 3, and in every release, the whole box was generated
+    and filtered by distance -- `3**dim` points examined at `r=1` to
+    return `2*dim` -- and that, not anything in the algorithms, is what
+    held the built-in RA solvers to about nine dimensions
+    (docs/spark-backend.md).
+
+    **The order points are inserted in is part of the result.**
+    Solvers iterate over the returned set, and a set's iteration order
+    follows from its insertion order. This visits coordinates exactly
+    as `itertools.product` visited the box -- first coordinate
+    slowest, each from low to high -- so the set comes out identical
+    to the old one, element for element and position for position.
+    Inserting the same points in another order changes solver results
+    (tests/test_get_nbors_equivalence.py keeps the old implementation
+    and shows both).
+
+    At radius above 1 the neighbourhood is itself large in high
+    dimension (87,480 points at `r=2`, `dim=20`), and every one of
+    them is a point a solver will simulate.
 
     Examples
     --------
     >>> sorted(get_nbors((0,), 1))
     [(-1,), (1,)]
     """
-    # define a filter function for points too far away
-    def edist_filter(x1):
-        # also filter the input point
-        if edist(x, x1) > r or x == x1:
-            return True
     q = len(x)
-    # generate all points in a box with sides length 2r around x
-    bounds = []
-    for i in range(q):
-        a = int(ceil(x[i] - r))
-        b = int(floor(x[i] + r))
-        bounds.append(range(a, b+1))
-    boxpts = product(*bounds)
-    # remove those farther than r from x and return the list of neighbors
-    nbors = set(filterfalse(edist_filter, boxpts))
+    lows = [int(ceil(x[i] - r)) for i in range(q)]
+    highs = [int(floor(x[i] + r)) for i in range(q)]
+    found = []
+    point = [0]*q
+
+    def descend(i, partial):
+        # partial: squared distance from x over the first i coordinates
+        if i == q:
+            x1 = tuple(point)
+            # the test the box enumeration applied to every box point
+            if not (edist(x, x1) > r or x == x1):
+                found.append(x1)
+            return
+        for v in range(lows[i], highs[i] + 1):
+            step = partial + pow(x[i] - v, 2)
+            # already too far: no choice of the remaining coordinates
+            # brings it back
+            if sqrt(step) > r:
+                continue
+            point[i] = v
+            descend(i + 1, step)
+
+    descend(0, 0)
+    nbors = set(found)
     return set(nbors)
 
 

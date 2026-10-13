@@ -52,9 +52,11 @@ must be installed there), files they open, and anything that cannot
 be pickled -- in particular the Spark session itself, which a `g()`
 cannot use.
 
-The built-in RA solvers enumerate a neighbourhood of 3**dim points
-(`chnutils.get_nbors`) and stay practical to about nine dimensions. A
-cluster does not change that.
+A cluster does not change what limits the built-in RA solvers in high
+dimension: on the default generator, the cost of positioning each
+block's random-number stream (use `generator='philox4x32'`), and a
+budget that one RA iteration can overrun many times over
+(KNOWN_ISSUES.md issue 16). docs/spark-backend.md, "High dimension".
 """
 from .remote import RemoteBackend, run_task
 from .. import __version__
