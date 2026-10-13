@@ -58,9 +58,17 @@ class Anywhere(Oracle):
         return True, (float(x[0]) + rng.random(), float(x[1]) + rng.random())
 
 
-def oracle(name, crn):
+class Draws(Anywhere):
+    """The objectives are the draws alone, so that results can be told
+    apart at points too large for a float to carry the noise."""
+
+    def g(self, x, rng):
+        return True, (rng.random(), rng.random())
+
+
+def oracle(name, crn, cls=Anywhere):
     mod = registry.GENERATORS[name]
-    orc = Anywhere(mod.stream_at(mod.DEFAULT_SEED, 1, 0))
+    orc = cls(mod.stream_at(mod.DEFAULT_SEED, 1, 0))
     orc.set_crnflag(crn)
     return orc
 
@@ -136,6 +144,45 @@ def test_encode_point_gives_integers_the_codes_they_always_had():
         except prng_base.PointCodeOverflow:
             assert hashed is True
         assert prng_base.encode_point(tuple(float(v) for v in x)) == (code, hashed)
+
+
+@pytest.mark.parametrize("name", GENERATORS)
+def test_plain_python_integers_of_any_size_simulate_without_crn(name):
+    """Established when the numpy failure was diagnosed, and kept: its
+    message was "Python int too large to convert to C long", which
+    reads as a limit on the coordinate. It was not. The same values
+    as plain Python ints always worked in the default mode, at every
+    magnitude; what overflowed was a numpy scalar that the point code
+    had become. Large-component problems were never broken."""
+    values = [30, 2 ** 31 - 1, 2 ** 31, 2 ** 32, 2 ** 62, 2 ** 63 - 1, 2 ** 63, 2 ** 64, 2 ** 70, 2 ** 127,
+              10 ** 30, -(2 ** 63), -(2 ** 63) - 1, -(10 ** 30)]
+    for v in values:
+        for x in ((v, 5), (5, v), (v, v)):
+            orc = oracle(name, False, Draws)
+            first, again = orc.hit(x, 3), orc.hit(x, 3)
+            assert first[0] is True and first != again      # simulated, and continued on fresh draws
+            assert oracle(name, False, Draws).hit(x, 3) == first    # reproducibly
+
+
+def test_a_numpy_integer_too_big_for_the_exact_code_is_still_its_integer():
+    numpy = pytest.importorskip("numpy")
+    for value in (2 ** 40, 2 ** 62, -(2 ** 62)):
+        for name in GENERATORS:
+            assert hit(name, False, (numpy.int64(value), 5)) == hit(name, False, (value, 5))
+
+
+@pytest.mark.parametrize("name", GENERATORS)
+def test_floats_that_print_alike_but_differ_in_the_last_bit_are_different_points(name):
+    """A non-whole component is the exact fraction of its binary
+    value. 0.1 + 0.2 is not 0.3, as a dict key or as a point."""
+    a, b = 0.1 + 0.2, 0.3
+    assert a != b and Fraction(a) != Fraction(b)
+    assert prng_base.canonical_point((b, 1)) == ((Fraction(5404319552844595, 18014398509481984), 1), False)
+    assert prng_base.encode_point((a, 1)) != prng_base.encode_point((b, 1))
+    noise_a = hit(name, False, (a, 1))[1][1]
+    noise_b = hit(name, False, (b, 1))[1][1]
+    assert noise_a != noise_b                               # second objective is 1 + a draw: different streams
+    assert hit(name, False, (0.5, 1)) == hit(name, False, (Fraction(1, 2), 1))     # an exact half is one point
 
 
 def test_point_not_encodable_says_which_component():

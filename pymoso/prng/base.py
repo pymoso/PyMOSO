@@ -437,6 +437,18 @@ def canonical_point(x):
     throughout: left as it arrived, a numpy integer overflowed there
     and a float failed in the generator's jump.
 
+    **A component that is not whole is the exact fraction of its
+    binary value, not of the decimal that was typed.** 0.1 is not one
+    tenth: it is 3602879701896397/36028797018963968, and that is what
+    is encoded. So two floats that print alike but differ in their
+    last bit -- `0.1 + 0.2` and `0.3` -- are different points with
+    different streams, exactly as they are different keys in a dict.
+    That is the only consistent answer (the coordinate has to agree
+    with equality, and the solvers' caches are keyed on equality), but
+    it means a non-whole point should be computed the same way every
+    time it is meant to be the same point. Whole values have no such
+    hazard: 30.0 is exactly 30.
+
     Parameters
     ----------
     x : sequence of numbers
