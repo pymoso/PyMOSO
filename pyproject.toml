@@ -1,5 +1,9 @@
 [build-system]
-requires = ["setuptools>=77"]
+# 61 is the first setuptools that reads [project]. Do not raise this to
+# get a newer feature without reading tests/test_packaging.py: this
+# floor is ignored wherever pip builds without isolation, and the file
+# then has to be readable by whatever setuptools is installed.
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,8 +12,12 @@ dynamic = ["version"]
 description = "Python Multi-Objective Simulation Optimization: a package for using, implementing, and testing simulation optimization algorithms."
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
-license-files = ["LICENSE.txt"]
+# The table spelling, not `license = "MIT"`: setuptools older than 77
+# rejects the PEP 639 string, and that is what a source install met on
+# a Databricks runtime (tests/test_packaging.py). Current setuptools
+# warns that this spelling ends on 2027-02-18. LICENSE.txt is found by
+# setuptools' default pattern and needs no `license-files` key.
+license = { text = "MIT" }
 authors = [{ name = "Kyle Cooper", email = "kyle@kylescooper.com" }]
 classifiers = [
     "Programming Language :: Python :: 3",
