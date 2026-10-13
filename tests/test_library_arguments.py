@@ -83,3 +83,40 @@ def test_a_custom_solver_declares_its_own_parameters_and_they_are_listed():
     with pytest.raises(TypeError) as refused:
         solve(ProbTPA, Tuned, (30, 30), budget=100, seed=SEED, stuborness=2)
     assert "stubbornness" in str(refused.value) and "stuborness" in str(refused.value)
+
+
+# ---------------------------------------------------------------------------
+# The starting point
+# ---------------------------------------------------------------------------
+
+def test_x0_may_be_a_list():
+    """It failed inside the solver with "cannot use 'list' as a set
+    element". Any sequence of the right length is the same point."""
+    expected = solve(ProbTPA, RPERLE, (30, 30), budget=200, seed=SEED)
+    assert solve(ProbTPA, RPERLE, [30, 30], budget=200, seed=SEED) == expected
+    expected = testsolve(TPATester, RPERLE, (30, 30), budget=100, seed=SEED, isp=2)
+    assert testsolve(TPATester, RPERLE, [30, 30], budget=100, seed=SEED, isp=2) == expected
+
+
+@pytest.mark.parametrize("x0", [(30,), (30, 30, 30), []])
+def test_x0_of_the_wrong_dimension_is_refused_at_the_call(x0):
+    for call in (
+        lambda: solve(ProbTPA, RPERLE, x0, budget=100, seed=SEED),
+        lambda: testsolve(TPATester, RPERLE, x0, budget=100, seed=SEED, isp=2),
+    ):
+        with pytest.raises(ValueError, match=r"x0 must have 2 components") as refused:
+            call()
+        assert "{0}".format(len(x0)) in str(refused.value)
+
+
+@pytest.mark.parametrize("x0", [30, None, "30", (30.5, 30), ("30", "30"), (True, 30)])
+def test_x0_that_is_not_a_sequence_of_integers_is_refused_at_the_call(x0):
+    with pytest.raises(TypeError, match="x0"):
+        solve(ProbTPA, RPERLE, x0, budget=100, seed=SEED)
+
+
+def test_x0_is_not_checked_when_starting_points_are_drawn():
+    """With ranx0 every path draws its own; the argument is unused,
+    and a CLI user has to pass something."""
+    res, _ = testsolve(TPATester, RPERLE, (0,), budget=100, seed=SEED, isp=2, ranx0=True)
+    assert len(res) == 2

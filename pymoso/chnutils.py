@@ -39,6 +39,8 @@ dH
 from itertools import product, filterfalse
 from math import ceil, floor, sqrt
 import copy
+import numbers
+import random
 from dataclasses import dataclass
 from statistics import mean, variance
 from .executor import ClassRef
@@ -76,6 +78,52 @@ DEFAULT_ISP = 1
 DEFAULT_PROC = 1
 DEFAULT_CRN = False
 DEFAULT_RANX0 = False
+
+def starting_point(x0, dim):
+    """
+    A caller's starting point as the tuple of int the solvers work
+    with, or an error at the call that says what is wrong with it.
+
+    The CLI has always done this for its own arguments
+    (commands/solve.py); the library took whatever it was given, and
+    a list failed deep inside a solver with "cannot use 'list' as a
+    set element".
+
+    Parameters
+    ----------
+    x0 : sequence of int
+    dim : int
+        The problem's dimension.
+
+    Returns
+    -------
+    tuple of int
+
+    Raises
+    ------
+    TypeError
+        `x0` is not a sequence of integers.
+    ValueError
+        `x0` has the wrong number of components.
+    """
+    if isinstance(x0, (str, bytes)):
+        raise TypeError('x0 must be a sequence of integers, such as (30, 30); got the string {0!r}.'.format(x0))
+    try:
+        point = tuple(x0)
+    except TypeError:
+        raise TypeError('x0 must be a sequence of integers, such as (30, 30); got {0!r}.'.format(x0)) from None
+    for component in point:
+        if isinstance(component, bool) or not isinstance(component, numbers.Integral):
+            raise TypeError(
+                'every component of x0 must be an integer; got {0!r} in x0={1!r}.'.format(component, x0)
+            )
+    if len(point) != dim:
+        raise ValueError(
+            'x0 must have {0} component{1}, one per dimension of the problem; '
+            'got {2}: x0={3!r}.'.format(dim, '' if dim == 1 else 's', len(point), x0)
+        )
+    return point
+
 
 def solve(problem, solver, x0, **kwargs):
     """
@@ -123,9 +171,10 @@ def solve(problem, solver, x0, **kwargs):
         paramtups.append(ptup)
     ## generate all prn streams
     orcstream, solvstream = get_solv_prnstreams(seed, backend)
+    orc = problem(orcstream)
+    x0 = starting_point(x0, orc.dim)
     ## generate the experiment list
     paramlst = [('solvprn', solvstream), ('x0', x0), ]
-    orc = problem(orcstream)
     orc.set_crnflag(crn)
     ## create arguments for (unknown) optional named parameters
     if paramtups:
@@ -185,6 +234,10 @@ def testsolve(tester, solver, x0, **kwargs):
         paramtups.append(ptup)
     x0stream, orc_root = _testsolve_roots(isp, seed, backend)
     currtest = tester()
+    if not ranx0:
+        # The dimension is read from a throwaway instance, as the CLI
+        # reads it; no stream of the run is touched.
+        x0 = starting_point(x0, currtest.ranorc(random.Random()).dim)
     # A path is described as data (PathJob) and built where it runs:
     # nothing live -- no Oracle, no stream -- crosses a process
     # boundary. Random starting points are the one thing a path cannot
