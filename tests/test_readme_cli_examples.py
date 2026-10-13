@@ -162,4 +162,7 @@ def test_simpar_examples_specifically_confirmed_to_succeed(cmd, tmp_path):
     signature named below, not just a generic "not zero" failure."""
     proc = _run_example(cmd, tmp_path)
     assert proc.returncode == 0, (cmd, proc.stdout, proc.stderr)
+    # The return code above carries the meaning. The line below looks
+    # for the absence of a message CPython writes: if CPython rewords
+    # it, this passes vacuously whether or not the bug is back.
     assert "get_next_prnstream() missing 1 required positional argument" not in proc.stdout

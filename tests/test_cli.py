@@ -115,6 +115,9 @@ def test_readme_example_details_simpar_now_succeeds(tmp_path):
     proc = run(README_EXAMPLES["solve_simpar_param"][0], tmp_path)
     assert proc.returncode == 0
     assert "-- Done!" in proc.stdout
+    # The line above carries the meaning. The one below looks for the
+    # absence of a message CPython writes: if CPython rewords it, this
+    # passes vacuously whether or not the bug is back.
     assert "get_next_prnstream() missing 1 required positional argument" not in proc.stdout
 
 

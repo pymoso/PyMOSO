@@ -10,6 +10,7 @@ start method and a hang under another.
 import multiprocessing
 import os
 import pathlib
+import pickle
 import subprocess
 import sys
 import time
@@ -23,6 +24,12 @@ pytestmark = pytest.mark.timeout(120)
 
 METHODS = multiprocessing.get_all_start_methods()
 methods = pytest.mark.parametrize("method", METHODS)
+
+# What pickle raises for something it cannot pickle, by type. Which of
+# the three, and with what message, depends on the CPython version;
+# these are the types pymoso/pool.py itself handles. Never match on the
+# message of one of these.
+CANNOT_PICKLE = (pickle.PicklingError, TypeError, AttributeError)
 
 
 def pool(method, workers=2, initializer=None, initargs=()):
@@ -157,20 +164,35 @@ def test_tasks_after_a_failure_are_not_started(method):
 
 @methods
 def test_an_exception_or_result_that_cannot_travel_is_still_reported(method):
+    """The result that will not pickle is asserted on by exception type
+    and by where it came from, not by its message: the message is
+    CPython's and its wording differs by version ("Can't pickle local
+    object ..." on 3.10, 3.11 and 3.14, "Can't get local object ..." on
+    3.12 and 3.13 -- a `match="pickle"` here passed on three versions
+    and failed on two). The first half matches a message because that
+    one is ours.
+
+    Not asserted: that the error names the task. It does today, but
+    only because CPython's message quotes the lambda's qualified name.
+    Follow-up recorded in CLAUDE.md: have pool.py name the task
+    itself, and then assert on that here."""
     with pool(method, 1) as p:
         with pytest.raises(WorkerError, match="Unpicklable: cannot travel") as info:
             p.run([(tasks.raise_unpicklable, ())])
         assert "raise_unpicklable" in str(info.value.__cause__)
-        with pytest.raises(Exception, match="(?i)pickle"):
+        with pytest.raises(CANNOT_PICKLE) as info:
             p.run([(tasks.return_unpicklable, ())])
+        # it failed in the worker, sending the result, and came back
+        assert isinstance(info.value.__cause__, RemoteTraceback)
         assert p.run([(tasks.slow_echo, (1, 0.0))]) == [1]
 
 
 @methods
 def test_a_task_that_cannot_be_sent_fails_in_the_caller_and_leaves_the_pool_usable(method):
     with pool(method, 1) as p:
-        with pytest.raises(Exception, match="(?i)pickle|local"):
+        with pytest.raises(CANNOT_PICKLE) as info:
             p.run([(tasks.echo, (lambda: None,))])
+        assert info.value.__cause__ is None        # raised here; no worker was involved
         assert p.run([(tasks.slow_echo, (1, 0.0))]) == [1]
 
 
@@ -191,10 +213,10 @@ def test_an_initializer_that_raises_fails_open_and_leaves_no_workers(method):
 @methods
 def test_an_unpicklable_initializer_fails_open_under_every_start_method(method):
     """fork would carry a lambda across; the pool must not let it."""
-    with pytest.raises(Exception, match="(?i)pickle|local"):
-        pool(method, 1, lambda: None).open()
-    with pytest.raises(Exception, match="(?i)pickle|local"):
-        pool(method, 1, tasks.make_state, (lambda: None,)).open()
+    for p in (pool(method, 1, lambda: None), pool(method, 1, tasks.make_state, (lambda: None,))):
+        with pytest.raises(CANNOT_PICKLE):
+            p.open()
+        assert p._workers == []
 
 
 # ---------------------------------------------------------------------------

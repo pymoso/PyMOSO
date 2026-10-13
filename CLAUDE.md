@@ -172,6 +172,19 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   close the parent's pipe ends it inherited (`_PARENT_ENDS`) or it
   never sees the parent die -- that one passes under forkserver and
   spawn and fails only under fork.
+- **Follow-up, not built (polish on an error path; Phase 3 is
+  closed):** when a task's result will not pickle, `WorkerPool.run`
+  raises whatever CPython's pickle raised in the worker -- the type
+  and the wording both differ by Python version, and the task is
+  named only because CPython's message happens to quote it. The pool
+  should name the task function in the error itself. Small change to
+  `pymoso/pool.py`'s `_worker_main`; it makes the message ours, and
+  only then may
+  `test_an_exception_or_result_that_cannot_travel_is_still_reported`
+  assert on it. Until then tests assert these errors by type
+  (`CANNOT_PICKLE`) and structure, never by message -- a
+  `match="pickle"` passed on 3.10, 3.11 and 3.14 and failed on 3.12
+  and 3.13.
 - **Issue 8 is bounded, not gone, for a busy worker:** a worker whose
   parent is killed finishes the task in hand before exiting. For a
   long `--proc` path that is the whole path.
