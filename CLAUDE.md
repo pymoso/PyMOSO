@@ -203,10 +203,11 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   its own ~0.7 ms jump, against a 0.46 ms Light replication. At 12
   workers (6 cores) the Light tier is slower than before the pool
   (1.64x -> 1.27x on 3.14), consistently. At 6 workers the measured
-  drop (1.71x -> 1.53x) may be noise: later runs gave 1.52x and 1.64x
-  for the same configuration, and no piece cap improves on six pieces
-  there. Whether it is noise or has another cause is NOT settled; it
-  needs repeated interleaved before/after runs. A measurement-driven
+  drop (1.71x -> 1.53x) is most likely noise: two runs of the same
+  code on an idle machine at the end of Phase 4 gave 1.59x and 1.78x,
+  straddling both figures, and no piece cap improves on six pieces
+  there. The evidence favours noise; the interleaved before/after
+  comparison that would settle it was never run. A measurement-driven
   cap was proposed and not built -- it cannot fix 6 workers, only
   partly fixes 12, and makes dispatch timing-dependent. The sweep and
   the reasons are in `docs/simpar-ceiling.md`; do not re-propose it
@@ -326,20 +327,80 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   (rng-interface-design.md §11 entry 16). Do not re-propose numpy for
   the framework's own arithmetic without data that contradicts that
   document.
-- **Four notebook usability defects, found in Phase 4 and not fixed;
-  to be proposed separately:** unknown keywords to
-  `solve`/`testsolve` are silently accepted; a list `x0` fails with
-  `cannot use 'list' as a set element`; every extra keyword goes
-  through `float()`; and the transport refusal still ends "define it
-  in a .py file", which is wrong advice on Databricks.
+- **Closed (Phase 4): four notebook usability defects,**
+  `tests/test_library_arguments.py`. For the CHANGELOG, because each
+  changes what a call does:
+  - An unknown solver parameter raises `TypeError` naming it and
+    listing the accepted ones (it was silently ignored). Solvers
+    declare theirs in `PARAMS`; `chnbase.accepted_params` merges them.
+    **A custom solver that calls `super().__init__(orc, **kwargs)`
+    before reading its own parameters from kwargs now raises**; it
+    must pop them first, as every built-in does.
+  - `x0` is converted to a tuple and checked against the problem's
+    dimension at the call (`chnutils.starting_point`). Its components
+    must be integers: strings, floats and bools are refused.
+  - A solver parameter that is not a real number raises `TypeError`
+    naming the keyword. Numbers still go through `float()` exactly as
+    before. **A numeric string ("2") or a `Decimal` used to be
+    converted and now raises.** Passing non-numbers through to custom
+    solvers was deliberately left out: it is a feature, to be asked
+    for.
+  - The two transport refusals lead with the `notebook` extra.
+  `PARAMS` is also what the README's hand-maintained parameter table
+  could now be generated from and diffed against (the follow-up
+  below).
 - **API removed in Phase 3, also for the CHANGELOG:**
   `chnbase.mp_worker`, `chnbase.mp_replicate`, `chnutils.par_runs`,
   `chnutils.do_work`, and `Oracle`'s `req_q`/`res_q`/`proc`
   attributes. `Oracle.set_simpar()`/`mp_cleanup()` are kept, as the
   owner of the Oracle's executor. `par_diff()` keeps its signature.
 - `hit()` returns `obse` as a list when `m==1` and a tuple otherwise.
-- `chnbase.py` and `chnutils.py` remain undecomposed — deliberately
-  deferred until the executor rework reveals the real seams.
+- `chnbase.py` (2,020 lines) and `chnutils.py` (1,341) remain
+  undecomposed — deliberately deferred until the executor rework
+  revealed the real seams. **It has. Phase 5 is that decomposition,**
+  and this is what the seams look like at the end of Phase 4:
+  - **The executor work drew three lines:** *what* to simulate (a
+    solver), *which numbers* (coordinates, computed by `Oracle`), and
+    *where and when* (`executor.py`, `pool.py`, `backends/`). The last
+    is already in its own modules. The first two are still interleaved
+    in `chnbase.py`.
+  - **`chnbase.py` is three things.** Solver bases (`MOSOSolver`,
+    `RASolver`, `RLESolver`, the `PARAMS` helpers: about 1,100
+    lines), which reach an oracle only through `hit`, `hit_many`,
+    `_advance_iteration` and `get_endseed`. `Oracle` (about 900
+    lines), which is itself three things: coordinate bookkeeping
+    (`_plan_hit`, `_block_for`, `_hit_via_coordinate`,
+    `_touch_coordinate`, `_record_point_code`, the end seed and
+    high-water mark), ownership of its executor (`set_simpar`,
+    `_get_executor`, `_close_executor`, the context manager,
+    `__getstate__`), and aggregation plus the user's `g`. And
+    re-exports kept for old import paths.
+  - **`chnutils.py` is four things.** The entry points and their
+    argument checks (`solve`, `testsolve`, `starting_point`,
+    `solver_params`, the `DEFAULT_*`). Stream layout
+    (`get_*_prnstreams`, `_testsolve_roots`, `check_role_draws`, and
+    the end-seed aggregation written inline in `testsolve`). Path
+    jobs and metrics on a pool (`PathJob`, `run_path`, `run_paths`,
+    `par_diff`). And about 530 lines of pure geometry and dominance
+    helpers (`does_*dominate`, `is_lep`, `get_nondom`, `get_nbors`,
+    `edist`, `dh`, ...) that depend on nothing.
+  - **The dependency direction is already clean:** `chnbase` imports
+    `chnutils`; `chnutils` imports `executor` and `pool` and not
+    `chnbase`; nothing imports `backends` at module scope. The helper
+    block can move first, with no risk to the rest.
+  - **What will resist, so plan for it:** public import paths in the
+    README's API tables (`pymoso.chnutils.solve`, `chnbase.Oracle`,
+    `RASolver`, the helpers) need re-exports; CI runs
+    `--doctest-modules pymoso/chnutils.py` by path, and the doctests
+    live on the helpers; tests patch `chnutils.get_nbors` *and*
+    `chnbase.get_nbors` by name; `tests/test_dependency_boundary.py`'s
+    allowlist names `executor.py`; tasks and by-reference classes
+    cross process boundaries as module paths
+    (`chnutils.run_path`, `executor._run_blocks`), which is safe only
+    because driver and workers run one version; and README code
+    blocks are byte-compared. Decomposition must be golden-neutral
+    and, per the working agreement, moves and changes go in separate
+    commits.
 - MOCOMPASS and MOPBnB (real `MOSOSolver`s from prior work, written
   against roughly the 1.0.8 API) are now in-tree,
   `pymoso/solvers/mocompass.py`/`mopbnb.py` — role decided: shipped,

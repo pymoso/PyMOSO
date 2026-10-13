@@ -747,12 +747,18 @@ solver defined in cells:
 
 Without cloudpickle the `ValueError` remains and names the extra.
 
-Four usability defects were found on the way and are **not fixed
-here**; they are to be proposed separately:
+Four usability defects were found on the way and fixed before the
+phase closed (`tests/test_library_arguments.py`):
 
-1. An unknown keyword (`nosuchparam=3`) is silently accepted.
-2. A list `x0` fails with `cannot use 'list' as a set element`.
-3. Every extra keyword is passed through `float()`.
-4. The refusal message's remedy, "define it in a .py file", is the
-   wrong advice on Databricks. (It now mentions the extra first, but
-   still says that.)
+1. An unknown solver parameter (`betaesp=0.4`) was silently ignored.
+   It raises `TypeError`, naming it and listing the ones the solver
+   takes.
+2. A list `x0` failed with `cannot use 'list' as a set element`. Any
+   sequence of integers of the problem's dimension is accepted; the
+   wrong length or type is refused at the call.
+3. Every extra keyword went through `float()` and a bad one failed
+   without naming the keyword. Numbers convert as before; anything
+   else raises `TypeError` naming it.
+4. The refusal for a class that cannot be sent to a worker ended
+   "define it in a .py file". It leads with the `notebook` extra, and
+   offers the file as the alternative outside a notebook.

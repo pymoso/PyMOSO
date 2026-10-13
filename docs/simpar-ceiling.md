@@ -388,6 +388,17 @@ not one more sweep. The 12-worker figure (1.64x -> 1.27x, and
 1.42-1.52x in both cap experiments) is consistent and is taken as
 real.
 
+**Update, end of Phase 4: the evidence now favours noise.** Two runs
+of the same code, on an idle machine, gave 1.59x and 1.78x for this
+cell ("Baselines at the end of Phase 4", below). That spread
+straddles both figures that opened the question, 1.53x and 1.71x: one
+run of the current code landed above the "before" number. So the
+regression is most likely not there. The interleaved before-and-after
+comparison this paragraph asked for was never run, and that is the
+only thing that would settle it; what there is now is two more
+samples and a spread wide enough to explain the original difference
+without a cause.
+
 Moving the jump into the workers was expected to lift this tier (a
 quarter of its serial run is coordinate time); it did not, because the
 replaced mechanism made one jump per `hit()` and the pool makes one
@@ -545,11 +556,10 @@ What these say against Phase 3's tables:
   at 6 workers on 3.10 gave 2.53x and 2.93x.
 - **On the open question of the Light 1-D tier at 6 workers** (above:
   1.71x before the pool, 1.53x after, noise or real?): these two runs
-  gave 1.59x and 1.78x on 3.14 for that cell. The spread of two
-  runs of the same code now covers both of the figures that prompted
-  the question. That is evidence for noise. It is not the interleaved
-  before-and-after comparison that section asked for, and does not
-  replace it.
+  gave 1.59x and 1.78x on 3.14 for that cell, straddling both of the
+  figures that prompted the question. The evidence now favours noise.
+  The interleaved before-and-after comparison that section asked for
+  was never run.
 - The 12-worker Light figures (1.44x and 1.29x on 3.14) remain below
   the 6-worker ones, as recorded.
 
