@@ -184,15 +184,22 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   What bounds `--simpar` is the solver's call pattern, not dispatch --
   `docs/simpar-ceiling.md`, which now carries two corrections to that
   story and should be read before proposing any speedup work.
-- **Regression, known and not fixed: `--simpar` got slower for cheap
-  simulations at high worker counts** (Light tier: 1.71x -> 1.53x at 6
-  workers and 1.64x -> 1.27x at 12 on 3.14). The pool cuts every call
-  into one piece per worker and each piece pays its own ~0.7 ms jump;
-  for a 0.46 ms replication, fewer pieces than workers is faster
-  (measured, `docs/simpar-ceiling.md`). Moderate and Heavy are
-  unaffected. The cheaper jump (rng-interface-design.md §11 entry 14)
-  removes the cause; choosing the piece count from measured times
-  would treat the symptom.
+- **Cheap simulations at high worker counts: partly real, partly
+  unestablished, and a piece cap was measured and declined.** The
+  pool cuts every call into one piece per worker and each piece pays
+  its own ~0.7 ms jump, against a 0.46 ms Light replication. At 12
+  workers (6 cores) the Light tier is slower than before the pool
+  (1.64x -> 1.27x on 3.14), consistently. At 6 workers the measured
+  drop (1.71x -> 1.53x) may be noise: later runs gave 1.52x and 1.64x
+  for the same configuration, and no piece cap improves on six pieces
+  there. Whether it is noise or has another cause is NOT settled; it
+  needs repeated interleaved before/after runs. A measurement-driven
+  cap was proposed and not built -- it cannot fix 6 workers, only
+  partly fixes 12, and makes dispatch timing-dependent. The sweep and
+  the reasons are in `docs/simpar-ceiling.md`; do not re-propose it
+  without new data. The overhead itself is the problem, so the
+  cheaper jump (rng-interface-design.md §11 entry 14) is the
+  better-motivated fix. Moderate and Heavy are unaffected.
 - **Behaviour change to record in the CHANGELOG (Phase 6), and it
   matters for Phase 4's notebook audience:** `testsolve(proc>1)` with a
   tester or solver class defined in a notebook cell, a REPL or inside

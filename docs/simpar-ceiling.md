@@ -314,29 +314,80 @@ no part in these rows.
 Moderate and Heavy are where they were, a little better if anything,
 against unchanged bounds of 4.00x and 3.62x. As predicted above.
 
-### The Light tier got slower at high worker counts
+### The Light tier at high worker counts: a piece cap, measured and declined
 
-A regression, reported rather than tuned away. The pool cuts each
-executor call into as many pieces as it has workers, and each piece
-pays its own jump to its starting offset (about 0.7 ms here, against
-a 0.46 ms replication). For a 7.7-replication block that stops paying
-off before the worker count is reached. Measured directly, Light 1-D,
-Python 3.14, median of five, with the number of pieces capped:
+The before/after table shows the Light tier slower after this phase
+at 6 and 12 workers on Python 3.14 (1.71x -> 1.53x, 1.64x -> 1.27x).
+The pool cuts each executor call into as many pieces as it has
+workers, and each piece pays its own jump to its starting offset:
+about 0.7 ms here, against a 0.46 ms replication. The obvious remedy
+is to cap the pieces so that each carries enough work to outweigh its
+own overhead. **That policy was proposed, measured, and not built.**
+The data and the reasons follow, so that it is not proposed again
+without new evidence.
 
-| Workers | Pieces per call at most | Speedup |
-|---|---|---|
-| 6 | 2 | 1.35x |
-| 6 | 4 | 1.70x |
-| 6 | 6 (what the pool does) | 1.52x |
-| 12 | 4 | 1.69x |
-| 12 | 6 | 1.80x |
-| 12 | 12 (what the pool does) | 1.52x |
+Speedup over serial with the pieces per call capped. Python 3.14,
+6 physical cores, median of five, workers started outside the timed
+region. The rightmost entry in each row is what the pool does.
 
-So for a simulation cheaper than the jump, fewer pieces than workers is
-faster, and the pool does not know that. Two honest options, neither
-taken in this phase: a cheaper jump (`docs/rng-interface-design.md`
-§11 entry 14), which removes the cause; or choosing the piece count
-from measured jump and simulation times, which treats the symptom.
+| Tier | Workers | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 12 |
+|---|---|---|---|---|---|---|---|---|---|
+| Light 1-D | 6 | 0.93x | 1.31x | 1.54x | 1.59x | 1.69x | 1.64x | | |
+| Light 1-D | 12 | 0.95x | 1.31x | 1.52x | 1.63x | 1.69x | 1.63x | 1.45x | 1.42x |
+| Light 2-D | 6 | 0.97x | 1.57x | 1.87x | 2.11x | 2.12x | 2.28x | | |
+| Light 2-D | 12 | 0.97x | 1.57x | 1.88x | 2.12x | 2.18x | 2.27x | 1.92x | 1.96x |
+| Moderate 1-D | 6 | 0.98x | 1.63x | 2.13x | 2.59x | 2.69x | 2.86x | | |
+| Moderate 1-D | 12 | 0.99x | 1.62x | 2.15x | 2.54x | 2.68x | 2.93x | 2.96x | 3.05x |
+
+What it shows:
+
+- **At 6 workers there is nothing for a cap to fix.** Six pieces is at
+  or near the best in every tier (Light 1-D: 1.64x against 1.69x at
+  five, inside run-to-run noise).
+- **At 12 workers a cap helps the Light tiers only**: past six pieces,
+  which is this machine's physical core count, they lose 10-15%.
+  Moderate keeps gaining up to 12.
+- The policy as proposed -- pieces = replications x time per
+  replication / overhead per piece, from times the workers measure,
+  limited by the worker count -- would give Light 1-D about five
+  pieces and leave Moderate and Heavy alone. It has no margin
+  (requiring twice the overhead gives two or three pieces, 1.3-1.5x,
+  worse than no policy) and it would give Light 2-D's larger calls
+  seven or eight pieces, where the table shows 1.92x against 2.27x.
+
+Why it was declined:
+
+1. It does not address the figure that prompted it. The 6-worker drop
+   cannot be recovered by any cap.
+2. What it buys is 12 workers on 6 cores for cheap replications, in
+   part -- the tier where parallelism helps least.
+3. It costs a self-tuning dispatch policy: how a call is cut would
+   depend on timings, which makes dispatch harder to reason about and
+   to test, for a number that may not be real (below).
+
+**The overhead itself is the problem.** A piece's 0.7 ms is the jump,
+and it is larger than the 0.46 ms replication it precedes. No choice
+of piece count changes that ratio; it only chooses how many times to
+pay it. The cheaper general jump (`docs/rng-interface-design.md` §11
+entry 14) attacks it directly, and if it lands the cheap-replication
+case may need no policy at all. That makes entry 14 a
+better-motivated candidate than it was; re-run this sweep after it,
+before considering a cap again.
+
+**Unresolved, and not to be dropped: whether the 6-worker Light 1-D
+figure is noise or has another cause is not established.** The
+evidence is inconsistent. The before/after sweep measured 1.71x ->
+1.53x. An earlier cap experiment in this phase measured 1.52x at six
+pieces and 1.70x at four. The sweep above, the same experiment run
+again, measured 1.64x at six and 1.59x at four. Run-to-run variation
+on this tier is at least that large, so the regression may not exist;
+equally, nothing here rules out a real cost of the pool backend at 6
+workers that a cap does not touch. Settling it needs repeated
+interleaved before/after runs (the pre-pool code is commit `c19dc9d`),
+not one more sweep. The 12-worker figure (1.64x -> 1.27x, and
+1.42-1.52x in both cap experiments) is consistent and is taken as
+real.
+
 Moving the jump into the workers was expected to lift this tier (a
 quarter of its serial run is coordinate time); it did not, because the
 replaced mechanism made one jump per `hit()` and the pool makes one
@@ -387,7 +438,10 @@ cheap is intact.
   because something outside the solver would have to know the solver's
   next move. Start by measuring how often the obvious guesses are
   right.
-- **A cheaper jump** (§11 entry 14), for cheap simulations only.
+- **A cheaper jump** (§11 entry 14), for cheap simulations only. Now
+  the one candidate with a measurement behind it: a piece cap was
+  tried instead and declined (above), because the per-piece overhead
+  is the jump and only a cheaper jump reduces it.
 - **Converting MOCOMPASS and MOPBnB to `hit_many`.** Both evaluate
   long unconditional lists of points and would batch far better than
   the RA solvers. Not measured.

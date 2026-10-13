@@ -2092,6 +2092,12 @@ existing code, surfaced rather than guessed.
     *more* jumps than before, in parallel (step 11). A cheaper jump
     would lower the CPU that costs and would lift the cheap-simulation
     tier, which is the one the jump still bounds.
+    Better motivated since: a piece-count cap was measured as the
+    alternative and declined (`docs/simpar-ceiling.md`, "a piece cap,
+    measured and declined"). A piece's overhead is this jump, ~0.7 ms
+    against a 0.46 ms replication; a cap only chooses how often to pay
+    it. If this entry lands, the cheap-replication case may need no
+    dispatch policy at all -- re-run that sweep first.
 
 15. **[candidate — declined for Phase 3, recorded so it is not lost]
     Speculative prefetch for the sequential part of an RA solver.**
