@@ -198,3 +198,101 @@ methods (`random`/`getrandbits`/`normalvariate`) if the test means to
 say anything about what gets drawn -- reading positional/state
 attributes instead (`get_seed()`, an `iseed` local, ...) only ever
 proves something about scheduling, never about consumption.
+
+## A third instance: a patch on a name nobody reads
+
+Found while surveying for Phase 5 (the decomposition of `chnbase.py`
+and `chnutils.py`), before it could happen rather than after.
+
+`tests/test_get_nbors_equivalence.py` proves that the rewritten
+`get_nbors` gives whole solver runs identical to the box enumeration it
+replaced. It does so by running each solver twice, once with each
+implementation patched in. There are two readers to reach: the solver
+bases call `get_nbors` through the name `chnbase` imported, and
+`get_setnbors` calls it through the name in its own module. So the
+test patched two module attributes, `chnbase.get_nbors` and
+`chnutils.get_nbors`.
+
+A patch replaces a name in one module. It reaches a caller only if
+that caller looks the name up *there*. When the helpers moved to
+`pymoso/moso.py`, `get_setnbors` began reading `moso.get_nbors`, and
+`chnutils.get_nbors` became a re-export that no code reads. A patch on
+it still applies without complaint, to nothing.
+
+Measured, with the helpers moved and the patches left where they were:
+**every one of the file's 24 whole-run comparisons still passed, and
+so did `test_insertion_order_is_what_keeps_results_the_same`, the
+test's own "detector, shown detecting".** The comparisons were by then
+partly comparing the new `get_nbors` with itself. How much had been
+lost depends on the kind of error:
+
+| a wrong `get_nbors` that... | runs that notice, both readers patched | solver bases only |
+| --- | --- | --- |
+| drops one neighbour | 24 of 24 | 17 of 24 |
+| returns the same points in hashed order | 8 of 24 | 8 of 24 |
+| returns the same points in reverse order | 10 of 24 | 10 of 24 |
+
+So the existing detector could not have seen it: it uses a reordering,
+and in these runs the `get_setnbors` path is not sensitive to order at
+all. It is sensitive to content. The detector had been shown detecting
+one kind of error through one of the two paths, and was being read as
+covering the test.
+
+Fixed in the commit that moved the helpers: the patches name `moso`
+and `chnbase`, and `test_a_missing_neighbour_is_noticed_by_every_run`
+requires a neighbourhood one point short to change all 8 radius-1
+runs. With the patch left on `chnutils` it fails (4 of 8), which was
+observed before the fix went in.
+
+### The pattern, now three times
+
+1. The end seed was read as checking what a run computes, and checked
+   the allocation schedule.
+2. `LoggingOracle` was read as showing replications do not collide,
+   and never drew from its stream.
+3. The whole-run comparison was about to be read as comparing two
+   implementations, and compared one with itself along one path.
+
+In each the test is real, passes honestly, and asserts something true.
+What fails is the link between the test and the code it is believed to
+exercise, and nothing in a green run shows that link. The second
+instance gave the rule for test doubles. The general form, for whoever
+writes tests here next:
+
+- **A test that works by substitution -- a stub, a patch, a recording
+  wrapper -- needs its own proof that the substitute was reached.**
+  Break the thing substituted and watch the test fail. A patch that
+  applies cleanly proves only that the name existed.
+- **Patch the name the caller reads.** `from m import f` gives the
+  importing module its own name for `f`. After any move, every
+  `monkeypatch.setattr(module, name, ...)` in the suite is suspect:
+  the attribute may still exist as a re-export, and the patch will
+  succeed. Phase 5's survey listed these sites for exactly that
+  reason.
+- **A detector shown detecting one error has been shown detecting that
+  error.** The reordering detector was sound and did not cover a
+  missing point; the missing-point detector does not cover order. Say
+  which error a detector was seen to catch, and through which path.
+
+### The same hazard in the checking itself
+
+A mutation check ("break it and watch the test fail") can also report
+something other than what was run. In Phase 5 one did: three mutations
+were applied to `pymoso/chnutils.py` in quick succession, each reverted
+with `git checkout`, and the third reported the second's failure.
+Python reuses a cached `.pyc` when the source's size and modification
+time (to the second) match the ones recorded in it. `del front` and
+`import os` are each ten bytes with their newline, and the edits fell
+in the same second, so the interpreter ran the previous mutation's
+bytecode against the new source.
+
+The third mutation, rerun with caching off, did fail, and for its own
+reason. But a mutation that *should* have passed would have "failed"
+the same way, and a mutation the test could not see might have been
+recorded as caught.
+
+When editing and re-running quickly -- mutation checks, or swapping
+file versions to test an earlier stage -- set
+`PYTHONDONTWRITEBYTECODE=1` and delete `__pycache__` first. And read a
+failure's message, not only that it failed: this was caught because
+the assertion named `front`, which that mutation had not touched.

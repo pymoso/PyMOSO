@@ -670,6 +670,16 @@ The decisions below are landed, not pending. Full reasoning in
   method the platform has (`multiprocessing.get_all_start_methods()`),
   not just the default. Classes and functions a worker must import
   live in `tests/_*.py` helper modules, not in the test module.
+- **A test that works by substitution needs proof the substitute was
+  reached; and a mutation check needs bytecode caching off.** Three
+  tests here have passed while no longer exercising what they were
+  read as covering; the third was a `monkeypatch.setattr` on a module
+  name that, after a move, nothing read. After moving a function,
+  every patch of its name is suspect. And two same-length edits to a
+  file within one second reuse the cached `.pyc`: a mutation check
+  reported the previous mutation's failure. Set
+  `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` before mutation
+  checks or stage swaps. `docs/end-seed-scope.md`, "A third instance".
 - Portable assertions (call counts, cross-worker-count result identity,
   job-dispatch counts) live in the suite. Absolute timings live in
   `docs/parallel-dispatch-baseline.md` as an artifact, never asserted on.
