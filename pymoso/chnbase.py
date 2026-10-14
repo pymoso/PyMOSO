@@ -3,13 +3,19 @@
 Provide base classes and supporting functions for problem  and solver
 implementations.
 
+The solver bases are defined here, with the functions behind a
+solver's `PARAMS`. `Oracle` is defined in pymoso.oracle and imported
+here, so that `from pymoso.chnbase import Oracle` remains the
+documented path.
+
 Listing
 --------------
-_mp_objmethod, function
+accepted_params, function
+reject_unknown_params, function
 MOSOSolver(object), class
 RASolver(MOSOSolver), class
 RLESolver(RASolver), class
-Oracle(object), class
+Oracle(object), class (from pymoso.oracle)
 """
 from math import ceil, floor
 from .oracle import Oracle

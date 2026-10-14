@@ -88,7 +88,7 @@ def get_testsolve_prnstreams(num_trials, iseed, backend):
     that raises: `num_trials` past the generator's own ISP_MAX_PATHS
     (IspOverflow, here); a solver or x0 stream drawing more than one
     stream holds (RoleDrawOverflow, check_role_draws); and the oracle
-    slot's own iteration/sync/replication limits (chnbase.py).
+    slot's own iteration/sync/replication limits (oracle.py).
 
     Raises
     ------

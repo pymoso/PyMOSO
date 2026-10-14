@@ -3,13 +3,25 @@
 Provide supporting functions for solving MOSO problems, implementing
 MOSO algorithms, and computing metrics.
 
+`solve` and `testsolve`, with their argument checks and defaults, are
+defined here. Everything else this module has always offered is
+defined in the module named beside it and imported here, so that
+`from pymoso.chnutils import ...` remains the one documented path.
+
 Listing
 --------------
 solve
 testsolve
+starting_point
+solver_params
+
+From pymoso.layout (a run's streams, from its seed):
 get_testsolve_prnstreams
 get_solv_prnstreams
 get_path_prnstreams
+check_role_draws
+
+From pymoso.paths (sample paths and metrics, here or on a pool):
 combine_runs
 isp_run
 PathJob
@@ -17,6 +29,8 @@ run_path
 run_paths
 gen_metric
 par_diff
+
+From pymoso.moso (dominance, neighbourhoods, distances):
 does_weak_dominate
 does_dominate
 does_strict_dominate
@@ -33,7 +47,7 @@ perturb
 edist
 dxB
 dAB
-dH
+dh
 """
 
 import numbers
@@ -56,15 +70,15 @@ from .prng import registry
 # sample path, and the RuntimeError RASolver.rasolve raised past it) is
 # removed as of docs/rng-interface-design.md §12 step 4b: each path's
 # oracle stream is now computed directly from `isp` via ISP_STRIDE
-# (get_testsolve_prnstreams below), so there is no reservation to
+# (layout.get_testsolve_prnstreams), so there is no reservation to
 # overrun and nothing left to guard. See KNOWN_ISSUES.md issue 2 for the
 # defect this originally fixed, and its current status note.
 
 # Defaults for solve()/testsolve()'s keyword arguments, matching the CLI's
 # documented values (pymoso/cli.py's --budget/--simpar/--isp/--proc
 # [default: ...] annotations and commands/solve.py's/testsolve.py's own
-# seed fallback). Defined here, not in commands/basecomm.py, because
-# basecomm.py already imports chnutils -- the reverse import would be
+# seed fallback). Defined here, not under commands/, because the
+# command modules import chnutils -- the reverse import would be
 # circular. The CLI layer imports these same names for its own Python-
 # level defaults instead of hardcoding a second copy; tests/test_kwarg_
 # defaults.py additionally checks the values against argparse's own

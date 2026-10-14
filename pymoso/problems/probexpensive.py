@@ -31,7 +31,7 @@ reference, rather than passed at construction time:
   (executor.simulate_with_class) -- there is no channel for extra
   per-instance state to cross into that call.
 - A --proc worker is sent the tester's class and builds the path's
-  Oracle itself (chnutils.run_path). A dynamically-constructed class
+  Oracle itself (paths.run_path). A dynamically-constructed class
   (e.g. via type()) or a mutated global/env var would refer to
   something a freshly started worker cannot reconstruct. Fixing the
   cost in a concrete, statically-defined subclass avoids that

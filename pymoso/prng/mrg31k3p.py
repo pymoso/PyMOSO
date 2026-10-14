@@ -37,15 +37,15 @@ constant (sized against MRG32k3a's period, ~2**191) stays safely under
 MRG31k3p's own, much smaller period (~2**185) -- confirmed by direct
 computation, not assumed, so these stay global constants rather than
 becoming per-generator ones. Re-exported under this module's own name
-(§12 step 6b) so chnbase.py can look them up uniformly as
+(§12 step 6b) so oracle.py can look them up uniformly as
 `backend.CONSTANT` regardless of which MRG-family generator is
 selected, without needing to know they happen to be the same object.
 
-This module did not originally wire MRG31k3p into chnbase.py's
+This module did not originally wire MRG31k3p into oracle.py's
 coordinate machinery or into any CLI/library selection surface -- that
 landed at step 6b (docs/rng-interface-design.md §12), not this step,
 and includes REPL_RESERVE_STRIDE's own cached matrices below (added at
-6b, once chnbase.py's _hit_via_coordinate actually called this
+6b, once oracle.py's _hit_via_coordinate actually called this
 generator's replication-coordinate path -- see that constant's own
 comment for why adding it speculatively, ahead of a real caller, would
 have been premature at this step).
@@ -108,7 +108,7 @@ _m2_step = [[0, 1, 0], [0, 0, 1], [32769, 0, 32768]]
 # absent until this step (see module docstring's original "There is
 # deliberately no REPL_RESERVE_STRIDE-cached jump here" note), because
 # nothing called this generator's replication-coordinate path before
-# step 6b actually threaded a selected backend through chnbase.py's
+# step 6b actually threaded a selected backend through oracle.py's
 # _hit_via_coordinate. Uncached, MRG31k3p.advance(REPL_RESERVE_STRIDE)
 # (the default/offset branch's own per-replication step) would fall
 # through jump_seed_n's general binary-exponentiation path on every

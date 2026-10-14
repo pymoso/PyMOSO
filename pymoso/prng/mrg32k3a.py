@@ -28,7 +28,7 @@ from .base import (
 # point_width/offset_within_iteration re-exported directly, not wrapped
 # (contrast philox4x32.py's own versions): base.py's *default* budget
 # (POINT_BITS=75/VISIT_BITS=6/REPL_COUNT_BITS=32/REPL_RESERVE_BITS=14)
-# already *is* MRG-family's own budget -- chnbase.py looks these up as
+# already *is* MRG-family's own budget -- oracle.py looks these up as
 # `backend.point_width`/`backend.offset_within_iteration` uniformly
 # (§12 step 6b), so this module needs the names in its own namespace,
 # not different behavior.
@@ -118,28 +118,28 @@ mrga23n = 1370589.0
 _m1_step = [[0, 1, 0], [0, 0, 1], [(-int(mrga13n)) % mrgm1i, int(mrga12) % mrgm1i, 0]]
 _m2_step = [[0, 1, 0], [0, 0, 1], [(-int(mrga23n)) % mrgm2i, 0, int(mrga21) % mrgm2i]]
 
-# The two fixed jump distances chnbase.py's coordinate mechanism is
+# The two fixed jump distances oracle.py's coordinate mechanism is
 # built from (docs/rng-interface-design.md §3.4) -- named here so the
-# rest of this module, and chnbase.py, refer to them by name rather
+# rest of this module, and oracle.py, refer to them by name rather
 # than repeating the literals.
 REPL_STRIDE = 2 ** 76
 ITER_STRIDE = 2 ** 127
 
-# §12 step 6b: the uniform, backend-agnostic name chnbase.py looks up
+# §12 step 6b: the uniform, backend-agnostic name oracle.py looks up
 # for "how many offset-units fit under one stream" (pymoso.prng.base.
 # one_past's own offset_capacity argument) -- ITER_STRIDE already plays
 # this role for the MRG family (offset_within_iteration's own budget is
 # sized to fit under it); Philox's own module defines OFFSET_CAPACITY
 # directly under this same name, since its budget (2**118) isn't its
 # ITER_STRIDE equivalent at all (it has none -- §3.9). An alias, not a
-# second concept: chnbase.py never reads ITER_STRIDE for this purpose
+# second concept: oracle.py never reads ITER_STRIDE for this purpose
 # directly once it's threaded on a selected backend.
 OFFSET_CAPACITY = ITER_STRIDE
 
 # The offset_within_iteration branch's own per-replication reserve
 # (docs/rng-interface-design.md's step 8 prerequisite writeup, base.py's
 # REPL_RESERVE_BITS): a third hot-path exponent, alongside REPL_STRIDE/
-# ITER_STRIDE below, needed once chnbase.py's _hit_via_coordinate
+# ITER_STRIDE below, needed once oracle.py's _hit_via_coordinate
 # advances replication-to-replication by a real jump instead of a raw
 # mrg32k3a() step (that stride-1 packing was the defect this constant
 # fixes).
@@ -147,12 +147,12 @@ REPL_RESERVE_STRIDE = 1 << REPL_RESERVE_BITS
 
 # Computed once, at import time, not per call: jump_seed_n's three
 # hot-path exponents (REPL_RESERVE_STRIDE, REPL_STRIDE, ITER_STRIDE --
-# the only ones chnbase.py's coordinate mechanism ever asks for) are
+# the only ones oracle.py's coordinate mechanism ever asks for) are
 # cached here rather than run through mat_pow_mod's ~127-round binary
 # exponentiation on every single call. This is not a hypothetical
 # optimization -- get_next_prnstream runs once per RA iteration and
 # jump_substream/the offset branch's replication advance once per
-# replication (chnbase.py), so recomputing the full power on every call
+# replication (oracle.py), so recomputing the full power on every call
 # is a real, measured regression: the full test suite went from ~60s to
 # over 4 minutes, with one CLI end-to-end test timing out, before this
 # caching was added (for REPL_STRIDE/ITER_STRIDE originally; the same
@@ -231,7 +231,7 @@ ISP_STRIDE = ITER_STRIDE * ISP_STREAM_SPAN  # 2**159
 # Where, within a path's own slot, the sync zone begins -- and
 # therefore how many RA iterations a path gets: 2**31 (~2.1e9), over
 # 500,000x the float-overflow ceiling above (2**31 / 4,000 ~ 537,000). Reaching it raises
-# IterationOverflow (chnbase.py's _hit_via_coordinate) before anything
+# IterationOverflow (oracle.py's _hit_via_coordinate) before anything
 # is drawn; it does not wrap and does not spill into the sync zone.
 #
 # This is the fix for a defect found at §12 step 6c: the sync zone
@@ -288,7 +288,7 @@ SYNC_CAPACITY = (ISP_STREAM_SPAN - SYNC_ZONE_STREAM_START) * SYNC_PER_STREAM  # 
 assert SYNC_PER_STREAM * SYNC_STRIDE == OFFSET_CAPACITY
 assert REPL_COUNT_LIMIT * REPL_STRIDE <= OFFSET_CAPACITY
 
-# testsolve()'s roles on the slot grid (chnutils.get_testsolve_
+# testsolve()'s roles on the slot grid (layout.get_testsolve_
 # prnstreams; KNOWN_ISSUES.md issue 10): slot 0 holds the x0 stream
 # (stream 0) and the solver streams (stream 1 + t); oracle path t owns
 # slot t + 1. Two things therefore bound the number of paths:
@@ -624,7 +624,7 @@ class MRG32k3a(random.Random):
         because it isn't for Philox (get_seed()'s own full-state return
         there includes the counter/buffer, not just the base key
         stream_at's `seed` parameter expects -- see
-        Philox4x32Stream.root_seed's own docstring). chnbase.py's
+        Philox4x32Stream.root_seed's own docstring). oracle.py's
         Oracle.set_crnflag() calls this, not get_seed(), for `_orc_root`
         specifically, so the same call works uniformly across backends.
 
@@ -699,7 +699,7 @@ class MRG32k3a(random.Random):
         choke point every draw funnels through (_advance(), called by
         both random() and getrandbits()'s rejection loop). In the same
         units stream_at's own `offset` addresses (one raw step = one
-        offset unit), which is what lets chnbase.py's replication-reserve
+        offset unit), which is what lets oracle.py's replication-reserve
         overrun check compare it directly against REPL_RESERVE_BITS.
 
         Returns
@@ -712,7 +712,7 @@ class MRG32k3a(random.Random):
         """
         §12 step 6b: the stream `delta` offset-units past this one, in
         the same family stream_at originally placed it in -- the cheap,
-        O(1) per-replication step chnbase.py's _hit_via_coordinate uses
+        O(1) per-replication step oracle.py's _hit_via_coordinate uses
         instead of raw seed-tuple manipulation (§3.2's own "seed
         representation stays internal to the generator" posture).
         `delta` is always one of this project's own cached exponents
@@ -726,7 +726,7 @@ class MRG32k3a(random.Random):
         reached from, by the same composition law step 6c already
         established for jump_seed_n (jump_seed_n(jump_seed_n(root, a),
         b) == jump_seed_n(root, a + b)) -- this just wraps that call
-        behind the Stream protocol instead of chnbase.py doing it
+        behind the Stream protocol instead of oracle.py doing it
         directly on a bare seed tuple.
 
         Parameters
@@ -748,7 +748,7 @@ def jump_seed_n(seed, n):
     applied to each half independently. jump_substream/
     get_next_prnstream below are thin wrappers around this at the fixed
     exponent 2**127 (get_next_prnstream) and 2**76 (jump_substream);
-    chnbase.py's _hit_via_coordinate also calls this directly, at
+    oracle.py's _hit_via_coordinate also calls this directly, at
     arbitrary coordinates and, on its replication-advance hot path, at
     the fixed exponent REPL_RESERVE_STRIDE.
 
@@ -815,7 +815,7 @@ def stream_at(seed, stream, offset):
     -------
     MRG32k3a
         Matches §3.1's own contract (`stream_at(base_seed, coordinate)
-        -> Stream`) -- callers that need the raw seed (chnbase.py's own
+        -> Stream`) -- callers that need the raw seed (oracle.py's own
         migration, which still advances within one stream via repeated
         small jumps rather than repeated stream_at calls) get it via
         `.get_seed()`, the same way they already do for any other

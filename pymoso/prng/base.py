@@ -29,9 +29,9 @@ subclassing random.Random directly and unchanged; nothing here changes
 its behavior.
 
 point_code/offset_within_iteration are landed here in step 3 (ahead of
-step 4a/4b, which actually wire them into chnbase.py's coordinate
+step 4a/4b, which actually wire them into oracle.py's coordinate
 computation) for the same reason: they have no dependency on `crnflag`
-or how chnbase.py uses them, so there is no reason to wait -- see §7.1
+or how oracle.py uses them, so there is no reason to wait -- see §7.1
 items 8-9 and docs/rng-interface-design.md §12 step 3's own note to
 that effect.
 """
@@ -98,7 +98,7 @@ class RandomCompatAdapter(random.Random):
     `get_ranx0`) on a raw Philox stream raises AttributeError -- confirmed
     directly, not hypothetical, running `pymoso testsolve --generator
     philox4x32 ...` with no `<x>` (which exercises `get_ranx0`).
-    `ensure_random_compatible` below is what chnbase.py now calls before
+    `ensure_random_compatible` below is what oracle.py now calls before
     handing any generator's stream to such code.
     """
 
@@ -138,7 +138,7 @@ class RandomCompatAdapter(random.Random):
         return self._stream.random()
 
     def raw_consumed(self) -> int:
-        """The wrapped stream's own count (chnutils.check_role_draws)."""
+        """The wrapped stream's own count (layout.check_role_draws)."""
         return self._stream.raw_consumed()
 
     def getrandbits(self, k: int) -> int:
@@ -155,7 +155,7 @@ def ensure_random_compatible(stream):
     `RandomCompatAdapter(stream)` (Philox4x32Stream, or any future
     backend that similarly implements only the minimal §3.2 protocol).
 
-    Callers: chnbase.py wraps with this immediately before handing a
+    Callers: oracle.py wraps with this immediately before handing a
     stream to `g(x, rng)`/`get_ranx0(rng)` -- code documented only as
     "an rng-shaped object" (§3.6) that may call `expovariate`/`choice`/
     `sample`/... -- never before its own internal coordinate machinery
@@ -198,16 +198,16 @@ def ensure_random_compatible(stream):
 # is the fix: each replication now gets a real 2**REPL_RESERVE_BITS-
 # wide block, honored as an actual stride in offset_within_iteration,
 # the same way REPL_STRIDE (2**76) already was for the CRN/sync
-# branches (chnbase.py's _hit_via_coordinate). A g() that draws more
+# branches (oracle.py's _hit_via_coordinate). A g() that draws more
 # than 2**REPL_RESERVE_BITS raw values overruns its reserve and must
-# raise (chnbase.py's _hit_via_coordinate enforces this at the call
+# raise (oracle.py's _hit_via_coordinate enforces this at the call
 # site, where the actual draw count is observable) rather than
 # silently collide with the next replication's block.
 # ---------------------------------------------------------------------------
 
 REPL_RESERVE_BITS = 14  # 16384 raw draws/replication -- ~16x BSProb's own
                         # ~1000-draw workload, the heaviest built-in g();
-                        # exceeding it raises (chnbase.py) rather than
+                        # exceeding it raises (oracle.py) rather than
                         # silently overlapping the next replication's block
 REPL_COUNT_BITS = 32    # replication index < 2**32 -- unchanged from the
                         # original REPL_BITS: calc_m(200) = 379,810,553
@@ -254,7 +254,7 @@ class PointCodeCollision(ValueError):
     too large for the exact positional code and was hashed instead
     (encode_point); for a POINT_BITS-wide field it takes on the order
     of 2**(POINT_BITS/2) distinct points in one iteration to expect one.
-    Raised by chnbase.py's Oracle before anything is drawn for the
+    Raised by oracle.py's Oracle before anything is drawn for the
     second point -- "correct or raises", the same posture as
     PointCodeOverflow, never silently shared streams. If it is ever
     seen: use crn=True (no point in the coordinate at all), or reduce
@@ -283,7 +283,7 @@ class IterationOverflow(ValueError):
     ISP_ITER_MARGIN -- the number of streams one isp path's slot
     reserves for iterations. The next stream up belongs to the same
     path's sync zone, so drawing there would silently share streams
-    with sync= callers. Raised by chnbase.py's _hit_via_coordinate
+    with sync= callers. Raised by oracle.py's _hit_via_coordinate
     before anything is drawn. Not reachable by a run that terminates
     for the usual reasons (see mrg32k3a.py's own sizing table); a
     solver whose iterations never consume budget is what gets here."""
@@ -299,7 +299,7 @@ class SyncOverflow(ValueError):
 class IspOverflow(ValueError):
     """More independent sample paths were requested than the stream
     layout holds for the selected generator (its own ISP_MAX_PATHS).
-    Raised by chnutils.get_testsolve_prnstreams before any stream is
+    Raised by layout.get_testsolve_prnstreams before any stream is
     built. Two things bound it: slot 0 of the isp grid has
     ISP_STREAM_SPAN - 1 solver streams, and slots 1..isp must fit in
     the streams the generator can address at all (STREAM_CAPACITY).
@@ -314,7 +314,7 @@ class RoleDrawOverflow(ValueError):
     """A solver-role or x0-role stream reports having drawn more raw
     values than one stream holds, so it ran into the next stream in its
     zone (MRG family) or wrapped onto its own start (Philox). Checked
-    when the role's work finishes (chnutils.check_role_draws), the same
+    when the role's work finishes (layout.check_role_draws), the same
     after-the-fact posture as ReplicationDrawOverflow: nothing limits
     how much a custom solver draws from `sprn`, and a per-draw check
     would tax every draw to guard a bound no real run can reach
@@ -326,7 +326,7 @@ class ReplicationDrawOverflow(ValueError):
     2**REPL_RESERVE_BITS raw values, overrunning the block reserved
     for it and running into the next replication's own starting
     position -- the defect REPL_RESERVE_BITS exists to prevent (see
-    its own comment above). Raised by chnbase.py's
+    its own comment above). Raised by oracle.py's
     _hit_via_coordinate, the only place that observes how many raw
     values a replication actually drew; not raised here, since this
     module only assembles coordinates."""
@@ -571,7 +571,7 @@ def encode_point(x, point_bits=POINT_BITS):
         such codes); True if it is a hash. Exact and hashed codes share
         one field, so either kind can coincide with the other -- the
         caller must check every code it uses, not only hashed ones
-        (chnbase.py's Oracle does).
+        (oracle.py's Oracle does).
 
     Raises
     ------
@@ -638,7 +638,7 @@ def offset_within_iteration(x, visit, replication, W,
     REPL_RESERVE_BITS's own comment above): a caller drawing more than
     one raw value per replication (every built-in problem) would
     otherwise run its own consumption into the next replication's
-    starting position. Exceeding the reserve is `chnbase.py`'s
+    starting position. Exceeding the reserve is `oracle.py`'s
     `_hit_via_coordinate`'s responsibility to catch (it's the only
     place that observes how many raw values a replication actually
     drew); this function only ever assembles coordinates, so it cannot
@@ -681,7 +681,7 @@ def offset_within_iteration(x, visit, replication, W,
     """
     # point_code first, so an oversized point raises PointCodeOverflow
     # here regardless of the other fields -- this function stays the
-    # strict, exact-only form (chnbase.py uses encode_point +
+    # strict, exact-only form (oracle.py uses encode_point +
     # offset_from_point_code, which falls back to a hash instead).
     return offset_from_point_code(
         point_code(x, W), visit, replication,

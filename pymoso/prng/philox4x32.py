@@ -167,7 +167,7 @@ def validate_seed(tokens):
 # scoped PointCodeOverflow/VisitOverflow/ReplicationOverflow, at
 # assembly time, before stream_at ever sees it.
 #
-# NOT YET WIRED IN: chnbase.py's own coordinate assembly (Oracle.
+# NOT YET WIRED IN: oracle.py's own coordinate assembly (Oracle.
 # _hit_via_coordinate) still calls pymoso.prng.base.point_width/
 # offset_within_iteration unconditionally, with no generator-selection
 # argument at all -- nothing anywhere in the framework calls this
@@ -189,11 +189,11 @@ REPL_RESERVE_BITS = 12
 assert POINT_BITS + VISIT_BITS + REPL_COUNT_BITS + REPL_RESERVE_BITS == 118
 assert OFFSET_CAPACITY == 1 << (POINT_BITS + VISIT_BITS + REPL_COUNT_BITS + REPL_RESERVE_BITS)
 
-# §12 step 6b: the per-replication stride chnbase.py's _hit_via_
+# §12 step 6b: the per-replication stride oracle.py's _hit_via_
 # coordinate looks up generically as `backend.REPL_RESERVE_STRIDE` (the
 # MRG family's own cached-jump-ahead distance) -- for Philox this needs
 # no caching at all, since Stream.advance() is exact counter addition
-# (no jump computation), but the *name* is still required so chnbase.py
+# (no jump computation), but the *name* is still required so oracle.py
 # doesn't need a backend-specific branch just to find this generator's
 # own per-replication counter reserve.
 REPL_RESERVE_STRIDE = 1 << REPL_RESERVE_BITS
@@ -209,7 +209,7 @@ REPL_COUNT_LIMIT = 1 << REPL_COUNT_BITS  # 2**30
 #
 # - ISP_ITER_MARGIN: RA iterations per isp path. 2**30 (~1.07e9) clears
 #   the 10**9 anchor, so it stays where it was. Reaching it raises
-#   IterationOverflow (chnbase.py), it does not wrap.
+#   IterationOverflow (oracle.py), it does not wrap.
 # - SYNC_ZONE_STREAM_START: the sync zone begins immediately above the
 #   iterations, *inside the same path's slot*. It used to sit at 2**48
 #   regardless of path, the same defect mrg32k3a.py's own comment
@@ -257,7 +257,7 @@ ISP_MAX_PATHS = min(ISP_STREAM_SPAN - 1, STREAM_CAPACITY // ISP_STREAM_SPAN - 1)
 # replication's start. Both ends raise rather than wrap: a replication
 # index at or past REPL_COUNT_LIMIT raises ReplicationOverflow, and a
 # single replication drawing more than REPL_STRIDE positions raises
-# ReplicationDrawOverflow (chnbase.py's _hit_via_coordinate checks
+# ReplicationDrawOverflow (oracle.py's _hit_via_coordinate checks
 # both; the second is not reachable by any real g(), but it is checked,
 # not assumed). advance() itself would wrap silently at 2**128, so
 # these two checks are what keep a block inside its stream.
@@ -632,7 +632,7 @@ class Philox4x32Stream:
         (`stream_at`'s own `base_key_int = (seed[0]<<32)|seed[1]`) --
         handing it get_seed()'s 3-tuple would fail with a TypeError,
         confirmed directly (Oracle.set_crnflag()'s own `_orc_root`
-        assignment, before this method existed). chnbase.py's
+        assignment, before this method existed). oracle.py's
         Oracle.set_crnflag() calls this, not get_seed(), for
         `_orc_root` specifically, so the same call works uniformly
         across backends.
@@ -648,7 +648,7 @@ class Philox4x32Stream:
         §12 step 6b: how many counter positions (refills) this stream
         has consumed since construction -- the same units stream_at's
         own `offset` addresses (one counter position = one 4-word
-        block), which is what lets chnbase.py's replication-reserve
+        block), which is what lets oracle.py's replication-reserve
         overrun check compare it directly against this module's own
         REPL_RESERVE_BITS (4096 counter positions = 16384 raw words --
         not MRG's 16384 raw *recurrence steps*, a different unit; see
@@ -675,7 +675,7 @@ class Philox4x32Stream:
         not by computing how far to jump).
 
         Only meaningful called on a stream that hasn't drawn yet --
-        chnbase.py's own usage, computing the next replication's
+        oracle.py's own usage, computing the next replication's
         starting position before either stream has been drawn from. If
         this stream has already consumed raw words, `delta` is added to
         wherever the counter has already advanced to (post-refill), not
