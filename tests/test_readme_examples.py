@@ -205,6 +205,21 @@ def test_mytuned_takes_its_parameter_and_refuses_a_misspelling():
         solve(mp.MyProblem, MyTunedRPERLE, (97,), budget=BUDGET, stuborness=2)
 
 
+def test_myraalg_solve_raises_overflowerror_quickly():
+    """What the README says MyRAAlg does when solved as written: no
+    budget is ever used, and the search-limit schedule overflows after
+    about 3,900 iterations (KNOWN_ISSUES.md issue 13)."""
+    import time
+    from pymoso.chnutils import solve
+    import myproblem as mp
+    from myraalg import MyRAAlg
+
+    start = time.perf_counter()
+    with pytest.raises(OverflowError):
+        solve(mp.MyProblem, MyRAAlg, (97,), budget=BUDGET)
+    assert time.perf_counter() - start < 30
+
+
 def test_mymosoalg_parses_and_subclasses_mososolver():
     """Illustrative only -- see README's "Template MOSO Solver" prose.
     Confirm it is valid Python and a real MOSOSolver subclass; do not

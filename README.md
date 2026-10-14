@@ -90,9 +90,9 @@ Users with `git` installed can use `pip` to install the most current version of 
 We consider the latest source to be less stable than the fixed releases we upload to PyPI, and thus we recommend most users install PyMOSO from PyPI.  
 
 ### Optional extras
-PyMOSO itself needs nothing beyond Python. Two optional extras add dependencies for specific uses:
+PyMOSO itself needs nothing beyond Python. <!-- verified: tests/test_dependency_boundary.py::test_the_core_runs_where_the_optional_dependencies_cannot_be_imported --> Two optional extras add dependencies for specific uses:
 
-- `pip install "pymoso[notebook]"` adds `cloudpickle`. It is needed to run, with `simpar` or `proc` above 1, a problem, tester or solver class defined in a notebook cell, a REPL or inside a function, where a worker process cannot import it. Without it, such a call raises `ValueError` naming this extra.
+- `pip install "pymoso[notebook]"` adds `cloudpickle`. It is needed to run, with `simpar` or `proc` above 1, a problem, tester or solver class defined in a notebook cell, a REPL or inside a function, where a worker process cannot import it. Without it, such a call raises `ValueError` naming this extra. <!-- verified: tests/test_library_arguments.py::test_the_advice_for_a_class_with_no_source_leads_with_the_notebook_extra; tests/test_path_jobs.py::test_a_tester_that_cannot_be_transported_is_refused_only_when_it_would_have_to_be -->
 - `pip install "pymoso[spark]"` adds `pyspark`, for opening a Spark session on your own machine. On Databricks or any cluster that already provides Spark, install `pymoso[notebook]` instead; see [`docs/spark-backend.md`](docs/spark-backend.md).
 
 ### Install PyMOSO from Source Code
@@ -106,7 +106,7 @@ Users may follow the steps below to manually install PyMOSO from any version of 
 PyMOSO users solving MOSO problems and testing MOSO algorithms may do so using the command line interface. First, we show how to access the included help file. Then, we show how to view the lists of solvers, testers, and oracles installed by default with PyMOSO. Finally, we discuss the `solve` and `testsolve` commands.
 
 ### CLI help
-PyMOSO includes a command line help file. The help file shows syntax templates for every PyMOSO command, the available options, and a selection of example invocations. The `pymoso --help` invocation prints the file to the terminal. When PyMOSO cannot parse an invocation that begins with `pymoso`, it prints the usage line of the command and an error. We show the current help file below.  
+PyMOSO includes a command line help file. The help file shows syntax templates for every PyMOSO command, the available options, and a selection of example invocations. The `pymoso --help` invocation prints the file to the terminal. When PyMOSO cannot parse an invocation that begins with `pymoso`, it prints the usage line of the command and an error. <!-- verified: tests/test_cli.py::test_malformed_invocation_exits_2_with_usage_on_stderr --> We show the current help file below.  
 
 ```
 $ pymoso --help
@@ -309,21 +309,21 @@ Users can specify the simulation budget, which is currently set to a default of 
 
 `pymoso solve --budget=100000 myproblem.py RPERLE 12`  
 
-Users may specify to take simulation replications in parallel. With an oracle that draws its random numbers from `rng` (see [Implementing PyMOSO Oracles](#implementing-pymoso-oracles)), the results are identical to a run without `--simpar`, for any number of processes. How much faster a run becomes depends on the cost of one replication and on how many replications the solver requests at once, which bounds the speedup whatever the number of processes; [`docs/simpar-ceiling.md`](docs/simpar-ceiling.md) has measurements.  
+Users may specify to take simulation replications in parallel. With an oracle that draws its random numbers from `rng` (see [Implementing PyMOSO Oracles](#implementing-pymoso-oracles)), the results are identical to a run without `--simpar`, for any number of processes. <!-- verified: tests/test_parallel_dispatch.py::test_simpar_num_calls_and_results_match_serial; tests/test_executor.py::test_pool_results_equal_serial_results_for_any_worker_count --> How much faster a run becomes depends on the cost of one replication and on how many replications the solver requests at once, which bounds the speedup whatever the number of processes; [`docs/simpar-ceiling.md`](docs/simpar-ceiling.md) has measurements.  
 
 `pymoso solve --simpar=4 myproblem.py RPERLE 44`  
 
-All built-in solvers except `MOCOMPASS` and `MOPBnB` support common random numbers. Users may enable the functionality using the `--crn` option.  
+All built-in solvers except `MOCOMPASS` and `MOPBnB` support common random numbers. <!-- verified: tests/test_mocompass_mopbnb_compat.py::test_crn_refused_at_construction; tests/test_golden.py::test_end_seed_matches_baseline; tests/test_get_nbors_equivalence.py::test_whole_solver_runs_are_identical_to_runs_on_the_box_enumeration --> Users may enable the functionality using the `--crn` option.  
 
 `pymoso solve --crn myproblem.py RMINRLE 62`  
 
 We do not recommend this option unless the oracle is implemented to be compatible, that is, the oracle uses PyMOSO's pseudo-random number generator to generate pseudo-random numbers or to provide a seed to an external `mrg32k3a` generator (see [Implementing PyMOSO Oracles](#implementing-pymoso-oracles)).   
 
-Users may specify an initial seed to PyMOSO's pseudo-random number generator using `--seed`, as comma-separated integers with no spaces. The required count and shape depend on which generator is selected (`--generator`, below): the default `mrg32k3a`, and `mrg31k3p`, both take 6 integers; `philox4x32` takes 2. The default seed is `12345` for each component: 6 of them for `mrg32k3a` and `mrg31k3p`, 2 for `philox4x32`.  
+Users may specify an initial seed to PyMOSO's pseudo-random number generator using `--seed`, as comma-separated integers with no spaces. The required count and shape depend on which generator is selected (`--generator`, below): the default `mrg32k3a`, and `mrg31k3p`, both take 6 integers; `philox4x32` takes 2. The default seed is `12345` for each component: 6 of them for `mrg32k3a` and `mrg31k3p`, 2 for `philox4x32`. <!-- verified: tests/test_kwarg_defaults.py::test_default_values_are_the_documented_ones; tests/test_generator_selection.py::test_solve_with_no_generator_still_uses_mrg32k3a_default -->  
 
 `pymoso solve --seed 1111,2222,3333,4444,5555,6666 myproblem.py RPERLE 23`  
 
-Users may select which pseudo-random number generator to use with `--generator {mrg32k3a,mrg31k3p,philox4x32}` (default `mrg32k3a`). Every generator supports `--crn`.  
+Users may select which pseudo-random number generator to use with `--generator {mrg32k3a,mrg31k3p,philox4x32}` (default `mrg32k3a`). Every generator supports `--crn`. <!-- verified: tests/test_generator_selection.py::test_mrg31k3p_supports_crn; tests/test_generator_selection.py::test_philox_solves_end_to_end_under_crn -->  
 
 `pymoso solve --generator philox4x32 --seed 1111,2222 myproblem.py RPERLE 23`  
 
@@ -331,7 +331,7 @@ Users may specify algorithm-specific parameters (see the papers in which the alg
 
 `pymoso solve --param betadel 0.2 myproblem.py RPERLE 34`  
 
-Finally, users may specify any number of options in one invocation, in any order. (Note that the `\` at the end of the first line continues the command to the second line.)
+Finally, users may specify any number of options in one invocation, in any order. <!-- verified: tests/test_cli.py::test_options_after_positional_args_still_accepted; tests/test_cli.py::test_seed_and_param_interleaved_out_of_order_now_parses_correctly --> (Note that the `\` at the end of the first line continues the command to the second line.)
 
 `pymoso solve --crn --simpar=4 --budget=10000 --seed 1,2,3,4,5,6 \`  
 `     --odir=Exp1 --param mconst 4 --param betadel 0.7 myproblem.py RPERLE 97`  
@@ -421,7 +421,7 @@ PyMOSO can perform independent algorithm runs in parallel. Use the `--proc` opti
 
 `pymoso testsolve --crn --metric --isp=100 --proc=20 mytester.py RPERLE`  
 
-Every independent sample path has its own streams, with room for 2^31 retrospective approximation (RA) iterations (2^30 with `philox4x32`). A run that would exceed it raises `IterationOverflow` rather than continuing into another path's streams; with the default settings the sample size would long since have exceeded what any budget allows.  
+Every independent sample path has its own streams, with room for 2^31 retrospective approximation (RA) iterations (2^30 with `philox4x32`). A run that would exceed it raises `IterationOverflow` rather than continuing into another path's streams; <!-- verified: tests/test_sync_isp_nesting.py::test_iteration_past_the_default_zone_raises --> with the default settings the sample size would long since have exceeded what any budget allows. <!-- verified: tests/test_sync_isp_nesting.py::test_builtin_sample_size_schedule_cannot_approach_the_iteration_ceiling -->  
 
 The `testsolve` command creates a results file for each independent sample path. The file contains the solutions generated at every algorithm iteration, such that the solution of iteration 2 is on line 2, iteration 10 on line 10, and so forth. If `--metric` is specified, PyMOSO generates a second file for each independent sample path containing the collection of triples (iteration number, simulations used at end of iteration, metric).  
 
@@ -539,13 +539,13 @@ class MyProblem(Oracle):
 
 Alternatively, if the number of required pseudo-random numbers is known, users can use `rng.random()` to generate pseudo-random numbers and then pass them to an external simulation if such functionality is supported.
 
-The `rng` object provides the methods of Python's `random.Random` class: with `mrg32k3a` and `mrg31k3p` it is a sub-class of `random.Random`, and with `philox4x32` it is an adapter offering the same methods. The official Python documentation for `random` therefore applies to `rng` and is found at https://docs.python.org/3/library/random.html. With every generator, `rng.normalvariate` uses the Beasley-Springer-Moro algorithm (Law 2015, p. 458) to approximate the inverse of the standard normal cumulative distribution function.
+The `rng` object provides the methods of Python's `random.Random` class: with `mrg32k3a` and `mrg31k3p` it is a sub-class of `random.Random`, and with `philox4x32` it is an adapter offering the same methods. <!-- verified: tests/test_generator_selection.py::test_ensure_random_compatible_leaves_a_random_random_subclass_alone; tests/test_generator_selection.py::test_ensure_random_compatible_wraps_a_bare_stream --> The official Python documentation for `random` therefore applies to `rng` and is found at https://docs.python.org/3/library/random.html. With every generator, `rng.normalvariate` uses the Beasley-Springer-Moro algorithm (Law 2015, p. 458) to approximate the inverse of the standard normal cumulative distribution function.
 
-When using `rng`, PyMOSO computes where each replication's random numbers begin from its coordinates -- the run's seed, the RA iteration, the point, and the replication's number -- rather than by walking one stream forward. Replications are therefore independent of each other, and a run's results do not depend on the order in which replications are taken or on which process takes them.
+When using `rng`, PyMOSO computes where each replication's random numbers begin from its coordinates -- the run's seed, the RA iteration, the point, and the replication's number -- rather than by walking one stream forward. Replications are therefore independent of each other, and a run's results do not depend on the order in which replications are taken or on which process takes them. <!-- verified: tests/test_oracle_coordinate_migration.py::test_order_independence_within_one_iteration_crnflag_false; tests/test_executor.py::test_results_do_not_depend_on_grouping_or_order_of_blocks; tests/test_replication_independence.py::test_replications_do_not_share_raw_draws -->
 
-Without common random numbers, each replication has room for 16,384 uniform draws, with every generator. Most methods of `rng` (`random`, `normalvariate`, `expovariate`, ...) use one draw per call. A `g` that uses more raises `ReplicationDrawOverflow` instead of reaching into the next replication's random numbers. With `--crn`, replications are 2^76 draws apart (more with `philox4x32`), and every point in an RA iteration uses the same replications. Every RA iteration, and every independent sample path of `testsolve`, has streams of its own.
+Without common random numbers, each replication has room for 16,384 uniform draws, with every generator. Most methods of `rng` (`random`, `normalvariate`, `expovariate`, ...) use one draw per call. A `g` that uses more raises `ReplicationDrawOverflow` instead of reaching into the next replication's random numbers. <!-- verified: tests/test_replication_independence.py::test_every_generator_gives_a_replication_16384_draws; tests/test_executor.py::test_the_draw_reserve_is_enforced_in_the_worker --> With `--crn`, replications are 2^76 draws apart (more with `philox4x32`), and every point in an RA iteration uses the same replications. <!-- verified: tests/test_oracle_coordinate_migration.py::test_crn_every_replication_within_one_iteration_matches_the_coordinate_formula; tests/test_oracle_coordinate_migration.py::test_crn_different_points_in_the_same_iteration_share_the_same_replication_streams --> Every RA iteration, and every independent sample path of `testsolve`, has streams of its own. <!-- verified: tests/test_testsolve_role_layout.py::test_no_two_role_streams_start_at_the_same_position; tests/test_oracle_visit_sync.py::test_no_collision_between_isp_paths_at_iteration_counts_well_beyond_max_ri -->
 
-A point is a tuple of numbers. A whole number of any numeric type is that integer, so `30.0` and `30` are the same point with the same random numbers. A point containing `nan`, an infinity or something that is not a number is reported infeasible without calling `g`, with and without `--crn`.
+A point is a tuple of numbers. A whole number of any numeric type is that integer, so `30.0` and `30` are the same point with the same random numbers. <!-- verified: tests/test_point_types.py::test_a_whole_number_of_any_numeric_type_is_the_integer_it_equals --> A point containing `nan`, an infinity or something that is not a number is reported infeasible without calling `g`, with and without `--crn`. <!-- verified: tests/test_point_types.py::test_a_point_that_cannot_be_encoded_is_infeasible_and_is_not_simulated -->
 
 ### Implementing PyMOSO Testers  
 Consider again the [example tester](#the-example-tester). As a minimal valid PyMOSO tester, users may do nothing but assign the `MyTester` member `self.ranorc` to a PyMOSO oracle, such as [`MyProblem`](#the-example-oracle), in Line 27. However, we expect most users to leverage PyMOSO features by implementing metrics and  feasible point generators. The function `get_ranx0` allows the tester to generate feasible points to `MyProblem` and `metric` allows the tester to compute a metric on sets returned by a solver. Researchers may implement any number of additional supporting functions, including members and methods of the tester class. The `true_g` function is an example of such a supporting function, which is used to compute the example metric.  
@@ -617,7 +617,7 @@ class MyAccel(RLESolver):
 In the second category, algorithm designers can quickly implement any RA algorithm by sub-classing `RASolver` and implementing the `spsolve` function, as shown in the [RA solver template](#template-ra-solver). The algorithm can be a single-objective algorithm. PyMOSO cannot guarantee the convergence of such algorithms. The template is technically valid in PyMOSO but is probably not effective.  
 
 #### Template RA Solver
-As written below, this template cannot reach a normal budget-exhausted stop when run via `solve()`, at any budget: `spsolve` never calls `self.estimate`, so `self.num_calls` never advances past 0. It does not run forever, though -- after about 3,900 simulation-free iterations, a few milliseconds, the retrospective-approximation loop's own iteration-dependent search-limit formula (`calc_b`) overflows Python's float range and raises `OverflowError` (its message depends on the problem's dimension), naming neither this template nor the real cause. A real implementation must call `self.estimate` (directly, or via `self.upsample`/`self.spline`) to make progress against the budget; see KNOWN_ISSUES.md for the exact failure this produces as written.
+As written below, this template cannot reach a normal budget-exhausted stop when run via `solve()`, at any budget: `spsolve` never calls `self.estimate`, so `self.num_calls` never advances past 0. It does not run forever, though -- after about 3,900 simulation-free iterations, a few milliseconds, the retrospective-approximation loop's own iteration-dependent search-limit formula (`calc_b`) overflows Python's float range and raises `OverflowError` (its message depends on the problem's dimension), naming neither this template nor the real cause. <!-- verified: tests/test_readme_examples.py::test_myraalg_solve_raises_overflowerror_quickly --> A real implementation must call `self.estimate` (directly, or via `self.upsample`/`self.spline`) to make progress against the budget; see KNOWN_ISSUES.md for the exact failure this produces as written.
 
 ```python
 from pymoso.chnbase import RASolver
@@ -646,7 +646,7 @@ class MyTunedRPERLE(RPERLE):
         super().__init__(orc, **kwargs)
 ```
 
-A parameter no class in the solver's hierarchy takes -- a misspelling, or a parameter of another solver -- raises `TypeError` naming it and listing the parameters the solver does take. A parameter's value must be a real number, and is passed to the solver as a float.
+A parameter no class in the solver's hierarchy takes -- a misspelling, or a parameter of another solver -- raises `TypeError` naming it and listing the parameters the solver does take. <!-- verified: tests/test_library_arguments.py::test_an_unknown_solver_parameter_is_refused_by_name_with_the_ones_that_exist; tests/test_readme_examples.py::test_mytuned_takes_its_parameter_and_refuses_a_misspelling --> A parameter's value must be a real number, and is passed to the solver as a float. <!-- verified: tests/test_library_arguments.py::test_a_parameter_that_is_not_a_number_is_refused_by_name; tests/test_library_arguments.py::test_a_numeric_parameter_reaches_the_solver_as_the_float_it_always_was -->
 
 Though analogous to those of an `RLESolver.accel` method, for completeness, we list the requirements for an `RASolver.spsolve` method.
 1. The `spsolve` function must be an instance method of an `RASolver` object, and thus its first parameter must be `self`.
@@ -659,7 +659,7 @@ In the third category, PyMOSO can accommodate any simulation optimization algori
 1. The `solve` function must return a dictionary (we name it `results` in our example) with at least 3 keys: `'itersoln'`, `'simcalls'`, `'endseed'`. Researchers may track additional data and add it to `results` as desired.
    - The `'itersoln'` key itself corresponds to a dictionary with a key for each algorithm iteration labeled {0, 1, ...}. The value at each iteration is a set containing the estimated solution at the end of the iteration.
    - The `'simcalls'` key itself corresponds to a dictionary with a key for each algorithm iteration labeled {0, 1, ...}. The value at each iteration is a natural number containing the cumulative number of simulation replications taken at the end of the iteration.
-   - The `'endseed'` key corresponds to a seed for the run's generator from which no stream the algorithm used can be reached. `self.orc.get_endseed()` computes it from the oracle's own record of the streams it used.
+   - The `'endseed'` key corresponds to a seed for the run's generator from which no stream the algorithm used can be reached. `self.orc.get_endseed()` computes it from the oracle's own record of the streams it used. <!-- verified: tests/test_oracle_endseed.py::test_endseed_does_not_collide_with_any_touched_coordinate_offset_branch; tests/test_custom_mososolver.py::test_testsolve_runs_it_and_computes_the_same_end_seed -->
 
 Researchers may use the [MOSO template](#template-moso-solver)  to implement new simulation optimization algorithms.  
 
@@ -785,9 +785,9 @@ soln4, endseed4 = solve(mp.MyProblem, rp.RPERLE, x0, crn=True, seed=seed, radius
 #### Selecting a Generator, and Running on Spark
 `solve` and `testsolve` take `generator=` with the same values as the CLI's `--generator` (`'mrg32k3a'`, the default, `'mrg31k3p'` or `'philox4x32'`); `seed=` must then have that generator's length.
 
-They also take `backend=`, which decides where worker processes run. Without it, `simpar` and `proc` start processes on this machine. `pymoso.backends.spark.SparkBackend(spark)` runs `testsolve`'s sample paths, or `solve`'s replications, as Spark tasks, with results identical to the same call without `backend=`. [`docs/spark-backend.md`](docs/spark-backend.md) describes it, including when sending replications to a cluster pays.
+They also take `backend=`, which decides where worker processes run. Without it, `simpar` and `proc` start processes on this machine. `pymoso.backends.spark.SparkBackend(spark)` runs `testsolve`'s sample paths, or `solve`'s replications, as Spark tasks, with results identical to the same call without `backend=`. <!-- verified: tests/test_remote_backend.py::test_sample_paths_on_a_remote_backend_are_identical_to_serial; tests/test_remote_backend.py::test_replications_on_a_remote_backend_are_identical_to_serial; tests/test_spark_backend.py::test_spark_computes_what_no_backend_computes --> [`docs/spark-backend.md`](docs/spark-backend.md) describes it, including when sending replications to a cluster pays.
 
-`pymoso.dispatch_cost(problem, x, replications=..., parts=..., backend=...)` times one request for replications in this process and on a backend, and reports both times and whether the results were identical. It runs only when called.
+`pymoso.dispatch_cost(problem, x, replications=..., parts=..., backend=...)` times one request for replications in this process and on a backend, and reports both times and whether the results were identical. It runs only when called. <!-- verified: tests/test_dispatch_cost.py::test_it_reports_one_request_in_place_and_on_the_backend; tests/test_dispatch_cost.py::test_it_reports_and_does_not_advise -->
 
 #### A `testsolve` Example
 ```python
@@ -863,13 +863,13 @@ When implementing `RASolver` algorithms, programmers may not need to access `Ora
 |`num_obj` | A positive integer, the number of objectives.|
 |`dim` | A positive integer, the dimensionality of feasible points. |
 | `rng` | The oracle's stream, an instance of the selected generator's stream class. The streams `g` receives are computed from it. |
-|`hit(x, m, visit=0, sync=None)` | Take `m` observations of `x`. Return: whether `x` is feasible, a tuple containing the mean of the observations for each objective, and a tuple containing the standard error for each objective. Without CRN, a second call for the same `x` in the same RA iteration takes new observations; with CRN, it takes the same ones again. `visit` and `sync` are for solvers that control which observations are shared (see `docs/rng-interface-design.md`, sections 4.1 and 4.3). The function handles CRN internally. |
-|`hit_many(requests)` | The same as `[hit(x, m) for x, m in requests]`, with every observation handed to the parallel processes together under `--simpar`. |
-|`set_crnflag(bool)` | Turn CRN on (`True`) or off. Off unless set. |
+|`hit(x, m, visit=0, sync=None)` | Take `m` observations of `x`. Return: whether `x` is feasible, a tuple containing the mean of the observations for each objective, and a tuple containing the standard error for each objective. Without CRN, a second call for the same `x` in the same RA iteration takes new observations; with CRN, it takes the same ones again. <!-- verified: tests/test_oracle_noncrn_default.py::test_repeated_hit_for_the_same_point_continues_rather_than_restarts; tests/test_oracle_coordinate_migration.py::test_crn_repeat_hit_restarts_at_the_iteration_baseline --> `visit` and `sync` are for solvers that control which observations are shared (see `docs/rng-interface-design.md`, sections 4.1 and 4.3). The function handles CRN internally. |
+|`hit_many(requests)` | The same as `[hit(x, m) for x, m in requests]`, with every observation handed to the parallel processes together under `--simpar`. <!-- verified: tests/test_batching.py::test_hit_many_is_the_hits_one_by_one; tests/test_batching.py::test_hit_many_hands_the_executor_every_block_in_one_call --> |
+|`set_crnflag(bool)` | Turn CRN on (`True`) or off. Off unless set. <!-- verified: tests/test_oracle_direct_use.py::test_hit_on_a_fresh_oracle_is_hit_after_set_crnflag_false --> |
 |`get_endseed()` | A seed for the run's generator from which none of the streams this oracle used can be reached. |
 
 ### Errors About Streams
-Each of these is raised instead of letting two uses of random numbers overlap, and is importable from `pymoso.prng.base`.
+Each of these is raised instead of letting two uses of random numbers overlap, and is importable from `pymoso.prng.base`. <!-- verified: tests/test_replication_independence.py::test_exceeding_the_replication_reserve_raises; tests/test_replication_independence.py::test_replication_count_overflow_raises; tests/test_sync_isp_nesting.py::test_iteration_past_the_default_zone_raises; tests/test_testsolve_role_layout.py::test_more_paths_than_the_layout_holds_raises_immediately; tests/test_testsolve_role_layout.py::test_a_role_stream_that_overran_its_stream_raises; tests/test_sync_isp_nesting.py::test_sync_value_past_the_zone_raises; tests/test_replication_independence.py::test_visit_overflow_raises; tests/test_point_code_fallback.py::test_two_different_points_with_the_same_code_raise -->
 
 | Exception | Raised when |
 | ------ | ----------- |

@@ -204,3 +204,35 @@ def test_visit_and_replication_overflow_do_not_collide_with_each_other():
         offset_within_iteration((1,), 5, 1 << REPL_COUNT_BITS, W=8)
     with pytest.raises(VisitOverflow):
         offset_within_iteration((1,), 1 << VISIT_BITS, 5, W=8)
+
+
+class DrawsN(Oracle):
+    """g() makes exactly `draws` calls to random()."""
+    draws = 0
+
+    def __init__(self, rng):
+        self.num_obj = 1
+        self.dim = 1
+        super().__init__(rng)
+
+    def g(self, x, rng):
+        for _ in range(self.draws):
+            rng.random()
+        return True, (0.0,)
+
+
+@pytest.mark.parametrize("name", ["mrg32k3a", "mrg31k3p", "philox4x32"])
+def test_every_generator_gives_a_replication_16384_draws(name):
+    """The README's figure, for every generator: 16,384 calls to
+    random() in one replication are allowed, and one more raises.
+    Philox reserves 4,096 counter positions of four words each; the
+    MRG family reserves 16,384 values."""
+    from pymoso.prng import registry
+    backend = registry.GENERATORS[name]
+    for draws, raises in ((16384, False), (16385, True)):
+        orc = type("Draws", (DrawsN,), {"draws": draws})(backend.stream_at(backend.DEFAULT_SEED, 1, 0))
+        if raises:
+            with pytest.raises(ReplicationDrawOverflow):
+                orc.hit((1,), 2)
+        else:
+            assert orc.hit((1,), 2)[0]
