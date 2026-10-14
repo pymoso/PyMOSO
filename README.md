@@ -333,19 +333,19 @@ Finally, users may specify any number of options in one invocation. However, all
 #### Table of Algorithm-Specific Parameters  
 
 | Parameter Name | Default Value | Affected Solvers | Description |
-| -------------- | ------------- |  --------------  | ----------- |
-| `mconst`       |    2          |`RPERLE`, `RMINRLE`, `RPE`, `RSPLINE` | Initialize the sample size and subsequent schedule of sample sizes.|  
-| `bconst`       |    8          |`RPERLE`, `RMINRLE`, `RPE`, `RSPLINE` | Initialize the search sampling limit and subsequent schedule of limits. |  
-| `radius`       |   1           |`RPERLE`, `RMINRLE`, `RPE`, `RSPLINE` | Sets radius that determines a point's neighborhood. |  
-| `betadel` | `0.5` | `RPERLE`, `RMINRLE` | Roughly, affects how likely it is for RLE to keep its given solution. |  
-| `betaeps` | `0.5` | `RPERLE`, `RPE` | Roughly, affects how likely PE will perform a search from a point. |   
-| `lb`       | *(required)*  | `MOCOMPASS`, `MOPBnB` | Lower bound each feasible point's components may take. |
-| `ub`       | *(required)*  | `MOCOMPASS`, `MOPBnB` | Upper bound each feasible point's components may take. |
+| -------------- | ------------- | ---------------- | ----------- |
+| `mconst` | `2` | `RMINRLE`, `RPE`, `RPERLE`, `RSPLINE` | Initialize the sample size and subsequent schedule of sample sizes. |
+| `bconst` | `8` | `RMINRLE`, `RPE`, `RPERLE`, `RSPLINE` | Initialize the search sampling limit and subsequent schedule of limits. |
+| `radius` | `1` | `RMINRLE`, `RPE`, `RPERLE`, `RSPLINE` | Sets radius that determines a point's neighborhood. |
+| `betadel` | `0.5` | `RMINRLE`, `RPERLE` | Roughly, affects how likely it is for RLE to keep its given solution. |
+| `betaeps` | `0.5` | `RPE`, `RPERLE` | Roughly, affects how likely PE will perform a search from a point. |
+| `lb` | *(required)* | `MOCOMPASS`, `MOPBnB` | Lower bound each feasible point's components may take. |
+| `ub` | *(required)* | `MOCOMPASS`, `MOPBnB` | Upper bound each feasible point's components may take. |
 | `numsamples` | `8` | `MOCOMPASS` | Number of feasible points to sample per iteration. |
 | `subregions` | `2` | `MOPBnB` | Number of subregions to branch each region into. |
-| `alpha`    | `0.05`        | `MOPBnB` | Overall confidence parameter. |
-| `delta`    | `0.1`         | `MOPBnB` | Sampling ratio used for subregion elimination. |
-| `R0`       | `20`          | `MOPBnB` | Initial number of replications taken per point. |
+| `alpha` | `0.05` | `MOPBnB` | Overall confidence parameter. |
+| `delta` | `0.1` | `MOPBnB` | Sampling ratio used for subregion elimination. |
+| `R0` | `20` | `MOPBnB` | Initial number of replications taken per point. |
 
 `MOCOMPASS` and `MOPBnB` are compatibility-only example solvers — their
 algorithmic behavior has not been validated against the papers they
