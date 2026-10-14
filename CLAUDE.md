@@ -438,52 +438,51 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   attributes. `Oracle.set_simpar()`/`mp_cleanup()` are kept, as the
   owner of the Oracle's executor. `par_diff()` keeps its signature.
 - `hit()` returns `obse` as a list when `m==1` and a tuple otherwise.
-- `chnbase.py` (2,020 lines) and `chnutils.py` (1,341) remain
-  undecomposed — deliberately deferred until the executor rework
-  revealed the real seams. **It has. Phase 5 is that decomposition,**
-  and this is what the seams look like at the end of Phase 4:
-  - **The executor work drew three lines:** *what* to simulate (a
-    solver), *which numbers* (coordinates, computed by `Oracle`), and
-    *where and when* (`executor.py`, `pool.py`, `backends/`). The last
-    is already in its own modules. The first two are still interleaved
-    in `chnbase.py`.
-  - **`chnbase.py` is three things.** Solver bases (`MOSOSolver`,
-    `RASolver`, `RLESolver`, the `PARAMS` helpers: about 1,100
-    lines), which reach an oracle only through `hit`, `hit_many`,
-    `_advance_iteration` and `get_endseed`. `Oracle` (about 900
-    lines), which is itself three things: coordinate bookkeeping
-    (`_plan_hit`, `_block_for`, `_hit_via_coordinate`,
-    `_touch_coordinate`, `_record_point_code`, the end seed and
-    high-water mark), ownership of its executor (`set_simpar`,
-    `_get_executor`, `_close_executor`, the context manager,
-    `__getstate__`), and aggregation plus the user's `g`. And
-    re-exports kept for old import paths.
-  - **`chnutils.py` is four things.** The entry points and their
-    argument checks (`solve`, `testsolve`, `starting_point`,
-    `solver_params`, the `DEFAULT_*`). Stream layout
-    (`get_*_prnstreams`, `_testsolve_roots`, `check_role_draws`, and
-    the end-seed aggregation written inline in `testsolve`). Path
-    jobs and metrics on a pool (`PathJob`, `run_path`, `run_paths`,
-    `par_diff`). And about 530 lines of pure geometry and dominance
-    helpers (`does_*dominate`, `is_lep`, `get_nondom`, `get_nbors`,
-    `edist`, `dh`, ...) that depend on nothing.
-  - **The dependency direction is already clean:** `chnbase` imports
-    `chnutils`; `chnutils` imports `executor` and `pool` and not
-    `chnbase`; nothing imports `backends` at module scope. The helper
-    block can move first, with no risk to the rest.
-  - **What will resist, so plan for it:** public import paths in the
-    README's API tables (`pymoso.chnutils.solve`, `chnbase.Oracle`,
-    `RASolver`, the helpers) need re-exports; CI runs
-    `--doctest-modules pymoso/chnutils.py` by path, and the doctests
-    live on the helpers; tests patch `chnutils.get_nbors` *and*
-    `chnbase.get_nbors` by name; `tests/test_dependency_boundary.py`'s
-    allowlist names `executor.py`; tasks and by-reference classes
-    cross process boundaries as module paths
-    (`chnutils.run_path`, `executor._run_blocks`), which is safe only
-    because driver and workers run one version; and README code
-    blocks are byte-compared. Decomposition must be golden-neutral
-    and, per the working agreement, moves and changes go in separate
-    commits.
+- **Closed (Phase 5): `chnbase.py` and `chnutils.py` are decomposed**
+  along the seams the executor work showed. Nothing documented broke:
+  `pymoso.chnbase` and `pymoso.chnutils` are still the public import
+  paths, by decision, and re-export what moved.
+  - **Where things are.** `moso.py` (565 lines): the dominance,
+    neighbourhood and distance helpers and all the doctests; depends
+    on nothing. `oracle.py` (965): `Oracle`, whole -- its coordinate
+    bookkeeping, executor ownership and aggregation share one
+    object's state along one call chain, so it was not split
+    further. `layout.py` (332): a run's streams from its seed, and
+    `testsolve`'s end-seed aggregation (`_testsolve_endseed`, the one
+    extraction of the phase). `paths.py` (265): `PathJob`, running
+    paths and metrics here or on a pool. `chnbase.py` (1,120): the
+    solver bases and the `PARAMS` helpers, in place. `chnutils.py`
+    (314): `solve`, `testsolve`, their argument checks and defaults.
+  - **Imports run one way:** `chnutils` -> `paths` -> `layout`;
+    `chnbase` -> `moso`, `oracle`; `oracle` -> `executor`, `prng`.
+    `chnbase` no longer imports `chnutils`. In-tree code imports from
+    the defining module; the example files and the tests use the two
+    documented paths on purpose.
+  - **`tests/test_public_surface.py` is the contract.** It lists what
+    each of the two modules promises and where each name is defined,
+    and every other name they bind, and requires the lists to be
+    exact. Adding or removing an import in either module fails it
+    until the list is edited: that is intended. It also imports
+    every module alone in a fresh interpreter, which is what catches
+    a cycle that only a worker would hit.
+  - **Five things cross process boundaries as `pymoso.paths.<name>`:**
+    `run_path`, `_open_path_worker`, `_metric_task`,
+    `_open_metric_worker`, `PathJob`. Plus `executor._run_blocks` and
+    `executor._open_worker_executor`, which did not move. Renaming or
+    moving any of them is a change to test under every start method
+    and on the extras venv.
+  - **A patch reaches a caller only through the name that caller
+    reads.** `testsolve` reads `chnutils.run_paths` and
+    `chnutils.check_role_draws`; `isp_run` reads
+    `paths.check_role_draws`; `get_setnbors` reads `moso.get_nbors`;
+    the solver bases read `chnbase.get_nbors`. The tests that patch
+    these say so where they do it.
+  - CI's doctest step names `pymoso/moso.py`.
+  - What stopped being importable from the two modules is listed
+    above, for the CHANGELOG.
+  - Not done, and not planned: splitting `Oracle`, moving the solver
+    bases out of `chnbase.py` (decided: they stay), a top-level
+    `pymoso.solve`.
 - MOCOMPASS and MOPBnB (real `MOSOSolver`s from prior work, written
   against roughly the 1.0.8 API) are now in-tree,
   `pymoso/solvers/mocompass.py`/`mopbnb.py` — role decided: shipped,
