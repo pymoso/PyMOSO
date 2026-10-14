@@ -219,7 +219,7 @@ def test_custom_solver_file_under_proc_matches_serial(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Unit-level pins on chnbase's transport helpers directly, no subprocess
+# Unit-level pins on executor's transport helpers directly, no subprocess
 # needed for these two.
 # ---------------------------------------------------------------------------
 
@@ -228,7 +228,7 @@ def test_build_transport_descriptor_passes_builtin_classes_through_unchanged():
     correctly regardless of start method -- no bundling needed, and
     bundling it would be wasted work (and, for a package directory,
     would ship unrelated sibling files for no reason)."""
-    from pymoso.chnbase import build_transport_descriptor
+    from pymoso.executor import build_transport_descriptor
     from pymoso.problems.probtpa import ProbTPA
     assert build_transport_descriptor(ProbTPA) is ProbTPA
 
@@ -241,7 +241,8 @@ def test_build_transport_descriptor_raises_clear_error_for_interactive_class(mon
     the behaviour without cloudpickle; with it the class travels by
     value (test_by_value_transport.py)."""
     monkeypatch.setitem(sys.modules, 'cloudpickle', None)       # as where the `notebook` extra is not installed
-    from pymoso.chnbase import build_transport_descriptor, Oracle
+    from pymoso.chnbase import Oracle
+    from pymoso.executor import build_transport_descriptor
 
     ns = {}
     exec(
@@ -284,7 +285,7 @@ def test_reconstruct_transport_descriptor_resolves_cross_file_dependency():
     point, since build_transport_descriptor ships every .py file in
     the directory). reconstruct_transport_descriptor must resolve this
     regardless of which name sorts first."""
-    from pymoso.chnbase import reconstruct_transport_descriptor
+    from pymoso.executor import reconstruct_transport_descriptor
 
     descriptor = {
         'files': {

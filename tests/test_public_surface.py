@@ -112,10 +112,6 @@ SURFACE = {
 # Bound by the module, promised to nobody.
 INCIDENTAL = {
     "pymoso.chnbase": {
-        # To be removed deliberately (Phase 5, step 6): two transport
-        # functions that belong to pymoso.executor and were never
-        # documented here, and an import nothing in the module uses.
-        "build_transport_descriptor", "reconstruct_transport_descriptor", "get_biparetos",
         # What the solver bases need.
         "ceil", "floor",
     },

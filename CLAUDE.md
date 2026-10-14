@@ -397,12 +397,32 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   - `pymoso.prng.registry` (the module, bound as `registry`).
   - The standard library: `statistics.mean`, `statistics.variance`,
     `math.sqrt`.
+  - Also gone from `chnbase`, in a later commit of the same phase:
+    `build_transport_descriptor` and `reconstruct_transport_descriptor`
+    (`pymoso.executor`; a leftover of having been written in
+    `chnbase`, pinned there by a test since Phase 2), and
+    `get_biparetos`, which `chnbase` imported and never used
+    (`pymoso.chnutils.get_biparetos`, as documented, or
+    `pymoso.moso`).
 
   The one a user is most likely to meet is an `except
   chnbase.IterationOverflow` (or another of the four overflow
   exceptions): it becomes `pymoso.prng.base.IterationOverflow`.
   `tests/test_public_surface.py` holds what both modules still
   promise.
+
+  **The same happened to `pymoso.chnutils`, for the same reason and
+  by the same rule,** as its contents moved out. Every function it
+  documented is still importable from it. What it no longer binds:
+  - `pymoso.executor.ClassRef`, `pymoso.pool.LocalBackend`.
+  - `pymoso.prng.base`: `IspOverflow`, `RoleDrawOverflow`,
+    `ensure_random_compatible`, `one_past`.
+  - The standard library: `copy`, `dataclasses.dataclass`,
+    `itertools.product`, `itertools.filterfalse`, `statistics.mean`,
+    `statistics.variance`, `math.ceil`, `math.floor`, `math.sqrt`.
+  - Three private names tests used to reach through it, now in
+    `pymoso.paths`: `_open_path_worker`, `_open_metric_worker`,
+    `_metric_task`.
 - **`pymoso/paths.py` was split from `chnutils.py` for the seam, not
   for import cost (Phase 5). Measured, so nobody re-derives it:**
   `import pymoso.paths` 28.1 ms, `import pymoso.chnutils` 26.9 ms,

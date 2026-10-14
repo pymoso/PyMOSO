@@ -273,10 +273,13 @@ def test_class_handle_refuses_a_class_with_no_source(monkeypatch):
     assert "pymoso[notebook]" in str(refused.value)
 
 
-def test_transport_functions_are_still_importable_from_chnbase():
+def test_transport_functions_are_no_longer_importable_from_chnbase():
+    """They were, from Phase 2 until Phase 5, as a leftover of having
+    been written there. Removed deliberately; pymoso.executor is where
+    they are."""
     from pymoso import chnbase
-    assert chnbase.build_transport_descriptor is ex.build_transport_descriptor
-    assert chnbase.reconstruct_transport_descriptor is ex.reconstruct_transport_descriptor
+    assert not hasattr(chnbase, "build_transport_descriptor")
+    assert not hasattr(chnbase, "reconstruct_transport_descriptor")
 
 
 # ---------------------------------------------------------------------------

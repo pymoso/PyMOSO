@@ -12,9 +12,8 @@ RLESolver(RASolver), class
 Oracle(object), class
 """
 from math import ceil, floor
-from .executor import build_transport_descriptor, reconstruct_transport_descriptor
 from .oracle import Oracle
-from .moso import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate, get_biparetos
+from .moso import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate
 
 
 def accepted_params(solver):
