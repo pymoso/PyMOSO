@@ -120,7 +120,7 @@ INCIDENTAL = {
         "ceil", "floor",
     },
     "pymoso.chnutils": {
-        "ClassRef", "LocalBackend", "one_past", "registry",
+        "ClassRef", "LocalBackend", "registry",
         "copy", "numbers", "random", "dataclass",
     },
 }

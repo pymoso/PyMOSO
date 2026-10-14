@@ -48,11 +48,10 @@ from .moso import (
 )
 from .layout import (
     get_testsolve_prnstreams, _testsolve_roots, get_path_prnstreams,
-    get_solv_prnstreams, check_role_draws,
+    get_solv_prnstreams, check_role_draws, _testsolve_endseed,
 )
 from .pool import LocalBackend
 from .prng import registry
-from .prng.base import one_past
 
 # MAX_RI (a reserved 200-RA-iteration substream window per independent
 # sample path, and the RuntimeError RASolver.rasolve raised past it) is
@@ -298,47 +297,7 @@ def testsolve(tester, solver, x0, **kwargs):
         ))
     check_role_draws(x0stream, backend, 'x0')
     res = run_paths(tester, solver, jobs, proc, tester_instance=currtest, backend=pool_backend)
-    # docs/rng-interface-design.md §12 step 8 stage 2 / §12 step 6c: the
-    # real endseed, aggregated across every isp path's own oracle-role
-    # high-water mark (crossing the --proc worker boundary via each
-    # path's own result dict -- see Oracle.get_high_water_mark()'s
-    # docstring for why a dict field: under --proc the Oracle that ran
-    # a path lived in a worker and never existed in this process).
-    #
-    # Path t's own Oracle stream is relative to `orc_root + t*ISP_STRIDE`
-    # (get_testsolve_prnstreams's own construction); since
-    # ISP_STRIDE == ISP_STREAM_SPAN*ITER_STRIDE exactly, path t's own
-    # (oracle_stream, oracle_offset) composes additively into the shared
-    # root's own stream units: t*ISP_STREAM_SPAN + oracle_stream,
-    # oracle_offset unchanged -- the same composition Oracle.get_endseed()
-    # itself relies on, one level up. Reduces to exactly the same flat
-    # value the pre-split code computed (t*ISP_STRIDE + oracle_flat), so
-    # this is a relabeling here too, not new arithmetic.
-    #
-    # The "+1 with carry" (base.one_past) happens once, at the very end,
-    # against the *winning* path's own raw oracle_stream/family capacity
-    # -- not against the combined value -- for the same reason
-    # Oracle.get_endseed() itself carries against its own local stream:
-    # the family boundary (ISP_ITER_MARGIN in the default zone,
-    # ISP_STREAM_SPAN in the sync zone) is a property of that one Oracle's own coordinate space, not
-    # of the combined isp-relative value.
-    touches = []
-    for t in range(isp):
-        hwm = res[t]['oracle_high_water_mark']
-        if hwm is None:
-            continue
-        oracle_stream, oracle_offset = hwm
-        touches.append((t * backend.ISP_STREAM_SPAN + oracle_stream, oracle_offset, t, oracle_stream))
-    if not touches:
-        endseed = orc_root
-    else:
-        _, offset, t, oracle_stream = max(touches)
-        family_capacity = backend.ISP_ITER_MARGIN if oracle_stream < backend.SYNC_ZONE_STREAM_START else backend.ISP_STREAM_SPAN
-        carried_stream, carried_offset = one_past(
-            oracle_stream, offset, offset_capacity=backend.OFFSET_CAPACITY, stream_family_capacity=family_capacity
-        )
-        overall_stream = t * backend.ISP_STREAM_SPAN + carried_stream
-        endseed = backend.stream_at(orc_root, overall_stream, carried_offset).get_seed()
+    endseed = _testsolve_endseed(res, isp, orc_root, backend)
     return res, endseed
 
 
