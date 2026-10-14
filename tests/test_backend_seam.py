@@ -93,8 +93,9 @@ def test_testsolve_gets_its_path_pool_from_the_backend(method):
     assert [(r['workers'], r['initializer'], r['tasks']) for r in backend.pools] == [(2, chnutils._open_path_worker, [3])]
 
 
-def test_par_diff_gets_its_metric_pool_from_the_backend():
-    backend = RecordingBackend()
+@pytest.mark.parametrize("method", START_METHODS)
+def test_par_diff_gets_its_metric_pool_from_the_backend(method):
+    backend = RecordingBackend(multiprocessing.get_context(method))
     res, _ = testsolve(TPATester, RPERLE, (40, 40), budget=200, seed=SEED, isp=3)
     tester = TPATester()
     expected = par_diff(res, tester, 1)
