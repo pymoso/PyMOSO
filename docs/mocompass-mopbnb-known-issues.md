@@ -141,8 +141,10 @@ didn't; it changed which of several equally-valid orderings feeds the
 same unmodified sampling logic. `tests/golden/README.md` captures fresh
 baselines against the fixed code, not against any prior in-tree behavior.
 
-**The README's own `MOSOSolver`-authoring guidance names the exact
-pattern that breaks `--crn`.** It currently tells solver authors they'll
+**The README's own `MOSOSolver`-authoring guidance named the exact
+pattern that breaks `--crn`.** (Corrected in Phase 6: `crn_advance()`
+no longer exists, and the README no longer mentions it. Kept as
+written below.) It told solver authors they'll
 "use (or wrap) `hit` and `crn_advance()`" — call `crn_advance()` once, at
 the end — which is exactly what silently corrupts `--crn` for any solver
 that isn't `RASolver`-based (§4.2's `fx1 == fx3` demonstration). Not

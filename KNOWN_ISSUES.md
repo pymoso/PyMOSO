@@ -3,9 +3,10 @@
 This document records defects found in PyMOSO during the 2.0
 modernization effort. Work began against a fork based on PyPI 1.0.4;
 it has since moved onto the canonical repository,
-github.com/pymoso/PyMOSO (currently versioned 1.0.7 in
-`pymoso/__init__.py`, though PyPI ships 1.0.8 — the two don't
-necessarily agree). Each issue below states which versions it affects
+github.com/pymoso/PyMOSO (versioned 1.0.7 in `pymoso/__init__.py`
+when the work began, though PyPI shipped 1.0.8 — the two did not
+agree). 1.1.0 has since been released from its own branch; this
+document belongs to the 2.0.0 line. Each issue below states which versions it affects
 and its status specifically on this branch.
 
 Issues are grouped by whether they affect a version anyone is known to
@@ -906,6 +907,13 @@ Python's float range around `nu≈3882` (`calc_m`'s own `1.1**nu` would
 overflow later, around `nu≈7449`, but `calc_b` runs first each
 iteration), and `ceil(float('inf'))` raises `OverflowError`. Confirmed
 directly: `nu=3882`, reached in 0.03 seconds.
+
+(Checked again in Phase 6, with `ProbTPA`: `nu=3882`, about 3 ms on
+the current tree. With a one-dimensional problem such as the README's
+`MyProblem`, `dim-1` is 0, the product never becomes infinite, and the
+failure comes from `1.2**nu` itself one step later: `nu=3894`,
+`OverflowError: (34, 'Numerical result out of range')`. Either way,
+an `OverflowError` naming neither `MyRAAlg` nor the cause.)
 
 So the concrete change is from one fast, clearly-labeled failure to a
 different fast, unlabeled one:

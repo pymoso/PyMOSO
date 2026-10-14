@@ -575,7 +575,11 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
 The decisions below are landed, not pending. Full reasoning in
 `docs/rng-interface-design.md`; this is the summary a fresh session needs.
 
-- `random.Random` is gone — composition, not inheritance. Pure Python,
+- CPython's `random.Random` internals are gone. `MRG32k3a` and
+  `MRG31k3p` still subclass `random.Random`, for its methods; Philox
+  is composition (`RandomCompatAdapter`). (This line said "gone,
+  composition not inheritance" until Phase 6; it was never true of
+  the MRG family.) Pure Python,
   no new runtime dependencies. MRG32k3a remains the default for
   continuity with the papers; MRG31k3p and Philox-4x32 also implemented.
 - Streams are coordinate-derived, not jump-reached.
