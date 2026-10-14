@@ -159,6 +159,23 @@ class Oracle(object):
         """
         return registry.GENERATORS[self._backend_name]
 
+    def _initialize_if_needed(self):
+        """
+        Behave as if `set_crnflag(False)` had been called, if nothing
+        has called it yet.
+
+        `solve()` and `testsolve()` always call `set_crnflag()`, which
+        fixes the generator and the root every coordinate is computed
+        from. An oracle constructed and used directly -- `hit()` on a
+        fresh instance -- has its flag already (False, from __init__)
+        but not those two, and used to fail with `KeyError: None`.
+        Construction itself stays free of that work: instances built
+        only to read `dim` (testsolve, the CLI) may hold a plain
+        `random.Random`, which no generator owns.
+        """
+        if self._backend_name is None:
+            self.set_crnflag(self.crnflag)
+
     def set_simpar(self, simpar, backend=None):
         """
         Choose how many processes run this Oracle's replications.
@@ -367,6 +384,7 @@ class Oracle(object):
             any realistic run under MRG32k3a's own margins, but checked
             rather than assumed.
         """
+        self._initialize_if_needed()
         if self._high_water_mark is None:
             return self._orc_root
         stream, offset = self._high_water_mark
@@ -904,6 +922,7 @@ class Oracle(object):
         """hit()'s argument checks and coordinate bookkeeping, without
         running anything: the block a hit(x, m, visit, sync) call made
         now would run. Advances the per-point continuation."""
+        self._initialize_if_needed()
         assert(m >= 1)
         if sync is not None:
             if visit != 0:
