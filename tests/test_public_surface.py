@@ -76,10 +76,10 @@ SURFACE = {
         "DEFAULT_SEED": "pymoso.chnutils",
         "DEFAULT_SIMPAR": "pymoso.chnutils",
         # stream layout
-        "get_testsolve_prnstreams": "pymoso.chnutils",
-        "get_path_prnstreams": "pymoso.chnutils",
-        "get_solv_prnstreams": "pymoso.chnutils",
-        "check_role_draws": "pymoso.chnutils",
+        "get_testsolve_prnstreams": "pymoso.layout",
+        "get_path_prnstreams": "pymoso.layout",
+        "get_solv_prnstreams": "pymoso.layout",
+        "check_role_draws": "pymoso.layout",
         # sample paths and metrics
         "PathJob": "pymoso.chnutils",
         "run_path": "pymoso.chnutils",
@@ -120,8 +120,7 @@ INCIDENTAL = {
         "ceil", "floor",
     },
     "pymoso.chnutils": {
-        "ClassRef", "LocalBackend", "IspOverflow", "RoleDrawOverflow",
-        "ensure_random_compatible", "one_past", "registry",
+        "ClassRef", "LocalBackend", "one_past", "registry",
         "copy", "numbers", "random", "dataclass",
     },
 }
