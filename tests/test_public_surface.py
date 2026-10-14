@@ -42,7 +42,7 @@ SUBPROCESS_TIMEOUT = 120
 # facade -> {name: the module that defines it}
 SURFACE = {
     "pymoso.chnbase": {
-        "Oracle": "pymoso.chnbase",
+        "Oracle": "pymoso.oracle",
         "MOSOSolver": "pymoso.chnbase",
         "RASolver": "pymoso.chnbase",
         "RLESolver": "pymoso.chnbase",
@@ -116,11 +116,6 @@ INCIDENTAL = {
         # functions that belong to pymoso.executor and were never
         # documented here, and an import nothing in the module uses.
         "build_transport_descriptor", "reconstruct_transport_descriptor", "get_biparetos",
-        # What Oracle needs.
-        "ClassHandle", "InProcessHandle", "PoolExecutor", "SerialExecutor", "ReplicationBlock",
-        "IterationOverflow", "ReplicationOverflow", "SyncOverflow", "PointCodeCollision",
-        "PointNotEncodable", "canonical_point", "one_past", "registry",
-        "mean", "variance", "sqrt",
         # What the solver bases need.
         "ceil", "floor",
     },

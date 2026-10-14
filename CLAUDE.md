@@ -382,6 +382,27 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   form), nothing automatic. It is exported from the top level through
   a module `__getattr__` so the core still never imports `backends`
   at module scope.
+- **Names no longer importable from `pymoso.chnbase` (Phase 5), for
+  the CHANGELOG.** `Oracle` moved to `pymoso/oracle.py` and
+  `chnbase` stopped binding what only `Oracle` used. None was ever
+  documented on `chnbase` and nothing in the tree read them from
+  there; they went deliberately, exceptions included, rather than
+  being kept as re-exports of an accidental path. `chnbase.Oracle`
+  itself is unchanged. Where each lives, and always did:
+  - `pymoso.executor`: `ClassHandle`, `InProcessHandle`,
+    `PoolExecutor`, `SerialExecutor`, `ReplicationBlock`.
+  - `pymoso.prng.base`: `IterationOverflow`, `ReplicationOverflow`,
+    `SyncOverflow`, `PointCodeCollision`, `PointNotEncodable`,
+    `canonical_point`, `one_past`.
+  - `pymoso.prng.registry` (the module, bound as `registry`).
+  - The standard library: `statistics.mean`, `statistics.variance`,
+    `math.sqrt`.
+
+  The one a user is most likely to meet is an `except
+  chnbase.IterationOverflow` (or another of the four overflow
+  exceptions): it becomes `pymoso.prng.base.IterationOverflow`.
+  `tests/test_public_surface.py` holds what both modules still
+  promise.
 - **API removed in Phase 3, also for the CHANGELOG:**
   `chnbase.mp_worker`, `chnbase.mp_replicate`, `chnutils.par_runs`,
   `chnutils.do_work`, and `Oracle`'s `req_q`/`res_q`/`proc`
