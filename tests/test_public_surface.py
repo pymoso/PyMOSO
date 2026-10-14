@@ -81,13 +81,13 @@ SURFACE = {
         "get_solv_prnstreams": "pymoso.layout",
         "check_role_draws": "pymoso.layout",
         # sample paths and metrics
-        "PathJob": "pymoso.chnutils",
-        "run_path": "pymoso.chnutils",
-        "run_paths": "pymoso.chnutils",
-        "isp_run": "pymoso.chnutils",
-        "combine_runs": "pymoso.chnutils",
-        "gen_metric": "pymoso.chnutils",
-        "par_diff": "pymoso.chnutils",
+        "PathJob": "pymoso.paths",
+        "run_path": "pymoso.paths",
+        "run_paths": "pymoso.paths",
+        "isp_run": "pymoso.paths",
+        "combine_runs": "pymoso.paths",
+        "gen_metric": "pymoso.paths",
+        "par_diff": "pymoso.paths",
         # dominance, neighbourhoods, distances
         "does_weak_dominate": "pymoso.moso",
         "does_dominate": "pymoso.moso",
@@ -120,8 +120,7 @@ INCIDENTAL = {
         "ceil", "floor",
     },
     "pymoso.chnutils": {
-        "ClassRef", "LocalBackend", "registry",
-        "copy", "numbers", "random", "dataclass",
+        "registry", "numbers", "random",
     },
 }
 

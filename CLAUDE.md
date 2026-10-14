@@ -403,6 +403,15 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   exceptions): it becomes `pymoso.prng.base.IterationOverflow`.
   `tests/test_public_surface.py` holds what both modules still
   promise.
+- **`pymoso/paths.py` was split from `chnutils.py` for the seam, not
+  for import cost (Phase 5). Measured, so nobody re-derives it:**
+  `import pymoso.paths` 28.1 ms, `import pymoso.chnutils` 26.9 ms,
+  of which `pymoso.executor` is 26.3 ms either way; `chnutils`' own
+  body is about 0.15 ms. A worker that loads a built-in tester or
+  solver gains nothing measurable from not importing the entry
+  points. "Workers import less" was offered as a reason for the split
+  and withdrawn. If worker start-up cost ever matters, the thing to
+  look at is `executor`'s imports (`inspect` alone is 5 ms).
 - **API removed in Phase 3, also for the CHANGELOG:**
   `chnbase.mp_worker`, `chnbase.mp_replicate`, `chnutils.par_runs`,
   `chnutils.do_work`, and `Oracle`'s `req_q`/`res_q`/`proc`

@@ -18,7 +18,7 @@ Two distinct defects, both observed failing here before the fix
 """
 import pytest
 
-from pymoso import chnutils
+from pymoso import chnutils, paths
 from pymoso.chnutils import get_testsolve_prnstreams, testsolve
 from pymoso.prng import mrg32k3a, mrg31k3p, philox4x32
 from pymoso.prng import base as prng_base
@@ -162,8 +162,9 @@ def test_a_role_stream_that_overran_its_stream_raises(backend):
 def test_role_draw_check_runs_at_the_end_of_a_real_path(monkeypatch):
     """isp_run checks its solver stream when the solver returns."""
     seen = []
-    real = chnutils.check_role_draws
-    monkeypatch.setattr(chnutils, 'check_role_draws', lambda *a: (seen.append(a[2]), real(*a))[1])
+    real = paths.check_role_draws
+    # isp_run reads the name in its own module, pymoso.paths.
+    monkeypatch.setattr(paths, 'check_role_draws', lambda *a: (seen.append(a[2]), real(*a))[1])
     from pymoso.chnutils import solve
     from pymoso.problems.probtpa import ProbTPA
     solve(ProbTPA, RPERLE, (40, 40), budget=200, seed=(12345,) * 6)

@@ -13,7 +13,7 @@ import multiprocessing
 
 import pytest
 
-from pymoso import chnutils, executor
+from pymoso import executor, paths
 from pymoso.chnutils import par_diff, solve, testsolve
 from pymoso.pool import LocalBackend, WorkerPool
 from pymoso.prng import mrg32k3a
@@ -90,7 +90,7 @@ def test_testsolve_gets_its_path_pool_from_the_backend(method):
     kwargs = dict(budget=200, seed=SEED, isp=3)
     expected = testsolve(TPATester, RPERLE, (40, 40), **kwargs)
     assert testsolve(TPATester, RPERLE, (40, 40), proc=2, backend=backend, **kwargs) == expected
-    assert [(r['workers'], r['initializer'], r['tasks']) for r in backend.pools] == [(2, chnutils._open_path_worker, [3])]
+    assert [(r['workers'], r['initializer'], r['tasks']) for r in backend.pools] == [(2, paths._open_path_worker, [3])]
 
 
 @pytest.mark.parametrize("method", START_METHODS)
@@ -100,7 +100,7 @@ def test_par_diff_gets_its_metric_pool_from_the_backend(method):
     tester = TPATester()
     expected = par_diff(res, tester, 1)
     assert par_diff(res, tester, 2, backend=backend) == expected
-    assert [(r['workers'], r['initializer'], r['tasks']) for r in backend.pools] == [(2, chnutils._open_metric_worker, [3])]
+    assert [(r['workers'], r['initializer'], r['tasks']) for r in backend.pools] == [(2, paths._open_metric_worker, [3])]
 
 
 def test_a_local_backend_is_not_asked_for_a_pool_when_one_process_will_do():
