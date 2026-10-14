@@ -39,7 +39,7 @@ sys.path.insert(0, "pymoso/examples")
 
 README = open("README.md", encoding="utf-8").read()
 PY_BLOCKS = re.findall(r"```python\n(.*?)```", README, re.DOTALL)
-assert len(PY_BLOCKS) == 20, f"expected 20 python blocks in README, found {len(PY_BLOCKS)}"
+assert len(PY_BLOCKS) == 21, f"expected 21 python blocks in README, found {len(PY_BLOCKS)}"
 
 
 def read_file(name):
@@ -93,14 +93,18 @@ def test_myraalg_block_matches_file():
     assert PY_BLOCKS[7] == read_file("myraalg.py")
 
 
+def test_mytuned_block_matches_file():
+    assert PY_BLOCKS[8] == read_file("mytuned.py")
+
+
 def test_mymosoalg_block_matches_file():
-    assert PY_BLOCKS[8] == read_file("mymosoalg.py")
+    assert PY_BLOCKS[9] == read_file("mymosoalg.py")
 
 
 def test_algorithm_snippets_blocks_match_file_sections():
     sections = split_marked_sections(read_file("algorithm_snippets.py"))
     assert len(sections) == 7
-    for block, section in zip(PY_BLOCKS[9:16], sections):
+    for block, section in zip(PY_BLOCKS[10:17], sections):
         assert block.strip("\n") == section
 
 
@@ -109,8 +113,8 @@ def test_solve_example_blocks_match_file():
     split_point = content.index("# example for specifying budget and seed")
     part1 = content[:split_point].rstrip("\n") + "\n"
     part2 = content[split_point:]
-    assert PY_BLOCKS[16] == part1
-    assert PY_BLOCKS[17] == part2
+    assert PY_BLOCKS[17] == part1
+    assert PY_BLOCKS[18] == part2
 
 
 def test_testsolve_example_blocks_match_file():
@@ -118,8 +122,8 @@ def test_testsolve_example_blocks_match_file():
     split_point = content.index("iter5_soln =")
     part1 = content[:split_point].rstrip("\n") + "\n"
     part2 = content[split_point:]
-    assert PY_BLOCKS[18] == part1
-    assert PY_BLOCKS[19] == part2
+    assert PY_BLOCKS[19] == part1
+    assert PY_BLOCKS[20] == part2
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +191,18 @@ def test_myraalg_spsolve_runs_directly():
     solver = MyRAAlg(orc, sprn=MRG32k3a((1, 2, 3, 4, 5, 6)), x0=(1, 1))
     warm_start = {(1, 1)}
     assert solver.spsolve(warm_start) == warm_start
+
+
+def test_mytuned_takes_its_parameter_and_refuses_a_misspelling():
+    from pymoso.chnutils import solve
+    from pymoso.chnbase import accepted_params
+    import myproblem as mp
+    from mytuned import MyTunedRPERLE
+
+    assert "stubbornness" in accepted_params(MyTunedRPERLE)
+    assert solve(mp.MyProblem, MyTunedRPERLE, (97,), budget=BUDGET, stubbornness=2)
+    with pytest.raises(TypeError, match="stuborness"):
+        solve(mp.MyProblem, MyTunedRPERLE, (97,), budget=BUDGET, stuborness=2)
 
 
 def test_mymosoalg_parses_and_subclasses_mososolver():

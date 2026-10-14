@@ -11,6 +11,6 @@ self.true_g the function computing the true objective value.
 def metric(self, singleton_set):
     # single objective algorithms still return a set
     point, = singleton_set
-    # let self.soln be a real number
+    # let self.answer be a real number
     dist = abs(self.true_g(point) - self.answer)
     return dist

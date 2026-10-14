@@ -29,6 +29,7 @@ Table of Contents
          * [Install PyMOSO from the Python Packaging Index using pip](#install-pymoso-from-the-python-packaging-index-using-pip)
          * [Install PyMOSO from the repository using pip](#install-pymoso-from-the-repository-using-pip)
          * [Install PyMOSO from Source Code](#install-pymoso-from-source-code)
+         * [Optional extras](#optional-extras)
       * [Command Line Interface (CLI)](#command-line-interface-cli)
          * [CLI help](#cli-help)
          * [The listitems command for viewing solvers, testers, and oracles included in PyMOSO](#the-listitems-command-for-viewing-solvers-testers-and-oracles-included-in-pymoso)
@@ -58,6 +59,7 @@ Table of Contents
          * [Using solve and <code>testsolve</code> in Python Programs](#using-solve-and-testsolve-in-python-programs)
             * [Minimal solve Example](#minimal-solve-example)
             * [Some solve Examples with Options](#some-solve-examples-with-options)
+            * [Selecting a Generator, and Running on Spark](#selecting-a-generator-and-running-on-spark)
             * [A testsolve Example](#a-testsolve-example)
             * [Computing a Metric on testsolve Output](#computing-a-metric-on-testsolve-output)
       * [PyMOSO Object Reference](#pymoso-object-reference)
@@ -65,15 +67,16 @@ Table of Contents
          * [The pymoso.chnbase Module](#the-pymosochnbase-module)
          * [The pymoso.chnutils Module](#the-pymosochnutils-module)
          * [The Oracle Class](#the-oracle-class)
+         * [Errors About Streams](#errors-about-streams)
          * [The MOSOSolver Class](#the-mososolver-class)
          * [The RASolver Class](#the-rasolver-class)
          * [The RLESolver Class](#the-rlesolver-class)
 
 ## Installation
-Since PyMOSO is programmed in Python, every PyMOSO user must first install Python, which can be downloaded from https://www.python.org/downloads/. PyMOSO is compatible with Python versions 3.6 and higher. In the remainder of this section, we assume an appropriate Python version is installed. We discuss three different methods to install PyMOSO: first, from the Python Packaging Index; second, directly from our source code using git; and third, manually installing PyMOSO from our source code.
+Since PyMOSO is programmed in Python, every PyMOSO user must first install Python, which can be downloaded from https://www.python.org/downloads/. PyMOSO requires Python 3.10 or higher. In the remainder of this section, we assume an appropriate Python version is installed. We discuss three different methods to install PyMOSO: first, from the Python Packaging Index; second, directly from our source code using git; and third, manually installing PyMOSO from our source code.
 
 ### Install PyMOSO from the Python Packaging Index using `pip`
-For ease of distribution, we keep stable, recent releases of PyMOSO on the Python Packaging Index (PyPI). Since the program `pip` is included in Python versions 3.6 and higher, we recommend using `pip` to install PyMOSO. To do so, open a terminal, type the following command, and press enter.  
+For ease of distribution, we keep stable, recent releases of PyMOSO on the Python Packaging Index (PyPI). Since the program `pip` is included with Python, we recommend using `pip` to install PyMOSO. To do so, open a terminal, type the following command, and press enter.  
 
 `pip install pymoso`  
 
@@ -86,20 +89,24 @@ Users with `git` installed can use `pip` to install the most current version of 
 
 We consider the latest source to be less stable than the fixed releases we upload to PyPI, and thus we recommend most users install PyMOSO from PyPI.  
 
+### Optional extras
+PyMOSO itself needs nothing beyond Python. Two optional extras add dependencies for specific uses:
+
+- `pip install "pymoso[notebook]"` adds `cloudpickle`. It is needed to run, with `simpar` or `proc` above 1, a problem, tester or solver class defined in a notebook cell, a REPL or inside a function, where a worker process cannot import it. Without it, such a call raises `ValueError` naming this extra.
+- `pip install "pymoso[spark]"` adds `pyspark`, for opening a Spark session on your own machine. On Databricks or any cluster that already provides Spark, install `pymoso[notebook]` instead; see [`docs/spark-backend.md`](docs/spark-backend.md).
+
 ### Install PyMOSO from Source Code
 Users may follow the steps below to manually install PyMOSO from any version of the source code.  
-1. Acquire the PyMOSO source code, for example, by downloading it from the repository https://github.com/HunterResearch/PyMOSO.
-1. Install the `wheel` package, e.g. using the `pip install wheel` command.
-1. Open a terminal and navigate into the main project directory which contains the file `setup.py`.
-1. Build the installable PyMOSO package, called a wheel, using the command `python setup.py bdist_wheel`. As with `pip`, some users may need to replace `python` with `python3` or something similar. The command should create a directory named `dist` containing the PyMOSO wheel.
-1. Install the PyMOSO wheel using pip install `dist/pymoso-x.x.x-py3-none-any.whl`, where users replace `x.x.x` with the appropriate PyMOSO version.
+1. Acquire the PyMOSO source code, for example, by downloading it from the repository https://github.com/pymoso/PyMOSO.
+1. Open a terminal and navigate into the main project directory, which contains the file `pyproject.toml`.
+1. Install it with `pip install .`. Alternatively, build a wheel with `pip install build` followed by `python -m build`, which creates a directory named `dist` containing the wheel, and install that with `pip install dist/pymoso-x.x.x-py3-none-any.whl`, replacing `x.x.x` with the version. As with `pip`, some users may need to replace `python` with `python3` or something similar.
 
 
 ## Command Line Interface (CLI)
 PyMOSO users solving MOSO problems and testing MOSO algorithms may do so using the command line interface. First, we show how to access the included help file. Then, we show how to view the lists of solvers, testers, and oracles installed by default with PyMOSO. Finally, we discuss the `solve` and `testsolve` commands.
 
 ### CLI help
-PyMOSO includes a command line help file. The help file shows syntax templates for every PyMOSO command, the available options, and a selection of example invocations. The `pymoso --help` invocation prints the file to the terminal. The file is also printed when PyMOSO cannot parse an invocation that begins with `pymoso`. We show the current help file below.  
+PyMOSO includes a command line help file. The help file shows syntax templates for every PyMOSO command, the available options, and a selection of example invocations. The `pymoso --help` invocation prints the file to the terminal. When PyMOSO cannot parse an invocation that begins with `pymoso`, it prints the usage line of the command and an error. We show the current help file below.  
 
 ```
 $ pymoso --help
@@ -302,21 +309,21 @@ Users can specify the simulation budget, which is currently set to a default of 
 
 `pymoso solve --budget=100000 myproblem.py RPERLE 12`  
 
-Users may specify to take simulation replications in parallel. We only recommend doing so if the user has thought through appropriate pseudo-random number stream control issues (see [Implementing PyMOSO Oracles](#implementing-pymoso-oracles)). Furthermore, due to the overhead of parallelization, we only recommend using the parallel simulation replications feature if observations are sufficiently "expensive" to compute, e.g. the simulation takes a half second or more to generate a single observation. We remark that the run-time complexity of the simulation oracle may not perfectly indicate when it is appropriate to use parallelization; other factors include, e.g., the total simulation budget.  
+Users may specify to take simulation replications in parallel. With an oracle that draws its random numbers from `rng` (see [Implementing PyMOSO Oracles](#implementing-pymoso-oracles)), the results are identical to a run without `--simpar`, for any number of processes. How much faster a run becomes depends on the cost of one replication and on how many replications the solver requests at once, which bounds the speedup whatever the number of processes; [`docs/simpar-ceiling.md`](docs/simpar-ceiling.md) has measurements.  
 
 `pymoso solve --simpar=4 myproblem.py RPERLE 44`  
 
-Currently, all PyMOSO solvers support using common random numbers. Users may enable the functionality using the `--crn` option.  
+All built-in solvers except `MOCOMPASS` and `MOPBnB` support common random numbers. Users may enable the functionality using the `--crn` option.  
 
 `pymoso solve --crn myproblem.py RMINRLE 62`  
 
 We do not recommend this option unless the oracle is implemented to be compatible, that is, the oracle uses PyMOSO's pseudo-random number generator to generate pseudo-random numbers or to provide a seed to an external `mrg32k3a` generator (see [Implementing PyMOSO Oracles](#implementing-pymoso-oracles)).   
 
-Users may specify an initial seed to PyMOSO's pseudo-random number generator using `--seed`, as comma-separated integers with no spaces. The required count and shape depend on which generator is selected (`--generator`, below): the default `mrg32k3a`, and `mrg31k3p`, both take 6 integers; `philox4x32` takes 2. The default seed is `12345` for each of `mrg32k3a`'s 6 components.  
+Users may specify an initial seed to PyMOSO's pseudo-random number generator using `--seed`, as comma-separated integers with no spaces. The required count and shape depend on which generator is selected (`--generator`, below): the default `mrg32k3a`, and `mrg31k3p`, both take 6 integers; `philox4x32` takes 2. The default seed is `12345` for each component: 6 of them for `mrg32k3a` and `mrg31k3p`, 2 for `philox4x32`.  
 
 `pymoso solve --seed 1111,2222,3333,4444,5555,6666 myproblem.py RPERLE 23`  
 
-Users may select which pseudo-random number generator to use with `--generator {mrg32k3a,mrg31k3p,philox4x32}` (default `mrg32k3a`). Only `mrg32k3a` and `mrg31k3p` support `--crn`; `philox4x32` does not yet (see [Known Issues](KNOWN_ISSUES.md)).  
+Users may select which pseudo-random number generator to use with `--generator {mrg32k3a,mrg31k3p,philox4x32}` (default `mrg32k3a`). Every generator supports `--crn`.  
 
 `pymoso solve --generator philox4x32 --seed 1111,2222 myproblem.py RPERLE 23`  
 
@@ -324,7 +331,7 @@ Users may specify algorithm-specific parameters (see the papers in which the alg
 
 `pymoso solve --param betadel 0.2 myproblem.py RPERLE 34`  
 
-Finally, users may specify any number of options in one invocation. However, all options must be specified in after the `solve` command and before the `myproblem.py` argument. Furthermore, any `--param` options must be the last options. (Note that the `\` at the end of the first line continues the command to the second line.)
+Finally, users may specify any number of options in one invocation, in any order. (Note that the `\` at the end of the first line continues the command to the second line.)
 
 `pymoso solve --crn --simpar=4 --budget=10000 --seed 1,2,3,4,5,6 \`  
 `     --odir=Exp1 --param mconst 4 --param betadel 0.7 myproblem.py RPERLE 97`  
@@ -414,7 +421,7 @@ PyMOSO can perform independent algorithm runs in parallel. Use the `--proc` opti
 
 `pymoso testsolve --crn --metric --isp=100 --proc=20 mytester.py RPERLE`  
 
-We remark here that, to ensure the algorithm runs remain independent using PyMOSO's pseudo-random number generator (see [Implementing PyMOSO Oracles](#implementing-pymoso-oracles)), researchers should set the total simulation budget so that the included algorithms do not surpass 200 retrospective approximation (RA) iterations. For reference, using the default settings, the sample size at every point in the 200th RA iteration is almost 380 million.  
+Every independent sample path has its own streams, with room for 2^31 retrospective approximation (RA) iterations (2^30 with `philox4x32`). A run that would exceed it raises `IterationOverflow` rather than continuing into another path's streams; with the default settings the sample size would long since have exceeded what any budget allows.  
 
 The `testsolve` command creates a results file for each independent sample path. The file contains the solutions generated at every algorithm iteration, such that the solution of iteration 2 is on line 2, iteration 10 on line 10, and so forth. If `--metric` is specified, PyMOSO generates a second file for each independent sample path containing the collection of triples (iteration number, simulations used at end of iteration, metric).  
 
@@ -426,7 +433,7 @@ Usually, implementing a PyMOSO oracle implies implementing a Monte Carlo simulat
 
 1. The function `g` must be an instance method of an `Oracle` sub-class, and thus take `self` as its first parameter.
 1. The function `g` must take an arbitrarily-named second parameter which is a tuple of length `self.dim` and represents a point. Stylistically, PyMOSO consistently names this parameter `x`.
-1. The function `g` must take an arbitrarily-named third parameter which is a modified Python `random.Random` object. Stylistically, PyMOSO consistently names this parameter `rng`.
+1. The function `g` must take an arbitrarily-named third parameter, a pseudo-random number generator with the methods of Python's `random.Random`. Stylistically, PyMOSO consistently names this parameter `rng`.
 1. The function `g` must return a boolean first and a tuple of length `self.num_obj` second.
    - The boolean is `True` if `x` is feasible, and `False` otherwise.
    - If `x` is feasible, the tuple contains a single observation of every objective. If `x` is not feasible, each element in the tuple is `None`.
@@ -438,7 +445,7 @@ If users already have an implemented simulation oracle, they may find it conveni
 from ctypes import CDLL, c_double, c_uint, c_int, Structure
 import os.path
 libname = 'mysim.so'
-libabspath = os.path.dirname(os.path.abspath(__file__)) + os.path.sep + dll_name
+libabspath = os.path.dirname(os.path.abspath(__file__)) + os.path.sep + libname
 libobj = CDLL(libabspath)
 
 class Simout(Structure):
@@ -476,16 +483,16 @@ class MyProblem(Oracle):
 ```
 
 
-[The C wrapper example](#example-oracle-that-wraps-a-c-simulation) is a valid PyMOSO oracle which wraps a C function. However, PyMOSO algorithms cannot enable common random numbers on this oracle. Furthermore, PyMOSO cannot guarantee that observations are independent when taken in parallel. To enable these properties, the external simulation must use `mrg32k3a` as the generator and must accept a user-specified seed.  
+[The C wrapper example](#example-oracle-that-wraps-a-c-simulation) is a valid PyMOSO oracle which wraps a C function. However, PyMOSO algorithms cannot enable common random numbers on this oracle. Furthermore, PyMOSO cannot guarantee that observations are independent when taken in parallel. To enable these properties, the external simulation must use the same generator as the run (`mrg32k3a` by default) and must accept a user-specified seed.  
 
-Suppose the library `mysim.so` also implements the function `set_simseed` which accepts a long array representing an `mrg32k3a` seed. We modify the [wrapper](#example-oracle-that-wraps-a-c-simulation) for compatibility with common random numbers and to guarantee independence of parallel observations.  [The new wrapper](#example-wrapper-with-pymoso-random-numbers) demonstrates using `rng.get_seed()` to return the current `mrg32k3a` seed.
+Suppose the library `mysim.so` also implements the function `set_simseed` which accepts an array of six 64-bit integers representing an `mrg32k3a` seed. (A component of an `mrg32k3a` seed can exceed 2^31, so a C `long`, which is 32 bits on Windows, is not wide enough.) We modify the [wrapper](#example-oracle-that-wraps-a-c-simulation) for compatibility with common random numbers and to guarantee independence of parallel observations.  [The new wrapper](#example-wrapper-with-pymoso-random-numbers) demonstrates using `rng.get_seed()` to return the current `mrg32k3a` seed.
 
 #### Example Wrapper with PyMOSO Random Numbers
 ```python
-from ctypes import CDLL, c_double, c_uint, c_int, Structure, c_long
+from ctypes import CDLL, c_double, c_uint, c_int, Structure, c_int64
 import os.path
 libname = 'mysim.so'
-libabspath = os.path.dirname(os.path.abspath(__file__)) + os.path.sep + dll_name
+libabspath = os.path.dirname(os.path.abspath(__file__)) + os.path.sep + libname
 libobj = CDLL(libabspath)
 
 class Simout(Structure):
@@ -510,9 +517,9 @@ class MyProblem(Oracle):
         objective_values = (None, None)
         # get the PyMOSO seed from rng
         seed = rng.get_seed()
-        # convert the seed to c_long array
-        c_longarr = c_long*6
-        c_seed = c_longarr(seed[0], seed[1], seed[2], seed[3], seed[4], seed[5])
+        # convert the seed to an array of 64-bit integers
+        c_int64arr = c_int64*6
+        c_seed = c_int64arr(seed[0], seed[1], seed[2], seed[3], seed[4], seed[5])
         # use the library function to set the sim seed
         csetseed(c_seed)
         # g takes only one observation so set the c_func parameter to 1
@@ -532,9 +539,13 @@ class MyProblem(Oracle):
 
 Alternatively, if the number of required pseudo-random numbers is known, users can use `rng.random()` to generate pseudo-random numbers and then pass them to an external simulation if such functionality is supported.
 
-The `rng` object is implemented as a sub-class of Python's `random.Random` class, thus the official Python documentation for `random` applies to `rng` and is found at https://docs.python.org/3/library/random.html. In addition to `rng` using `mrg32k3a` as its generator, we also implement `rng.normalvariate` such that it uses the Beasley-Springer-Moro algorithm (Law 2015, p. 458) to approximate the inverse of the standard normal cumulative distribution function.
+The `rng` object provides the methods of Python's `random.Random` class: with `mrg32k3a` and `mrg31k3p` it is a sub-class of `random.Random`, and with `philox4x32` it is an adapter offering the same methods. The official Python documentation for `random` therefore applies to `rng` and is found at https://docs.python.org/3/library/random.html. With every generator, `rng.normalvariate` uses the Beasley-Springer-Moro algorithm (Law 2015, p. 458) to approximate the inverse of the standard normal cumulative distribution function.
 
-When using `rng`, to ensure independent sampling of observations, PyMOSO "jumps" forward in the pseudo-random number stream after obtaining every simulation replication. Each jump is of fixed size 2^76 pseudo-random numbers. Thus, we require that every simulation replication use fewer than 2^76 pseudo-random numbers. We ensure independence among parallel replications by "giving" each processor a stream (an `rng`), each of which is 2^127 pseudo-random numbers apart. When using the current PyMOSO algorithms that rely on RA, each RA iteration begins the next available independent stream 2^127, where PyMOSO accounts for the possibility of parallel computation within an RA iteration. Thus, in a given RA iteration, a user may simulate 100 million points at a sample size of 1 million, without common random numbers, and easily not reach the limit.
+When using `rng`, PyMOSO computes where each replication's random numbers begin from its coordinates -- the run's seed, the RA iteration, the point, and the replication's number -- rather than by walking one stream forward. Replications are therefore independent of each other, and a run's results do not depend on the order in which replications are taken or on which process takes them.
+
+Without common random numbers, each replication has room for 16,384 uniform draws, with every generator. Most methods of `rng` (`random`, `normalvariate`, `expovariate`, ...) use one draw per call. A `g` that uses more raises `ReplicationDrawOverflow` instead of reaching into the next replication's random numbers. With `--crn`, replications are 2^76 draws apart (more with `philox4x32`), and every point in an RA iteration uses the same replications. Every RA iteration, and every independent sample path of `testsolve`, has streams of its own.
+
+A point is a tuple of numbers. A whole number of any numeric type is that integer, so `30.0` and `30` are the same point with the same random numbers. A point containing `nan`, an infinity or something that is not a number is reported infeasible without calling `g`, with and without `--crn`.
 
 ### Implementing PyMOSO Testers  
 Consider again the [example tester](#the-example-tester). As a minimal valid PyMOSO tester, users may do nothing but assign the `MyTester` member `self.ranorc` to a PyMOSO oracle, such as [`MyProblem`](#the-example-oracle), in Line 27. However, we expect most users to leverage PyMOSO features by implementing metrics and  feasible point generators. The function `get_ranx0` allows the tester to generate feasible points to `MyProblem` and `metric` allows the tester to compute a metric on sets returned by a solver. Researchers may implement any number of additional supporting functions, including members and methods of the tester class. The `true_g` function is an example of such a supporting function, which is used to compute the example metric.  
@@ -546,20 +557,20 @@ First, we list the rules for implementing a feasible point generator.
 
 Since a researcher's desired metric depends on the algorithm capabilities and problem complexity, PyMOSO allows researchers to implement any metric they choose. We provide three example metrics, but first, we list the implementation rules of the `metric` function.  
 
-1. The \inline{metric} function must be an instance method of a tester, and thus take \inline{self} as its first parameter.
-1. The second parameter of \inline{metric} is arbitrarily named and is a Python set of tuples.
-1. PyMOSO does not enforce the return value of \inline{metric}, but we recommend a scalar real number.
+1. The `metric` function must be an instance method of a tester, and thus take `self` as its first parameter.
+1. The second parameter of `metric` is arbitrarily named and is a Python set of tuples.
+1. PyMOSO does not enforce the return value of `metric`, but we recommend a scalar real number.
 
 The metric implemented in the [example tester](#the-example-tester) is the Hausdorff distance from (a) the true image of an estimated solution returned by an algorithm, to (b) the true solution hard-coded as `myanswer`.  
 
-For an example of a different metric, consider a MOSO problem that has more than one local efficient set (LES) and such that each LES contains no members of another LES. Since an algorithm that converges to a LES is may find only one LES, we may define the metric to compute the Hausdorff distance between the true image of the estimated solution and the "closest" true LES, as follows. Let `self.answer` be implemented as a list of sets, and assume a `self.true_g` implementation. Then the [following example](#example-metric-1) implements the described metric.  
+For an example of a different metric, consider a MOSO problem that has more than one local efficient set (LES) and such that each LES contains no members of another LES. Since an algorithm that converges to a LES may find only one LES, we may define the metric to compute the Hausdorff distance between the true image of the estimated solution and the "closest" true LES, as follows. Let `self.answer` be implemented as a list of sets, and assume a `self.true_g` implementation. Then the [following example](#example-metric-1) implements the described metric.  
 
 #### Example Metric 1
 ```python
 def metric(self, eles):
     # use the distance to the closest set.
     epareto = [self.true_g(point) for point in eles]
-    # self.soln is a list of sets
+    # self.answer is a list of sets
     dist_list = [dh(epareto, les) for les in self.answer]
     return min(dist_list)
 ```
@@ -571,7 +582,7 @@ For single-objective problems with one correct solution `x*`, a simple metric th
 def metric(self, singleton_set):
     # single objective algorithms still return a set
     point, = singleton_set
-    # let self.soln be a real number
+    # let self.answer be a real number
     dist = abs(self.true_g(point) - self.answer)
     return dist
 ```
@@ -606,7 +617,7 @@ class MyAccel(RLESolver):
 In the second category, algorithm designers can quickly implement any RA algorithm by sub-classing `RASolver` and implementing the `spsolve` function, as shown in the [RA solver template](#template-ra-solver). The algorithm can be a single-objective algorithm. PyMOSO cannot guarantee the convergence of such algorithms. The template is technically valid in PyMOSO but is probably not effective.  
 
 #### Template RA Solver
-As written below, this template cannot reach a normal budget-exhausted stop when run via `solve()`, at any budget: `spsolve` never calls `self.estimate`, so `self.num_calls` never advances past 0. It does not run forever, though -- the retrospective-approximation loop's own iteration-dependent sample-size formula (`calc_b`) eventually overflows Python's float range and raises `OverflowError` (thousands of fast, simulation-free iterations in, not immediately, and naming neither this template nor the real cause). A real implementation must call `self.estimate` (directly, or via `self.upsample`/`self.spline`) to make progress against the budget; see KNOWN_ISSUES.md for the exact failure this produces as written.
+As written below, this template cannot reach a normal budget-exhausted stop when run via `solve()`, at any budget: `spsolve` never calls `self.estimate`, so `self.num_calls` never advances past 0. It does not run forever, though -- after about 3,900 simulation-free iterations, a few milliseconds, the retrospective-approximation loop's own iteration-dependent search-limit formula (`calc_b`) overflows Python's float range and raises `OverflowError: (34, 'Numerical result out of range')`, naming neither this template nor the real cause. A real implementation must call `self.estimate` (directly, or via `self.upsample`/`self.spline`) to make progress against the budget; see KNOWN_ISSUES.md for the exact failure this produces as written.
 
 ```python
 from pymoso.chnbase import RASolver
@@ -620,6 +631,23 @@ class MyRAAlg(RASolver):
         return warm_start
 ```
 
+A solver that takes parameters of its own declares their names in a class attribute `PARAMS`, a tuple of strings, and removes them from its keyword arguments before calling `super().__init__(orc, **kwargs)`:
+
+```python
+from pymoso.solvers.rperle import RPERLE
+
+class MyTunedRPERLE(RPERLE):
+    '''R-PERLE with a parameter of its own.'''
+    PARAMS = ('stubbornness',)
+
+    def __init__(self, orc, **kwargs):
+        # take this solver's own parameters before passing the rest on
+        self.stubbornness = kwargs.pop('stubbornness', 1.0)
+        super().__init__(orc, **kwargs)
+```
+
+A parameter no class in the solver's hierarchy takes -- a misspelling, or a parameter of another solver -- raises `TypeError` naming it and listing the parameters the solver does take. A parameter's value must be a real number, and is passed to the solver as a float.
+
 Though analogous to those of an `RLESolver.accel` method, for completeness, we list the requirements for an `RASolver.spsolve` method.
 1. The `spsolve` function must be an instance method of an `RASolver` object, and thus its first parameter must be `self`.
 1. The second parameter is arbitrarily named and is a set of tuples. We recommend naming the parameter `warm_start` as it represents the sample-path solution of the previous RA iteration.
@@ -631,7 +659,7 @@ In the third category, PyMOSO can accommodate any simulation optimization algori
 1. The `solve` function must return a dictionary (we name it `results` in our example) with at least 3 keys: `'itersoln'`, `'simcalls'`, `'endseed'`. Researchers may track additional data and add it to `results` as desired.
    - The `'itersoln'` key itself corresponds to a dictionary with a key for each algorithm iteration labeled {0, 1, ...}. The value at each iteration is a set containing the estimated solution at the end of the iteration.
    - The `'simcalls'` key itself corresponds to a dictionary with a key for each algorithm iteration labeled {0, 1, ...}. The value at each iteration is a natural number containing the cumulative number of simulation replications taken at the end of the iteration.
-   - The `'endseed'` key corresponds to a tuple of length 6, representing an `mrg32k3a` seed. The algorithm programmer should ensure the stream generated by `results['endseed']` is independent of all streams used by the algorithm.
+   - The `'endseed'` key corresponds to a seed for the run's generator from which no stream the algorithm used can be reached. `self.orc.get_endseed()` computes it from the oracle's own record of the streams it used.
 
 Researchers may use the [MOSO template](#template-moso-solver)  to implement new simulation optimization algorithms.  
 
@@ -650,7 +678,7 @@ class MyMOSOAlg(MOSOSolver):
         return results
 ```
 
-For convenience, in the mini-sections below, we also provide some example code snippets that we find useful when implementing algorithms in PyMOSO. They work without modification when using the templates above that inherit \inline{RLESolver} or \inline{RASolver}, but some functions may require implementation or modification for use in a `MOSOSolver`. For reference, [this section](#pymoso-object-reference) contains a list of most objects accessible to PyMOSO programmers.
+For convenience, in the mini-sections below, we also provide some example code snippets that we find useful when implementing algorithms in PyMOSO. They work without modification when using the templates above that inherit `RLESolver` or `RASolver`, but some functions may require implementation or modification for use in a `MOSOSolver`. For reference, [this section](#pymoso-object-reference) contains a list of most objects accessible to PyMOSO programmers.
 
 ##### Take Simulation Replications at a Point
 ```python
@@ -720,7 +748,7 @@ one_in_five = solver_rng.choice(ran_pts)
 ```
 
 ### Using `solve` and `testsolve` in Python Programs
-Users may the `solve` and `testsolve` functions within a Python program.
+Users may use the `solve` and `testsolve` functions within a Python program. `solve` returns the solution and the seed the run ended at; `testsolve` returns a dictionary of every sample path's results and the seed the run ended at.
 
 #### Minimal `solve` Example
 ```python
@@ -733,7 +761,8 @@ import myproblem as mp
 
 # specify an x0. In MyProblem, it is a tuple of length 1
 x0 = (97,)
-soln = solve(mp.MyProblem, rp.RPERLE, x0)
+# solve returns the solution and the seed the run ended at
+soln, endseed = solve(mp.MyProblem, rp.RPERLE, x0)
 print(soln)
 ```
 #### Some `solve` Examples with Options
@@ -741,17 +770,24 @@ print(soln)
 # example for specifying budget and seed
 budget=10000
 seed = (111, 222, 333, 444, 555, 666)
-soln1 = solve(mp.MyProblem, rp.RPERLE, x0, budget=budget, seed=seed)
+soln1, endseed1 = solve(mp.MyProblem, rp.RPERLE, x0, budget=budget, seed=seed)
 
 # specify crn and simpar
-soln2 = solve(mp.MyProblem, rp.RPERLE, x0, crn=True, simpar=4)
+soln2, endseed2 = solve(mp.MyProblem, rp.RPERLE, x0, crn=True, simpar=4)
 
 # specify algorithm specific parameters
-soln3 = solve(mp.MyProblem, rp.RPERLE, x0, radius=2, betaeps=0.3, betadel=0.4)
+soln3, endseed3 = solve(mp.MyProblem, rp.RPERLE, x0, radius=2, betaeps=0.3, betadel=0.4)
 
 # mix them
-soln4 = solve(mp.MyProblem, rp.RPERLE, x0, crn=True, seed=seed, radius=5)
+soln4, endseed4 = solve(mp.MyProblem, rp.RPERLE, x0, crn=True, seed=seed, radius=5)
 ```
+
+#### Selecting a Generator, and Running on Spark
+`solve` and `testsolve` take `generator=` with the same values as the CLI's `--generator` (`'mrg32k3a'`, the default, `'mrg31k3p'` or `'philox4x32'`); `seed=` must then have that generator's length.
+
+They also take `backend=`, which decides where worker processes run. Without it, `simpar` and `proc` start processes on this machine. `pymoso.backends.spark.SparkBackend(spark)` runs `testsolve`'s sample paths, or `solve`'s replications, as Spark tasks, with results identical to the same call without `backend=`. [`docs/spark-backend.md`](docs/spark-backend.md) describes it, including when sending replications to a cluster pays.
+
+`pymoso.dispatch_cost(problem, x, replications=..., parts=..., backend=...)` times one request for replications in this process and on a backend, and reports both times and whether the results were identical. It runs only when called.
 
 #### A `testsolve` Example
 ```python
@@ -771,7 +807,7 @@ run_data = testsolve(MyTester, rp.RPERLE, x0, isp=100, crn=True, radius=2)
 ```
 
 #### Computing a Metric on `testsolve` Output
-Programmers must compute their metric. Here, `run_data` is a dictionary of the form described [here](#implementing-pymoso-algorithms) and we compute the metric on the 5th iteration of of the 12th independent algorithm instance.
+Programmers must compute their metric. Here, `run_data[0]` is a dictionary with one entry per independent sample path, each of the form described [here](#implementing-pymoso-algorithms), and we compute the metric on the 5th iteration of of the 12th independent algorithm instance.
 ```python
 iter5_soln = run_data[0][11]['itersoln'][4]
 isp12_iter5_metric = MyTester().metric(iter5_soln)
@@ -783,9 +819,10 @@ The `pymoso.prng.mrg32k3a` module exposes the default pseudo-random number gener
 
 | Object | Description |
 | ------ | ----------- |
-| `MRG32k3a` | Sub-class of random.Random, defines all `rng` objects. |
-| `get_next_prnstream(seed)` | Return an `rng` object seeded 2^127 steps from the input seed.|
-| `jump_substream(rng)` | Seed the input `rng` object 2^76 steps forward. |
+| `MRG32k3a` | Sub-class of `random.Random`; the class of every `rng` object when `mrg32k3a` is selected. |
+| `stream_at(seed, stream, offset)` | Return an `rng` object positioned `stream` streams of 2^127 and `offset` steps from `seed`. This is how PyMOSO computes every stream it uses. |
+| `get_next_prnstream(seed)` | Return an `rng` object seeded 2^127 steps from the input seed. Kept from earlier versions; PyMOSO itself no longer uses it.|
+| `jump_substream(rng)` | Seed the input `rng` object 2^76 steps forward. Kept from earlier versions; PyMOSO itself no longer uses it. |
 
 ### The `pymoso.chnbase` Module
 The `pymoso.chnbase` module implements the base classes for oracles and solvers. Programmers should sub-class these when creating new PyMOSO implementations.
@@ -795,6 +832,11 @@ The `pymoso.chnbase` module implements the base classes for oracles and solvers.
 | `RLESolver` | Base class for implementing solvers using RLE. |
 | `RASolver` | Base class for implementing RA solvers.|
 |`MOSOSolver` | Base class for all solvers. |
+
+| Function | Description |
+| ------ | ----------- |
+|`accepted_params(solver_class)` | The parameter names a solver class declares in `PARAMS`, merged over the classes it inherits from, sorted. |
+|`reject_unknown_params(solver, leftover)` | Raise `TypeError` naming any parameter left in `leftover` and listing the accepted ones. For a solver that does not derive from `RASolver`, to call after taking its own parameters. |
 
 ### The `pymoso.chnutils` Module
 The `pymoso.chnutils` contains useful functions for implementing and testing algorithms.  
@@ -811,24 +853,33 @@ The `pymoso.chnutils` contains useful functions for implementing and testing alg
 |`get_setnbors(S, r)` | Input: a set of tuples, and the neighborhood radius. Return: the union of `get_nbors(s, r)` for every `s` in `S`. |
 | `dh(A, B)` | Returns the Hausdorff distance between set `A` and set `B`. |
 |`edist(x1, x2)` | Return the Euclidean distance from `x1` to `x2`. |
-|`get_metric(results, tester)` | Input: `results` is a dictionary, the output of each sample path of `testsolve`. `tester` must implement `metric`. Returns: The set of triples (iteration, simulation count, metric) for an algorithm run.|
+|`gen_metric(results, tester)` | Input: `results` is a dictionary, the output of one sample path of `testsolve`. `tester` must implement `metric`. Returns: a dictionary with one triple (iteration, simulation count, metric) per algorithm iteration.|
 
 ### The `Oracle` Class
-When implementing `RASolver` algorithms, programmers may not need to access `Oracle` objects directly at all. When implementing `MOSOSolver` algorithms, programmers will use (or wrap) `hit` and `crn_advance()`.  
+When implementing `RASolver` algorithms, programmers may not need to access `Oracle` objects directly at all. When implementing `MOSOSolver` algorithms, programmers will use (or wrap) `hit` or `hit_many`.  
 
 | Member/Method | Description |
 | ------ | ----------- |
 |`num_obj` | A positive integer, the number of objectives.|
 |`dim` | A positive integer, the dimensionality of feasible points. |
-| `rng` | An instance of `MRG32k3a`.|
-|`hit(x, n)` | Take `n` observations of `x`. Return: `True`, and a tuple containing the mean of the observations for each objective, and a tuple containing the standard error for each objective if `x` is feasible. The function handles CRN internally. |
-|`set_crnflag(bool)` | Turn CRN on (`True`) or off. |
-|`set_crnold(state)` | Save the `rng` state as the CRN baseline, e.g. for an algorithm iteration. Get the state using `rng.getstate()`. |
-|`crn_reset()` | Back the oracle `rng` to the CRN baseline. |
-|`crn_advance()` | If CRN is on, reset, and then jump to the next independent pseudo-random stream and save the new baseline, e.g. before starting a new algorithm iteration. |
-|`crn_setobs()` | Set an intermediate CRN for individual oracle observations. |
-|`crn_nextobs()` | Jump the `rng` forward, e.g. after taking an observation, and `crn_setobs` the seed. |
-|`crn_check()` | f CRN is on, return to the baseline. Otherwise, use `crn_nextobs` before taking the next observation. |
+| `rng` | The oracle's stream, an instance of the selected generator's stream class. The streams `g` receives are computed from it. |
+|`hit(x, m, visit=0, sync=None)` | Take `m` observations of `x`. Return: whether `x` is feasible, a tuple containing the mean of the observations for each objective, and a tuple containing the standard error for each objective. Without CRN, a second call for the same `x` in the same RA iteration takes new observations; with CRN, it takes the same ones again. `visit` and `sync` are for solvers that control which observations are shared (see `docs/rng-interface-design.md`, sections 4.1 and 4.3). The function handles CRN internally. |
+|`hit_many(requests)` | The same as `[hit(x, m) for x, m in requests]`, with every observation handed to the parallel processes together under `--simpar`. |
+|`set_crnflag(bool)` | Turn CRN on (`True`) or off. Off unless set. |
+|`get_endseed()` | A seed for the run's generator from which none of the streams this oracle used can be reached. |
+
+### Errors About Streams
+Each of these is raised instead of letting two uses of random numbers overlap, and is importable from `pymoso.prng.base`.
+
+| Exception | Raised when |
+| ------ | ----------- |
+|`ReplicationDrawOverflow` | Without CRN, one replication of `g` used more than its 16,384 uniform draws. |
+|`ReplicationOverflow` | One `hit` asked for more replications than a coordinate holds (2^32 with `mrg32k3a` and `mrg31k3p`, 2^30 with `philox4x32`). |
+|`IterationOverflow` | A run passed the RA iterations one sample path has room for (2^31, or 2^30 with `philox4x32`). |
+|`IspOverflow` | `testsolve` was asked for more independent sample paths than the generator lays out. |
+|`RoleDrawOverflow` | A solver's own stream, or the stream that draws starting points, used more than one stream holds. |
+|`SyncOverflow`, `VisitOverflow` | A solver passed `hit` a `sync` or `visit` value too large. |
+|`PointCodeCollision` | Two different points in one RA iteration would have shared random numbers. Possible only for points too large or too many-dimensional for an exact code. |
 
 ### The `MOSOSolver` Class
 
@@ -848,7 +899,7 @@ The class implements a common structure for all RA algorithms, including: cachin
 
 | Member/Method | Description |
 | ------ | ----------- |
-|`sprn` | An instance of `MRG32k3a` for the solver to use.|
+|`sprn` | The solver's own stream, of the selected generator, for the solver to use.|
 |`nbor_rad` | The neighborhood radius used by solvers seeking local optimality. |
 | `gbar` | A dictionary where every key and value is a tuple. The keys are feasible points, values are their objective values. `gbar` is "wiped" every retrospective iteration. |
 |`sehat` | Exactly like `gbar` except the values are standard errors.|
@@ -862,7 +913,7 @@ The class implements a common structure for all RA algorithms, including: cachin
 
 ### The `RLESolver` Class
 
-The sub-class of \inlinetwo{RASolver} adds RLE and its relaxation.
+The sub-class of `RASolver` adds RLE and its relaxation.
 
 | Member/Method | Description |
 | ------ | ----------- |

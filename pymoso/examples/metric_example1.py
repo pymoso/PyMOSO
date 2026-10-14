@@ -14,6 +14,6 @@ from pymoso.chnutils import dh
 def metric(self, eles):
     # use the distance to the closest set.
     epareto = [self.true_g(point) for point in eles]
-    # self.soln is a list of sets
+    # self.answer is a list of sets
     dist_list = [dh(epareto, les) for les in self.answer]
     return min(dist_list)

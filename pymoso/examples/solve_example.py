@@ -7,19 +7,20 @@ import myproblem as mp
 
 # specify an x0. In MyProblem, it is a tuple of length 1
 x0 = (97,)
-soln = solve(mp.MyProblem, rp.RPERLE, x0)
+# solve returns the solution and the seed the run ended at
+soln, endseed = solve(mp.MyProblem, rp.RPERLE, x0)
 print(soln)
 
 # example for specifying budget and seed
 budget=10000
 seed = (111, 222, 333, 444, 555, 666)
-soln1 = solve(mp.MyProblem, rp.RPERLE, x0, budget=budget, seed=seed)
+soln1, endseed1 = solve(mp.MyProblem, rp.RPERLE, x0, budget=budget, seed=seed)
 
 # specify crn and simpar
-soln2 = solve(mp.MyProblem, rp.RPERLE, x0, crn=True, simpar=4)
+soln2, endseed2 = solve(mp.MyProblem, rp.RPERLE, x0, crn=True, simpar=4)
 
 # specify algorithm specific parameters
-soln3 = solve(mp.MyProblem, rp.RPERLE, x0, radius=2, betaeps=0.3, betadel=0.4)
+soln3, endseed3 = solve(mp.MyProblem, rp.RPERLE, x0, radius=2, betaeps=0.3, betadel=0.4)
 
 # mix them
-soln4 = solve(mp.MyProblem, rp.RPERLE, x0, crn=True, seed=seed, radius=5)
+soln4, endseed4 = solve(mp.MyProblem, rp.RPERLE, x0, crn=True, seed=seed, radius=5)
