@@ -52,4 +52,7 @@ def test_a_reference_to_a_missing_test_is_caught():
 
 
 def test_the_unverified_claims_are_listed():
+    if not (ROOT / "docs").is_dir():
+        # A source distribution ships tests/ but not docs/.
+        pytest.skip("docs/ is not part of the sdist")
     assert (ROOT / "docs" / "unverified-claims.md").is_file()
