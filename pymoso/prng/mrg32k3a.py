@@ -22,9 +22,15 @@ import random
 from math import log
 
 from .base import (
-    REPL_RESERVE_BITS, REPL_COUNT_BITS, POINT_BITS, point_width, offset_within_iteration,
+    REPL_RESERVE_BITS, REPL_COUNT_BITS, VISIT_BITS, POINT_BITS, point_width, offset_within_iteration,
     encode_point, offset_from_point_code,
 )
+import functools
+
+# Uniform draws per unit of `offset`: one raw value is one draw. A
+# replication's reserve, 2**REPL_RESERVE_BITS units, is that many draws
+# (oracle.py, Oracle.replication_draws).
+DRAWS_PER_OFFSET = 1
 # point_width/offset_within_iteration re-exported directly, not wrapped
 # (contrast philox4x32.py's own versions): base.py's *default* budget
 # (POINT_BITS=75/VISIT_BITS=6/REPL_COUNT_BITS=32/REPL_RESERVE_BITS=14)
@@ -741,6 +747,12 @@ class MRG32k3a(random.Random):
         return MRG32k3a(jump_seed_n(self.get_seed(), delta))
 
 
+@functools.lru_cache(maxsize=16)
+def _jump_power_of_two(n):
+    """The two jump matrices for `n` steps, `n` a power of two."""
+    return _mat_pow_mod(_m1_step, n, mrgm1i), _mat_pow_mod(_m2_step, n, mrgm2i)
+
+
 def jump_seed_n(seed, n):
     """
     Advance a full 6-component seed n steps, via the generalized
@@ -780,6 +792,10 @@ def jump_seed_n(seed, n):
         p1, p2 = _jump76_p1, _jump76_p2
     elif n == ITER_STRIDE:
         p1, p2 = _jump127_p1, _jump127_p2
+    elif n > 0 and n & (n - 1) == 0:
+        # A power of two: a replication stride other than the default
+        # (Oracle.replication_draws). Its matrices are computed once.
+        p1, p2 = _jump_power_of_two(n)
     else:
         ns1 = _jump_n(s1, _m1_step, n, mrgm1i)
         ns2 = _jump_n(s2, _m2_step, n, mrgm2i)

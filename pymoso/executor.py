@@ -733,6 +733,8 @@ class SerialExecutor(Executor):
                         'a single replication of x={0} drew {1} raw values, '
                         'exceeding its reserved block of {2} '
                         '-- it overran the next replication\'s starting position. '
+                        'A problem whose g() needs more sets replication_draws on '
+                        'its Oracle class. '
                         'See docs/rng-interface-design.md §3.4.'.format(block.x, drawn, block.stride)
                     )
                 outcomes.append(Replication(isfeas, objectives, drawn))

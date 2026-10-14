@@ -100,7 +100,9 @@ def test_a_problem_whose_points_need_the_hash_solves_end_to_end(monkeypatch):
             hashed_points.add(tuple(x))
         return code, hashed
 
-    monkeypatch.setattr(mrg32k3a, "encode_point", spying_encode)
+    # Oracle reads prng.base's encode_point, with the point-code width
+    # that Oracle.replication_draws leaves; patch that name.
+    monkeypatch.setattr(prng_base, "encode_point", spying_encode)
 
     class FarAway(Oracle):
         def __init__(self, rng):

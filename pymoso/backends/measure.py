@@ -153,7 +153,9 @@ def dispatch_cost(problem, x, *, replications, parts, backend, jobs=5, generator
     mod = registry.get_generator(generator)
     x = tuple(x)
     stream = mod.stream_at(mod.DEFAULT_SEED, 0, 0)
-    block = ReplicationBlock(x, stream.root_seed(), 1, 0, mod.REPL_RESERVE_STRIDE, replications)
+    # The stride the problem's own replications get without CRN.
+    stride = 1 << problem.replication_reserve_bits(mod)
+    block = ReplicationBlock(x, stream.root_seed(), 1, 0, stride, replications)
     handle = ClassHandle(problem, remote=getattr(backend, 'remote', False))
 
     def timed(executor):

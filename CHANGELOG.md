@@ -93,13 +93,22 @@ too; numerical results changed there.
   (`KNOWN_ISSUES.md` issue 17), as they could in 1.1.0. Not fixed: the
   fix would change results on 3.12 and later.
 
-### A limit that was there in 1.1.0, now documented
+### A limit that was there in 1.1.0, now documented and adjustable
 
 Without common random numbers, one replication of `g` may make at most
 16,384 uniform draws (most methods of `rng` use one per call). One
 more raises `ReplicationDrawOverflow` instead of drawing from the next
 replication's numbers. This has been so since 1.1.0, which did not say
-so; its README promised 2^76. With `--crn`, replications are 2^76
+so; its README promised 2^76.
+
+An oracle whose `g` needs more now says so on its class:
+`replication_draws = 2**20`, any power of two up to 2^40. The room
+comes out of the code a point's random numbers are computed from, so
+points with large or many components fall back to a hashed code
+sooner; at 2^40, a two-dimensional point is coded exactly only up to
+about 8.4 million a component. A hashed collision raises
+`PointCodeCollision`. Setting it changes that oracle's random numbers;
+leaving it alone changes nothing. With `--crn`, replications are 2^76
 draws apart (more with `philox4x32`), as before.
 
 ### Added

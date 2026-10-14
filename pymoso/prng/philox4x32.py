@@ -187,6 +187,10 @@ VISIT_BITS = 4
 REPL_COUNT_BITS = 30
 REPL_RESERVE_BITS = 12
 assert POINT_BITS + VISIT_BITS + REPL_COUNT_BITS + REPL_RESERVE_BITS == 118
+# Uniform draws per unit of `offset`: a counter position is four 32-bit
+# words, and random() uses one word. The default reserve, 2**12
+# positions, is 16,384 draws, the MRG family's figure.
+DRAWS_PER_OFFSET = 4
 assert OFFSET_CAPACITY == 1 << (POINT_BITS + VISIT_BITS + REPL_COUNT_BITS + REPL_RESERVE_BITS)
 
 # §12 step 6b: the per-replication stride oracle.py's _hit_via_

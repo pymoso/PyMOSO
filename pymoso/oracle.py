@@ -15,6 +15,7 @@ Oracle(object), class
 from statistics import mean, variance
 from math import sqrt
 from .prng import registry
+from .prng import base as _prng_base
 from .prng.base import (
     ReplicationOverflow, IterationOverflow, SyncOverflow, PointCodeCollision, one_past,
     canonical_point, PointNotEncodable,
@@ -22,6 +23,12 @@ from .prng.base import (
 from .executor import (
     ReplicationBlock, SerialExecutor, PoolExecutor, InProcessHandle, ClassHandle,
 )
+
+
+# The largest replication_draws accepted: 2**40 draws leaves the MRG
+# family 49 bits of point code (Philox 46). Past it, hashed point codes
+# start to collide at realistic numbers of points per iteration.
+MAX_REPLICATION_DRAWS = 1 << 40
 
 
 class Oracle(object):
@@ -120,6 +127,7 @@ class Oracle(object):
         # real path sets it" posture as the three seed attributes
         # above) -- see registry.backend_for_stream.
         self._backend_name = None
+        self._repl_reserve_bits = None
         # crnflag=False continuation tracking (§4.1) -- how many
         # replications hit() has already drawn for (x, visit) within
         # the current iteration, so a repeat call gets the next
@@ -142,6 +150,54 @@ class Oracle(object):
         # `_iteration` advances.
         self._high_water_mark = None
         super().__init__()
+
+    # How many uniform draws one replication of g() may make without
+    # common random numbers, with every generator. One more raises
+    # ReplicationDrawOverflow. A problem whose g() needs more sets this
+    # on its class, to a power of two up to 2**40; every replication
+    # then starts that far from the last. The bits come out of the code
+    # a point's position is computed from, so a larger value makes
+    # points with large or many components fall back to a hashed code
+    # sooner (prng/base.py, encode_point), and a hashed collision raises
+    # PointCodeCollision. With --crn and sync=, replications are 2**76
+    # draws apart (more with Philox) whatever this says. A class
+    # attribute, not an argument: it is a property of g(), and a worker
+    # rebuilding the oracle from its class gets it with the class.
+    replication_draws = 1 << 14
+
+    @classmethod
+    def replication_reserve_bits(cls, backend):
+        """
+        `replication_draws`, in the selected generator's units of
+        offset: the log2 of the stride between replications when
+        common random numbers are off.
+
+        Parameters
+        ----------
+        backend : module
+            The selected generator's own module.
+
+        Returns
+        -------
+        int
+
+        Raises
+        ------
+        ValueError
+            If `replication_draws` is not a power of two between the
+            generator's draws per unit of offset and 2**40.
+        """
+        draws = cls.replication_draws
+        unit = backend.DRAWS_PER_OFFSET
+        if (not isinstance(draws, int) or isinstance(draws, bool) or draws < unit
+                or draws > MAX_REPLICATION_DRAWS or draws & (draws - 1)):
+            raise ValueError(
+                '{0}.replication_draws must be a power of two from {1} to 2**40, '
+                'got {2!r}. It is the number of uniform draws one replication of '
+                'g() may make without common random numbers; the default is '
+                '16384.'.format(cls.__name__, unit, draws)
+            )
+        return (draws // unit).bit_length() - 1
 
     @property
     def _backend(self):
@@ -255,6 +311,7 @@ class Oracle(object):
         self.crnflag = crnflag
         backend = registry.backend_for_stream(self.rng)
         self._backend_name = registry.GENERATOR_NAMES[backend]
+        self._repl_reserve_bits = type(self).replication_reserve_bits(backend)
         self._iteration = 0
         self._close_executor()
         # Fixed for the Oracle's lifetime, unlike `_iteration` above:
@@ -763,11 +820,18 @@ class Oracle(object):
             # hash when it does not (a high-dimensional problem). Either
             # way the code is checked against every other point this
             # iteration has used before anything is drawn.
-            code, _hashed = backend.encode_point(x)
+            # replication_draws moves bits between the replication's
+            # reserve and the point code; the default moves none.
+            reserve_bits = self._repl_reserve_bits
+            point_bits = backend.POINT_BITS - (reserve_bits - backend.REPL_RESERVE_BITS)
+            code, _hashed = _prng_base.encode_point(x, point_bits=point_bits)
             self._record_point_code(code, x)
             stream = self._iteration
-            offset = backend.offset_from_point_code(code, visit, start_replication)
-            stride = backend.REPL_RESERVE_STRIDE
+            offset = _prng_base.offset_from_point_code(
+                code, visit, start_replication, visit_bits=backend.VISIT_BITS,
+                repl_count_bits=backend.REPL_COUNT_BITS, repl_reserve_bits=reserve_bits,
+            )
+            stride = 1 << reserve_bits
         # Work as data. `stride` is also each replication's reserve:
         # how many raw values its g() may draw before running into the
         # next replication's start -- the executor checks it on every

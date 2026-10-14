@@ -71,8 +71,9 @@ from .mrg32k3a import (
     OFFSET_CAPACITY, ISP_ITER_MARGIN, ISP_STREAM_SPAN, ISP_STRIDE,
     SYNC_ROLE_OFFSET, SYNC_ZONE_STREAM_START, SYNC_STRIDE, SYNC_PER_STREAM,
     SYNC_CAPACITY, REPL_COUNT_LIMIT, POINT_BITS, point_width, offset_within_iteration,
-    encode_point, offset_from_point_code,
+    encode_point, offset_from_point_code, REPL_COUNT_BITS, VISIT_BITS, DRAWS_PER_OFFSET,
 )
+import functools
 from .mrg_common import (
     mat333mult as _mat333mult,
     mat311mod as _mat311mod,
@@ -456,6 +457,12 @@ class MRG31k3p(random.Random):
         return MRG31k3p(jump_seed_n(self.get_seed(), delta))
 
 
+@functools.lru_cache(maxsize=16)
+def _jump_power_of_two(n):
+    """The two jump matrices for `n` steps, `n` a power of two."""
+    return _mat_pow_mod(_m1_step, n, mrg31m1), _mat_pow_mod(_m2_step, n, mrg31m2)
+
+
 def jump_seed_n(seed, n):
     """
     Advance a full 6-component seed n steps, via the generalized
@@ -488,6 +495,10 @@ def jump_seed_n(seed, n):
         p1, p2 = _jump76_p1, _jump76_p2
     elif n == ITER_STRIDE:
         p1, p2 = _jump127_p1, _jump127_p2
+    elif n > 0 and n & (n - 1) == 0:
+        # A power of two: a replication stride other than the default
+        # (Oracle.replication_draws). Its matrices are computed once.
+        p1, p2 = _jump_power_of_two(n)
     else:
         ns1 = _jump_n(s1, _m1_step, n, mrg31m1)
         ns2 = _jump_n(s2, _m2_step, n, mrg31m2)
