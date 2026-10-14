@@ -44,7 +44,7 @@ cross-point batching at all -- see ProbExpensiveBi's docstring.
 """
 from hashlib import sha256
 
-from ..chnbase import Oracle
+from ..oracle import Oracle
 
 
 def _burn(units):

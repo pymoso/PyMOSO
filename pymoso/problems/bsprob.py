@@ -3,7 +3,7 @@ Summary
 -------
 Provides implementation of the Bus Scheduling problem for use in PyMOSO.
 """
-from ..chnbase import Oracle
+from ..oracle import Oracle
 
 class BSProb(Oracle):
     """

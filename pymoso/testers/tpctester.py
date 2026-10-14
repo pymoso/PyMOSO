@@ -6,7 +6,7 @@ Provide the tester for Test Problem C
 """
 from ..problems import probtpc
 from math import sin, exp, sqrt
-from ..chnutils import dh
+from ..moso import dh
 
 
 df = 2

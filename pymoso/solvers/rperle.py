@@ -7,7 +7,7 @@ bi-objective simulation optimization solver.
 """
 import sys
 from ..chnbase import RLESolver
-from ..chnutils import get_biparetos, get_nondom
+from ..moso import get_biparetos, get_nondom
 
 
 class RPERLE(RLESolver):

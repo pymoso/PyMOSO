@@ -4,7 +4,7 @@ Summary
 -------
 Provides implementation of the Test Problem C Oracle for use in PyMOSO.
 """
-from ..chnbase import Oracle
+from ..oracle import Oracle
 from math import exp, sqrt, sin
 
 

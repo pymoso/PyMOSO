@@ -9,7 +9,7 @@ from math import ceil, log, sqrt
 from itertools import islice, product
 
 from ..chnbase import MOSOSolver, reject_unknown_params
-from ..chnutils import get_nondom
+from ..moso import get_nondom
 
 
 class MOPBnB(MOSOSolver):

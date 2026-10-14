@@ -4,7 +4,7 @@ Summary
 -------
 Provides implementation of the Test Problem A Oracle for use in PyMOSO.
 """
-from ..chnbase import Oracle
+from ..oracle import Oracle
 
 
 class ProbTPA(Oracle):

@@ -6,7 +6,7 @@ Provide an implementation of R-Pe for users needing a
 bi-objective simulation optimization solver. 
 """
 from ..chnbase import RASolver
-from ..chnutils import get_biparetos
+from ..moso import get_biparetos
 import sys
 
 

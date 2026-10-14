@@ -9,7 +9,6 @@ import time
 import collections
 import importlib.util
 from datetime import date
-from .. import chnutils as mprun
 from .. import solvers
 from .. import problems
 from .. import testers

@@ -9,7 +9,7 @@ from itertools import product
 from math import ceil, floor, log
 
 from ..chnbase import MOSOSolver, reject_unknown_params
-from ..chnutils import get_setnbors, get_nondom, enorm, edist
+from ..moso import get_setnbors, get_nondom, enorm, edist
 
 #*************************
 # algorithm-specific parameters

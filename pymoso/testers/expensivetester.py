@@ -9,7 +9,7 @@ ProbExpensive simulates the identical distribution as ProbSimpleSO
 with a CPU burn layered on top that does not change it.
 """
 from ..problems import probexpensive
-from ..chnutils import edist
+from ..moso import edist
 
 
 def true_g(x):

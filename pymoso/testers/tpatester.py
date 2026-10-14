@@ -5,7 +5,7 @@ Summary
 Provide the tester for Test Problem B
 """
 from ..problems import probtpa
-from ..chnutils import dh
+from ..moso import dh
 
 
 def true_g(x):

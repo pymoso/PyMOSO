@@ -5,7 +5,7 @@ Summary
 Provide the tester for Test Simple SO problem
 """
 from ..problems import probsimpleso
-from ..chnutils import edist
+from ..moso import edist
 
 
 def true_g(x):

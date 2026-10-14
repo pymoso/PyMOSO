@@ -5,7 +5,7 @@ Summary
 Provides implementation of the Test Simple SO Problem
 Oracle for use in PyMOSO.
 """
-from ..chnbase import Oracle
+from ..oracle import Oracle
 
 
 class ProbSimpleSO(Oracle):
