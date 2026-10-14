@@ -13,7 +13,10 @@ HunterResearch/PyMOSO was a stale snapshot and is now archived; the
 file is tracked in git; edits to it are commits.
 
 1.1.0 is released on PyPI from the `release-1.1.0` branch and tagged
-`v1.1.0`, with `master` pointing at it. Version history before that is
+`v1.1.0`. `master` is `v1.1.0` plus five CI and test-only commits
+(2026-09-22, Windows/macOS CI); no `release-1.1.0` branch is on
+GitHub. Decided in Phase 6: `dev-2.0` becomes the default branch and
+`master` stays where it is as the 1.1.0 record -- no merge. Version history before that is
 inconsistent upstream: `pymoso/master` installed as `1.0.7` while PyPI
 had `1.0.8`, so that released wheel corresponds to no commit — the
 INFORMS archival snapshot (github.com/INFORMSJoC/2019.0902) is 1.0.8
@@ -507,23 +510,18 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   document's own scope note explains why (caveats in new example code,
   not framework defects across released versions, the frame this file
   and `KNOWN_ISSUES.md` both use).
-- The README's own `MyMOSOAlg`/`MOSOSolver`-authoring template still
-  tells solver authors to "use (or wrap) `hit` and `crn_advance()`" —
-  and its `Oracle` method table still lists `crn_advance()` and five
-  other `crn_*` methods. **None of them exist any more**: the
-  solver-facing `crn_*` surface is removed (`Oracle._advance_iteration()`
-  is framework-internal). The README template and table are now
-  wrong, not merely inadvisable; they go in the Phase 6 README rewrite,
-  with the `python setup.py bdist_wheel` install line.
-- `crn_advance()`'s removal is a deliberate 2.0 API change, so it is
-  recorded for the CHANGELOG (Phase 6), not in `KNOWN_ISSUES.md`, which
-  is for defects. `KNOWN_ISSUES.md` issue 14 (`bump()` removal) is the
-  same kind of entry and is inconsistent with that rule; left in place
-  for now, to be settled together with this one when the CHANGELOG is
-  written. Migration text for both: `bump(x, m)` -> `hit(x, m)`;
-  `orc.crn_advance()` in a custom `MOSOSolver` -> delete the line.
-- The README's "Table of Algorithm-Specific Parameters" is the one
-  remaining solver-facing doc that isn't test-enforced against live
+- **Closed (Phase 6):** the README's `crn_*` table, the
+  `crn_advance()` advice and the `setup.py` install line are gone.
+  `bump()` and `crn_advance()` are in `CHANGELOG.md` with their
+  migration. `KNOWN_ISSUES.md` issue 14 (`bump()`) stays where it is:
+  the CHANGELOG cites it, and the file's numbering is not to change.
+- **Closed (Phase 6): the parameter table is generated** from
+  `PARAMS` (`tests/test_readme_param_table.py`); defaults and
+  descriptions live in `tests/_solver_param_docs.py`, checked against
+  the solvers by construction, not by attribute names. What follows
+  is the history.
+  The README's "Table of Algorithm-Specific Parameters" was the one
+  remaining solver-facing doc that wasn't test-enforced against live
   output (CLI help/`listitems` blocks are, via
   `tests/test_readme_help_text.py`'s "Layer 3" treatment) — it's
   hand-maintained prose nothing diffs against solvers' actual `__init__`
@@ -555,9 +553,8 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   not MRG's `2^76`, which was the first draft and the second time a
   Philox constant nearly inherited an MRG-specific value (see the end
   of §12 step 9). Every registered generator supports both `crnflag`
-  values. The README's `--generator` prose still says Philox does not
-  support `--crn`; that sentence is wrong now and goes in the Phase 6
-  README rewrite (the generated CLI-help block is already current).
+  values. (The README's claim that Philox does not support `--crn` was
+  corrected in Phase 6.)
 - **Closed:** `SYNC_ROLE_OFFSET` (2^175) exceeded `ISP_STRIDE` (2^159):
   a path's sync zone lay 2^16 slots above its own. The sync zone is now
   nested inside each isp path's slot (`SYNC_ZONE_STREAM_START` =
@@ -665,6 +662,34 @@ The decisions below are landed, not pending. Full reasoning in
     budget stops bounding the work (KNOWN_ISSUES.md issue 16); radius
     above 1 is genuinely large in high dimension; and solution quality
     there was checked on one easy quadratic only.
+
+- **Phase 6 (documentation and release preparation), what a later
+  session needs:**
+  - `CHANGELOG.md` is the only migration path for 1.x users. Its lists
+    of names no longer importable are computed against the v1.1.0 tag,
+    not from the Phase 5 notes above, which were relative to the Phase
+    4 tree. `solve()` gives 1.1.0's results for the same seed; only
+    `testsolve()` moved (issue 10).
+  - **The 16,384-draw per-replication limit shipped in 1.1.0,**
+    undocumented. It is now `Oracle.replication_draws`, a class
+    attribute (a power of two up to 2^40); the bits come out of the
+    point code. Class attribute by decision: it belongs to `g()`, and
+    workers rebuild the oracle from the class.
+  - `MOSOSolver.__init__` takes `x0` and `sprn` (kept if a sub-class
+    set them first) and refuses any other leftover, by decision.
+    `isp_run` fills in `oracle_high_water_mark` for a solver that does
+    not report it. An `Oracle` used directly initializes as if
+    `set_crnflag(False)` on first `hit()`.
+  - **README Layer 5:** factual claims carry `<!-- verified: ... -->`
+    naming their tests (`tests/test_readme_claims.py` checks the tests
+    exist). A new claim needs one, or an entry in
+    `docs/unverified-claims.md`.
+  - **Release order, decided:** the maintainer's prose pass first; then
+    a version-bump commit that also turns the README's relative
+    `docs/` links into absolute links to the `v2.0.0` tag (PyPI renders
+    the README, where relative links break). Those links resolve only
+    once the tag is pushed, so the tag is pushed before the PyPI
+    upload. TestPyPI rehearses with `2.0.0rc1`.
 
 ## Still in flight
 
