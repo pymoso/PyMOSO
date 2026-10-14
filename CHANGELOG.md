@@ -140,6 +140,15 @@ draws apart (more with `philox4x32`), as before.
   point with the same random numbers. A point containing a `nan`, an
   infinity or a non-number is reported infeasible without calling
   `g()`, with or without `--crn`; 1.1.0 crashed on it without `--crn`.
+- **A `MOSOSolver` sub-class receives `x0` and `sprn` without
+  defining `__init__`.** `solve()` and `testsolve()` always pass both,
+  and `MOSOSolver.__init__` took only the oracle, so a sub-class that
+  did not take them itself failed with "unexpected keyword argument
+  'x0'" -- in every released version, although the README said `x0`
+  was available as `self.x0`. The base now takes both, sets them to
+  `None` when they are not passed, and keeps a value a sub-class set
+  before calling it, so solvers written the old way are unchanged. Any
+  other leftover parameter raises `TypeError` naming it.
 - **`hit()` on an `Oracle` used directly,** without `solve()` or
   `testsolve()`, works as if `set_crnflag(False)` had been called. It
   raised `KeyError: None`.

@@ -653,7 +653,7 @@ Though analogous to those of an `RLESolver.accel` method, for completeness, we l
 1. The second parameter is arbitrarily named and is a set of tuples. We recommend naming the parameter `warm_start` as it represents the sample-path solution of the previous RA iteration.
 1. The return value must be a set of tuples representing feasible points; we do not recommend any particular name.  
 
-In the third category, PyMOSO can accommodate any simulation optimization algorithm by implementing the `solve` function of a `MOSOSolver` sub-class [as shown](#template-moso-solver). It does not have to be a multi-objective algorithm. PyMOSO will require users to send an initial feasible point `x0` whether or not the algorithm needs it. The initial feasible point `x0` is accessed through `self.x0` which is a tuple. We now list the rules for implementing any `MOSOSolver.solve` function.
+In the third category, PyMOSO can accommodate any simulation optimization algorithm by implementing the `solve` function of a `MOSOSolver` sub-class [as shown](#template-moso-solver). It does not have to be a multi-objective algorithm. PyMOSO will require users to send an initial feasible point `x0` whether or not the algorithm needs it. The initial feasible point `x0` is accessed through `self.x0` which is a tuple. A sub-class need not define `__init__` to receive it: `MOSOSolver` takes `x0`, and the solver's own stream `sprn`, whether or not the algorithm uses them, and refuses any other parameter no class in the solver's hierarchy takes. <!-- verified: tests/test_custom_mososolver.py::test_a_solver_with_no_constructor_receives_x0_and_sprn; tests/test_custom_mososolver.py::test_an_unknown_parameter_is_still_refused_by_name --> A sub-class with parameters of its own declares them in `PARAMS` and removes them before calling `super().__init__(orc, **kwargs)`, as shown [above](#template-ra-solver). We now list the rules for implementing any `MOSOSolver.solve` function.
 1. The `solve` function must be an instance method of `MOSOSolver`, and thus take `self` as its first parameter.
 1. The second parameter is the simulation budget, a natural number.
 1. The `solve` function must return a dictionary (we name it `results` in our example) with at least 3 keys: `'itersoln'`, `'simcalls'`, `'endseed'`. Researchers may track additional data and add it to `results` as desired.
@@ -892,6 +892,7 @@ The class provides a basic structure for implementing new MOSO algorithms in PyM
 |`num_obj`| Similarly, the number of objectives in `self.orc`. |
 |`num_calls` | A running count of the number of simulation replications taken of `self.orc`.|
 |`x0` | A feasible starting point. This point is additionally supplied to algorithms that don't need one.|
+|`sprn` | The solver's own stream, of the selected generator, for the solver's own random choices. |
 
 ### The `RASolver` Class
 

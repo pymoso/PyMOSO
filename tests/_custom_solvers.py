@@ -31,3 +31,18 @@ class ReportsItsHighWaterMark(DocumentedKeysOnly):
         results = super().solve(budget)
         results['oracle_high_water_mark'] = self.orc.get_high_water_mark()
         return results
+
+
+class NoConstructor(MOSOSolver):
+    """The README's MOSOSolver contract with no __init__ at all: x0 and
+    sprn arrive through the base class."""
+
+    def solve(self, budget):
+        itersoln, simcalls, nu = {}, {}, 0
+        while self.num_calls < budget:
+            self.orc.hit(self.x0, 10)
+            self.num_calls += 10
+            itersoln[nu] = {self.x0}
+            simcalls[nu] = self.num_calls
+            nu += 1
+        return {'itersoln': itersoln, 'simcalls': simcalls, 'endseed': self.orc.get_endseed()}

@@ -93,14 +93,34 @@ class MOSOSolver(object):
     Parameters
     ----------
     orc: Oracle object
+    x0 : tuple, optional
+        The starting point. `solve()` and `testsolve()` always pass it.
+    sprn : the solver's own stream, optional
+        Always passed by `solve()` and `testsolve()`.
+    **kwargs
+        Anything else is a parameter no class in the solver's hierarchy
+        took, and raises `TypeError` naming it.
 
     Notes
     -----
     The solve attribute must be implemented in sub-classes for use in
     PyMOSO.
+
+    A sub-class need not use `x0` or `sprn`, nor take them itself. One
+    that does -- removing them from its keyword arguments and setting
+    `self.x0`/`self.sprn` before calling this -- keeps its values, as
+    `RASolver` and every solver written for 1.x does. Until 2.0 this
+    method took only the oracle, so a sub-class that did not take both
+    itself could not be run at all.
     """
 
-    def __init__(self, orc):
+    def __init__(self, orc, **kwargs):
+        for name in ('x0', 'sprn'):
+            if name in kwargs:
+                setattr(self, name, kwargs.pop(name))
+            elif not hasattr(self, name):
+                setattr(self, name, None)
+        reject_unknown_params(self, kwargs)
         self.orc = orc
         self.num_calls = 0
         self.num_obj = self.orc.num_obj
