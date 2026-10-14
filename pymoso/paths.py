@@ -71,6 +71,11 @@ def isp_run(boovsolver, budget, orc, **kwargs):
     sprn = kwargs.get('sprn')
     solver = boovsolver(orc, **kwargs)
     mydat = solver.solve(budget)
+    # testsolve() combines every path's high-water mark into the run's
+    # end seed. The README's contract for a MOSOSolver's results names
+    # three keys and not this one; the oracle the solver was handed
+    # knows it, so a solver need not report it.
+    mydat.setdefault('oracle_high_water_mark', orc.get_high_water_mark())
     # The solver role's own boundary (KNOWN_ISSUES.md issue 10): checked
     # here, where the path ran -- under --proc that is a worker process,
     # and the stream's count never reaches the parent.
