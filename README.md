@@ -26,9 +26,11 @@ Table of Contents
       * [Reference](#reference)
       * [Additional Reading](#additional-reading)
       * [Installation](#installation)
-         * [Install PyMOSO from the Python Packaging Index using pip](#install-pymoso-from-the-python-packaging-index-using-pip)
-         * [Install PyMOSO from the repository using pip](#install-pymoso-from-the-repository-using-pip)
-         * [Install PyMOSO from Source Code](#install-pymoso-from-source-code)
+         * [Before you begin](#before-you-begin)
+         * [Install PyMOSO from the Python Packaging Index](#install-pymoso-from-the-python-packaging-index)
+         * [Install PyMOSO from the repository](#install-pymoso-from-the-repository)
+         * [Install PyMOSO from source code](#install-pymoso-from-source-code)
+         * [Confirm the installation](#confirm-the-installation)
          * [Optional extras](#optional-extras)
       * [Command Line Interface (CLI)](#command-line-interface-cli)
          * [CLI help](#cli-help)
@@ -73,34 +75,92 @@ Table of Contents
          * [The RLESolver Class](#the-rlesolver-class)
 
 ## Installation
-Since PyMOSO is programmed in Python, every PyMOSO user must first install Python, which can be downloaded from https://www.python.org/downloads/. PyMOSO requires Python 3.10 or higher. In the remainder of this section, we assume an appropriate Python version is installed. We discuss three different methods to install PyMOSO: first, from the Python Packaging Index; second, directly from our source code using git; and third, manually installing PyMOSO from our source code.
+Since PyMOSO is programmed in Python, every PyMOSO user must first install Python. We discuss three different methods to install PyMOSO: first, from the Python Packaging Index; second, directly from our source code using git; and third, installing PyMOSO from a copy of our source code. PyMOSO itself needs nothing beyond Python; the [optional extras](#optional-extras) at the end of this section add dependencies for specific uses.
 
-### Install PyMOSO from the Python Packaging Index using `pip`
-For ease of distribution, we keep stable, recent releases of PyMOSO on the Python Packaging Index (PyPI). Since the program `pip` is included with Python, we recommend using `pip` to install PyMOSO. To do so, open a terminal, type the following command, and press enter.  
+### Before you begin
 
-`pip install pymoso`  
+PyMOSO requires Python 3.10 or newer, which can be downloaded from https://www.python.org/downloads/. PyMOSO 1.0.8 and earlier ran on Python 3.6. To check which version you have, open a terminal and run `python --version`. On Windows, use `py --version`; on some systems, use `python3 --version`.
 
-Depending on how users configure their Python installation and how many version of Python they install, they may need to replace `pip` with `pip3`, or other variants of `pip`.  
+We recommend installing PyMOSO into a *virtual environment*, a self-contained folder that keeps PyMOSO and its setup separate from other Python software on your computer. Many recent operating systems require this and will refuse to install packages without one. To create and activate a virtual environment, open a terminal, navigate to the folder where you want to work, and run:
 
-### Install PyMOSO from the repository using `pip`
-Users with `git` installed can use `pip` to install the most current version of PyMOSO directly from our source code:  
+On macOS and Linux:
 
-`pip install git+https://github.com/pymoso/PyMOSO.git`  
+```shell
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-We consider the latest source to be less stable than the fixed releases we upload to PyPI, and thus we recommend most users install PyMOSO from PyPI.  
+On Windows:
+
+```shell
+py -m venv .venv
+.venv\Scripts\activate
+```
+
+While the environment is active, the commands `python` and `pip` refer to the environment's own copy, on every operating system. Run the activation command again whenever you open a new terminal to use PyMOSO.
+
+In a hosted notebook, such as Databricks, the notebook's environment takes the place of a virtual environment; see [Optional extras](#optional-extras).
+
+### Install PyMOSO from the Python Packaging Index
+
+We keep stable releases of PyMOSO on the Python Packaging Index (PyPI), and we recommend this method for most users. With your virtual environment active, run:
+
+```shell
+python -m pip install pymoso
+```
+
+We write `python -m pip` rather than `pip` because it guarantees that PyMOSO is installed for the same Python you will run it with.
+
+This installs the latest release. PyMOSO 2 changes some commands and functions from PyMOSO 1; [`CHANGELOG.md`](CHANGELOG.md) lists what to change. To stay on PyMOSO 1, run `python -m pip install "pymoso<2"` instead.
+
+### Install PyMOSO from the repository
+
+Users with `git` installed can install PyMOSO directly from our source code:
+
+```shell
+python -m pip install "git+https://github.com/pymoso/PyMOSO.git"
+```
+
+This installs whatever the repository's default branch holds at that moment: the development version of PyMOSO 2, which may be newer than the latest release and is less tested. We consider it less stable than the releases we publish to PyPI, and thus we recommend most users install PyMOSO from PyPI. To install a specific release from the repository instead, add its tag to the address, for example:
+
+```shell
+python -m pip install "git+https://github.com/pymoso/PyMOSO.git@v2.0.0"
+```
+
+### Install PyMOSO from source code
+
+Users may follow the steps below to install PyMOSO from any version of the source code.
+
+1. Acquire the PyMOSO source code from https://github.com/pymoso/PyMOSO. Users without `git` can use the green **Code** button and choose **Download ZIP**, then unzip the file. Specific versions are available from the repository's **Releases** page.
+1. Open a terminal and navigate into the project directory, the folder that contains the file `pyproject.toml`.
+1. With your virtual environment active, install PyMOSO from the current directory:
+
+   ```shell
+   python -m pip install .
+   ```
+
+   The trailing `.` means "this folder."
+
+**Alternative: build a wheel file.** Most users can skip this. A wheel is PyMOSO packaged as a single installable file, which is sometimes what is needed when installing onto a cluster or a machine without internet access. From the project directory, with your virtual environment active, run:
+
+```shell
+python -m pip install build
+python -m build
+```
+
+This creates a folder named `dist` containing a file named like `pymoso-x.x.x-py3-none-any.whl`, where `x.x.x` is the version. Copy that file wherever it is needed and install it with `python -m pip install`, followed by the file's path.
+
+### Confirm the installation
+
+To confirm any of the three methods worked, run `pymoso --version`. It prints the version of PyMOSO that was installed. <!-- verified: tests/test_cli.py::test_version_exits_zero_and_prints_version -->
 
 ### Optional extras
-PyMOSO itself needs nothing beyond Python. <!-- verified: tests/test_dependency_boundary.py::test_the_core_runs_where_the_optional_dependencies_cannot_be_imported --> Two optional extras add dependencies for specific uses:
+PyMOSO itself needs nothing beyond Python: it has no third-party runtime dependencies. <!-- verified: tests/test_dependency_boundary.py::test_the_core_runs_where_the_optional_dependencies_cannot_be_imported --> Two optional extras add dependencies for specific uses. Most users need neither.
 
-- `pip install "pymoso[notebook]"` adds `cloudpickle`. It is needed to run, with `simpar` or `proc` above 1, a problem, tester or solver class defined in a notebook cell, a REPL or inside a function, where a worker process cannot import it. Without it, such a call raises `ValueError` naming this extra. <!-- verified: tests/test_library_arguments.py::test_the_advice_for_a_class_with_no_source_leads_with_the_notebook_extra; tests/test_path_jobs.py::test_a_tester_that_cannot_be_transported_is_refused_only_when_it_would_have_to_be -->
-- `pip install "pymoso[spark]"` adds `pyspark`, for opening a Spark session on your own machine. On Databricks or any cluster that already provides Spark, install `pymoso[notebook]` instead; see [`docs/spark-backend.md`](docs/spark-backend.md).
+- `python -m pip install "pymoso[notebook]"` adds `cloudpickle`, and nothing else. It is needed to run, with `simpar` or `proc` above 1, a problem, tester or solver class defined in a notebook cell, a REPL or inside a function, where a worker process cannot import it. Without it, such a call raises `ValueError` naming this extra. <!-- verified: tests/test_library_arguments.py::test_the_advice_for_a_class_with_no_source_leads_with_the_notebook_extra; tests/test_path_jobs.py::test_a_tester_that_cannot_be_transported_is_refused_only_when_it_would_have_to_be --> This is the extra a notebook on your own computer needs.
+- `python -m pip install "pymoso[spark]"` adds `pyspark` (and `cloudpickle`), for opening a Spark session on your own machine. On Databricks or any cluster that already provides Spark, do not install it: it would install PyPI's `pyspark` over the cluster's own. Install `pymoso[notebook]` there instead; see [`docs/spark-backend.md`](docs/spark-backend.md).
 
-### Install PyMOSO from Source Code
-Users may follow the steps below to manually install PyMOSO from any version of the source code.  
-1. Acquire the PyMOSO source code, for example, by downloading it from the repository https://github.com/pymoso/PyMOSO.
-1. Open a terminal and navigate into the main project directory, which contains the file `pyproject.toml`.
-1. Install it with `pip install .`. Alternatively, build a wheel with `pip install build` followed by `python -m build`, which creates a directory named `dist` containing the wheel, and install that with `pip install dist/pymoso-x.x.x-py3-none-any.whl`, replacing `x.x.x` with the version. As with `pip`, some users may need to replace `python` with `python3` or something similar.
-
+An extra works with the other two methods too: `python -m pip install "pymoso[notebook] @ git+https://github.com/pymoso/PyMOSO.git"` from the repository, or `python -m pip install ".[notebook]"` from source code.
 
 ## Command Line Interface (CLI)
 PyMOSO users solving MOSO problems and testing MOSO algorithms may do so using the command line interface. First, we show how to access the included help file. Then, we show how to view the lists of solvers, testers, and oracles installed by default with PyMOSO. Finally, we discuss the `solve` and `testsolve` commands.

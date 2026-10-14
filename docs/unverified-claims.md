@@ -47,6 +47,15 @@ the documents that record the measurements.
   checks resolve them, but no test reads the declaration.
 - **Python 3.10 or higher.** `requires-python` in `pyproject.toml`,
   exercised by CI's 3.10-3.14 matrix, not by a test.
+- **The installation commands.** `python -m pip install .`, the
+  `git+` form with an extra and with a tag, `"pymoso<2"` resolving to
+  1.1.0, and `python -m build` producing an installable wheel were
+  each run by hand in a fresh virtual
+  environment on Linux (2026-10-14), not by a test; `clean-clone`
+  covers only an editable install of `.[test]`. The Windows
+  virtual-environment commands have not been run. What the bare
+  `git+` command installs depends on the repository's default
+  branch, which is GitHub's setting, not the tree's.
 
 ## Descriptions of the algorithms
 

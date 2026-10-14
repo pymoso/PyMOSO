@@ -684,12 +684,20 @@ The decisions below are landed, not pending. Full reasoning in
     naming their tests (`tests/test_readme_claims.py` checks the tests
     exist). A new claim needs one, or an entry in
     `docs/unverified-claims.md`.
-  - **Release order, decided:** the maintainer's prose pass first; then
-    a version-bump commit that also turns the README's relative
-    `docs/` links into absolute links to the `v2.0.0` tag (PyPI renders
-    the README, where relative links break). Those links resolve only
-    once the tag is pushed, so the tag is pushed before the PyPI
-    upload. TestPyPI rehearses with `2.0.0rc1`.
+  - **Release order, decided, in this sequence:** (1) the maintainer's
+    prose pass; (2) bump to `2.0.0rc1`; (3) TestPyPI; (4) bump to
+    `2.0.0`; (5) tag `v2.0.0` and push the tag; (6) switch GitHub's
+    default branch to `dev-2.0`; (7) PyPI. Each bump is
+    `.git/phase6/bump.py`, which sets the version and turns every
+    relative link in the README into an absolute link to the `v2.0.0`
+    tag (PyPI renders the README, where relative links break), and
+    refuses to finish if a relative link it cannot rewrite remains.
+    Those links resolve only once the tag is pushed, hence (5) before
+    (7). **Do not switch the default branch early:** the README says
+    the bare `pip install git+...` command installs 2.0 development,
+    and 1.1.0's README on PyPI gives the same command, so until (6) the
+    README is wrong and after it 1.x users get 2.0 (the CHANGELOG's
+    first breaking-change entry says how to stay on 1.x).
 
 ## Still in flight
 

@@ -8,6 +8,15 @@ too; numerical results changed there.
 
 ### What breaks, and what to change
 
+- **The install commands in 1.1.0's README now install 2.0.**
+  `python -m pip install pymoso` installs the latest release, now
+  2.0.0. `python -m pip install "git+https://github.com/pymoso/PyMOSO.git"`
+  installs the
+  repository's default branch, which is now 2.0 development, not
+  1.1.0 -- newer than the latest release and less tested. To stay on
+  1.x, run `python -m pip install "pymoso<2"`, or pin the repository
+  install to the tag:
+  `python -m pip install "git+https://github.com/pymoso/PyMOSO.git@v1.1.0"`.
 - **`--seed` takes one comma-separated token.** `--seed 1 2 3 4 5 6`
   becomes `--seed 1,2,3,4,5,6`. The space-separated form was
   `nargs=6`, which could not accept the 2-integer Philox seed;
