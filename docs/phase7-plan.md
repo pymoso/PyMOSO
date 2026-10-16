@@ -377,3 +377,113 @@ From CLAUDE.md, repeated here because Phase 7 leans on them:
   issue 16).
 - **Bytecode caching:** set `PYTHONDONTWRITEBYTECODE=1` and clear
   `__pycache__` before any mutation check or stage swap.
+
+---
+
+## Appendix: superseded draft guidance
+
+Step 8 replaces the performance guidance drafted before any of this was
+measured. Those drafts were never committed, so they are preserved here for
+reference. Do not copy them into the README — they are recorded so the
+rewrite can see what was claimed and on what basis.
+
+Annotations mark what the many-objective measurements confirmed, corrected
+or left untested.
+
+### Draft: performance with many decision variables
+
+> The number of decision variables affects run time more than most other
+> factors, and the effect is not gradual.
+>
+> | Dimensions | Behaviour                                      |
+> | ---------- | ---------------------------------------------- |
+> | 1-3        | fast                                           |
+> | 6-9        | seconds                                        |
+> | 12-20      | minutes, and growing quickly                   |
+> | 50+        | hours on the default generator                 |
+>
+> Three things drive this.
+>
+> **More points get visited.** The solvers examine a neighbourhood around
+> each iterate, and the neighbourhood grows with dimension.
+>
+> **The default generator gets expensive.** With `mrg32k3a`, positioning
+> each replication's stream costs around 1.5 ms, paid once per block of
+> replications. At dimension 20 and above it can be most of the run time.
+> Use `--generator philox4x32` in high dimensions — about a microsecond
+> rather than a millisecond.
+>
+> **The budget stops meaning what you expect.** `--budget` is checked
+> between RA iterations, and one iteration's work grows with dimension. A
+> requested 1,000 may run 1,100 simulations at dimension 2, around 3,700 at
+> dimension 9, and hundreds of thousands at dimension 50.
+>
+> Practical guidance: up to about dimension 9 the built-in solvers are
+> comfortable; from dimension 10 switch to `philox4x32` first; expect
+> `--budget` to understate effort; parallelism divides the work, it does
+> not reduce it.
+
+**Status.** The dimension table came from one problem at one budget and was
+flagged as approximate when written. Not retested. The budget-overshoot
+claim is now better supported: the many-objective sweep requested 300k
+simulations and counted 300k–468k, with uncounted `g()` calls reaching
+1.76× the counted total at M = 6, of which 58–81% came from `get_ncn`.
+
+### Draft: performance with many objectives
+
+> Problems with more than three objectives are commonly called
+> "many-objective," and the distinction is not cosmetic.
+>
+> The proportion of points that are non-dominated rises steeply. Studies in
+> the deterministic literature find roughly 30% of a small sample
+> non-dominated with two objectives, about 50% with three, over 70% with
+> four, and over 90% with six or more.
+>
+> **The answer gets large.** The efficient set is the solution to your
+> problem, and at many objectives most of the feasible region may qualify.
+>
+> **Estimation gets harder at the same time.** Deciding whether one point
+> dominates another requires estimating both well enough to tell them
+> apart, and at many objectives the points being compared are close
+> together by construction.
+>
+> Practical guidance: with two objectives use `RPERLE`; with three,
+> `RMINRLE` is what is available and should be workable; with four or more
+> treat it as exploratory. Run a small budget first and look at how many
+> points come back — the size of the returned set is the best early
+> indicator of what a full run will cost. Do not use hypervolume as your
+> metric at many objectives.
+
+**Status.**
+
+*Confirmed.* The returned-set size is the right early indicator — it is
+literally the driver of the cost model, since `get_ncn` time is
+k(M) × Σ|S|² over iterations.
+
+*Corrected.* An earlier version of this draft attributed cost to
+maintaining the non-dominated set at roughly n² comparisons. `get_nondom`
+is about 2% of wall time; `get_ncn` is around 94% at M = 6. The quadratic
+term is real but it belongs to neighbourhood estimation, not dominance
+comparison. Roughly 40% of simulations go to `get_ncn` at every M, and
+about 90% to neighbourhood work at M ≥ 3.
+
+*Overstated.* "With three, `RMINRLE` should be workable" is too generous.
+At M = 3 all 25 efficient points are found by 100k simulations, but
+replications per point more than double between 100k and 300k while
+precision stays flat at about 0.28. At M ≥ 4 the target is not reached at
+300k. RMINRLE targets the whole efficient set, (L+1)^(M−1) points, so above
+three objectives it is not converging slowly — it is attempting something
+that does not finish at any affordable budget.
+
+*Untested.* The hypothesis that stochastic error compounds the
+many-objective difficulty beyond what the deterministic figures suggest.
+Experiment 3b reached precision 0.9 in 0 of 180 runs above M = 2 and so
+gives no scaling with M.
+
+### Not drafted, and still unwritten
+
+Guidance for `--simpar` and `--proc`, and for `dispatch_cost`. Drafts
+existed in conversation only and are not preserved here; the cluster
+measurements they were built on are in `docs/spark-backend.md` and
+`docs/simpar-ceiling.md`, which is the durable record. Step 8 should write
+these fresh from those documents.
