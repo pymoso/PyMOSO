@@ -335,10 +335,15 @@ it. The helper was not bypassed: it does exactly what its docstring
 promises. The unchecked link is between "the installation" and "the
 tree under test".
 
-The finding, with the proposed guard, is in
-`.git/manyobj/finding-subprocess-tree.md` (local to this machine; the
-durable summary is in `docs/phase7-plan.md`). The guard compares the
-in-process `pymoso.__file__` with the `-I` subprocess's at session
-start, and stops on a mismatch. **It is Phase 7's first task, before
-anything is measured in a worktree**, because measurements would
-inherit the problem.
+The finding is in `.git/manyobj/finding-subprocess-tree.md` (local to
+this machine; the durable summary is in `docs/phase7-plan.md`).
+
+**The guard is built** (commit `518cad2`, `tests/conftest.py`, Phase 7's
+first task). At session start it compares the in-process
+`pymoso.__file__` with the `-I` subprocess's and stops with a usage
+error naming both. It was seen stopping every split set up on purpose
+before it was trusted: an export of the tree run from its own
+directory and via PYTHONPATH from elsewhere, on both venvs; the
+`many-objective` tree at `d959c34`; and an environment with no pymoso
+installed. The 7 failures above were then shown to come from the split
+alone: the same tree installed into its own venv gave 0 failures.

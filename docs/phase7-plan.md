@@ -1,23 +1,55 @@
 # Phase 7 plan: runtime, complexity, and algorithmic completeness
 
 Written 2026-10-16 to close the many-objective measurement thread. This
-is the document a fresh session reads to start Phase 7. Nothing in it
-has been started. It records the scope, the order and what is already
-known, so that none of it depends on a chat session.
+is the document a fresh session reads to start Phase 7. It records the
+scope, the order and what is already known, so that none of it depends
+on a chat session.
+
+**Revised 2026-10-16, after step 1's bi-objective profile**
+(`docs/biobjective-profile.md`). The profile reordered the phase; the
+revisions are marked "Revised" where they land, and the original text
+is kept where a later reader would otherwise re-derive it. Done so
+far: the subprocess-tree guard (commit `518cad2`) and step 1's
+bi-objective profile (`5527f60`).
+
+## Decisions
+
+- **Phase 7 does not gate 2.0, except step 8** (decided 2026-10-16).
+  None of the defects found is a correctness bug, and the performance
+  work in steps 2 and 3 is immaterial at realistic simulation cost for
+  the bi-objective solvers (step 1). Step 8 still gates 2.0: the
+  performance guidance drafted for the README is wrong as it stands,
+  and the profile makes that case stronger. The drafts attributed the
+  cost to dominance comparison. Measured, it is simulation at
+  realistic cost, and neighbourhood estimation at many objectives.
+  The drafts were wrong in different directions (appendix).
+- **Infeasible re-simulation (step 1b) is pursued as its own step,
+  with its own sign-off**, not folded into step 2: it is the only
+  finding with leverage at realistic cost, and it is not
+  result-preserving by construction (it can move the end seed, though
+  no measured run's did: step 1b).
+- **The end seed is still recomputed every RA iteration, by
+  decision.** `rasolve` calls `Oracle.get_endseed()` each iteration
+  and only the last value is used. It is at most 1.8% of a Light-tier
+  run and negligible above that. Removing it would change when a
+  stream-family overflow raises, and could break an out-of-tree solver
+  that reads `self.endseed` mid-run. Do not re-propose it as a step-2
+  fix.
+- **NE stays first-improvement by default** (step 5, revised). The
+  difference from the MATLAB goes into step 7's audit as a
+  discrepancy. If a best-improvement toggle is built, it is for
+  comparison, default off.
 
 ## Open decisions (the maintainer's)
-
-- **Does Phase 7 gate the 2.0 release, or ship as 2.1?** None of the
-  defects below is a correctness bug. Steps 2 and 3 are plausible for
-  2.0; step 4 onward look like 2.1. The argument for holding 2.0: the
-  performance guidance drafted for the README is wrong as it stands
-  (step 8).
 - **How much of the pathological-problem work (steps 6 and 6b)
   belongs here, and how much in its own research track?** It is the
   most interesting output, and the least like the rest of the phase.
 - **Does the jump optimization (step 3) change end seeds?** It should
   not: the same streams, computed faster. Confirm before building, not
   after (`docs/end-seed-scope.md` before assuming either way).
+- **Does step 2 exist beyond `get_nondom`?** It depends on the
+  `get_ncn` early-exit ratio at three or more objectives, which step 1
+  measures next.
 
 ## First task, before anything is measured: the subprocess-tree guard
 
@@ -35,7 +67,20 @@ test passing against code that was not under test (the public-surface
 cycle check, the dependency boundary, the remote, by-value and Spark
 tests, all CLI tests).
 
-The guard proposed, not built: at session start (`conftest.py`,
+**Done (commit `518cad2`, `tests/conftest.py`).** It was seen
+stopping every split set up deliberately: an export of the tree run
+from its own directory and via PYTHONPATH from elsewhere, on both
+venvs; the `many-objective` tree at `d959c34`; and no pymoso installed
+at all. On `d959c34` without the guard, the split gave exactly the 7
+known failures; that tree installed into its own venv gave 1313
+passed, 0 failed, so the 7 came from the split and nothing else. It
+passes in the main checkout on both venvs, on extras, and in CI's
+`clean-clone` job (the run on `5527f60`, every job but the five
+Windows `test` cells green). The Windows failures are attributed, not
+read: the logs need a GitHub login. The new benchmark smoke test
+called Unix-only `os.getloadavg()`, and removing it locally fails that
+test the same way. Fixed in the next commit; the next Windows run
+confirms or refutes it. What was proposed, kept for the record: at session start (`conftest.py`,
 `pytest_configure`), compare the in-process `pymoso.__file__` with
 `[sys.executable, "-I", "-c", "import pymoso; print(pymoso.__file__)"]`,
 and stop with a usage error naming both paths. It must be seen failing
@@ -116,7 +161,169 @@ defaults and descriptions in `tests/_solver_param_docs.py`).
   `get_nondom` analysis predicted n(n-1)/2 and the counter refuted it.
   The derivation is a hypothesis, and the counter is the test.
 
+**Revised: the bi-objective profile is done** (`docs/biobjective-profile.md`,
+regenerated by `docs/bench_biobjective_profile.py`). R-PERLE, R-MinRLE
+and R-SPLINE, budget 10,000, MRG32k3a and Philox, the `ProbExpensive`
+tiers. What it changed, in short:
+- **At realistic cost, simulation is the run:** 97-99% at Moderate,
+  over 99% at Heavy (MRG32k3a), measured to within 1.4% by 36 real
+  tier runs against the model.
+- **Dominance work is irrelevant at two objectives:** `get_ncn`,
+  `remove_nlwep` and `is_lwep` together at most 0.07% of a Light-tier
+  run, `get_nondom` at most 0.01%. The 94% figure is many-objective
+  only.
+- **The MRG jump matters only for cheap simulations:** 5-19% at
+  Light, under 2.5% at Moderate, under 1% at Heavy. Philox already
+  removes it.
+- **The largest redundancy is simulation, not comparison:** from a
+  boundary start, 14-22% of all `g()` calls re-simulate a point already
+  found infeasible in the same iteration (step 1b).
+
+**At three or more objectives: measured 2026-10-16, before step 2 was
+scoped.** At two objectives part (b) does about three times the
+predicate work an early exit would need for the same `ncn` (4,617
+against 1,576 calls), and it does not matter there. At many objectives
+`get_ncn` is the cost, so the question was whether the excess is large
+there. RMINRLE on the many-objective baseline's lattice DTLZ2 (L = 4,
+sigma 0.05, Philox), budget 30,000, three seeds per M, 15 runs;
+`scratch/phase7/` has the script, the raw runs and a README. The
+early-exit shadow reached the same `ncn` as the real code on every
+call of every run. Load 0.41 at the start, about 1.0 during (the job
+itself).
+
+| M | mean \|S\| | (b) predicates done / needed | `calc_delta` done / needed | `get_ncn` share of run (time mode) |
+|---|---|---|---|---|
+| 2 | 9 | 2.6x | 10x | 6-8% |
+| 3 | 39-46 | 2.3-2.4x | 45-55x | 29-35% |
+| 4 | 101-117 | 2.1x | 146-167x | 58-63% |
+| 5 | 227-251 | 1.8-1.9x | 347-383x | 79-80% |
+| 6 | 276-332 | 1.6-1.8x | 445-546x | 82-86% |
+
+Counts are **measured**. Part (a) is already at its requirement (under
+0.5% excess).
+
+**The excess that grows with M is not the predicates: it is
+`calc_delta`.** Part (b) recomputes each member's relaxation `dels`
+for every candidate, |S| x |candidates| x M calls where
+(|S| + |candidates|) x M suffice, and |S| is what grows with M. The
+predicate excess shrinks as M grows.
+
+**What it would save (estimated, not measured):** counts times unit
+costs from a microbenchmark on this machine (`calc_delta` about 135-190
+ns, a predicate about 155 ns), against each run's uninstrumented wall
+time. Computing `dels` once per member and once per candidate: about
+10% of the run at M = 3, 21% at M = 4, 28-32% at M = 5-6. An early exit
+in part (b): about 15% at M = 3 to 12% at M = 6 (the M = 3 unit cost
+is the least reliable). On this cheap problem, so both shares fall as
+simulation cost rises. But `get_ncn` grows as sum |S|^2 and simulation
+does not, so at M = 6 it stays comparable to Light-tier simulation
+(about 26 s of Light-tier burn for these runs' 59k simulations, against
+about 28 s of `get_ncn`). This is a modelled comparison, not a run.
+
+**So step 2 exists, at three or more objectives, and its first item is
+`calc_delta`, not the early exit.** Both are result-preserving by
+construction (the same floats from the same expressions; the same
+`ncn`, by the shadow), to be proved again on the real change.
+
+### 1b. Infeasible points simulated again within an iteration
+
+Added after step 1. **Not result-preserving: its own step, with its
+own sign-off, never folded into step 2.** It is rng-interface-design.md
+§11 entry 13, deferred until now.
+
+From a start on the boundary the efficient set touches, 14-22% of all
+`g()` calls (2,000-3,500 per run at budget 10,000) repeat a point
+already found infeasible in the same iteration. Most come from
+`get_ncn`: a deleted neighbour shared by several members of S is asked
+for once per member, and again by part (b). `ne`, `pli` and `upsample`
+add the rest. In `ProbExpensive*` an infeasible `g()` skips the burn,
+so there the repeat costs only the jump; a problem that learns
+infeasibility only by simulating pays the whole replication.
+
+(This paragraph first said that each repeat "moves the high-water
+mark, so the end seed moves". That was reasoning, never measured, and
+it is wrong as a general statement; see below.)
+
+**First, before any design:** establish whether the re-simulation is
+inherent to what certification requires, or an artifact of not
+carrying infeasibility across calls within an iteration. That decides
+whether this is a cache or a redesign. Report that before designing.
+
+**Answered 2026-10-16: an artifact, so a cache.** Reported to the
+maintainer; nothing designed or built.
+- **Why it is not inherent.** Certification (the ALES and LWEP
+  tests) is a statement about one iteration's sample-path problem.
+  A feasible point is estimated once per iteration (`gbar`) and every
+  later question reads that estimate. An infeasible point is asked
+  again only because `estimate()` stores feasible outcomes and
+  nothing else. Nothing in the certification asks for a second
+  opinion on feasibility.
+- **Measured with a shadow** (`scratch/phase7/infeas_cache.py`): an
+  in-process record of oracle-infeasible points, kept per iteration,
+  that answers a repeat without simulating. Nothing in `pymoso/`
+  changed. 42 runs: RPERLE, RMINRLE and RSPLINE from the boundary start
+  on `ProbExpensiveBi`, RPERLE on ProbTPB from (0, 0), and RMINRLE on
+  lattice DTLZ2 at M = 3 and 4, both generators, three seeds each. The
+  rows labelled "RPERLE TPA" are the BiEdge rows again, because
+  `ProbExpensiveBi` at burn 0 is ProbTPA's `g()`. **In all 42 the
+  solution, every iteration's set, the end seed and `simcalls` were
+  identical**, while `g()` calls fell 11-44% (0-1% for RSPLINE).
+- **The detector was seen detecting.** A positive control with
+  random feasibility (`RandomEdgeBi`: near x[0] = 0 a replication is
+  infeasible with probability 0.03) differed in 5 of 6 solutions and
+  6 of 6 iteration paths. Its first version, at probability 0.5, saw no
+  difference: a block of m replications was then almost never
+  feasible, so repeats never flipped. That version is not evidence of
+  anything.
+- **The full suite with the shadow on, `-I` subprocesses included**
+  (a scratch venv loading it through a `.pth`): 1313 passed, 7 skipped.
+  No golden moved. The 12 CLI end-seed goldens skipped 72 repeated
+  blocks between them, logged with their pids, so the shadow was
+  reached where it mattered.
+- **Why the end seed did not move.** A block's offset packs the point
+  code above the visit and the replication count
+  (`prng.base.offset_from_point_code`). So the high-water mark is set
+  by the largest point code touched in the final iteration. A cache
+  moves the end seed only when that point is oracle-infeasible and is
+  asked for more than once in that iteration. That is possible, so a
+  cache is **not result-preserving by construction**, but it was seen
+  0 times in the 42 runs and the 12 goldens. A repeat also counts
+  towards `ReplicationOverflow` for that point, so a cache would delay
+  that raise.
+- **Under `--crn` a repeat replays the same replications**, so a cache
+  changes nothing there at all.
+- **With random feasibility the answer differs, and so does the
+  premise.** There a repeat can flip a verdict. A cache would fix the
+  verdict for the iteration, which is what a sample-path problem means.
+  But the RA solvers already fail on such problems with or without a
+  cache. A warm-start point that was feasible last iteration and comes
+  back infeasible raises a bare `KeyError` from `get_min`
+  (`self.gbar[t]`), reported as `RMINRLE: Unable to run accel().
+  Message: (5, 22)`. Seen on the control at both probabilities, cache
+  on and off. **This is a separate finding: the built-in solvers assume
+  feasibility is a function of x, and the `Oracle` contract does not say
+  so.** Not fixed, and not part of step 1b.
+- **`tests/test_batching.py`'s `SometimesInfeasible` test does not
+  detect a cache.** It passed with the shadow on. It compares
+  `estimate_many` with `estimate` in a loop, and the shadow changes
+  both alike. It detects `estimate_many` diverging from `estimate`,
+  which is what it was written for. CLAUDE.md calls it "the detector"
+  for a version that skips repeats. That holds only for an
+  `estimate_many` that skips while `estimate` does not.
+
+Still to decide before step 1b is designed: whether a cache that is
+not result-preserving by construction, but did not move any measured
+result, needs the full golden sign-off. Also whether the random-
+feasibility assumption gets documented, refused with a clear error,
+or supported.
+
 ### 2. Implementation defects
+
+**Revised: lower priority for two objectives, and it exists for three
+or more.** At two objectives nothing here is material at realistic
+cost (step 1). At three or more, `get_ncn`'s recomputed relaxations and
+its missing early exit are together an estimated 20-45% of a
+cheap-problem run (step 1, "At three or more objectives").
 
 Work the code does that the algorithm does not require. Results must
 be identical, every fix provably result-preserving, and no golden may
@@ -127,10 +334,31 @@ move. Known so far:
   dominance tests in the worst case instead of n(n-1)/2. The fix bounds
   the loop at the first half's length, which keeps `Tpts` order
   identical. A regression test can assert the call count.
+  Confirmed in real runs by step 1: 6-11% more `does_dominate` calls
+  than the bounded loop, at mean |S| 2.3-2.6. Real and small.
+- **`get_ncn` part (b) recomputes each member's relaxation for every
+  candidate** (step 1): `calc_delta` 10x the calls needed at M = 2,
+  45-546x at M = 3-6. Computing `dels` once per member is the largest
+  saving found at many objectives (estimated 10-32% of a cheap-problem
+  run). Same floats from the same expressions, so result-preserving by
+  construction.
+- **`get_ncn` part (b) without an early exit** (step 1): predicate
+  calls 1.6-2.6x what an early exit needs, the ratio falling as M
+  grows (estimated 12-19% of a cheap-problem run at M >= 3). A shadow
+  computation reached the same `ncn` on every call of every run.
 
-Expect more from step 1.
+Not a step-2 fix, by decision: the per-iteration end-seed
+recomputation (Decisions, above).
 
 ### 3. The expensive jump
+
+**Revised: lower priority.** At realistic cost the jump is under 2.5%
+of a run (Moderate) and under 1% (Heavy). It is 10% of a run only when
+`g()` costs 0.2-1 ms per replication, and 1% at 2.5-11 ms (modelled
+from measured parts, step 1). Its benefit is already available by
+choosing Philox (`--generator philox4x32`). It still matters for cheap
+simulations on the MRG family, and for high dimension, where the
+jump is most of the run (CLAUDE.md, the `get_nbors` correction).
 
 `stream_at` at about 1.5 ms dominates serial runtime at higher
 dimensions. This is the MRG family; Philox is already cheap.
@@ -203,6 +431,23 @@ the best neighbour, SPLINE iterations to convergence, and total
 simulation calls.
 
 ### 5. First-improvement NE
+
+**Revised: PyMOSO's `ne` is already first-improvement**
+(`pymoso/chnbase.py`, `ne`, both the radius-1 branch and the general
+one: it returns at the first neighbour that improves). The MATLAB is
+best-improvement over all 2d neighbours. So the toggle this step would
+build is **best-improvement**, for comparison against the reference,
+**default off**. The default does not change: that would change
+results. The difference is recorded in step 7's audit as a
+discrepancy, not as a step-2 defect.
+
+The guarantee point below also needs re-examining before anything is
+built (reasoning, not measured): an NE that finds no improving
+neighbour has examined every neighbour under either rule, so the
+certificate at SPLINE's termination looks the same. What differs is
+the path to it.
+
+The original text, kept because it is what was planned:
 
 A second toggle, independent of the first: stop at the first improving
 neighbour.
@@ -333,6 +578,16 @@ The MATLAB is a second reference for R-SPLINE:
 - **It counts only feasible evaluations** in `ncalls` (lines 246-247,
   262-263, 296-297), the same accounting as PyMOSO's `simcalls`.
 
+**Found already (step 1), to record in this audit:**
+- **NE's improvement rule.** PyMOSO first-improvement, MATLAB
+  best-improvement (step 5, revised). Not changing the default.
+- **SPLINE's limit.** MATLAB's `bk` caps SPLINE iterations. PyMOSO's
+  `b` caps simulation calls, as `bconst * (dim - 1) * 1.2^nu`, which is
+  0 in one dimension, so a 1-D R-SPLINE does one SPLI+NE pass per RA
+  iteration.
+- **The revert-to-start guard** (line 206) has no counterpart in
+  PyMOSO.
+
 **Report discrepancies; do not fix them in this step.** Some will be
 deliberate.
 
@@ -347,11 +602,30 @@ measured, and they are wrong in at least one respect: they attribute
 the cost to dominance comparison, when it is neighbourhood estimation
 (the many-objective baseline's "Where the cost goes" section).
 
+**Revised after step 1:** and at two objectives with realistic cost
+it is neither. It is simulation, at 97-99% of the run
+(`docs/biobjective-profile.md`). The guidance has to say which regime
+each claim belongs to. **This step gates 2.0** (Decisions, above).
+
 Record the toggles in `PARAMS`, so that they reach the generated
 parameter table.
 
 ## Sequencing
 
+**Revised after step 1:**
+- Done: the guard, and step 1's bi-objective profile.
+- Done and reported, nothing built: the `get_ncn` ratios at
+  M >= 3 (step 1), and the certification question that opens step 1b.
+- Next, on the maintainer's word: scoping step 2 for M >= 3, and the
+  decisions listed at the end of step 1b.
+- Steps 2 and 3 drop in priority. They remain golden-neutral and can
+  land in any order, but at realistic cost neither changes much for
+  two-objective users, and step 3's gain is already available through
+  Philox.
+- Step 1b is not golden-neutral and lands on its own sign-off.
+- Step 8 gates 2.0; nothing else in the phase does.
+
+The original order, for the record:
 - The subprocess-tree guard comes first.
 - Steps 1, 2 and 3 are golden-neutral, and can land in any order.
 - Steps 6 and 6b precede 4, 5 and 5b, so that those comparisons run on

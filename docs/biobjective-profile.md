@@ -91,6 +91,16 @@ it is not result-preserving: the repeat draws further replications,
 which can change a randomly-feasible point's outcome and moves the
 high-water mark, and so the end seed. It is not a step-2 fix.
 
+*Correction, the same day, after measuring it* (`docs/phase7-plan.md`,
+step 1b). The end-seed part was reasoning, not measurement, and is
+wrong as a general statement. A repeat moves the high-water mark only
+when the repeated point has the largest point code touched in the
+final iteration. A shadow cache left the solution, every iteration's
+set and the end seed identical in all 42 runs tried, and in the full
+suite. It is still not result-preserving by construction. A
+randomly-feasible point's outcome can change; but the built-in solvers
+fail on such problems anyway (step 1b).
+
 **5. The end seed is recomputed every RA iteration.** `rasolve` calls
 `Oracle.get_endseed()` once per iteration, a `stream_at` (~1.6 ms on
 MRG), and only the last value is returned. It is 4-19% of a burn-0
@@ -115,4 +125,5 @@ sizes these runs produce (mean |S| 2.3-2.6).
 - What the early exit in point 6 saves at M >= 3.
 - Whether the end seed moves if infeasible points were remembered
   (point 4). By the reasoning above it should, which is why point 4 is
-  reported, not fixed.
+  reported, not fixed. (Since measured: it did not, in any run tried.
+  See the correction under point 4.)
