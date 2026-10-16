@@ -481,6 +481,14 @@ def _load(path):
         return [json.loads(line) for line in f if line.strip()]
 
 
+def _loadavg():
+    """The load averages where the platform has them (not Windows)."""
+    try:
+        return os.getloadavg()
+    except (AttributeError, OSError):
+        return None
+
+
 def _append(path, row):
     with open(path, 'a') as f:
         f.write(json.dumps(row) + '\n')
@@ -500,7 +508,7 @@ def run(path, configs=CONFIGS, generators=GENERATORS, seeds=None, budget=BUDGET,
                     if (_key(row0), modes[:i].count(mode)) in done:
                         continue
                     row = run_one(solver, family, gen, tuple(seed), mode, budget)
-                    row['load'] = os.getloadavg()
+                    row['load'] = _loadavg()
                     if mode != 'plain':
                         check_reached(row)
                     if reference is None:
@@ -509,8 +517,9 @@ def run(path, configs=CONFIGS, generators=GENERATORS, seeds=None, budget=BUDGET,
                         raise AssertionError('{0}: instrumentation changed the run'.format(_key(row)))
                     _append(path, row)
                     if verbose:
-                        print('{0}: {1:.2f}s, {2} sims, load {3:.2f}'.format(
-                            _key(row), row['wall'], row['simcalls'], row['load'][0]), flush=True)
+                        load = 'n/a' if row['load'] is None else '{0:.2f}'.format(row['load'][0])
+                        print('{0}: {1:.2f}s, {2} sims, load {3}'.format(
+                            _key(row), row['wall'], row['simcalls'], load), flush=True)
 
 
 def _indexed(rows):
@@ -549,7 +558,7 @@ def validate(path, tiers=('Light', 'Moderate'), configs=CONFIGS, generator='mrg3
                            generator=generator, seed=list(seed), budget=budget,
                            base_wall=times['base'], tier_wall=times['tier'],
                            burn=burn_seconds(classes[tier].burn_units),
-                           load=os.getloadavg(), python=sys.version.split()[0])
+                           load=_loadavg(), python=sys.version.split()[0])
                 _append(path, row)
                 if verbose:
                     print('{0}/{1} {2} rep {3}: base {4:.1f}s tier {5:.1f}s'.format(
@@ -605,10 +614,12 @@ def report(path, tiers=('Light', 'Moderate', 'Heavy'), out=sys.stdout):
     p('')
     p('# Bi-objective profile: tables')
     p('')
+    loads = [r['load'][0] for r in rows if r.get('load')]
+    loads = ('{0:.2f}-{1:.2f}'.format(min(loads), max(loads)) if loads
+             else 'not recorded (no os.getloadavg on this platform)')
     p('Budget {0:,} per run; every row is the mean over seeds unless it says otherwise. '
-      'Python {1}. Load averages (1-minute) over the runs: {2:.2f}-{3:.2f}.'.format(
-          rows[0]['budget'], rows[0]['python'],
-          min(r['load'][0] for r in rows), max(r['load'][0] for r in rows)))
+      'Python {1}. Load averages (1-minute) over the runs: {2}.'.format(
+          rows[0]['budget'], rows[0]['python'], loads))
     p('')
     p('## Run shape (count mode)')
     p('')

@@ -15,6 +15,7 @@ still runs to completion against the current code.
 import importlib.util
 import io
 import json
+import os
 import pathlib
 
 import pytest
@@ -68,7 +69,10 @@ def test_bench_parallel_dispatch_sweeps_and_reports(tmp_path):
     assert "Smoke" in text and "simpar-ceiling.md" in text
 
 
-def test_bench_biobjective_profile_runs_and_reports(tmp_path):
+def test_bench_biobjective_profile_runs_and_reports(tmp_path, monkeypatch):
+    # os.getloadavg is Unix-only: run as on Windows, where its absence
+    # failed this test in CI (commit 5527f60).
+    monkeypatch.delattr(os, "getloadavg", raising=False)
     bench = _load("bench_biobjective_profile")
     raw = str(tmp_path / "profile.jsonl")
     configs = [("RPERLE", "Bi"), ("RSPLINE", "One")]
