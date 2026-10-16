@@ -13,6 +13,7 @@ here measures or asserts a time: the only claim is that the script
 still runs to completion against the current code.
 """
 import importlib.util
+import io
 import json
 import pathlib
 
@@ -65,3 +66,18 @@ def test_bench_parallel_dispatch_sweeps_and_reports(tmp_path):
     bench.report([str(raw)], str(out))
     text = out.read_text()
     assert "Smoke" in text and "simpar-ceiling.md" in text
+
+
+def test_bench_biobjective_profile_runs_and_reports(tmp_path):
+    bench = _load("bench_biobjective_profile")
+    raw = str(tmp_path / "profile.jsonl")
+    configs = [("RPERLE", "Bi"), ("RSPLINE", "One")]
+    seeds = {"mrg32k3a": [bench.SEEDS["mrg32k3a"][0]]}
+    bench.run(raw, configs=configs, generators=("mrg32k3a",), seeds=seeds, budget=150, verbose=False)
+    bench.run(raw, configs=configs, generators=("mrg32k3a",), seeds=seeds, budget=150, verbose=False)
+    assert len(open(raw).read().splitlines()) == 8, "a second run must resume, not repeat"
+    bench.validate(raw, tiers=("Light",), configs=configs[:1], budget=150, verbose=False)
+    out = io.StringIO()
+    bench.report(raw, tiers=("Light",), out=out)
+    text = out.getvalue()
+    assert "RPERLE" in text and "Model check" in text and "Required against done" in text

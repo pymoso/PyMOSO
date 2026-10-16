@@ -1,0 +1,183 @@
+ 09:00:22 up 4 days, 20:11,  1 user,  load average: 0.28, 0.37, 0.60
+RPERLE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 1.38s, 10299 sims, load 0.34
+RPERLE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/time: 1.40s, 10299 sims, load 0.34
+RPERLE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/count: 1.41s, 10299 sims, load 0.34
+RPERLE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 1.37s, 10299 sims, load 0.34
+RPERLE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 1.40s, 10827 sims, load 0.39
+RPERLE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/time: 1.43s, 10827 sims, load 0.39
+RPERLE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/count: 1.44s, 10827 sims, load 0.39
+RPERLE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 1.40s, 10827 sims, load 0.44
+RPERLE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 1.34s, 11072 sims, load 0.44
+RPERLE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/time: 1.37s, 11072 sims, load 0.44
+RPERLE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/count: 1.39s, 11072 sims, load 0.44
+RPERLE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 1.34s, 11072 sims, load 0.49
+RPERLE/Bi/philox4x32/[12345, 12345]/plain: 0.25s, 11551 sims, load 0.49
+RPERLE/Bi/philox4x32/[12345, 12345]/time: 0.28s, 11551 sims, load 0.49
+RPERLE/Bi/philox4x32/[12345, 12345]/count: 0.30s, 11551 sims, load 0.49
+RPERLE/Bi/philox4x32/[12345, 12345]/plain: 0.25s, 11551 sims, load 0.49
+RPERLE/Bi/philox4x32/[42, 42]/plain: 0.23s, 10194 sims, load 0.49
+RPERLE/Bi/philox4x32/[42, 42]/time: 0.26s, 10194 sims, load 0.49
+RPERLE/Bi/philox4x32/[42, 42]/count: 0.28s, 10194 sims, load 0.49
+RPERLE/Bi/philox4x32/[42, 42]/plain: 0.23s, 10194 sims, load 0.49
+RPERLE/Bi/philox4x32/[271828, 271828]/plain: 0.24s, 11239 sims, load 0.49
+RPERLE/Bi/philox4x32/[271828, 271828]/time: 0.27s, 11239 sims, load 0.49
+RPERLE/Bi/philox4x32/[271828, 271828]/count: 0.29s, 11239 sims, load 0.49
+RPERLE/Bi/philox4x32/[271828, 271828]/plain: 0.24s, 11239 sims, load 0.49
+RMINRLE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 1.16s, 10735 sims, load 0.61
+RMINRLE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/time: 1.18s, 10735 sims, load 0.61
+RMINRLE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/count: 1.20s, 10735 sims, load 0.61
+RMINRLE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 1.15s, 10735 sims, load 0.61
+RMINRLE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 1.21s, 10408 sims, load 0.64
+RMINRLE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/time: 1.24s, 10408 sims, load 0.64
+RMINRLE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/count: 1.26s, 10408 sims, load 0.64
+RMINRLE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 1.21s, 10408 sims, load 0.64
+RMINRLE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 1.16s, 10675 sims, load 0.64
+RMINRLE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/time: 1.19s, 10675 sims, load 0.67
+RMINRLE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/count: 1.21s, 10675 sims, load 0.67
+RMINRLE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 1.16s, 10675 sims, load 0.67
+RMINRLE/Bi/philox4x32/[12345, 12345]/plain: 0.22s, 10153 sims, load 0.67
+RMINRLE/Bi/philox4x32/[12345, 12345]/time: 0.24s, 10153 sims, load 0.67
+RMINRLE/Bi/philox4x32/[12345, 12345]/count: 0.26s, 10153 sims, load 0.67
+RMINRLE/Bi/philox4x32/[12345, 12345]/plain: 0.22s, 10153 sims, load 0.67
+RMINRLE/Bi/philox4x32/[42, 42]/plain: 0.22s, 10450 sims, load 0.67
+RMINRLE/Bi/philox4x32/[42, 42]/time: 0.25s, 10450 sims, load 0.67
+RMINRLE/Bi/philox4x32/[42, 42]/count: 0.27s, 10450 sims, load 0.70
+RMINRLE/Bi/philox4x32/[42, 42]/plain: 0.22s, 10450 sims, load 0.70
+RMINRLE/Bi/philox4x32/[271828, 271828]/plain: 0.23s, 11080 sims, load 0.70
+RMINRLE/Bi/philox4x32/[271828, 271828]/time: 0.26s, 11080 sims, load 0.70
+RMINRLE/Bi/philox4x32/[271828, 271828]/count: 0.28s, 11080 sims, load 0.70
+RMINRLE/Bi/philox4x32/[271828, 271828]/plain: 0.23s, 11080 sims, load 0.70
+RPERLE/BiEdge/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 1.54s, 10584 sims, load 0.70
+RPERLE/BiEdge/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/time: 1.57s, 10584 sims, load 0.70
+RPERLE/BiEdge/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/count: 1.59s, 10584 sims, load 0.72
+RPERLE/BiEdge/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 1.53s, 10584 sims, load 0.72
+RPERLE/BiEdge/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 1.37s, 10680 sims, load 0.72
+RPERLE/BiEdge/mrg32k3a/[42, 42, 42, 42, 42, 42]/time: 1.41s, 10680 sims, load 0.74
+RPERLE/BiEdge/mrg32k3a/[42, 42, 42, 42, 42, 42]/count: 1.43s, 10680 sims, load 0.74
+RPERLE/BiEdge/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 1.37s, 10680 sims, load 0.74
+RPERLE/BiEdge/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 1.50s, 10042 sims, load 0.74
+RPERLE/BiEdge/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/time: 1.54s, 10042 sims, load 0.76
+RPERLE/BiEdge/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/count: 1.56s, 10042 sims, load 0.76
+RPERLE/BiEdge/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 1.51s, 10042 sims, load 0.76
+RPERLE/BiEdge/philox4x32/[12345, 12345]/plain: 0.25s, 10436 sims, load 0.76
+RPERLE/BiEdge/philox4x32/[12345, 12345]/time: 0.28s, 10436 sims, load 0.76
+RPERLE/BiEdge/philox4x32/[12345, 12345]/count: 0.30s, 10436 sims, load 0.94
+RPERLE/BiEdge/philox4x32/[12345, 12345]/plain: 0.25s, 10436 sims, load 0.94
+RPERLE/BiEdge/philox4x32/[42, 42]/plain: 0.25s, 10777 sims, load 0.94
+RPERLE/BiEdge/philox4x32/[42, 42]/time: 0.29s, 10777 sims, load 0.94
+RPERLE/BiEdge/philox4x32/[42, 42]/count: 0.30s, 10777 sims, load 0.94
+RPERLE/BiEdge/philox4x32/[42, 42]/plain: 0.25s, 10777 sims, load 0.94
+RPERLE/BiEdge/philox4x32/[271828, 271828]/plain: 0.24s, 10078 sims, load 0.94
+RPERLE/BiEdge/philox4x32/[271828, 271828]/time: 0.27s, 10078 sims, load 0.94
+RPERLE/BiEdge/philox4x32/[271828, 271828]/count: 0.29s, 10078 sims, load 0.94
+RPERLE/BiEdge/philox4x32/[271828, 271828]/plain: 0.24s, 10078 sims, load 0.94
+RMINRLE/BiEdge/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 1.33s, 10838 sims, load 0.94
+RMINRLE/BiEdge/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/time: 1.37s, 10838 sims, load 0.95
+RMINRLE/BiEdge/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/count: 1.39s, 10838 sims, load 0.95
+RMINRLE/BiEdge/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 1.34s, 10838 sims, load 0.95
+RMINRLE/BiEdge/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 1.32s, 11392 sims, load 0.95
+RMINRLE/BiEdge/mrg32k3a/[42, 42, 42, 42, 42, 42]/time: 1.35s, 11392 sims, load 0.95
+RMINRLE/BiEdge/mrg32k3a/[42, 42, 42, 42, 42, 42]/count: 1.37s, 11392 sims, load 0.95
+RMINRLE/BiEdge/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 1.32s, 11392 sims, load 0.95
+RMINRLE/BiEdge/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 1.34s, 10239 sims, load 0.95
+RMINRLE/BiEdge/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/time: 1.37s, 10239 sims, load 0.96
+RMINRLE/BiEdge/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/count: 1.39s, 10239 sims, load 0.96
+RMINRLE/BiEdge/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 1.34s, 10239 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[12345, 12345]/plain: 0.24s, 10608 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[12345, 12345]/time: 0.27s, 10608 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[12345, 12345]/count: 0.29s, 10608 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[12345, 12345]/plain: 0.24s, 10608 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[42, 42]/plain: 0.24s, 10981 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[42, 42]/time: 0.27s, 10981 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[42, 42]/count: 0.29s, 10981 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[42, 42]/plain: 0.24s, 10981 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[271828, 271828]/plain: 0.22s, 10105 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[271828, 271828]/time: 0.25s, 10105 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[271828, 271828]/count: 0.27s, 10105 sims, load 0.96
+RMINRLE/BiEdge/philox4x32/[271828, 271828]/plain: 0.22s, 10105 sims, load 0.96
+RSPLINE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 0.86s, 10425 sims, load 0.96
+RSPLINE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/time: 0.87s, 10425 sims, load 0.96
+RSPLINE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/count: 0.88s, 10425 sims, load 0.96
+RSPLINE/Bi/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 0.86s, 10425 sims, load 0.96
+RSPLINE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 0.85s, 10586 sims, load 0.96
+RSPLINE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/time: 0.86s, 10586 sims, load 0.96
+RSPLINE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/count: 0.87s, 10586 sims, load 0.96
+RSPLINE/Bi/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 0.85s, 10586 sims, load 0.96
+RSPLINE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 0.86s, 10752 sims, load 0.96
+RSPLINE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/time: 0.86s, 10752 sims, load 0.97
+RSPLINE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/count: 0.87s, 10752 sims, load 0.97
+RSPLINE/Bi/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 0.85s, 10752 sims, load 0.97
+RSPLINE/Bi/philox4x32/[12345, 12345]/plain: 0.22s, 11586 sims, load 0.97
+RSPLINE/Bi/philox4x32/[12345, 12345]/time: 0.24s, 11586 sims, load 0.97
+RSPLINE/Bi/philox4x32/[12345, 12345]/count: 0.25s, 11586 sims, load 0.97
+RSPLINE/Bi/philox4x32/[12345, 12345]/plain: 0.22s, 11586 sims, load 0.97
+RSPLINE/Bi/philox4x32/[42, 42]/plain: 0.20s, 10281 sims, load 0.97
+RSPLINE/Bi/philox4x32/[42, 42]/time: 0.21s, 10281 sims, load 0.97
+RSPLINE/Bi/philox4x32/[42, 42]/count: 0.22s, 10281 sims, load 0.97
+RSPLINE/Bi/philox4x32/[42, 42]/plain: 0.20s, 10281 sims, load 0.97
+RSPLINE/Bi/philox4x32/[271828, 271828]/plain: 0.20s, 10224 sims, load 0.97
+RSPLINE/Bi/philox4x32/[271828, 271828]/time: 0.22s, 10224 sims, load 0.97
+RSPLINE/Bi/philox4x32/[271828, 271828]/count: 0.22s, 10224 sims, load 0.97
+RSPLINE/Bi/philox4x32/[271828, 271828]/plain: 0.20s, 10224 sims, load 0.97
+RSPLINE/One/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 0.45s, 10329 sims, load 0.97
+RSPLINE/One/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/time: 0.45s, 10329 sims, load 0.97
+RSPLINE/One/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/count: 0.46s, 10329 sims, load 0.97
+RSPLINE/One/mrg32k3a/[12345, 12345, 12345, 12345, 12345, 12345]/plain: 0.44s, 10329 sims, load 0.97
+RSPLINE/One/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 0.44s, 10329 sims, load 0.97
+RSPLINE/One/mrg32k3a/[42, 42, 42, 42, 42, 42]/time: 0.45s, 10329 sims, load 0.97
+RSPLINE/One/mrg32k3a/[42, 42, 42, 42, 42, 42]/count: 0.46s, 10329 sims, load 0.97
+RSPLINE/One/mrg32k3a/[42, 42, 42, 42, 42, 42]/plain: 0.45s, 10329 sims, load 0.97
+RSPLINE/One/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 0.45s, 10329 sims, load 0.97
+RSPLINE/One/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/time: 0.46s, 10329 sims, load 0.97
+RSPLINE/One/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/count: 0.46s, 10329 sims, load 0.97
+RSPLINE/One/mrg32k3a/[271828, 271828, 271828, 271828, 271828, 271828]/plain: 0.45s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[12345, 12345]/plain: 0.15s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[12345, 12345]/time: 0.16s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[12345, 12345]/count: 0.17s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[12345, 12345]/plain: 0.15s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[42, 42]/plain: 0.14s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[42, 42]/time: 0.16s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[42, 42]/count: 0.17s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[42, 42]/plain: 0.15s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[271828, 271828]/plain: 0.14s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[271828, 271828]/time: 0.16s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[271828, 271828]/count: 0.17s, 10329 sims, load 0.97
+RSPLINE/One/philox4x32/[271828, 271828]/plain: 0.15s, 10329 sims, load 0.97
+ 09:02:00 up 4 days, 20:13,  1 user,  load average: 0.97, 0.60, 0.66
+RPERLE/Bi Light rep 0: base 1.4s tier 6.0s
+RPERLE/Bi Light rep 1: base 1.4s tier 6.0s
+RPERLE/Bi Moderate rep 0: base 1.4s tier 47.4s
+RPERLE/Bi Moderate rep 1: base 1.4s tier 47.3s
+RPERLE/Bi Heavy rep 0: base 1.4s tier 138.9s
+RPERLE/Bi Heavy rep 1: base 1.4s tier 139.0s
+RMINRLE/Bi Light rep 0: base 1.1s tier 5.9s
+RMINRLE/Bi Light rep 1: base 1.1s tier 5.9s
+RMINRLE/Bi Moderate rep 0: base 1.1s tier 48.9s
+RMINRLE/Bi Moderate rep 1: base 1.1s tier 48.9s
+RMINRLE/Bi Heavy rep 0: base 1.1s tier 144.4s
+RMINRLE/Bi Heavy rep 1: base 1.1s tier 144.4s
+RPERLE/BiEdge Light rep 0: base 1.5s tier 6.2s
+RPERLE/BiEdge Light rep 1: base 1.5s tier 6.2s
+RPERLE/BiEdge Moderate rep 0: base 1.5s tier 48.6s
+RPERLE/BiEdge Moderate rep 1: base 1.5s tier 49.0s
+RPERLE/BiEdge Heavy rep 0: base 1.5s tier 143.0s
+RPERLE/BiEdge Heavy rep 1: base 1.5s tier 143.4s
+RMINRLE/BiEdge Light rep 0: base 1.3s tier 6.1s
+RMINRLE/BiEdge Light rep 1: base 1.3s tier 6.2s
+RMINRLE/BiEdge Moderate rep 0: base 1.3s tier 49.8s
+RMINRLE/BiEdge Moderate rep 1: base 1.3s tier 49.9s
+RMINRLE/BiEdge Heavy rep 0: base 1.3s tier 147.1s
+RMINRLE/BiEdge Heavy rep 1: base 1.3s tier 147.0s
+RSPLINE/Bi Light rep 0: base 0.8s tier 5.5s
+RSPLINE/Bi Light rep 1: base 0.9s tier 5.5s
+RSPLINE/Bi Moderate rep 0: base 0.8s tier 47.7s
+RSPLINE/Bi Moderate rep 1: base 0.9s tier 47.6s
+RSPLINE/Bi Heavy rep 0: base 0.8s tier 141.1s
+RSPLINE/Bi Heavy rep 1: base 0.9s tier 141.3s
+RSPLINE/One Light rep 0: base 0.4s tier 5.1s
+RSPLINE/One Light rep 1: base 0.4s tier 5.1s
+RSPLINE/One Moderate rep 0: base 0.4s tier 46.7s
+RSPLINE/One Moderate rep 1: base 0.4s tier 46.7s
+RSPLINE/One Heavy rep 0: base 0.4s tier 139.4s
+RSPLINE/One Heavy rep 1: base 0.4s tier 139.4s
+ 09:42:04 up 4 days, 20:53,  1 user,  load average: 1.03, 1.10, 1.04
