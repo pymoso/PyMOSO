@@ -34,3 +34,10 @@ installed with a `.pth` line (`import infeas_shadow`) it loads in every
 interpreter, `-I` subprocesses included, when `INFEAS_SHADOW=1`;
 `INFEAS_SHADOW_LOG=<file>` logs each skipped repeat with its pid. That
 is how the full suite was run with the shadow on.
+
+## What a whole-run feasibility record would hold (KNOWN_ISSUES issue 18)
+
+`feas_memory.py OUT.jsonl` produced `feas_memory.jsonl`: per run, the
+distinct points ever estimated feasible and infeasible, the largest
+single iteration's `gbar`, and the bytes the two sets occupy (tuples
+included, measured with tracemalloc).

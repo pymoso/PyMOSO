@@ -1,0 +1,9 @@
+{"config": "RMINRLE DTLZ2 M2 budget 30000", "simcalls": 30331, "iterations": 19, "feasible": 1835, "infeasible": 236, "flipped": 0, "peak_gbar": 364, "bytes_feasible": 285064, "bytes_infeasible": 8408}
+{"config": "RMINRLE DTLZ2 M3 budget 30000", "simcalls": 33226, "iterations": 8, "feasible": 4168, "infeasible": 611, "flipped": 0, "peak_gbar": 1629, "bytes_feasible": 356968, "bytes_infeasible": 32984}
+{"config": "RMINRLE DTLZ2 M4 budget 30000", "simcalls": 44026, "iterations": 5, "feasible": 7515, "infeasible": 1307, "flipped": 0, "peak_gbar": 4612, "bytes_feasible": 1142184, "bytes_infeasible": 131288}
+{"config": "RMINRLE DTLZ2 M5 budget 30000", "simcalls": 54288, "iterations": 4, "feasible": 10937, "infeasible": 2378, "flipped": 0, "peak_gbar": 8678, "bytes_feasible": 1525448, "bytes_infeasible": 173624}
+{"config": "RMINRLE DTLZ2 M6 budget 30000", "simcalls": 58659, "iterations": 4, "feasible": 11698, "infeasible": 2668, "flipped": 0, "peak_gbar": 10107, "bytes_feasible": 1610680, "bytes_infeasible": 206104}
+{"config": "RMINRLE DTLZ2 M3 budget 100000", "simcalls": 104024, "iterations": 16, "feasible": 5759, "infeasible": 964, "flipped": 0, "peak_gbar": 1629, "bytes_feasible": 945512, "bytes_infeasible": 32984}
+{"config": "RMINRLE DTLZ2 M6 budget 100000", "simcalls": 131171, "iterations": 5, "feasible": 20986, "infeasible": 5501, "flipped": 0, "peak_gbar": 18128, "bytes_feasible": 4223800, "bytes_infeasible": 916616}
+{"config": "RPERLE Bi (0, 20) budget 10000", "simcalls": 10584, "iterations": 35, "feasible": 114, "infeasible": 16, "flipped": 0, "peak_gbar": 31, "bytes_feasible": 8408, "bytes_infeasible": 728}
+{"config": "RMINRLE Bi (0, 20) budget 10000", "simcalls": 10838, "iterations": 36, "feasible": 95, "infeasible": 13, "flipped": 0, "peak_gbar": 30, "bytes_feasible": 8408, "bytes_infeasible": 728}
