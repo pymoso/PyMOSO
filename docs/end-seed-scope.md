@@ -347,3 +347,35 @@ directory and via PYTHONPATH from elsewhere, on both venvs; the
 `many-objective` tree at `d959c34`; and an environment with no pymoso
 installed. The 7 failures above were then shown to come from the split
 alone: the same tree installed into its own venv gave 0 failures.
+
+## A sixth instance: a detector for one change, read as a detector for its neighbour
+
+Found 2026-10-16, in Phase 7 step 1b. `tests/test_batching.py`'s
+`test_estimate_many_is_estimate_in_a_loop_including_repeated_infeasible_points`
+(the `SometimesInfeasible` case) was recorded in CLAUDE.md as "the
+detector" for skipping the re-simulation of infeasible points. It is the
+detector for a narrower thing: `estimate_many` skipping repeats while
+`estimate` does not. It compares the two, so a change applied to both
+alike leaves it green.
+
+**Seen:** a shadow cache of infeasible points, installed in
+`RASolver.estimate` and `estimate_many` in every interpreter of a
+scratch venv, `-I` subprocesses included. The full suite passed, 1313
+of 1313. The 12 CLI end-seed goldens skipped 72 repeated blocks between
+them, logged with their pids, so the cache was reached and nothing
+noticed. (`scratch/phase7/README.md` has how.)
+
+This one differs from the other five. The test's own docstring is
+accurate: it says it catches "a naive estimate_many", and it does. The
+gap was in the summary, which named the behaviour ("skips this")
+without the comparison that defines what the test can see. A test that
+compares two implementations detects divergence between them, never a
+change both share.
+
+**What does detect such a cache?** Nothing in the suite, at present.
+It changes no solution and, in every run tried, no end seed (step 1b
+in `docs/phase7-plan.md` explains why the end seed moves only when the
+repeated point has the final iteration's largest point code). That is
+the end seed's blind spot, the subject of this document, once more.
+If step 1b lands, its regression test has to count blocks or `g()`
+calls, not compare results.

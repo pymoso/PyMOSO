@@ -311,11 +311,32 @@ maintainer; nothing designed or built.
   for a version that skips repeats. That holds only for an
   `estimate_many` that skips while `estimate` does not.
 
-Still to decide before step 1b is designed: whether a cache that is
-not result-preserving by construction, but did not move any measured
-result, needs the full golden sign-off. Also whether the random-
-feasibility assumption gets documented, refused with a clear error,
-or supported.
+**Decided 2026-10-16:**
+- **Step 1b keeps its full sign-off.** "No measured result moved" is
+  weaker than "cannot move". It is a behaviour change that happens not
+  to have bitten in 42 runs. If a golden moves when it is built, report
+  that before regenerating anything.
+- **The condition, so that nobody has to rely on the empirical
+  result:** the cache moves the end seed exactly when the point it
+  stops re-simulating holds the largest point code touched in the run's
+  final iteration, and is asked for more than once in that iteration.
+  Otherwise the high-water mark is set by another block and does not
+  change. It also delays `ReplicationOverflow` for that point. Under
+  `--crn` it changes nothing.
+- **Its regression test counts blocks or `g()` calls.** Comparing
+  results cannot see it (`docs/end-seed-scope.md`, the sixth instance).
+- **It shares its record with KNOWN_ISSUES issue 18's check**
+  (`FeasibilityChanged`), so that it cannot bypass it. Under the cache
+  a point's first verdict in an iteration stands for that iteration;
+  flips across iterations are still caught. The issue entry has the
+  reasoning. Decided before the cache is built, so that building it
+  does not silently weaken the check.
+- **Random feasibility is refused with a clear error, and the
+  assumption is documented.** It is tracked as its own KNOWN_ISSUES
+  entry, independent of Phase 7, because it affects every version. The
+  solvers depend on feasibility being a function of x alone. That is a
+  constraint of the algorithms, and supporting random feasibility is a
+  research question, not a fix.
 
 ### 2. Implementation defects
 
@@ -616,8 +637,13 @@ parameter table.
 - Done: the guard, and step 1's bi-objective profile.
 - Done and reported, nothing built: the `get_ncn` ratios at
   M >= 3 (step 1), and the certification question that opens step 1b.
-- Next, on the maintainer's word: scoping step 2 for M >= 3, and the
-  decisions listed at the end of step 1b.
+- Decided: step 2 at M >= 3 is three commits, in this order:
+  computing relaxations once, the early exit, then `get_nondom`. Each
+  has the shadow-and-assert check and no golden movement. Before each
+  of the first two lands, it must be observed giving identical results
+  on the counted runs, not only passing goldens.
+- Random feasibility: refused and documented, as its own change
+  (step 1b's decisions).
 - Steps 2 and 3 drop in priority. They remain golden-neutral and can
   land in any order, but at realistic cost neither changes much for
   two-objective users, and step 3's gain is already available through

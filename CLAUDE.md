@@ -748,8 +748,14 @@ The decisions below are landed, not pending. Full reasoning in
   (it does so in rounds). Whole-run tests and goldens do not catch a
   version that skips this -- verified by trying one -- because the end
   seed rarely depends on those blocks. `tests/test_batching.py`'s
-  `SometimesInfeasible` case is the detector. §11 entry 13 would
-  remove the need.
+  `SometimesInfeasible` case is the detector for that, and only for
+  that: it compares `estimate_many` with `estimate` in a loop, so it
+  catches the two diverging. **It does not detect repeat-skipping
+  applied to both** (a cache in `estimate`, which `estimate_many`
+  then matches): Phase 7 ran the whole suite with such a cache in
+  every interpreter and it passed, goldens included
+  (docs/end-seed-scope.md, the sixth instance). §11 entry 13 (Phase 7
+  step 1b) would remove the need.
 - MOCOMPASS and MOPBnB still call `hit()` in loops and were not
   converted to `hit_many`.
 - Deferred, with reasons, in rng-interface-design.md §11: per-point
