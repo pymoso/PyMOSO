@@ -26,6 +26,17 @@ and its output stays a clean table -- unlike that fork, where the
 conversion garbled this same output into a multi-line mess. Confirmed
 directly (see the output this test's build_expected_listitems_block()
 produces), not assumed.
+
+To regenerate a block after changing the CLI, a solver's registration
+or a docstring that `listitems` prints, print the builder from the
+repo root and paste its output between the block's fences:
+
+    PYTHONPATH=tests python -c "import test_readme_help_text as t; print(t.build_expected_listitems_block(), end='')"
+
+(build_expected_help_block() for the help block). A failure's diff
+shows what moved. There is deliberately no regeneration script: one
+lived in scratch/, found the blocks by position, and was broken when
+next needed. The builders here are the only definition of each block.
 """
 import difflib
 import subprocess

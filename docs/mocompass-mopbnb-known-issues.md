@@ -1,5 +1,15 @@
 # Known issues: MOCOMPASS and MOPBnB (in-tree example solvers)
 
+These two solvers are registered as `ExampleSearchSolver` (MO-COMPASS,
+`pymoso/solvers/mocompass.py`) and `ExampleBnBSolver` (MOPBnB,
+`pymoso/solvers/mopbnb.py`), and that is how `pymoso listitems` shows
+them. They were registered as `MOCOMPASS` and `MOPBnB` until the rename;
+a name that claimed to be an implementation of a published algorithm
+was more than an unreviewed implementation should carry. This document,
+and `docs/rng-interface-design.md`, use the algorithms' names when they
+discuss the implementations. Neither solver is described in the README,
+deliberately: describing them there would present them as supported.
+
 `pymoso/solvers/mocompass.py` and `pymoso/solvers/mopbnb.py` were brought
 in-tree as a **compatibility-only** pass: the fixes that landed with them
 (a Python 3.11+ `random.sample()` incompatibility, a library-hostile

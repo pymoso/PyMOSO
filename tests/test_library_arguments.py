@@ -11,8 +11,8 @@ import pytest
 
 from pymoso.chnutils import solve, testsolve
 from pymoso.problems.probtpa import ProbTPA
-from pymoso.solvers.mocompass import MOCOMPASS
-from pymoso.solvers.mopbnb import MOPBnB
+from pymoso.solvers.mocompass import ExampleSearchSolver
+from pymoso.solvers.mopbnb import ExampleBnBSolver
 from pymoso.solvers.rminrle import RMINRLE
 from pymoso.solvers.rpe import RPE
 from pymoso.solvers.rperle import RPERLE
@@ -60,8 +60,8 @@ def test_every_parameter_a_solver_lists_is_one_it_takes(solver, problem, x0, acc
 
 
 @pytest.mark.parametrize("solver,extra,accepted", [
-    (MOCOMPASS, {}, {"numsamples", "ub", "lb"}),
-    (MOPBnB, {}, {"subregions", "alpha", "delta", "R0", "ub", "lb"}),
+    (ExampleSearchSolver, {}, {"numsamples", "ub", "lb"}),
+    (ExampleBnBSolver, {}, {"subregions", "alpha", "delta", "R0", "ub", "lb"}),
 ])
 def test_the_solvers_that_are_not_ra_solvers_refuse_unknown_parameters_too(solver, extra, accepted):
     from pymoso.chnbase import accepted_params

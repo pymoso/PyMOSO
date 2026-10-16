@@ -43,6 +43,15 @@ from pymoso.testers.tpatester import TPATester
 # testsolve() layers, and the testsolve() role layout) was wrong in its
 # own way.
 
+# The MOCOMPASS and MOPBnB solvers were renamed ExampleSearchSolver and
+# ExampleBnBSolver, and their cases with them: mocompass_tpa ->
+# example_search_tpa, mopbnb_tpa -> example_bnb_tpa, testsolve_mocompass
+# -> testsolve_example_search, testsolve_mopbnb -> testsolve_example_bnb.
+# No value moved (the end seed does not depend on the solver's name;
+# checked by running all four under the new names first). The comments
+# above and below, and tests/golden/README.md, use the old names for
+# what happened under them.
+
 SEED_RE = re.compile(r"^--\s+(?:next|ending) seed:\s+(.+)$", re.M)
 
 CASES = {
@@ -103,24 +112,24 @@ CASES = {
     # mocompass_tpa and mopbnb_tpa now diverge -- the fix step 8 exists
     # for: previously identical despite verified-different internal
     # consumption (§8.2). Confirmed before regenerating, not assumed.
-    "mocompass_tpa": (
+    "example_search_tpa": (
         ["pymoso", "solve", "--budget=1000", "--param", "lb", "0", "--param", "ub", "50",
-         "ProbTPA", "MOCOMPASS", "40", "40"],
+         "ProbTPA", "ExampleSearchSolver", "40", "40"],
         (1146796796, 3308305028, 386855827, 2694500999, 2221614380, 1025642763),
     ),
-    "mopbnb_tpa": (
+    "example_bnb_tpa": (
         ["pymoso", "solve", "--budget=1000", "--param", "lb", "0", "--param", "ub", "50",
-         "ProbTPA", "MOPBnB", "40", "40"],
+         "ProbTPA", "ExampleBnBSolver", "40", "40"],
         (3809509318, 1900386143, 1103642148, 1010814338, 790187922, 3654332215),
     ),
-    "testsolve_mocompass": (
+    "testsolve_example_search": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--param", "lb", "0",
-         "--param", "ub", "50", "TPATester", "MOCOMPASS"],
+         "--param", "ub", "50", "TPATester", "ExampleSearchSolver"],
         (2346975725, 1224100873, 2386202199, 4246821866, 1768963681, 2406381760),
     ),
-    "testsolve_mopbnb": (
+    "testsolve_example_bnb": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--param", "lb", "0",
-         "--param", "ub", "50", "TPATester", "MOPBnB"],
+         "--param", "ub", "50", "TPATester", "ExampleBnBSolver"],
         (559300817, 691733575, 3730937374, 1133024474, 2779640938, 790303042),
     ),
 }

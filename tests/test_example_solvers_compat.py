@@ -1,7 +1,8 @@
 """
-Compatibility regression tests for the two in-tree MOCOMPASS/MOPBnB
-solvers: this is *not* a check on their algorithmic correctness (not
-yet reviewed against the source papers -- see
+Compatibility regression tests for the two in-tree example solvers,
+ExampleSearchSolver (MO-COMPASS) and ExampleBnBSolver (MOPBnB): this
+is *not* a check on their algorithmic correctness (not yet reviewed
+against the source papers -- see
 docs/mocompass-mopbnb-known-issues.md), only that they run on the
 current branch and fail predictably rather than crash or silently
 corrupt output.
@@ -32,13 +33,13 @@ import pytest
 from _pymoso_cli import CLI_TIMEOUT, pymoso_argv
 from pymoso.chnutils import solve, testsolve
 from pymoso.problems.probtpa import ProbTPA
-from pymoso.solvers.mocompass import MOCOMPASS
-from pymoso.solvers.mopbnb import MOPBnB
+from pymoso.solvers.mocompass import ExampleSearchSolver
+from pymoso.solvers.mopbnb import ExampleBnBSolver
 from pymoso.testers.tpatester import TPATester
 
 pytestmark = pytest.mark.timeout(90)
 
-SOLVERS = [("MOCOMPASS", MOCOMPASS), ("MOPBnB", MOPBnB)]
+SOLVERS = [("ExampleSearchSolver", ExampleSearchSolver), ("ExampleBnBSolver", ExampleBnBSolver)]
 BOX_KWARGS = dict(lb=0, ub=50)
 SOLVE_KWARGS = dict(budget=300, seed=(12345,) * 6, simpar=1, crn=False, **BOX_KWARGS)
 
@@ -90,7 +91,7 @@ def test_simpar_results_match_serial(name, cls, simpar):
 @pytest.mark.parametrize("name,cls", SOLVERS, ids=[c[0] for c in SOLVERS])
 @pytest.mark.parametrize("proc", [1, 2])
 def test_proc_results_match_serial(name, cls, proc):
-    """Registered in pymoso/solvers/__init__.py, MOCOMPASS/MOPBnB are
+    """Registered in pymoso/solvers/__init__.py, the example solvers are
     real installed modules like RSPLINE, not dynamically-loaded custom
     files -- the forkserver/--proc transport gap (KNOWN_ISSUES.md issue
     7) is specific to the latter, so this is expected to pass under
@@ -103,7 +104,7 @@ def test_proc_results_match_serial(name, cls, proc):
     assert endseed == serial_endseed
 
 
-@pytest.mark.parametrize("name", ["MOCOMPASS", "MOPBnB"])
+@pytest.mark.parametrize("name", ["ExampleSearchSolver", "ExampleBnBSolver"])
 def test_crn_refused_via_cli(name, tmp_path):
     cmd = [
         "pymoso", "solve", "--budget=300", "--crn",

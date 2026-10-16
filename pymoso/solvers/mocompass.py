@@ -14,17 +14,17 @@ from ..moso import get_setnbors, get_nondom, enorm, edist
 #*************************
 # algorithm-specific parameters
 # numsamples [default: 8] -- number of feasible points to sample in a iteration
-### e.g. pymoso solve --param numsamples 20 ProbTPA MOCOMPASS
+### e.g. pymoso solve --param numsamples 20 --param lb 0 --param ub 50 ProbTPA ExampleSearchSolver
 # lb = lower bound that feasible point components can take
 # ub = upper bound that feasible point components can take
-### e.g. pymoso solve --param lb 0 --param ub 50 ProbTPA MOCOMPASS
+### e.g. pymoso solve --param lb 0 --param ub 50 ProbTPA ExampleSearchSolver
 ### lb and ub are required for proper MOCOMPASS operation, choose them
 ### appropriately for the test problem
 
 
-class MOCOMPASS(MOSOSolver):
+class ExampleSearchSolver(MOSOSolver):
     """
-    MO-COMPASS solver for multi-objective discrete optimization via simulation.
+    Example implementation of MO-COMPASS, unverified against the source paper.
 
     This is our interpretation and implementation of MO-COMPASS. It has
     not been reviewed or validated by the algorithm's authors, and any

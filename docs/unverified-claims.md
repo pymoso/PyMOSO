@@ -30,10 +30,10 @@ the documents that record the measurements.
   objective, 0) but untested. A test would solve a two-objective problem
   with `RSPLINE` and check the solution against the first objective
   alone.
-- **`RPE` and `RSPLINE` under `--crn`.** The README's "all built-in
-  solvers except MOCOMPASS and MOPBnB support common random numbers"
-  is backed for `RPERLE` (a golden) and `RMINRLE` (the `get_nbors`
-  whole-run comparison). Nothing runs `RPE` or `RSPLINE` with
+- **`RPE` and `RSPLINE` under `--crn`.** The README's claim that the
+  built-in solvers other than the two example solvers support common
+  random numbers is backed for `RPERLE` (a golden) and `RMINRLE` (the
+  `get_nbors` whole-run comparison). Nothing runs `RPE` or `RSPLINE` with
   `crn=True`. A test would solve with each under `crn=True` and check
   that two points in one iteration share replications.
 - **The C wrapper examples.** They need a compiled library and are
@@ -65,5 +65,18 @@ RLE certifies are descriptions of the published algorithms. The papers
 cited at the top of the README are their reference; the parameter
 table's defaults and solver lists are checked against the code
 (tests/test_readme_param_table.py), and its descriptions are not.
-MOCOMPASS and MOPBnB have not been checked against their papers at all
+`ExampleSearchSolver` and `ExampleBnBSolver` (MO-COMPASS and MOPBnB)
+have not been checked against their papers at all
 (docs/mocompass-mopbnb-known-issues.md).
+
+## What the README leaves out, by decision
+
+- **The README does not describe `ExampleSearchSolver` or
+  `ExampleBnBSolver`.** It has no section on them, no prose presenting
+  them as usable, and no claim about what they implement; they appear
+  only in the generated `listitems` block and parameter table, in the
+  sentence saying the listing includes solvers the README does not
+  describe, and as the exception in the sentence on `--crn`. This is a decision recorded in CLAUDE.md, and deliberately
+  not a test: asserting that prose is absent is awkward and easy to
+  fool (a test for the names would have to allow the generated blocks,
+  and would miss a description that never used them). Review keeps it.

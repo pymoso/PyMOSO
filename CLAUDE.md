@@ -489,7 +489,21 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
 - MOCOMPASS and MOPBnB (real `MOSOSolver`s from prior work, written
   against roughly the 1.0.8 API) are now in-tree,
   `pymoso/solvers/mocompass.py`/`mopbnb.py` — role decided: shipped,
-  compatibility-only examples. Brought in with three compatibility
+  compatibility-only examples. **Registered as `ExampleSearchSolver`
+  and `ExampleBnBSolver` (Phase 6, by decision),** so the listing makes
+  no claim to implement the published algorithms; the one-line
+  docstring `listitems` prints says "unverified against the source
+  paper". Module filenames, the file headers' citations and
+  disclaimers, and `docs/mocompass-mopbnb-known-issues.md`'s filename
+  are kept. **Not described in the README, by decision:** no section,
+  no usage prose, no claims about what they implement. They still
+  appear in the generated `listitems` block and parameter table,
+  which stay literal output of the registered solvers -- do not
+  filter them out; one sentence in the `listitems` section says why
+  the listing has solvers the README does not describe. The golden
+  cases were renamed with them (values unchanged, proved by running
+  under the new names first). Elsewhere in this file and in the design
+  docs, "MOCOMPASS"/"MOPBnB" name the algorithms and their port. Brought in with three compatibility
   fixes (a Python 3.11+ `random.sample()` incompatibility, a
   library-hostile `sys.exit()` on missing params, a `--crn` refusal —
   under `--crn` every `hit()` either solver makes replays from the

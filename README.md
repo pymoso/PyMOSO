@@ -271,16 +271,16 @@ options:
 ```
 For now, PyMOSO has three commands: `listitems`, `solve`, and `testsolve`, which we explain below.
 ### The `listitems` command for viewing solvers, testers, and oracles included in PyMOSO
-The default installation of PyMOSO includes a selection of solvers, testers, and oracles. Users can view the complete lists of included solvers, testers, and oracles using the `pymoso listitems` command. We show the current listing below. Test problems A, B, and C refer to those in Cooper et al (2018).
+The default installation of PyMOSO includes a selection of solvers, testers, and oracles. Users can view the complete lists of included solvers, testers, and oracles using the `pymoso listitems` command. We show the current listing below. Test problems A, B, and C refer to those in Cooper et al (2018). The listing includes two example solvers, `ExampleSearchSolver` and `ExampleBnBSolver`, that this README does not describe: they are installed, but their correctness has not been reviewed; see [`docs/mocompass-mopbnb-known-issues.md`](docs/mocompass-mopbnb-known-issues.md).
 
 ```
 
 Solver                 Description
 *********************  ************************************************************
-MOCOMPASS              MO-COMPASS solver for multi-objective discrete optimization
-                       via simulation.
-MOPBnB                 MOPBnB solver for Pareto-optimal approximation via
-                       probabilistic branch and bound.
+ExampleBnBSolver       Example implementation of MOPBnB, unverified against the
+                       source paper.
+ExampleSearchSolver    Example implementation of MO-COMPASS, unverified against the
+                       source paper.
 RMINRLE                A solver using R-MinRLE for integer-ordered MOSO.
 RPE                    R-Pe solver for bi-objective simulation optimization.
 RPERLE                 R-PERLE solver for bi-objective simulation optimization.
@@ -373,7 +373,7 @@ Users may specify to take simulation replications in parallel. With an oracle th
 
 `pymoso solve --simpar=4 myproblem.py RPERLE 44`  
 
-All built-in solvers except `MOCOMPASS` and `MOPBnB` support common random numbers. <!-- verified: tests/test_mocompass_mopbnb_compat.py::test_crn_refused_at_construction; tests/test_golden.py::test_end_seed_matches_baseline; tests/test_get_nbors_equivalence.py::test_whole_solver_runs_are_identical_to_runs_on_the_box_enumeration --> Users may enable the functionality using the `--crn` option.  
+All built-in solvers except the two example solvers, `ExampleSearchSolver` and `ExampleBnBSolver`, support common random numbers. <!-- verified: tests/test_example_solvers_compat.py::test_crn_refused_at_construction; tests/test_golden.py::test_end_seed_matches_baseline; tests/test_get_nbors_equivalence.py::test_whole_solver_runs_are_identical_to_runs_on_the_box_enumeration --> Users may enable the functionality using the `--crn` option.  
 
 `pymoso solve --crn myproblem.py RMINRLE 62`  
 
@@ -406,19 +406,13 @@ Finally, users may specify any number of options in one invocation, in any order
 | `radius` | `1` | `RMINRLE`, `RPE`, `RPERLE`, `RSPLINE` | Sets radius that determines a point's neighborhood. |
 | `betadel` | `0.5` | `RMINRLE`, `RPERLE` | Roughly, affects how likely it is for RLE to keep its given solution. |
 | `betaeps` | `0.5` | `RPE`, `RPERLE` | Roughly, affects how likely PE will perform a search from a point. |
-| `lb` | *(required)* | `MOCOMPASS`, `MOPBnB` | Lower bound each feasible point's components may take. |
-| `ub` | *(required)* | `MOCOMPASS`, `MOPBnB` | Upper bound each feasible point's components may take. |
-| `numsamples` | `8` | `MOCOMPASS` | Number of feasible points to sample per iteration. |
-| `subregions` | `2` | `MOPBnB` | Number of subregions to branch each region into. |
-| `alpha` | `0.05` | `MOPBnB` | Overall confidence parameter. |
-| `delta` | `0.1` | `MOPBnB` | Sampling ratio used for subregion elimination. |
-| `R0` | `20` | `MOPBnB` | Initial number of replications taken per point. |
-
-`MOCOMPASS` and `MOPBnB` are compatibility-only example solvers — their
-algorithmic behavior has not been validated against the papers they
-implement, and neither currently supports `--crn`. See
-[`docs/mocompass-mopbnb-known-issues.md`](docs/mocompass-mopbnb-known-issues.md)
-and each solver's own docstring for the full citation and disclaimer.
+| `lb` | *(required)* | `ExampleBnBSolver`, `ExampleSearchSolver` | Lower bound each feasible point's components may take. |
+| `ub` | *(required)* | `ExampleBnBSolver`, `ExampleSearchSolver` | Upper bound each feasible point's components may take. |
+| `numsamples` | `8` | `ExampleSearchSolver` | Number of feasible points to sample per iteration. |
+| `subregions` | `2` | `ExampleBnBSolver` | Number of subregions to branch each region into. |
+| `alpha` | `0.05` | `ExampleBnBSolver` | Overall confidence parameter. |
+| `delta` | `0.1` | `ExampleBnBSolver` | Sampling ratio used for subregion elimination. |
+| `R0` | `20` | `ExampleBnBSolver` | Initial number of replications taken per point. |
 
 
 ### The `testsolve` Command  

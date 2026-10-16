@@ -296,3 +296,49 @@ file versions to test an earlier stage -- set
 `PYTHONDONTWRITEBYTECODE=1` and delete `__pycache__` first. And read a
 failure's message, not only that it failed: this was caught because
 the assertion named `front`, which that mutation had not touched.
+
+## A fourth and a fifth instance
+
+**Fourth: a spy on a name `Oracle` no longer called.** When
+`Oracle.replication_draws` landed (commit `5ffba8c`),
+`tests/test_point_code_fallback.py`'s end-to-end test was spying on
+`mrg32k3a.encode_point`, which `Oracle` had stopped calling. It is the
+third instance's shape again: a substitute on a name nobody reads. It
+differs in one way worth keeping. The test's own assertion ("more than
+100 points hashed") counted what the spy saw, so it failed loudly
+instead of passing on nothing. The spy now patches
+`prng.base.encode_point`, the name `Oracle` reads. A test that asserts
+the substitute was reached is the rule above, built into the test.
+
+**Fifth, and the broadest: subprocess tests can test a different tree
+from the rest of the suite.** Found 2026-10-16, running the suite in
+the `many-objective` worktree. Every test that starts a fresh
+interpreter does so with `-I`: `tests/_pymoso_cli.py`'s
+`pymoso_argv`, and direct `[sys.executable, "-I", ...]` calls. `-I`
+ignores PYTHONPATH and the current directory, by design (KNOWN_ISSUES
+issue 9), so the subprocess imports the *installed* pymoso. The test
+process imports whatever is first on its own `sys.path`. In a second
+worktree sharing `.venv-dev`'s editable install, or under
+`python -m pytest` from another checkout, those are two different
+trees.
+
+- **Seen:** 7 failures, from the main checkout's staged solver rename,
+  reproduced on an untouched export of the same commit.
+- **Not seen, and the point of recording it:** every other `-I` test in
+  that run passed against code that was not under test. That includes
+  the public-surface cycle check, the dependency boundary, the remote,
+  by-value and Spark tests, and all CLI tests.
+
+The previous four were one assertion or one file each. This one
+covers every subprocess test at once, and nothing in a green run shows
+it. The helper was not bypassed: it does exactly what its docstring
+promises. The unchecked link is between "the installation" and "the
+tree under test".
+
+The finding, with the proposed guard, is in
+`.git/manyobj/finding-subprocess-tree.md` (local to this machine; the
+durable summary is in `docs/phase7-plan.md`). The guard compares the
+in-process `pymoso.__file__` with the `-I` subprocess's at session
+start, and stops on a mismatch. **It is Phase 7's first task, before
+anything is measured in a worktree**, because measurements would
+inherit the problem.

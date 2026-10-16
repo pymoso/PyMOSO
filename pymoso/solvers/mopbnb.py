@@ -12,9 +12,9 @@ from ..chnbase import MOSOSolver, reject_unknown_params
 from ..moso import get_nondom
 
 
-class MOPBnB(MOSOSolver):
+class ExampleBnBSolver(MOSOSolver):
     """
-    MOPBnB solver for Pareto-optimal approximation via probabilistic branch and bound.
+    Example implementation of MOPBnB, unverified against the source paper.
 
     This is our interpretation and implementation of MOPBnB. It has
     not been reviewed or validated by the algorithm's authors, and any

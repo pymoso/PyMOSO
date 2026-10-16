@@ -146,10 +146,20 @@ rather than path- or entry-point-specific.
 | rperle_tpa_simpar2 | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
 | solve() library call | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
 | testsolve() library call | `608833221, 1812491834, 2623259368, 3887640181, 811678161, 2382318639` |
-| mocompass_tpa | `1146796796, 3308305028, 386855827, 2694500999, 2221614380, 1025642763` |
-| mopbnb_tpa | `3809509318, 1900386143, 1103642148, 1010814338, 790187922, 3654332215` |
-| testsolve_mocompass | `2346975725, 1224100873, 2386202199, 4246821866, 1768963681, 2406381760` |
-| testsolve_mopbnb | `559300817, 691733575, 3730937374, 1133024474, 2779640938, 790303042` |
+| example_search_tpa | `1146796796, 3308305028, 386855827, 2694500999, 2221614380, 1025642763` |
+| example_bnb_tpa | `3809509318, 1900386143, 1103642148, 1010814338, 790187922, 3654332215` |
+| testsolve_example_search | `2346975725, 1224100873, 2386202199, 4246821866, 1768963681, 2406381760` |
+| testsolve_example_bnb | `559300817, 691733575, 3730937374, 1133024474, 2779640938, 790303042` |
+
+The last four rows were renamed, not recaptured: the solvers MOCOMPASS
+and MOPBnB became `ExampleSearchSolver` and `ExampleBnBSolver`, so
+`mocompass_tpa`, `mopbnb_tpa`, `testsolve_mocompass` and
+`testsolve_mopbnb` became `example_search_tpa`, `example_bnb_tpa`,
+`testsolve_example_search` and `testsolve_example_bnb`. All four were
+run under the new names on both venvs before the test was edited, and
+matched these values exactly: the end seed does not depend on the
+solver's name. Everything else in this file uses the names in force
+when it was written.
 
 `test_solution_sensitivity.py`'s `EXPECTED_SOLUTIONS`, old and new (its
 `end_seed` is `testsolve_tpa`'s, above):

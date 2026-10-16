@@ -28,6 +28,12 @@ Two C/ctypes examples ("Example Oracle that Wraps a C Simulation",
 "Example Wrapper with PyMOSO Random Numbers") need a compiled library
 and are intentionally NOT exercised -- see test_c_wrapper_examples_are_
 intentionally_untested below. Do not fake these.
+
+To change a block, edit its file under pymoso/examples/ and paste the
+file (or, for a fragment, the piece the convention above names) over
+the README block; a failure here names the block that differs. There
+is deliberately no regeneration script: one lived in scratch/, found
+the blocks by position, and was broken when next needed.
 """
 import inspect
 import re
