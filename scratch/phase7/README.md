@@ -41,3 +41,15 @@ is how the full suite was run with the shadow on.
 distinct points ever estimated feasible and infeasible, the largest
 single iteration's `gbar`, and the bytes the two sets occupy (tuples
 included, measured with tracemalloc).
+
+## Step 2's identity check
+
+`step2_record.py OUT.jsonl` runs 39 counted configurations and records,
+per run, the solution, end seed, simcalls, a digest of every `get_ncn`
+call's input and answer in sequence, and the calls `get_ncn` made to
+`calc_delta` and the dominance predicates. `--compare BEFORE AFTER`
+requires every run identical. `step2_before.jsonl` was recorded on the
+tree before step 2a. `step2_after_relaxations.jsonl` is after step 2a,
+computing relaxations once: 39 of 39 identical. `STEP2_ONLY=<substring>`
+and `--compare-subset` run part of it, which is how a deliberately
+wrong version was shown to be caught.

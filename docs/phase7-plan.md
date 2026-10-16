@@ -363,6 +363,20 @@ move. Known so far:
   saving found at many objectives (estimated 10-32% of a cheap-problem
   run). Same floats from the same expressions, so result-preserving by
   construction.
+  **Done (step 2a).** `get_ncn` computes each member's relaxation once.
+  `tests/test_get_ncn_work.py` keeps the old `get_ncn` verbatim and
+  holds the new one to it, answer and order, on 40 sets; it counts
+  `calc_delta`. It was seen failing before the change (72 calls where
+  30 suffice), and seen catching a plausible wrong version (one
+  objective's standard error used for all). On the 39 counted runs
+  (`scratch/phase7/step2_record.py`: lattice DTLZ2 at M = 2-6, and
+  the bi-objective configurations, both generators), every run was
+  identical before and after: solution, end seed, simcalls, and
+  every `get_ncn` call's input and answer, in sequence. The same
+  wrong version made 3 of 3 of those runs differ. `calc_delta` calls
+  at M = 6, seed 1: 77,854,344 before, 142,644 after, which is exactly
+  the requirement step 1 derived. Predicate counts are unchanged. No
+  golden moved.
 - **`get_ncn` part (b) without an early exit** (step 1): predicate
   calls 1.6-2.6x what an early exit needs, the ratio falling as M
   grows (estimated 12-19% of a cheap-problem run at M >= 3). A shadow

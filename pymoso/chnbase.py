@@ -1057,6 +1057,9 @@ class RLESolver(RASolver):
                 #     nisdom |= {x}
         # definition 9 (b) initialization
         candidates = list(delN - ncn)
+        # each member's relaxation does not depend on the candidate, so
+        # it is computed once (docs/phase7-plan.md, step 2)
+        delS = {s: tuple(self.calc_delta(self.sehat[s][i]) for i in dr) for s in mcS}
         for x, (isfeas, fx, sex) in zip(candidates, self.estimate_many(candidates)):
             if isfeas:
                 # definition 9 (b) (i) initialization
@@ -1075,9 +1078,8 @@ class RLESolver(RASolver):
                         doesweakdom = True
                 for s in mcS:
                     fs = self.gbar[s]
-                    ses = self.sehat[s]
-                    # set the relaxation of the LES candidate member
-                    dels = tuple(self.calc_delta(ses[i]) for i in dr)
+                    # the relaxation of the LES candidate member
+                    dels = delS[s]
                     # definition 9 (b) (i)
                     if does_weak_dominate(fs, fx, delzero, delzero):
                         notweakdom = False
