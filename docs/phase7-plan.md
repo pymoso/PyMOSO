@@ -452,6 +452,70 @@ move. Known so far:
   runs at M = 3 differ); dropping (a)'s skip, which only costs work, by
   the count. No golden moved.
 
+**Step 2 measured end to end (2026-10-17), at `30bfa68`.** Steps 2a,
+2b and 2c together; they were not measured separately.
+
+- *The many-objective sweep.* Its own driver, harness and problem,
+  unchanged (`docs/bench_many_objective.py` and `scratch/manyobj/` from
+  `many-objective` at `d959c34`, extracted, not copied into this
+  branch): 240 runs, the same configurations, seeds, interleaved order,
+  generator (Philox) and Python (3.14.8). Every run reproduced its
+  original exactly in every untimed field the driver's own rerun check
+  compares (solutions, simulations, `g()` calls, every iteration's
+  visited-set analysis), except `region_calls['estimate']`, higher by
+  exactly one per iteration after the first in every run: issue 19's
+  warm-start check in R-MinRLE's `accel`, an `estimate_many` of points
+  already estimated, which runs no simulations. 29 runs met a
+  one-minute load above 1.8, in two windows from outside this work
+  (13:55, 15:22-15:50); they were rerun with the driver's `retime` and
+  merged with `quiet`, each rerun reproducing its original. Merged:
+  highest load 1.76, CPU over wall at most 1.000. Compared with the
+  original's merged runs, run for run (same seed). Medians, measured:
+
+  | L | M | arm | R | before (s) | after (s) | saved | paired range | `get_ncn` own time (s) | `get_ncn` share before |
+  |---|---|---|---|---|---|---|---|---|---|
+  | 4 | 2 | A | 20 | 6.8 | 6.6 | 3% | -1 to 9% | 0.2 -> 0.1 | 3% |
+  | 4 | 2 | B | 20 | 6.8 | 6.6 | 3% | 1 to 9% | 0.2 -> 0.1 | 3% |
+  | 4 | 3 | A | 20 | 13.0 | 10.1 | 22% | 21 to 24% | 3.9 -> 1.1 | 30% |
+  | 4 | 3 | B | 20 | 12.8 | 10.1 | 21% | 17 to 24% | 3.6 -> 1.0 | 28% |
+  | 4 | 4 | A | 20 | 57.2 | 23.4 | 59% | 57 to 61% | 44.3 -> 10.4 | 77% |
+  | 4 | 4 | B | 20 | 59.5 | 24.1 | 60% | 58 to 61% | 45.5 -> 10.6 | 77% |
+  | 4 | 5 | A | 20 | 257.0 | 78.7 | 69% | 68 to 70% | 232.4 -> 56.0 | 90% |
+  | 4 | 5 | B | 20 | 253.1 | 76.5 | 70% | 69 to 71% | 231.0 -> 56.0 | 91% |
+  | 4 | 6 | A | 10 | 557.4 | 169.1 | 70% | 69 to 71% | 524.7 -> 140.0 | 94% |
+  | 4 | 6 | B | 10 | 589.6 | 182.4 | 69% | 69 to 71% | 556.2 -> 152.9 | 94% |
+  | 6 | 2 | A | 10 | 7.2 | 6.9 | 4% | 2 to 5% | 0.3 -> 0.1 | 4% |
+  | 6 | 2 | B | 10 | 7.1 | 6.8 | 4% | -4 to 5% | 0.3 -> 0.1 | 4% |
+  | 6 | 3 | A | 10 | 18.4 | 12.0 | 35% | 32 to 37% | 8.7 -> 2.2 | 47% |
+  | 6 | 3 | B | 10 | 17.2 | 11.3 | 34% | 31 to 36% | 7.9 -> 2.0 | 46% |
+  | 6 | 4 | A | 10 | 113.0 | 39.4 | 65% | 63 to 66% | 98.0 -> 24.4 | 86% |
+  | 6 | 4 | B | 10 | 102.9 | 36.0 | 65% | 64 to 66% | 88.6 -> 22.0 | 86% |
+
+  The whole sweep: 28,483 s of run time before, 9,605 s after (66%
+  less). `get_ncn`'s own time fell 3.5-4.3x; `get_nondom`'s 34-37%.
+  At M = 6 `get_ncn` is still 83% of the run (140 of 169 s): it is
+  still what bounds many-objective runs, now by its quadratic size
+  rather than by repeated work. The instrumented runs' wall times are
+  the harness's (time mode), as in the original.
+- *Step 1's own 15 runs* (budget 30,000, uninstrumented, `ncn_many.py`
+  `plain` mode), rerun twice on the current code, 15 of 15 identical
+  to `ncn_many_30k.jsonl` (solution, simulations, iterations, end seed,
+  every iteration's |S|). Saved, by seed, both passes within a point:
+  M = 2 4-8%; M = 3 21-31%; M = 4 43-48%; M = 5 56-59%; M = 6 57-61%.
+- *Against step 1's estimates:* those were 10-32% (2a) and 12-19% (2b)
+  of exactly these runs, about 25% together at M = 3, 35% at M = 4 and
+  40-44% at M = 5-6. M = 3 is inside the estimate; at M = 4-6 the
+  measured saving is larger by 10-17 points. The estimate costed only
+  the `calc_delta` and predicate calls removed, at microbenchmark unit
+  cost; the removed work also built a tuple per member per candidate
+  and looked up `gbar`/`sehat` for it. That this accounts for the
+  difference is likely and not measured. The sweep's larger savings
+  (budget 300,000) follow from `get_ncn` being a larger share there
+  (77-94% at M = 4-6, against step 1's 58-86%).
+- Absolute times are this machine's (AMD Ryzen 5 5600X3D); the files
+  are `scratch/phase7/manyobj_*_after_step2.*` and
+  `ncn_many_30k_after_step2.jsonl` (scratch/phase7/README.md).
+
 Not a step-2 fix, by decision: the per-iteration end-seed
 recomputation (Decisions, above).
 
@@ -778,9 +842,9 @@ README, and belong in the same place.
   of the first two lands, it must be observed giving identical results
   on the counted runs, not only passing goldens.
   All three done (2026-10-17), each identical on the counted runs.
-  Next: re-run the many-objective sweep against the optimized code.
-  Step 1's estimates (10-32% from 2a, 12-19% from 2b at M = 3-6, and
-  2c's share) were never measured together end to end.
+  Measured together end to end the same day (step 2, "Step 2
+  measured end to end"): 21-35% of a run saved at M = 3, 59-70% at
+  M = 4-6, on the many-objective sweep's own 240 runs.
 - ~~Random feasibility: refused and documented.~~ Withdrawn
   2026-10-17 (step 1b's decisions). In its place, in this order:
   issue 18 withdrawn with these plan entries; `WarmStartInfeasible`

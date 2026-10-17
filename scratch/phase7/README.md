@@ -67,3 +67,20 @@ step 2b recorded that way (39 of 39 identical to
 `get_nondom` answer included. `STEP2_ONLY=<substring>`
 and `--compare-subset` run part of it, which is how a deliberately
 wrong version was shown to be caught.
+
+## Step 2 end to end
+
+`manyobj_sweep_after_step2.jsonl` (and `.log`) is the many-objective
+sweep (240 runs) on `30bfa68`, made with `many-objective`'s own
+`docs/bench_many_objective.py` and `scratch/manyobj/` at `d959c34`,
+extracted unchanged outside the repository (`git archive many-objective
+docs/bench_many_objective.py scratch/manyobj | tar -x -C DIR`, then
+`python DIR/docs/bench_many_objective.py sweep OUT.jsonl`).
+`manyobj_retime_after_step2.jsonl` reruns its 29 loaded runs (`retime`);
+the comparison is between the two merged with `quiet` and the
+original's sweep and retime files merged the same way; as in the
+original, the merged files are not kept (`quiet` rebuilds them,
+checking each rerun against its original).
+`ncn_many_30k_after_step2.jsonl` is step 1's 15 `plain` runs rerun twice
+on the same tree, with the original wall time beside both. The results
+are in docs/phase7-plan.md, step 2, "Step 2 measured end to end".
