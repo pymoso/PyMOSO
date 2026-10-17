@@ -6,7 +6,7 @@ Provide an implementation of R-PERLE for users needing a
 bi-objective simulation optimization solver.
 """
 import sys
-from ..chnbase import RLESolver
+from ..chnbase import RLESolver, _check_warm_start
 from ..moso import get_biparetos, get_nondom
 
 
@@ -60,7 +60,11 @@ class RPERLE(RLESolver):
         phatp : set of tuple of int
             A candidate ALES
         """
-        aold = self.upsample(aold | {self.x0})
+        # x0 is a candidate in every iteration. Every point is estimated
+        # at this iteration's sample size; none may have become infeasible
+        aold = aold | {self.x0}
+        self.upsample(aold)
+        _check_warm_start(self, aold)
         mnumin = self.get_min(aold)
         aold, domset = self.remove_nlwep(aold)
         a0new = mnumin | aold

@@ -184,8 +184,9 @@ draws apart (more with `philox4x32`), as before.
 - **A warm start found infeasible was reported as something else**
   (issue 19). R-MinRLE failed with a bare `KeyError` ("Unable to run
   accel(). Message: (2, 17)"), and R-SPLINE said "x0=(4, 9) is
-  infeasible" of a point the caller never passed. R-SPLINE and
-  R-MinRLE now raise `pymoso.chnbase.WarmStartInfeasible`, a new
+  infeasible" of a point the caller never passed; R-PE and R-PERLE
+  dropped the point without a word. All four now raise
+  `pymoso.chnbase.WarmStartInfeasible`, a new
   public exception, naming the point and the iteration. It cannot
   happen when `g()` decides feasibility from `x` alone; the error says
   so, and gives the likelier cause first. Its docstring says which

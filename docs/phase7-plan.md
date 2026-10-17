@@ -669,7 +669,11 @@ The MATLAB is a second reference for R-SPLINE:
 - **`pe`'s silent filter of the warm start.** `upsample` returns the
   feasible subset, and `pe` replaces its warm start with it before
   anything else looks at it, so R-PE and R-PERLE could never report an
-  infeasible warm start. Scheduled for removal (step 1b's decisions).
+  infeasible warm start. **Removed.** Across the whole suite it had
+  dropped 12 points (2,043 calls in 107 processes), every one an
+  infeasible x0 in iteration 1 that a test passed on purpose and that
+  `get_min` then reported anyway; never a warm-start point. It had been
+  load-bearing for nothing but turning one clear error into another.
 - **`sys.exit()` in library code: one inherited defect in two places.**
   `rperle.py` and `rpe.py` exit the process when the problem is not
   bi-objective (the same block in `pe`). R-PE inherited it from

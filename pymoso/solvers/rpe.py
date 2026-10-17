@@ -5,7 +5,7 @@ Summary
 Provide an implementation of R-Pe for users needing a 
 bi-objective simulation optimization solver. 
 """
-from ..chnbase import RASolver
+from ..chnbase import RASolver, _check_warm_start
 from ..moso import get_biparetos
 import sys
 
@@ -61,7 +61,11 @@ class RPE(RASolver):
 		phatp : set of tuple of int
 			A candidate ALES
         """
-        aold = self.upsample(aold | {self.x0})
+        # x0 is a candidate in every iteration. Every point is estimated
+        # at this iteration's sample size; none may have become infeasible
+        aold = aold | {self.x0}
+        self.upsample(aold)
+        _check_warm_start(self, aold)
         mnumin = self.get_min(aold)
         aold, domset = self.remove_nlwep(aold)
         a0new = mnumin | aold
