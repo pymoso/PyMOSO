@@ -12,6 +12,7 @@ Listing
 --------------
 accepted_params, function
 reject_unknown_params, function
+WarmStartInfeasible(RuntimeError), class
 MOSOSolver(object), class
 RASolver(MOSOSolver), class
 RLESolver(RASolver), class
@@ -74,6 +75,76 @@ def reject_unknown_params(solver, leftover):
             ', '.join(accepted) if accepted else 'none',
         )
     )
+
+
+class WarmStartInfeasible(RuntimeError):
+    """
+    Raised when a point a solver carried into an RA iteration as
+    feasible is estimated infeasible there.
+
+    The invariant: a warm start is the previous iteration's solution,
+    every point of which that iteration estimated feasible, and the
+    starting point x0 was estimated feasible in iteration 1. When the
+    oracle decides feasibility from x alone, re-estimating those points
+    at a larger sample size cannot find them infeasible. Nothing is
+    being estimated about their feasibility; it is inherited.
+
+    It holds for algorithms whose sample-path problems take the
+    feasible set as given: R-SPLINE, R-PE, R-PERLE and R-MinRLE raise
+    this. `RASolver` itself does not, because an algorithm with random
+    constraints could legitimately meet an infeasible warm start and
+    have its own way to handle it. A solver of your own may raise it
+    if the invariant is one its algorithm relies on.
+
+    In iteration 1 the warm start is x0 itself, the caller's point,
+    and an infeasible x0 there is reported as a `ValueError`.
+
+    Attributes
+    ----------
+    points : tuple of tuple
+        The points found infeasible, in sorted order
+    iteration : int
+        The iteration that found them infeasible
+    solver : str
+        The solver's class name
+    """
+
+    def __init__(self, points, iteration, solver):
+        self.points = tuple(points)
+        self.iteration = iteration
+        self.solver = solver
+        first = self.points[0]
+        others = len(self.points) - 1
+        super().__init__(
+            '{0}: the point {1}{2}, carried into iteration {3} as feasible, '
+            'was estimated infeasible there. The likeliest cause is a g() whose '
+            'feasibility depends on its random numbers rather than on x alone, '
+            'which {0} does not support. If your g() decides feasibility from '
+            'x alone, this cannot happen and indicates a defect in PyMOSO; '
+            'please report it.'.format(
+                solver, first,
+                ' (and {0} other{1})'.format(others, 's' if others > 1 else '') if others else '',
+                iteration))
+
+    def __reduce__(self):
+        # so that it reaches the parent intact from a --proc worker
+        return (type(self), (self.points, self.iteration, self.solver))
+
+
+def _check_warm_start(solver, points):
+    """
+    Raise WarmStartInfeasible if, after iteration 1, any of `points`
+    (a warm start, with x0 where the solver carries it) is not among
+    this iteration's feasible estimates. The caller has already
+    estimated them at this iteration's sample size; nothing is
+    simulated here. In iteration 1 the warm start is the caller's x0,
+    and an infeasible x0 is left to the ValueError that reports it.
+    """
+    if solver.nu <= 1:
+        return
+    infeasible = [x for x in points if x not in solver.gbar]
+    if infeasible:
+        raise WarmStartInfeasible(sorted(infeasible), solver.nu, type(solver).__name__)
 
 
 class MOSOSolver(object):
@@ -933,7 +1004,7 @@ class RLESolver(RASolver):
         """
         try:
             anew = self.accel(warm_start)
-        except ValueError:
+        except (ValueError, WarmStartInfeasible):
             # a deliberate, already-clear error (e.g. an infeasible x0,
             # raised by get_min) -- do not bury it in a generic wrapper
             raise

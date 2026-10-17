@@ -181,6 +181,16 @@ draws apart (more with `philox4x32`), as before.
   sample path now travels to a worker as data.
 - **An exception in `g()` hung `--simpar`** (issue 15). It is now
   raised in the caller.
+- **A warm start found infeasible was reported as something else**
+  (issue 19). R-MinRLE failed with a bare `KeyError` ("Unable to run
+  accel(). Message: (2, 17)"), and R-SPLINE said "x0=(4, 9) is
+  infeasible" of a point the caller never passed. R-SPLINE and
+  R-MinRLE now raise `pymoso.chnbase.WarmStartInfeasible`, a new
+  public exception, naming the point and the iteration. It cannot
+  happen when `g()` decides feasibility from `x` alone; the error says
+  so, and gives the likelier cause first. Its docstring says which
+  algorithms the invariant belongs to, for solver authors who want to
+  raise it too.
 - **Worker processes outlived a killed parent** (issue 8). An idle
   worker now exits; a busy one finishes its task first.
 - **Two `testsolve()` roles shared a seed** (issue 10; see above).

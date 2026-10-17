@@ -676,6 +676,11 @@ The MATLAB is a second reference for R-SPLINE:
   R-PERLE, which is how it survived Phase 2's sweep. Nothing else
   outside `pymoso/cli.py` and `pymoso/commands/` calls `sys.exit()`;
   `chnbase.py` has three more, all in commented-out code.
+- **`RLESolver.spsolve` re-wraps every exception from `accel` that is
+  not a `ValueError` as "Unable to run accel()".** That is the
+  hide-the-error pattern again: `WarmStartInfeasible` needed a
+  passthrough to get out intact, and the wrapper will do the same to
+  the next deliberate error. On the list, not fixed now.
 - **`rle` filters its input too.** `rle` replaces the set `accel`
   returned with its feasible subset (`upsample(mcS | {x0})`). For the
   built-in solvers every point `accel` returns was estimated feasible

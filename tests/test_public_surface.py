@@ -46,6 +46,9 @@ SURFACE = {
         "MOSOSolver": "pymoso.chnbase",
         "RASolver": "pymoso.chnbase",
         "RLESolver": "pymoso.chnbase",
+        # for a solver whose algorithm relies on its warm start staying
+        # feasible (KNOWN_ISSUES.md issue 19)
+        "WarmStartInfeasible": "pymoso.chnbase",
         "accepted_params": "pymoso.chnbase",
         "reject_unknown_params": "pymoso.chnbase",
         # The helpers the solver bases use. `chnbase.get_nbors` is the

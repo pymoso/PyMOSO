@@ -5,7 +5,7 @@ Summary
 Provide an implementation of R-SPLINE for users needing a 
 single-objective simulation optimization solver. 
 """
-from ..chnbase import RASolver
+from ..chnbase import RASolver, _check_warm_start
 
 
 class RSPLINE(RASolver):
@@ -46,6 +46,7 @@ class RSPLINE(RASolver):
         # warm_start is a singleton set, so extract the item
         candidate = next(iter(warm_start))
         warm_start = self.upsample(warm_start)
+        _check_warm_start(self, {candidate})
         if not warm_start:
             raise ValueError(
                 'x0={0} is infeasible. RA solvers require a feasible starting point.'.format(candidate)

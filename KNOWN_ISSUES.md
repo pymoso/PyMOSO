@@ -802,6 +802,50 @@ from the iteration that returned it rather than estimated. The
 reasoning and the evidence are in `docs/phase7-plan.md`, step 1b. What
 the observed failures did show is issue 19. The number is not reused.
 
+### 19. A warm start found infeasible is reported as something else
+
+**Affects:** every version, from the earliest commit in this repository
+(2018) to this branch. **Severity:** an unexplained crash, or an error
+that names the wrong point and the wrong cause.
+
+**What happens.** An RA iteration starts from the previous iteration's
+solution, every point of which that iteration estimated feasible, and
+re-estimates it at a larger sample size. When `g()` decides feasibility
+from `x` alone, nothing in it can come back infeasible: its feasibility
+is inherited, not estimated. When it does come back infeasible:
+- **R-MinRLE** reads its estimate anyway. `get_min` fails with a bare
+  `KeyError`, wrapped as `RMINRLE: Unable to run accel(). Message:
+  (2, 17)`.
+- **R-SPLINE** says `x0=(4, 9) is infeasible. RA solvers require a
+  feasible starting point.` The caller passed (8, 20); (4, 9) was the
+  warm start. Earlier versions printed "Empty warm start. Is x0
+  feasible?" and called `sys.exit()`.
+- **R-PE and R-PERLE** drop the point without a word: `pe` replaces its
+  warm start with the part of it that came back feasible.
+
+**How it has been seen.** Only with a `g()` whose feasibility depends
+on its random numbers (`tests/_random_feasibility.py`, `RandomEdgeBi`:
+near one edge a replication is infeasible with probability 0.03).
+Checked directly, in each of the five observed failures the point was
+inside the problem's space on every replication and was refused only
+by that coin. In 84 runs on problems that decide feasibility from `x`,
+no warm-start point was ever infeasible. So no defect in the warm-start
+path has been found, but if one existed, these errors would have hidden
+it as well as they hid the cause here.
+
+**Status: fixed on this branch (Phase 7) for R-SPLINE and R-MinRLE.**
+They raise `pymoso.chnbase.WarmStartInfeasible` (a `RuntimeError`)
+where they re-estimate the warm start, naming the point and the
+iteration. The message gives the likelier cause first, a `g()` whose
+feasibility depends on its random numbers, which these solvers do not
+support, and a defect in PyMOSO second. x0 counts as part of the warm
+start after iteration 1: it was estimated feasible then, and is
+re-estimated in every iteration. In iteration 1 an infeasible x0 is
+still the caller's error, a `ValueError`. `RASolver` does not raise it:
+an algorithm with random constraints could legitimately meet an
+infeasible warm start. `tests/test_warm_start.py`. R-PE and R-PERLE
+follow when `pe`'s filter is removed (`docs/phase7-plan.md`, step 1b).
+
 ---
 
 ## Behavior changes introduced by this migration
