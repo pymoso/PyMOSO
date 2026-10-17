@@ -150,3 +150,38 @@ def test_each_relaxation_is_computed_once_per_point(monkeypatch):
         assert len(calls) <= (len(mcS) + len(feasible)) * solver.num_obj
         checked += 1
     assert checked >= 10
+
+
+def test_a_condition_is_evaluated_only_while_it_can_change_the_answer(monkeypatch):
+    """Definition 9's predicates are pure, so the answer depends only on
+    each condition's final value. Here the estimates are planted: five
+    mutually non-dominated members two apart, every neighbour weakly
+    dominated by every member, except (21, 20), which lies between two
+    members and strictly dominates both. The work an early exit needs is
+    then exact: part (a) checks every pair but the second one with
+    (21, 20); part (b) rules every other neighbour out at the first
+    member it meets, one predicate each. Without the early exit part (b)
+    asks about every member, several times over."""
+    calls = []
+    for name in ('does_dominate', 'does_weak_dominate', 'does_strict_dominate'):
+        real = getattr(chnbase, name)
+        monkeypatch.setattr(chnbase, name, lambda *a, _real=real: calls.append(1) or _real(*a))
+    solver = _solver(m=5)
+    mcS = {(20 + 2 * i, 20) for i in range(5)}
+    neighbours = get_setnbors(mcS, solver.nbor_rad)
+    for i, s in enumerate(sorted(mcS)):
+        solver.gbar[s], solver.sehat[s] = (float(i), float(4 - i)), (0.1, 0.1)
+    for x in neighbours:
+        solver.gbar[x], solver.sehat[x] = (100.0, 100.0), (0.1, 0.1)
+    strong = (21, 20)
+    solver.gbar[strong] = (-1.0, -1.0)
+    pairs = [(s, x) for s in mcS for x in get_nbors(s, solver.nbor_rad) - mcS]
+    assert sum(1 for s, x in pairs if x == strong) == 2
+
+    got = solver.get_ncn(mcS)
+
+    assert calls, 'the substitute was never reached'
+    assert got == {strong} and list(got) == list(reference_get_ncn(solver, mcS))
+    calls.clear()
+    solver.get_ncn(mcS)
+    assert len(calls) == (len(pairs) - 1) + (len(neighbours) - 1)

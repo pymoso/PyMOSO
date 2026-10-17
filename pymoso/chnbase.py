@@ -1116,52 +1116,51 @@ class RLESolver(RASolver):
         # are, so they are estimated together.
         pairs = [(s, x) for s in mcS for x in get_nbors(s, r) - mcS]
         estimates = self.estimate_many([x for s, x in pairs])
+        # Every predicate below is a pure function of the estimates, so
+        # the answer depends only on each condition's final value: each
+        # is evaluated only while it can still change the answer
+        # (docs/phase7-plan.md, step 2).
         for (s, x), (isfeas, fx, sex) in zip(pairs, estimates):
-            fs = self.gbar[s]
-            ses = self.sehat[s]
-            #dels = tuple(self.calc_delta(ses[i]) for i in dr)
-            if isfeas:
-                #delx = tuple(self.calc_delta(sex[i]) for i in dr)
-                if does_strict_dominate(fx, fs, delzero, delzero):
+            # a point already found to dominate a member is not checked again
+            if isfeas and x not in ncn:
+                if does_strict_dominate(fx, self.gbar[s], delzero, delzero):
                     ncn |= {x}
-                # if does_strict_dominate(fs, fx, delzero, delzero):
-                #     nisdom |= {x}
         # definition 9 (b) initialization
         candidates = list(delN - ncn)
         # each member's relaxation does not depend on the candidate, so
-        # it is computed once (docs/phase7-plan.md, step 2)
+        # it is computed once
         delS = {s: tuple(self.calc_delta(self.sehat[s][i]) for i in dr) for s in mcS}
         for x, (isfeas, fx, sex) in zip(candidates, self.estimate_many(candidates)):
             if isfeas:
-                # definition 9 (b) (i) initialization
-                notweakdom = True
-                # definition 9 (b) (ii) initialization
-                notrelaxdom = True
-                # definition 9 (b) (iii) initialization
-                wouldnotchange = True
+                # x is in ncn when no member rules it out by (i) or (ii),
+                # and either it weakly dominates a member or (iii) holds
+                # for every member
+                ruledout = False
                 doesweakdom = False
+                wouldnotchange = True
                 # set the relaxation of the neighbor
                 delx = tuple(self.calc_delta(sex[i]) for i in dr)
-                for s in mcS:
-                    fs = self.gbar[s]
-                    ses = self.sehat[s]
-                    if does_weak_dominate(fx, fs, delzero, delzero):
-                        doesweakdom = True
                 for s in mcS:
                     fs = self.gbar[s]
                     # the relaxation of the LES candidate member
                     dels = delS[s]
                     # definition 9 (b) (i)
                     if does_weak_dominate(fs, fx, delzero, delzero):
-                        notweakdom = False
+                        ruledout = True
+                        break
                     # definition 9 (b) (ii)
                     if does_dominate(fx, fs, delzero, delzero) and does_weak_dominate(fs, fx, dels, delx):
-                        notrelaxdom = False
-                    # definition 9 (b) (iii)
-                    if does_weak_dominate(fs, fx, dels, delx) or does_weak_dominate(fx, fs, delx, dels):
-                        wouldnotchange = False
+                        ruledout = True
+                        break
+                    if not doesweakdom:
+                        doesweakdom = does_weak_dominate(fx, fs, delzero, delzero)
+                    # definition 9 (b) (iii), which matters only until x
+                    # is found to weakly dominate a member
+                    if not doesweakdom and wouldnotchange:
+                        if does_weak_dominate(fs, fx, dels, delx) or does_weak_dominate(fx, fs, delx, dels):
+                            wouldnotchange = False
                 # definition 9 (b)
-                if notweakdom and notrelaxdom and (doesweakdom or wouldnotchange):
+                if not ruledout and (doesweakdom or wouldnotchange):
                     ncn |= {x}
         return ncn
 

@@ -411,6 +411,23 @@ move. Known so far:
   calls 1.6-2.6x what an early exit needs, the ratio falling as M
   grows (estimated 12-19% of a cheap-problem run at M >= 3). A shadow
   computation reached the same `ncn` on every call of every run.
+  **Done (step 2b).** The shadow's early exit, as measured: part (a)
+  skips a pair whose point is already in `ncn`; part (b) stops at the
+  first member that rules a candidate out by (i) or (ii), looks for a
+  weakly dominated member only until it finds one, and evaluates (iii)
+  only until then. The predicates are pure, so only each condition's
+  final value matters. On the 39 counted runs every run was identical
+  to the record after step 2a (solution, end seed, simcalls, every
+  `get_ncn` call's input and answer), with predicate calls down 2.48x
+  at M = 2, 2.34x at M = 3, 2.07x at M = 4, 1.89x at M = 5 and 1.71x
+  at M = 6, and 2.3-2.5x on the bi-objective runs; `calc_delta`
+  unchanged. Inside step 1's measured 1.6-2.6x, on different runs.
+  `tests/test_get_ncn_work.py` plants estimates for which the work is
+  exact (34 predicate calls; the previous code made 320). Two wrong
+  exits (stopping once x weakly dominates a member; dropping (ii)) are
+  caught by the reference test and by the counted runs (2 and 3 of 3
+  runs at M = 3 differ); dropping (a)'s skip, which only costs work, by
+  the count. No golden moved.
 
 Not a step-2 fix, by decision: the per-iteration end-seed
 recomputation (Decisions, above).

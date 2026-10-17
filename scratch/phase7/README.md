@@ -54,6 +54,8 @@ call's input and answer in sequence, and the calls `get_ncn` made to
 `calc_delta` and the dominance predicates. `--compare BEFORE AFTER`
 requires every run identical. `step2_before.jsonl` was recorded on the
 tree before step 2a. `step2_after_relaxations.jsonl` is after step 2a,
-computing relaxations once: 39 of 39 identical. `STEP2_ONLY=<substring>`
+computing relaxations once: 39 of 39 identical.
+`step2_after_early_exit.jsonl` is after step 2b, the early exit: 39 of
+39 identical to the record after step 2a, with fewer predicate calls. `STEP2_ONLY=<substring>`
 and `--compare-subset` run part of it, which is how a deliberately
 wrong version was shown to be caught.
