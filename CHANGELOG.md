@@ -129,6 +129,8 @@ draws apart (more with `philox4x32`), as before.
 
 ### Added
 
+- **Python 3.10–3.15.** 3.15 is tested in CI on Linux, macOS and
+  Windows.
 - **Three generators, selectable:** `--generator` on the CLI and
   `generator=` in `solve()` and `testsolve()`: `mrg32k3a` (the
   default), `mrg31k3p` and `philox4x32`. The two others were in the

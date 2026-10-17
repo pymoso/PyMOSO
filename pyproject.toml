@@ -26,6 +26,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 # The core install has no dependencies, deliberately. Anything optional
 # belongs in an extra below, not here.
