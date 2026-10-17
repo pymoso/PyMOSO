@@ -77,6 +77,21 @@ def reject_unknown_params(solver, leftover):
     )
 
 
+def _toggle(name, value):
+    """
+    A solver parameter that is on or off: 0 or 1, as `solve()` and the
+    CLI's `--param` pass every parameter, as a float.
+
+    Raises
+    ------
+    ValueError
+        `value` is anything other than 0 or 1.
+    """
+    if value not in (0, 1):
+        raise ValueError('{0} is a toggle: 0 (off) or 1 (on), not {1!r}.'.format(name, value))
+    return bool(value)
+
+
 class WarmStartInfeasible(RuntimeError):
     """
     Raised when a point a solver carried into an RA iteration as
@@ -262,12 +277,13 @@ class RASolver(MOSOSolver):
     # (accepted_params merges them), and pops them before calling
     # super().__init__(orc, **kwargs): whatever is still there when
     # this __init__ has taken its own is refused.
-    PARAMS = ('radius', 'mconst', 'bconst')
+    PARAMS = ('radius', 'mconst', 'bconst', 'bestimprove')
 
     def __init__(self, orc, **kwargs):
         self.nbor_rad = kwargs.pop('radius', 1)
         self.mconst = kwargs.pop('mconst', 2)
         self.bconst = kwargs.pop('bconst', 8)
+        self.bestimprove = _toggle('bestimprove', kwargs.pop('bestimprove', 0))
         try:
             self.sprn = kwargs.pop('sprn')
             self.x0 = kwargs.pop('x0')
@@ -443,7 +459,8 @@ class RASolver(MOSOSolver):
     def ne(self, x, fx, sex, nobj, e=float('inf'), kcon=0):
         """
         Finds a neighborhood point with an objective value smaller than
-        that of a given point.
+        that of a given point: the first one found, or, with the
+        solver's `bestimprove` on, the best (the first of equal bests).
 
         Parameters
         ----------
@@ -492,7 +509,8 @@ class RASolver(MOSOSolver):
                         xs = xp1
                         fxs = fxp1
                         vxs = vxp1
-                        return xs, fxs, vxs, n
+                        if not self.bestimprove:
+                            return xs, fxs, vxs, n
                 isfeas2, fxm1, vxm1 = self.estimate(xm1, e, kcon)
                 if isfeas2:
                     n += m
@@ -500,7 +518,8 @@ class RASolver(MOSOSolver):
                         xs = xm1
                         fxs = fxm1
                         vxs = vxm1
-                        return xs, fxs, vxs, n
+                        if not self.bestimprove:
+                            return xs, fxs, vxs, n
         else:
             # for neighborhoods not 1, generate the list of neighbors
             nbors = get_nbors(x, nbor_rad)
@@ -513,7 +532,8 @@ class RASolver(MOSOSolver):
                         xs = nb
                         fxs = fn
                         vxs = sen
-                        break
+                        if not self.bestimprove:
+                            break
         return xs, fxs, vxs, n
 
     def pli(self, x, e, nobj, kcon):

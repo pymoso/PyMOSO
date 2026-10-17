@@ -680,6 +680,19 @@ neighbour has examined every neighbour under either rule, so the
 certificate at SPLINE's termination looks the same. What differs is
 the path to it.
 
+**Done (2026-10-17): `bestimprove`, default 0.** A parameter on
+`RASolver`, so all four RA solvers take it, through both paths to `ne`
+(step 7's audit). With it on, `ne` scans every neighbour against the
+running best, in the same order, and keeps the first of equal bests;
+at radius above 1 it scans the whole neighbourhood. The comparison
+stays PyMOSO's strict `<` (step 7's audit has why). Off, nothing
+changes: no golden moved, and with the default flipped four of them
+fail. `tests/test_ne_best_improvement.py` plants estimates whose answer
+is known under each rule; it failed before the change, and five wrong
+versions (each early return kept, the general branch's break kept,
+ties taking the last, the default on) are each caught. It goes first
+because step 4 has nothing to work with without it (step 4).
+
 The original text, kept because it is what was planned:
 
 A second toggle, independent of the first: stop at the first improving
@@ -862,6 +875,38 @@ The MATLAB is a second reference for R-SPLINE:
   built-in solvers every point `accel` returns was estimated feasible
   in the same iteration, so it never drops anything; for a user's
   `accel` it could. Recorded, not scheduled.
+
+**Found 2026-10-17, preparing steps 4 and 5:**
+- **NE's comparison has no tolerance.** PyMOSO's `ne` moves to a
+  neighbour on a strict `<`; the MATLAB on `+ 0.00005 <` (lines 250,
+  266, 298). Kept, by decision, and used for the quadratic candidate
+  too (step 4). The reason is not only consistency: the 0.00005 stands
+  in for a relaxation. R-PERLE and R-MinRLE compare with the real
+  relaxation machinery (`calc_delta`, the relaxed dominance of
+  `get_ncn`); the MATLAB R-SPLINE had none, and used a constant in its
+  place. PyMOSO's `ne` has that machinery available, so carrying the
+  constant over would import a workaround for a problem this code does
+  not have.
+- **`ne` charges SPLINE's budget for neighbours that cost nothing.** It
+  adds `m` for every feasible neighbour, including one already in
+  `gbar`, which `estimate` returns without simulating. The MATLAB has
+  no cache, so its count is its real use; PyMOSO's is nominal. This
+  biases SPLINE's count *up*, so SPLINE stops sooner and simulates
+  less: it works against the overshoot of KNOWN_ISSUES.md issue 16,
+  not toward it (that overshoot comes from the budget being checked
+  only between RA iterations, and from `get_ncn`'s neighbourhood
+  estimates, which SPLINE's budget does not cover). A bias the other
+  way exists too: a neighbour that proves infeasible has its
+  replications run and charged to nothing (issue 16's last paragraph,
+  rng-interface-design.md §11 entry 13). The net is measured, not
+  argued, in step 4's measurement (nominal against real per SPLINE
+  call).
+- **Four solvers reach `ne`, by two paths.** `RASolver.get_min` calls
+  `spline` (R-PE, R-PERLE, R-MinRLE), and so do R-PE's and R-PERLE's
+  `pe` and R-SPLINE's `spsolve`. A solver parameter on `RASolver`
+  reaches every one; `tests/test_ne_best_improvement.py` checks each
+  path sees it.
+- **The MATLAB's NE is radius 1 only.**
 
 **Report discrepancies; do not fix them in this step.** Some will be
 deliberate.

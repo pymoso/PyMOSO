@@ -20,6 +20,7 @@ PARAM_DOCS = {
     'mconst': (2, 'Initialize the sample size and subsequent schedule of sample sizes.'),
     'bconst': (8, 'Initialize the search sampling limit and subsequent schedule of limits.'),
     'radius': (1, "Sets radius that determines a point's neighborhood."),
+    'bestimprove': (0, 'Set to 1 to search the whole neighborhood for its best point, rather than move to the first improving one.'),
     'betadel': (0.5, 'Roughly, affects how likely it is for RLE to keep its given solution.'),
     'betaeps': (0.5, 'Roughly, affects how likely PE will perform a search from a point.'),
     'lb': (REQUIRED, "Lower bound each feasible point's components may take."),

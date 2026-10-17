@@ -182,6 +182,11 @@ draws apart (more with `philox4x32`), as before.
 - **`hit()` on an `Oracle` used directly,** without `solve()` or
   `testsolve()`, works as if `set_crnflag(False)` had been called. It
   raised `KeyError: None`.
+- **`bestimprove`, an RA solver parameter, default 0.** With 1, a
+  solver's neighbourhood search examines every neighbour and moves to
+  the best, as the MATLAB R-SPLINE does, instead of to the first that
+  improves. For comparison; the default is unchanged, and so are
+  results without it.
 
 ### Performance
 
