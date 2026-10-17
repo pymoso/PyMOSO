@@ -217,6 +217,9 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   without new data. The overhead itself is the problem, so the
   cheaper jump (rng-interface-design.md §11 entry 14) is the
   better-motivated fix. Moderate and Heavy are unaffected.
+  **Phase 7 step 3 landed that jump** (20-70 µs on 3.14, from ~0.7-2
+  ms; `docs/hit-cost-baseline.md`). The `--simpar` sweep has not been
+  re-run, so the Light-tier figures above are the old code's.
 - **Behaviour change to record in the CHANGELOG (Phase 6):**
   `testsolve(proc>1)` (and `simpar>1`) with a class defined in a
   notebook cell, a REPL or inside a function worked under fork, and
@@ -325,7 +328,7 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   numpy aggregation differs from `statistics` in over half of samples,
   so it would move solution values, and is slower than a plain loop at
   RA sample sizes; Philox already makes the jump free (1.1 µs against
-  1.6 ms). The `numerics` extra is empty on purpose. The one candidate
+  1.6 ms; the MRG family's is 20-70 µs since Phase 7 step 3). The `numerics` extra is empty on purpose. The one candidate
   is bulk variate draws inside a user's `g()`
   (rng-interface-design.md §11 entry 16). Do not re-propose numpy for
   the framework's own arithmetic without data that contradicts that
@@ -561,7 +564,8 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   touches `Oracle.rng`. The per-iteration baseline stream is cached
   (`_crn_baseline_stream()`) -- that cache is what keeps a CRN `hit()`
   at ~20 µs instead of ~1.6 ms; see `docs/hit-cost-baseline.md` before
-  touching it. No golden moved.
+  touching it. (Since Phase 7 step 3 the jump it saves is ~21 µs, so
+  the cache is worth about 2.6x, not 80x; it stays.) No golden moved.
   `--crn` and `sync=` now also work under Philox, with strides derived
   from its own budget (`REPL_STRIDE = 2^88`, one sync value per key) --
   not MRG's `2^76`, which was the first draft and the second time a
@@ -672,7 +676,8 @@ The decisions below are landed, not pending. Full reasoning in
   - **The claim is "the built-in solvers no longer stall on
     neighbourhood enumeration", NOT "dim 20 works".** Behind it: the
     MRG jump is 95% of a high-dimensional run (RPERLE budget 1,000:
-    5 s at dim 20, 330 s at dim 50; Philox 0.3 s and 2.4 s); the
+    5 s at dim 20, 330 s at dim 50; Philox 0.3 s and 2.4 s -- before
+    Phase 7 step 3's cheaper jump, not re-measured since); the
     budget stops bounding the work (KNOWN_ISSUES.md issue 16); radius
     above 1 is genuinely large in high dimension; and solution quality
     there was checked on one easy quadratic only.
@@ -766,7 +771,9 @@ The decisions below are landed, not pending. Full reasoning in
   CRN continuation (11: not invisible to RA solvers), unifying
   `solve()`/`testsolve()` layouts (12: buys the executor nothing),
   remembering infeasible points within an iteration (13: a performance
-  finding in its own right), a cheaper general jump (14: Phase 3).
+  finding in its own right). A cheaper general jump (14) landed in
+  Phase 7 step 3 for the MRG family: one cached power per set bit
+  (`mrg_common.PowerTable`), bit-identical, built lazily per process.
 
 ## Testing
 

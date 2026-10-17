@@ -48,7 +48,8 @@ offer the dominant term.
 
 What does: a cheaper jump from precomputed powers
 (`docs/rng-interface-design.md` §11 entry 14), which is pure-Python
-work and out of Phase 4's scope.
+work and out of Phase 4's scope. [Landed in Phase 7 step 3 (2026-10-17): a general MRG jump is now 20-70 µs on 3.14 (`docs/hit-cost-baseline.md`, "After the cheaper jump"); cheap serial runs
+5.8-6.9x faster. The figures in this document are the code before it.]
 
 **Philox already removes the cost.** Its position is a counter, so
 `stream_at` costs 1.1 µs against 1.6 ms for the MRG family, and the

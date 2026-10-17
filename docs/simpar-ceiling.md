@@ -112,7 +112,8 @@ Written before Phase 3; what became of each is noted in brackets.
   `hit()` parallelises with the simulation. This is the Light tier's
   37%.
 - **A cheaper jump.** [Not done; `docs/rng-interface-design.md` §11
-  entry 14. Now the one remaining lever for cheap simulations.] Precomputed matrix powers would shorten
+  entry 14. Now the one remaining lever for cheap simulations.]
+  [Landed in Phase 7 step 3 (2026-10-17): a general MRG jump is now 20-70 µs on 3.14 (`docs/hit-cost-baseline.md`, "After the cheaper jump"); this document's sweeps have not been re-run.] Precomputed matrix powers would shorten
   `stream_at` itself. Golden-neutral and separable; carried as a
   candidate for the batching phase, where its value changes anyway.
 
@@ -383,7 +384,8 @@ pay it. The cheaper general jump (`docs/rng-interface-design.md` §11
 entry 14) attacks it directly, and if it lands the cheap-replication
 case may need no policy at all. That makes entry 14 a
 better-motivated candidate than it was; re-run this sweep after it,
-before considering a cap again.
+before considering a cap again. [Landed in Phase 7 step 3 (2026-10-17): a general MRG jump is now 20-70 µs on 3.14 (`docs/hit-cost-baseline.md`, "After the cheaper jump"). The sweep has not been
+re-run yet.]
 
 **Unresolved, and not to be dropped: whether the 6-worker Light 1-D
 figure is noise or has another cause is not established.** The
@@ -595,7 +597,7 @@ pattern held on hardware it was not derived on.
 - **A cheaper jump** (§11 entry 14), for cheap simulations only. Now
   the one candidate with a measurement behind it: a piece cap was
   tried instead and declined (above), because the per-piece overhead
-  is the jump and only a cheaper jump reduces it.
+  is the jump and only a cheaper jump reduces it. [Landed in Phase 7 step 3 (2026-10-17): a general MRG jump is now 20-70 µs on 3.14 (`docs/hit-cost-baseline.md`, "After the cheaper jump").]
 - **Converting MOCOMPASS and MOPBnB to `hit_many`.** Both evaluate
   long unconditional lists of points and would batch far better than
   the RA solvers. Not measured.

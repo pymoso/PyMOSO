@@ -177,9 +177,9 @@ def test_crn_hit_never_moves_the_oracles_own_rng():
 
 
 def test_crn_baseline_is_computed_once_per_iteration_not_once_per_hit(monkeypatch):
-    """stream_at is a full jump from the root (~1.5-2 ms); a CRN hit()
-    is ~20 microseconds only because one baseline per iteration serves
-    every hit() in it (docs/hit-cost-baseline.md). Counted here so that
+    """stream_at is a full jump from the root (~21 µs on 3.14 since
+    Phase 7 step 3, ~1.5-2 ms before); one baseline per iteration serves
+    every CRN hit() in it (docs/hit-cost-baseline.md). Counted here so that
     removing the cache fails a test, not just a benchmark nobody ran."""
     from pymoso.prng import mrg32k3a
     calls = []

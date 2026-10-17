@@ -1,0 +1,121 @@
+{
+ "python": "3.14.8",
+ "loadavg_before": [
+  0.48828125,
+  0.63818359375,
+  0.9208984375
+ ],
+ "generators": {
+  "mrg32k3a": {
+   "product_us": 5.738995695719495,
+   "product_unrolled_us": 1.7979976546484977,
+   "matvec_mod_us": 1.4853931963443756,
+   "construct_stream_us": 3.933636099100113,
+   "cached_jump_us": 3.0753789469599724,
+   "shapes": {
+    "offset, code 3 bits": {
+     "bitlen": 55,
+     "popcount": 2,
+     "trailing_zeros": 52,
+     "jump_us": 682.3054433334619,
+     "products": 114,
+     "products_share": 0.9588748202207648,
+     "squarings_share": 0.9252300896867028,
+     "multiplies_share": 0.033644730534061924,
+     "model_over_measured": 0.9632288619797968
+    },
+    "offset, code 44 bits": {
+     "bitlen": 96,
+     "popcount": 23,
+     "trailing_zeros": 52,
+     "jump_us": 1418.2352068989228,
+     "products": 238,
+     "products_share": 0.9630849445402224,
+     "squarings_share": 0.7769424762677425,
+     "multiplies_share": 0.18614246827247996,
+     "model_over_measured": 0.9651796509600303
+    },
+    "offset, code 75 bits": {
+     "bitlen": 127,
+     "popcount": 34,
+     "trailing_zeros": 52,
+     "jump_us": 1911.5873065311462,
+     "products": 322,
+     "products_share": 0.9667131643466833,
+     "squarings_share": 0.7625625582113589,
+     "multiplies_share": 0.20415060613532443,
+     "model_over_measured": 0.9682672583619233
+    },
+    "stream 20, offset 0": {
+     "bitlen": 132,
+     "popcount": 2,
+     "trailing_zeros": 129,
+     "jump_us": 1615.685523332407,
+     "products": 268,
+     "products_share": 0.9519493888145646,
+     "squarings_share": 0.9377411889815114,
+     "multiplies_share": 0.014208199833053202,
+     "model_over_measured": 0.9537881045484046
+    }
+   }
+  },
+  "mrg31k3p": {
+   "product_us": 5.4557846509851515,
+   "product_unrolled_us": 1.6498163051437587,
+   "matvec_mod_us": 1.4427295536734164,
+   "construct_stream_us": 3.901727753691375,
+   "cached_jump_us": 3.0291956500150263,
+   "shapes": {
+    "offset, code 3 bits": {
+     "bitlen": 55,
+     "popcount": 2,
+     "trailing_zeros": 52,
+     "jump_us": 640.7075666356832,
+     "products": 114,
+     "products_share": 0.9707384188986231,
+     "squarings_share": 0.9366774217442855,
+     "multiplies_share": 0.03406099715433765,
+     "model_over_measured": 0.9752419697502202
+    },
+    "offset, code 44 bits": {
+     "bitlen": 96,
+     "popcount": 23,
+     "trailing_zeros": 52,
+     "jump_us": 1336.546966728444,
+     "products": 238,
+     "products_share": 0.9715159880335781,
+     "squarings_share": 0.783743990346416,
+     "multiplies_share": 0.18777199768716216,
+     "model_over_measured": 0.9736748789511265
+    },
+    "offset, code 75 bits": {
+     "bitlen": 127,
+     "popcount": 34,
+     "trailing_zeros": 52,
+     "jump_us": 1825.8017934082695,
+     "products": 322,
+     "products_share": 0.962186949295206,
+     "squarings_share": 0.7589921898167152,
+     "multiplies_share": 0.2031947594784907,
+     "model_over_measured": 0.9637673284567142
+    },
+    "stream 20, offset 0": {
+     "bitlen": 132,
+     "popcount": 2,
+     "trailing_zeros": 129,
+     "jump_us": 1522.2273499239236,
+     "products": 268,
+     "products_share": 0.9605334489208163,
+     "squarings_share": 0.9461971287876698,
+     "multiplies_share": 0.01433632013314651,
+     "model_over_measured": 0.9624289996133532
+    }
+   }
+  }
+ },
+ "loadavg_after": [
+  0.7646484375,
+  0.6904296875,
+  0.92919921875
+ ]
+}

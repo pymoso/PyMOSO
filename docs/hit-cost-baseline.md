@@ -138,6 +138,8 @@ has left to gain on small points.
 machine with nothing else running (load average under 0.1 at the
 start). Both runs are shown. These are the figures to compare later
 work against; the tables above are the history of how they got here.
+(Superseded for the MRG family's jumps and default-branch `hit()` by
+"After the cheaper jump (Phase 7 step 3)", below.)
 
 | operation | Python 3.10.22 (µs), two runs | Python 3.14.8 (µs), two runs |
 |---|---|---|
@@ -156,3 +158,125 @@ Unchanged from Phase 3 within the spread of two runs: a serial `hit()`
 costs what it did before the backend seam, the by-value transport and
 the direct `get_nbors`, none of which is on this path.
 
+
+## After the cheaper jump (Phase 7 step 3, 2026-10-17)
+
+The MRG family's general jump now applies one cached power A^(2^k)
+per set bit of the exponent to the seed (`mrg_common.PowerTable`),
+instead of squaring its way up the exponent's whole bit length on every
+call. This is rng-interface-design.md §11 entry 14. **These are the
+figures to compare later work against.**
+
+**The profile that chose it** (measured, Python 3.14.8,
+`scratch/phase7/jump_profile.py`; raw output `jump_parts.json` and
+`jump_runs.jsonl` beside it). A general jump was 2 x (bit length + set
+bits) 3x3 matrix products mod m, and those products were 95-97% of it
+(the count times the unit cost reproduces the measured jump within
+2-5%). The squarings, which depend only on the exponent's bit length,
+were 76-95%; the multiplies 1-20%. Real exponents are long and sparse:
+in eight real runs the median general exponent had 60-119 bits and 3-9
+set, with about 52 trailing zeros (the point code sits above the visit,
+replication and reserve fields). Within one 3x3 product, 69% was
+interpreter overhead (`int()` casts, a generator, list building) and
+31% the arithmetic itself. MRG31k3p measured the same as MRG32k3a,
+within 6% everywhere: its sparse multipliers appear only in the
+one-step matrix, A^(2^k) has full-size entries, and both moduli give
+products below 2^64. The cost was the number of products, not either
+generator's arithmetic.
+
+**Before and after**, `python docs/bench_hit_cost.py mrg32k3a` and
+`... mrg31k3p` (the generator argument and the 75-bit row were added in
+this step), each run on the old and new code alternately, twice, both
+Pythons. One-minute load was 1.37-1.42 throughout, not the 0.1 of the
+Phase 4 refresh, from a source outside this work that did not go away;
+the "before" figures agree with the Phase 4 refresh within 2-3%
+(1,601-1,603 against 1,558-1,569 for `stream_at(root, stream, 0)` on
+3.14), which bounds what the load added. Microseconds per call, both
+runs shown.
+
+MRG32k3a:
+
+| operation | 3.10 before | 3.10 after | 3.14 before | 3.14 after |
+|---|---|---|---|---|
+| `stream_at(root, stream, 0)` | 2,096, 2,031 | 30, 30 | 1,603, 1,601 | 21, 21 |
+| `stream_at(root, stream, point offset)` | 2,154, 2,126 | 39, 40 | 1,675, 1,675 | 29, 29 |
+| `stream_at(root, stream, 75-bit point offset)` | 2,579, 2,555 | 84, 84 | 1,998, 1,993 | 66, 67 |
+| `Stream.advance(REPL_STRIDE)` | 14, 14 | 13, 14 | 8, 8 | 7, 7 |
+| `Stream.advance(REPL_RESERVE_STRIDE)` | 14, 13 | 13, 14 | 7, 7 | 7, 7 |
+| `hit(x, m=1), crn=True` | 37, 37 | 22, 22 | 21, 21 | 13, 13 |
+| `hit(x, m=8), crn=True` | 224, 227 | 214, 213 | 146, 143 | 137, 135 |
+| `hit(x, m=64), crn=True` | 1,435, 1,426 | 1,401, 1,413 | 923, 915 | 912, 915 |
+| `hit(x, m=1), crn=False` | 1,019, 1,033 | 46, 46 | 760, 756 | 31, 31 |
+| `hit(x, m=8), crn=False` | 1,205, 1,212 | 235, 236 | 884, 883 | 154, 155 |
+| `hit(x, m=64), crn=False` | 2,389, 2,395 | 1,411, 1,413 | 1,639, 1,689 | 919, 914 |
+
+MRG31k3p (not measured here before this step):
+
+| operation | 3.10 before | 3.10 after | 3.14 before | 3.14 after |
+|---|---|---|---|---|
+| `stream_at(root, stream, 0)` | 1,994, 1,985 | 30, 31 | 1,527, 1,530 | 21, 21 |
+| `stream_at(root, stream, point offset)` | 2,103, 2,069 | 39, 39 | 1,592, 1,594 | 28, 28 |
+| `stream_at(root, stream, 75-bit point offset)` | 2,509, 2,452 | 79, 83 | 1,900, 1,906 | 65, 63 |
+| `Stream.advance(REPL_STRIDE)` | 13, 13 | 13, 13 | 7, 7 | 7, 7 |
+| `Stream.advance(REPL_RESERVE_STRIDE)` | 14, 13 | 13, 13 | 7, 7 | 7, 7 |
+| `hit(x, m=1), crn=True` | 36, 37 | 21, 28 | 20, 21 | 13, 13 |
+| `hit(x, m=8), crn=True` | 217, 217 | 204, 203 | 137, 138 | 129, 129 |
+| `hit(x, m=64), crn=True` | 1,394, 1,384 | 1,362, 1,359 | 904, 893 | 877, 882 |
+| `hit(x, m=1), crn=False` | 969, 975 | 44, 44 | 726, 724 | 31, 32 |
+| `hit(x, m=8), crn=False` | 1,160, 1,186 | 232, 231 | 852, 847 | 154, 158 |
+| `hit(x, m=64), crn=False` | 2,310, 2,325 | 1,382, 1,379 | 1,599, 1,599 | 903, 915 |
+
+A general jump is 29-76x cheaper (the longest offsets gain least: cost
+now follows set bits), and a default-branch `hit(x, m=1)` 22-25x. The
+replication advance (`REPL_STRIDE`, `REPL_RESERVE_STRIDE`) took the
+cached-matrix path before and still does, so it did not change; nor
+does a CRN `hit()` with many replications, which is made of those.
+
+**Whole runs** (measured, uninstrumented, 3.14,
+`scratch/phase7/jump_runs_plain.py`, old and new alternately, twice;
+load about 1.1-1.4): RSPLINE on ProbSimpleSO 5.8-6.0x faster, RPERLE
+on ProbTPA 6.5-6.9x, RMINRLE on ProbTPC 6.6-6.8x, RSPLINE on BSProb
+(dim 9, a costlier `g()`) 1.1x, on both generators; every run's
+solution, simulations and end seed identical before and after. The
+profile's estimate had been "roughly 5-6x" for the cheap runs.
+
+**What a process pays to build the tables** (measured,
+`scratch/phase7/jump_first_call.py`, the median of 15 fresh
+interpreters each). The tables are built on first use, not at import,
+and extended when a longer exponent arrives, so the first general jump
+at a new bit length pays the squarings up to it. In a fresh process
+the first `stream_at(root, 20, 0)` (132 bits) costs 1,654-1,763 µs on
+3.14 and 2,152-2,227 µs on 3.10 -- about what every general jump cost
+before -- and the next one 30-38 µs; a later, shorter exponent pays
+nothing extra (a 75-bit offset's first advance 75-88 µs against 67-83
+µs). Under `fork` a worker inherits whatever table its parent had
+built; under `forkserver` and `spawn` it starts with an empty one and
+pays that once (measured: the table length a worker starts with, each
+start method, both Pythons). `WorkerPool` workers live for the whole
+run, so it is once per worker per run.
+
+**End seeds.** The end seed is computed with `stream_at`, which reaches
+the same `jump_seed_n`, so with a jump that returns the same tuple for
+every exponent it cannot move: settled by construction, from
+bit-identity, not from a general claim that the streams are unchanged.
+Bit-identity is tested per exponent against the previous code
+(`tests/test_jump_power_table.py`, thousands of exponents per
+generator, every bit position up to 259); confirmed three ways besides:
+the goldens, which pin end seeds; the 39 counted runs, which record
+them (`scratch/phase7/step3_after_jump.jsonl`, 39 of 39 identical to
+the record after step 2c); and a test comparing `solve()`'s end seed
+under the old and new jump, seen failing on a wrong jump of the stream
+bits. Note what that last test can see: the end seed's own jump is
+`(stream + 1) * 2^127` (Oracle.get_endseed, one_past), so it uses only
+bits 127 and up; and no exponent a run makes sets bits 0-13 or, for a
+non-negative point, bit 52 (zigzag codes are even). Mutations confined
+to those bits leave every whole run unchanged. The per-exponent
+comparison is the test of every bit.
+
+**What is left on this path.** A default-branch `hit(x, m)` is now one
+general jump (20-70 µs) plus m - 1 replication advances at ~7 µs each,
+of which about 3 µs is the cached-matrix arithmetic and 3.9 µs
+constructing the `Stream` (`jump_parts.json`: `cached_jump_us`,
+`construct_stream_us`). At m = 8 the advances are already the larger
+part. That reframes what to look at next: Stream construction, not
+arithmetic (docs/phase7-plan.md, step 3).

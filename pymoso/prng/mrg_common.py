@@ -20,6 +20,7 @@ L'Ecuyer & Touzin 2000) reuse this same technique once it's onboarded;
 this module is kept parameterized for that, not because a second caller
 exists yet.
 """
+import operator
 
 
 def mat333mult(a, b):
@@ -170,3 +171,102 @@ def jump_n(seed_part, base_matrix, n, mod):
     """
     power = mat_pow_mod(base_matrix, n, mod)
     return mat311mod(mat333mult(power, seed_part), mod)
+
+
+def matvec_mod(a, s, mod):
+    """
+    Multiply a 3x3 matrix by a 3-component seed part, mod `mod`, in
+    exact Python integer arithmetic: mat311mod(mat333mult(a, s), mod)
+    for entries that are already ints, written out (PowerTable.jump's
+    inner step).
+
+    Parameters
+    ----------
+    a : 3x3 sequence of int
+    s : sequence of int, length 3
+    mod : int
+
+    Returns
+    -------
+    list of int
+        3 entries, each in [0, mod).
+    """
+    s0, s1, s2 = s
+    a0, a1, a2 = a
+    return [(a0[0] * s0 + a0[1] * s1 + a0[2] * s2) % mod,
+            (a1[0] * s0 + a1[1] * s1 + a1[2] * s2) % mod,
+            (a2[0] * s0 + a2[1] * s1 + a2[2] * s2) % mod]
+
+
+class PowerTable:
+    """
+    A**(2**k) mod `mod` for k = 0, 1, 2, ..., for one 3x3 matrix `a`,
+    so that a jump of n steps is one matrix-vector product per set bit
+    of n (`jump`), where jump_n squares its way up n's whole bit length
+    on every call (docs/phase7-plan.md, step 3: the squarings were
+    76-95% of a general jump, and real exponents are long and sparse).
+
+    Built on first use and extended when a longer exponent arrives, so
+    importing costs nothing and the first jump at a new bit length pays
+    for the squarings up to it -- once per process: a worker builds its
+    own (tests/test_jump_power_table.py).
+
+    The same result as jump_n, exactly: integer arithmetic reduced mod
+    `mod` at every step, and powers of one matrix commute, so applying
+    them to the seed part one at a time, lowest first, gives a**n * s
+    mod `mod`.
+
+    Parameters
+    ----------
+    a : 3x3 sequence of int
+        The one-step transition matrix.
+    mod : int
+    """
+
+    def __init__(self, a, mod):
+        self.mod = int(mod)
+        self.powers = [[[int(v) % self.mod for v in row] for row in a]]
+
+    def ensure(self, nbits):
+        """The powers for k < `nbits`, extending the table if needed."""
+        powers = self.powers
+        if len(powers) < nbits:
+            # Extended on a copy and replaced whole, never appended to in
+            # place: a thread reading the old list never sees a partial
+            # one, and two threads extending at once each build a correct
+            # list.
+            powers = list(powers)
+            while len(powers) < nbits:
+                powers.append(mat333sqmult_mod(powers[-1], powers[-1], self.mod))
+            self.powers = powers
+        return powers
+
+    def jump(self, seed_part, n):
+        """
+        Advance a 3-component seed part `n` steps: jump_n(seed_part, a,
+        n, mod), with the same result.
+
+        Parameters
+        ----------
+        seed_part : sequence of int, length 3
+        n : int
+            Number of steps. Must be non-negative.
+
+        Returns
+        -------
+        list of int
+            3 entries, each in [0, mod).
+        """
+        n = operator.index(n)
+        if n < 0:
+            raise ValueError('exponent must be non-negative, got {0}'.format(n))
+        mod = self.mod
+        s = [int(v) % mod for v in seed_part]
+        powers = self.ensure(n.bit_length())
+        k = 0
+        while n:
+            if n & 1:
+                s = matvec_mod(powers[k], s, mod)
+            n >>= 1
+            k += 1
+        return s

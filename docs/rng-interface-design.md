@@ -2139,6 +2139,12 @@ existing code, surfaced rather than guessed.
     against a 0.46 ms replication; a cap only chooses how often to pay
     it. If this entry lands, the cheap-replication case may need no
     dispatch policy at all -- re-run that sweep first.
+    **Landed (Phase 7 step 3, 2026-10-17), for the MRG family:** one
+    cached power A^(2^k) per set bit, applied to the seed vector
+    (`mrg_common.PowerTable`); bit-identical, no golden moved. A general
+    jump is now 20-70 µs on 3.14 (`docs/hit-cost-baseline.md`, "After
+    the cheaper jump"). The `--simpar` sweep this paragraph says to
+    re-run has not been re-run.
 
 15. **[candidate — declined for Phase 3, recorded so it is not lost]
     Speculative prefetch for the sequential part of an RA solver.**

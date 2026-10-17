@@ -78,7 +78,7 @@ from .mrg_common import (
     mat333mult as _mat333mult,
     mat311mod as _mat311mod,
     mat_pow_mod as _mat_pow_mod,
-    jump_n as _jump_n,
+    PowerTable as _PowerTable,
 )
 
 # Sourced from umontreal-simul/ssj's MRG31k3p.java (see module docstring).
@@ -457,6 +457,12 @@ class MRG31k3p(random.Random):
         return MRG31k3p(jump_seed_n(self.get_seed(), delta))
 
 
+# A**(2**k) for each recurrence, built on first use (jump_seed_n's
+# general branch).
+_powers1 = _PowerTable(_m1_step, mrg31m1)
+_powers2 = _PowerTable(_m2_step, mrg31m2)
+
+
 @functools.lru_cache(maxsize=16)
 def _jump_power_of_two(n):
     """The two jump matrices for `n` steps, `n` a power of two."""
@@ -465,14 +471,15 @@ def _jump_power_of_two(n):
 
 def jump_seed_n(seed, n):
     """
-    Advance a full 6-component seed n steps, via the generalized
-    binary-exponentiation matrix power (mrg_common.mat_pow_mod/jump_n)
-    applied to each half independently -- structurally identical to
+    Advance a full 6-component seed n steps, each half independently,
+    by one cached power A**(2**k) per set bit of n (mrg_common.
+    PowerTable; mrg_common.jump_n before Phase 7 step 3, with the same
+    result) -- structurally identical to
     mrg32k3a.py's own jump_seed_n, generalized over MRG31k3p's own
     matrices/moduli instead. At the two fixed exponents REPL_STRIDE/
     ITER_STRIDE (reused from mrg32k3a.py -- see module docstring for why
     these stay global), this reuses the matrices cached at import time
-    above; any other `n` runs the general computation directly.
+    above; any other `n` runs the general computation.
 
     Parameters
     ----------
@@ -500,9 +507,11 @@ def jump_seed_n(seed, n):
         # (Oracle.replication_draws). Its matrices are computed once.
         p1, p2 = _jump_power_of_two(n)
     else:
-        ns1 = _jump_n(s1, _m1_step, n, mrg31m1)
-        ns2 = _jump_n(s2, _m2_step, n, mrg31m2)
-        return tuple(ns1 + ns2)
+        # One matrix-vector product per set bit of n, from the cached
+        # powers A**(2**k) (mrg_common.PowerTable): the same result as
+        # jump_n's square-and-multiply, without its squarings
+        # (docs/phase7-plan.md, step 3).
+        return tuple(_powers1.jump(s1, n) + _powers2.jump(s2, n))
     ns1 = _mat311mod(_mat333mult(p1, s1), mrg31m1)
     ns2 = _mat311mod(_mat333mult(p2, s2), mrg31m2)
     return tuple(ns1 + ns2)

@@ -84,3 +84,20 @@ checking each rerun against its original).
 `ncn_many_30k_after_step2.jsonl` is step 1's 15 `plain` runs rerun twice
 on the same tree, with the original wall time beside both. The results
 are in docs/phase7-plan.md, step 2, "Step 2 measured end to end".
+
+## Step 3: the jump
+
+`jump_profile.py runs OUT.jsonl` profiles every `jump_seed_n` call in
+eight real runs (both MRG generators) by path, with the general
+exponents' bit lengths, set bits and trailing zeros: `jump_runs.jsonl`
+(made on the code before step 3; shares under a timing wrapper, so
+upper bounds). `jump_profile.py parts OUT.json` times a general jump's
+pieces: `jump_parts.json`. `jump_runs_plain.py LABEL` times the same
+runs uninstrumented; `jump_runs_plain.jsonl` is old and new code
+alternately, twice (the old code by putting `HEAD`'s three
+`pymoso/prng/` files in place, bytecode caching off).
+`jump_first_call.py GENERATOR` is a fresh interpreter's first and
+second jumps (the power tables' build cost). `step3_after_jump.jsonl`
+is `step2_record.py` after step 3: 39 of 39 identical to
+`step2c_after.jsonl`. Results: docs/hit-cost-baseline.md, "After the
+cheaper jump".

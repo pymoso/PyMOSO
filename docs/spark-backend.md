@@ -553,8 +553,8 @@ That is the whole claim. It is not "dim 20 works". RPERLE, budget
 
 (Single runs on a machine that was busy with other work.)
 
-- **The default generator's jump is the next wall.** 1.5-2 ms per
-  block, and the number of points a solver touches grows with
+- **The default generator's jump is the next wall.** [Landed in Phase 7 step 3 (2026-10-17): a general MRG jump is now 20-70 µs on 3.14 (`docs/hit-cost-baseline.md`, "After the cheaper jump").]
+  1.5-2 ms per block, and the number of points a solver touches grows with
   dimension. `generator='philox4x32'` removes it. No backend does: it
   is per block, wherever the block runs.
 - **The budget stops bounding the work** (KNOWN_ISSUES.md issue 16).

@@ -47,6 +47,13 @@ bi-objective profile (`5527f60`).
 - **Does the jump optimization (step 3) change end seeds?** It should
   not: the same streams, computed faster. Confirm before building, not
   after (`docs/end-seed-scope.md` before assuming either way).
+  **Settled (2026-10-17): it cannot, by construction from
+  bit-identity.** `get_endseed` computes the end seed with `stream_at`,
+  which reaches the same `jump_seed_n`; a jump returning the same tuple
+  for every exponent cannot move it. That was argued before building;
+  bit-identity was then tested per exponent, and the end seed confirmed
+  by the goldens, the 39 counted runs and a direct test (step 3). It
+  rests on bit-identity, not on a general "the streams are unchanged".
 - **Does step 2 exist beyond `get_nondom`?** It depends on the
   `get_ncn` early-exit ratio at three or more objectives, which step 1
   measures next.
@@ -549,6 +556,52 @@ cost.
 
 Related: rng-interface-design.md §11 entry 14 (a cheaper general jump).
 On end seeds, see the open decision above.
+
+**Done (2026-10-17).** The profile answered the decisive question: the
+3x3 matrix products were 95-97% of a general jump, and the squarings
+alone, which depend only on the exponent's bit length, 76-95%; the
+per-product arithmetic was 31% of each product and interpreter
+overhead the rest, a factor of 3 against the chain's 10-100. Real
+exponents are long and sparse (median 60-119 bits, 3-9 set). MRG31k3p
+costs the same as MRG32k3a within 6%: the cost is the number of
+products, not either generator's arithmetic, so both were in scope and
+one change covers both. Candidate 2 (the stream factor) already
+existed as the executor's base-stream cache; what each block still paid
+was the offset's jump, which candidate 1 removes.
+
+Built: candidate 1, with each set bit's power applied to the seed
+vector rather than multiplied into a running matrix
+(`mrg_common.PowerTable`, the general branch of each generator's
+`jump_seed_n`; the cached strides and powers of two keep their paths).
+The tables are built on first use and extended when a longer exponent
+arrives; a worker builds its own (inherited under `fork`), about 1.7 ms
+once. Bit-identical by construction (exact integer arithmetic; powers
+of one matrix commute) and by test: `tests/test_jump_power_table.py`
+holds it to the previous `jump_seed_n`, kept verbatim, on thousands of
+exponents per generator; counts one matrix-vector product per set bit
+(the previous code failed it); pins the table's growth, including that
+an extension replaces the list rather than appending to it in place (a
+reader on another thread never sees a partial one); and checks a fresh
+interpreter builds nothing until its first general jump. Four
+mutations (bit index off by one, swapped moduli, growth in place, the
+wrong square) are each caught. The exact-integer and brute-force jump
+tests pass unchanged. No golden moved; the 39 counted runs are
+identical.
+
+Measured (docs/hit-cost-baseline.md, "After the cheaper jump"): a
+general jump 29-76x cheaper, a default-branch `hit(x, m=1)` 22-25x, on
+both generators and both Pythons; cheap serial runs 5.8-6.9x faster,
+BSProb 1.1x. Not re-measured: `--simpar`'s per-piece overhead, which
+this was partly aimed at (docs/simpar-ceiling.md), and the
+many-objective sweep (Philox, unaffected).
+
+**What to look at next, recorded here as asked:** a default-branch
+`hit(x, m)` is now one general jump (20-70 µs) plus m - 1 replication
+advances at about 7 µs each, and of those 7 µs about 3.9 are
+constructing the `Stream` (a `random.Random` subclass) and about 3 the
+cached-matrix arithmetic. At m = 8 the advances already outweigh the
+jump. The next cost on this path is Stream construction, not
+arithmetic. Not proposed, only located.
 
 ### 4. The quadratic candidate in NE
 
