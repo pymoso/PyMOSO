@@ -183,6 +183,13 @@ draws apart (more with `philox4x32`), as before.
   `testsolve()`, works as if `set_crnflag(False)` had been called. It
   raised `KeyError: None`.
 
+### Performance
+
+Many-objective runs are substantially faster — the measured sweep
+total fell 66%, with 69–70% savings at five and six objectives. Jumps
+on the MRG generators are 29–76× cheaper, making cheap serial runs
+about 6× faster. Results are identical in every case.
+
 ### Fixed
 
 - **`testsolve --proc` hung on Python 3.14** with a problem or tester

@@ -603,6 +603,17 @@ cached-matrix arithmetic. At m = 8 the advances already outweigh the
 jump. The next cost on this path is Stream construction, not
 arithmetic. Not proposed, only located.
 
+**A conclusion that now rests on superseded numbers (flagged
+2026-10-17, not to re-run mid-phase):** the `--simpar` sweep in
+`docs/simpar-ceiling.md`, and with it Phase 4's decision to decline a
+piece-count cap. That decision rested on a per-piece overhead of about
+0.7 ms, against a 0.46 ms Light-tier replication, and that overhead was
+the jump, which is now 29-76x cheaper. The cap question may have a
+different answer, and the Light tier's slowdown at 12 workers a
+different cause or none. Re-run the sweep before relying on either
+conclusion, or on CLAUDE.md's "do not re-propose it without new data":
+the new data is this step.
+
 ### 4. The quadratic candidate in NE
 
 Specified by Nagaraj's 2014 MATLAB R-SPLINE, `docs/RSPLINE.m`, function

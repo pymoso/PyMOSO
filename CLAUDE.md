@@ -219,7 +219,9 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   better-motivated fix. Moderate and Heavy are unaffected.
   **Phase 7 step 3 landed that jump** (20-70 µs on 3.14, from ~0.7-2
   ms; `docs/hit-cost-baseline.md`). The `--simpar` sweep has not been
-  re-run, so the Light-tier figures above are the old code's.
+  re-run, so the Light-tier figures above are the old code's, and the
+  piece cap's decline rests on the 0.7 ms per-piece figure that step
+  superseded (docs/phase7-plan.md, step 3).
 - **Behaviour change to record in the CHANGELOG (Phase 6):**
   `testsolve(proc>1)` (and `simpar>1`) with a class defined in a
   notebook cell, a REPL or inside a function worked under fork, and
