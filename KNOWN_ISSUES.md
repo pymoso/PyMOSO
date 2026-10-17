@@ -791,78 +791,16 @@ values under five Python versions before trusting them. A cluster's
 driver and executors always run the same Python version (Spark
 requires it), so this does not affect agreement within a run.
 
-### 18. The RA solvers assume feasibility is a function of `x` alone, and say so only by crashing
+### 18. Withdrawn
 
-**Affects:** every version with these solvers, as far as has been
-read: `get_min` is the same at the `v1.1.0` tag and on this branch.
-Seen on this branch only. **Severity:** a user whose `g()` decides
-feasibility at random gets an unexplained crash, or, depending on
-where the verdict flips, a run that silently breaks the algorithm's
-assumptions.
-
-**What happens.** `g()` returns a feasibility flag with every
-replication, and the `Oracle` contract (its docstring) says only
-that the oracle decides feasibility; the README's example decides it
-from `x`, without saying it must. `Oracle.hit` calls a
-block of replications feasible when every replication is. Nothing
-says the answer must depend on `x` alone, and nothing checks it.
-
-R-SPLINE, R-PERLE and R-MinRLE depend on it. A point estimated
-feasible in one RA iteration is carried into the next as a warm start
-and estimated again. If it comes back infeasible, `get_min` reads its
-estimate anyway, and the run stops with a bare `KeyError` wrapped as,
-for example, `RMINRLE: Unable to run accel(). Message: (5, 22)`. Seen
-on a scratch problem where a replication near one edge is infeasible
-with probability 0.03 or 0.01 (`scratch/phase7/infeas_cache.py`,
-`RandomEdgeBi`). It happened with and without Phase 7's experimental
-cache of infeasible points, so the cache is not the cause.
-
-A flip the other way, infeasible then feasible, does not crash. It
-means points were certified against neighbours whose feasibility
-changed underneath them, which the algorithms' definitions do not
-allow for.
-
-**This is a constraint of the algorithms, not an implementation
-limit.** Their sample-path problems take the feasible set as given.
-Supporting feasibility that is itself random would be a research
-question, not a fix.
-
-**Status: open; fix designed and approved, not built.** Refuse such
-a problem with a clear error, and document the assumption where the
-`Oracle` contract is stated. The design:
-- **In the RA solvers, not in `Oracle`.** The assumption is theirs.
-  `RASolver.estimate` and `estimate_many` keep a whole-run record of
-  each point's verdict and the iteration it came from. A flip raises
-  `FeasibilityChanged` (a `ValueError`), naming the point, both
-  verdicts and their iterations. Checking in `Oracle._aggregate` (a
-  block whose replications disagree) was considered and declined: it
-  would impose the assumption on MOCOMPASS, MOPBnB and direct `hit()`
-  callers, who do not necessarily need it.
-- **Both verdicts are recorded.** Infeasible points alone would not
-  do: the crashing case is feasible-then-infeasible, and seeing it
-  needs the earlier feasible verdict. Measured on existing runs
-  (`scratch/phase7/feas_memory.py`): the largest, RMINRLE at M = 6
-  and budget 100,000, saw 21k distinct feasible and 5.5k infeasible
-  points, about 4.1 MB and 0.9 MB as sets, tuples included. Every
-  other run tried held at most 1.6 MB (M = 6, budget 30,000),
-  0.4 MB at M <= 3, and 9 KB for the two-objective runs. Distinct
-  points over a run were about 1.2x the largest single iteration's
-  `gbar` at M >= 4, because points recur across iterations.
-- **Detection only sees a verdict that flips.** A problem whose
-  feasibility is random but which never shows it to the solver is
-  not caught. Neither is it harmed.
-- **With Phase 7's infeasible-point cache (step 1b), if it lands,**
-  the cache and this check share one record, so the cache cannot
-  bypass the check. Within one iteration the first verdict then
-  stands for the whole iteration, so a within-iteration flip is no
-  longer observable. A cache hit is a verdict not re-simulated, and
-  there is nothing to compare it with. Flips across iterations,
-  including the warm-start re-estimate that crashes today, are still
-  caught. This is a decision recorded in advance, not a limit found
-  later.
-
-Found 2026-10-16 in Phase 7 (`docs/phase7-plan.md`, step 1b), building
-the positive control for the infeasible-point cache.
+This entry said the RA solvers assume feasibility is a function of `x`
+alone, and proposed refusing any problem whose verdict on a point ever
+changed. Withdrawn on 2026-10-17, before that check was committed. A
+verdict that changes is sampling noise; the only feasibility these
+solvers rely on being stable is the warm start's, which is inherited
+from the iteration that returned it rather than estimated. The
+reasoning and the evidence are in `docs/phase7-plan.md`, step 1b. What
+the observed failures did show is issue 19. The number is not reused.
 
 ---
 

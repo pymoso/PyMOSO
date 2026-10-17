@@ -37,6 +37,10 @@ is how the full suite was run with the shadow on.
 
 ## What a whole-run feasibility record would hold (KNOWN_ISSUES issue 18)
 
+KNOWN_ISSUES issue 18 and the check this measured were withdrawn on
+2026-10-17 (docs/phase7-plan.md, step 1b's decisions). The numbers
+stand as a measurement; nothing uses them.
+
 `feas_memory.py OUT.jsonl` produced `feas_memory.jsonl`: per run, the
 distinct points ever estimated feasible and infeasible, the largest
 single iteration's `gbar`, and the bytes the two sets occupy (tuples

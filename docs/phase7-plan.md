@@ -303,6 +303,18 @@ maintainer; nothing designed or built.
   on and off. **This is a separate finding: the built-in solvers assume
   feasibility is a function of x, and the `Oracle` contract does not say
   so.** Not fixed, and not part of step 1b.
+  **Corrected 2026-10-17.** The finding is narrower than written. The
+  failure is always the warm start: a point the previous iteration
+  returned, having estimated it feasible, which comes back infeasible.
+  Checked directly on the five observed failures (R-MinRLE from
+  (6, 20); R-SPLINE from (8, 20) and (6, 20)): each failing point was in
+  the space on every replication and was refused only by
+  `RandomEdgeBi`'s coin. And in 84 runs on problems that decide
+  feasibility from x (all four solvers, five problems, three seeds),
+  all 3,490 warm-start points had been estimated feasible by the
+  iteration that returned them. So nothing in the warm-start path is
+  defective; the errors are the solvers meeting a `g()` whose verdict
+  depends on its random numbers. What follows is decided below.
 - **`tests/test_batching.py`'s `SometimesInfeasible` test does not
   detect a cache.** It passed with the shadow on. It compares
   `estimate_many` with `estimate` in a loop, and the shadow changes
@@ -325,18 +337,34 @@ maintainer; nothing designed or built.
   `--crn` it changes nothing.
 - **Its regression test counts blocks or `g()` calls.** Comparing
   results cannot see it (`docs/end-seed-scope.md`, the sixth instance).
-- **It shares its record with KNOWN_ISSUES issue 18's check**
-  (`FeasibilityChanged`), so that it cannot bypass it. Under the cache
-  a point's first verdict in an iteration stands for that iteration;
-  flips across iterations are still caught. The issue entry has the
-  reasoning. Decided before the cache is built, so that building it
-  does not silently weaken the check.
-- **Random feasibility is refused with a clear error, and the
-  assumption is documented.** It is tracked as its own KNOWN_ISSUES
-  entry, independent of Phase 7, because it affects every version. The
-  solvers depend on feasibility being a function of x alone. That is a
-  constraint of the algorithms, and supporting random feasibility is a
-  research question, not a fix.
+- ~~It shares its record with KNOWN_ISSUES issue 18's check
+  (`FeasibilityChanged`).~~ **Withdrawn 2026-10-17** with the check
+  itself (next bullet). The cache has no record to share.
+- ~~Random feasibility is refused with a clear error.~~ **Withdrawn
+  2026-10-17, and KNOWN_ISSUES issue 18 with it.** The check was built
+  and never committed: a whole-run record of every point's verdict,
+  raising `FeasibilityChanged` on any flip. It was the wrong mechanism.
+  A verdict that flips within or across iterations is sampling noise,
+  and nothing in these algorithms asks for a point's feasibility twice
+  in a way that matters except the warm start. The warm start's
+  feasibility is inherited from the iteration that returned it, not
+  estimated, so for the algorithms whose sample-path problems are
+  unconstrained in the oracle's sense (the RLE family and R-SPLINE),
+  an infeasible warm start cannot happen when `g()` decides
+  feasibility from x. **Decided instead:**
+  - `WarmStartInfeasible`, raised where those solvers already
+    re-estimate the warm start. Its message gives the likelier cause
+    first (a `g()` whose feasibility depends on its random numbers,
+    which these solvers do not support) and a defect in PyMOSO second.
+    Not raised by `RASolver`: an algorithm with random constraints
+    could legitimately meet an infeasible warm start. KNOWN_ISSUES
+    issue 19 is what it fixes.
+  - `pe`'s filter of its warm start (R-PE, R-PERLE) is removed, so
+    those two solvers raise like the others instead of silently
+    dropping the point. Reported before building.
+  - Random constraints are real in these algorithms only inside
+    R-PERLE's epsilon-constraint sub-problems (`estimate`'s `con`),
+    which never touch the oracle's verdict.
 
 ### 2. Implementation defects
 
@@ -376,7 +404,9 @@ move. Known so far:
   wrong version made 3 of 3 of those runs differ. `calc_delta` calls
   at M = 6, seed 1: 77,854,344 before, 142,644 after, which is exactly
   the requirement step 1 derived. Predicate counts are unchanged. No
-  golden moved.
+  golden moved. The claim, precisely: not "results unchanged" but the
+  same expressions, evaluated fewer times. That is why it lands
+  without a golden regeneration.
 - **`get_ncn` part (b) without an early exit** (step 1): predicate
   calls 1.6-2.6x what an early exit needs, the ratio falling as M
   grows (estimated 12-19% of a cheap-problem run at M >= 3). A shadow
@@ -623,6 +653,35 @@ The MATLAB is a second reference for R-SPLINE:
 - **The revert-to-start guard** (line 206) has no counterpart in
   PyMOSO.
 
+**Found 2026-10-17, from the detour through random feasibility:**
+- **x0 re-estimation.** R-PE and R-PERLE (`pe`: `upsample(aold |
+  {x0})`) and R-MinRLE (`get_min` upsamples `mcS | {x0}`) re-estimate
+  x0 every iteration and keep it as a candidate. R-SPLINE does not:
+  its warm start is the previous minimizer alone. The other three
+  start an objective's search from x0, because its fresh estimate is
+  better, in 1-8 of 11-15 iterations on ProbTPA at budget 1,000 (three
+  seeds), so R-SPLINE is the outlier. **Decided:** R-SPLINE re-estimates
+  x0 every iteration and starts from the better of x0 and the warm
+  start. Moves its golden (1,023 to 1,009 simcalls, same solution);
+  approved, its own commit.
+- **The finite-variance condition.** The R-SPLINE paper omits it too.
+  A requirement on the user's oracle, not on the implementation.
+- **`pe`'s silent filter of the warm start.** `upsample` returns the
+  feasible subset, and `pe` replaces its warm start with it before
+  anything else looks at it, so R-PE and R-PERLE could never report an
+  infeasible warm start. Scheduled for removal (step 1b's decisions).
+- **`sys.exit()` in library code: one inherited defect in two places.**
+  `rperle.py` and `rpe.py` exit the process when the problem is not
+  bi-objective (the same block in `pe`). R-PE inherited it from
+  R-PERLE, which is how it survived Phase 2's sweep. Nothing else
+  outside `pymoso/cli.py` and `pymoso/commands/` calls `sys.exit()`;
+  `chnbase.py` has three more, all in commented-out code.
+- **`rle` filters its input too.** `rle` replaces the set `accel`
+  returned with its feasible subset (`upsample(mcS | {x0})`). For the
+  built-in solvers every point `accel` returns was estimated feasible
+  in the same iteration, so it never drops anything; for a user's
+  `accel` it could. Recorded, not scheduled.
+
 **Report discrepancies; do not fix them in this step.** Some will be
 deliberate.
 
@@ -645,6 +704,15 @@ each claim belongs to. **This step gates 2.0** (Decisions, above).
 Record the toggles in `PARAMS`, so that they reach the generated
 parameter table.
 
+**Write what an `Oracle` must guarantee deliberately, as one section,
+rather than letting it accrete.** Phase 7 found three requirements
+nothing states, in two days: that the oracle's estimators are strongly
+consistent; that the objectives have finite variance; and, for the RLE
+family and R-SPLINE, that whether a point is feasible depends on the
+point alone. The point contract (Phase 4) and the per-replication draw
+limit (Phase 6) are already stated, in `Oracle`'s docstring and the
+README, and belong in the same place.
+
 ## Sequencing
 
 **Revised after step 1:**
@@ -656,8 +724,11 @@ parameter table.
   has the shadow-and-assert check and no golden movement. Before each
   of the first two lands, it must be observed giving identical results
   on the counted runs, not only passing goldens.
-- Random feasibility: refused and documented, as its own change
-  (step 1b's decisions).
+- ~~Random feasibility: refused and documented.~~ Withdrawn
+  2026-10-17 (step 1b's decisions). In its place, in this order:
+  issue 18 withdrawn with these plan entries; `WarmStartInfeasible`
+  with issue 19; `pe`'s filter removed; R-SPLINE's x0 re-estimation
+  with its golden; then step 2b.
 - Steps 2 and 3 drop in priority. They remain golden-neutral and can
   land in any order, but at realistic cost neither changes much for
   two-objective users, and step 3's gain is already available through
