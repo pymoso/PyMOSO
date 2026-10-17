@@ -663,7 +663,11 @@ The MATLAB is a second reference for R-SPLINE:
   seeds), so R-SPLINE is the outlier. **Decided:** R-SPLINE re-estimates
   x0 every iteration and starts from the better of x0 and the warm
   start. Moves its golden (1,023 to 1,009 simcalls, same solution);
-  approved, its own commit.
+  approved, its own commit. **Done.** The golden moved exactly as the
+  shadow predicted; `tests/test_rspline_x0.py`. On a one-dimensional
+  problem R-SPLINE now submits one two-point batch per iteration
+  (x0 with its warm start), which narrows a claim in
+  `docs/simpar-ceiling.md` (corrected there).
 - **The finite-variance condition.** The R-SPLINE paper omits it too.
   A requirement on the user's oracle, not on the implementation.
 - **`pe`'s silent filter of the warm start.** `upsample` returns the

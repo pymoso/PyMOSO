@@ -91,7 +91,40 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (post testsolve() role-layout fix)
+### Current values (post R-SPLINE x0 re-estimation)
+
+**Capture conditions:** `.venv-baseline` (CPython 3.10.22) and
+`.venv-dev` (CPython 3.14.8), this repo installed editable, captured
+from the source tree directly, twice on each: identical values.
+Command: `pymoso solve --budget=1000 ProbSimpleSO RSPLINE 40`.
+
+**One case moved, `rspline_simpleso`, and deliberately.** R-SPLINE now
+estimates x0 again in every RA iteration and starts its search from x0
+when x0's estimate is better than the warm start's, as R-PE, R-PERLE
+and R-MinRLE already did through `get_min` (`docs/phase7-plan.md`,
+step 7; approved, its own commit). Estimating x0 costs simulation
+calls, so the budget ran out three iterations sooner:
+
+| | Before | After |
+|---|---|---|
+| Iterations | 29 | 26 |
+| Simcalls | 1,023 | 1,009 |
+| Solution | `{(0,)}` | `{(0,)}` |
+| End seed | `2327071160, 589288757, 3791179983, 1866895284, 2094692759, 3256882931` | `3284326634, 477001502, 351030955, 2381370830, 1499024205, 1527143741` |
+
+**The solution did not move.** The end seed and simcalls were
+predicted before the change, from an in-process shadow of it, and
+matched. No other case uses R-SPLINE, and no other value moved: every
+other row of the table below is unchanged.
+
+| Case | End seed |
+|---|---|
+| rspline_simpleso | `3284326634, 477001502, 351030955, 2381370830, 1499024205, 1527143741` |
+| every other case | as in the next section |
+
+### Historical: post testsolve() role-layout fix, pre R-SPLINE x0 re-estimation
+
+All of this section's values are current except `rspline_simpleso`'s.
 
 **Capture conditions:** `.venv-baseline`, CPython 3.10.22, this repo
 installed editable, captured from the source tree directly, at the

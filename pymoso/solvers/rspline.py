@@ -45,13 +45,20 @@ class RSPLINE(RASolver):
         """
         # warm_start is a singleton set, so extract the item
         candidate = next(iter(warm_start))
-        warm_start = self.upsample(warm_start)
-        _check_warm_start(self, {candidate})
-        if not warm_start:
+        # x0 is estimated again every iteration, as R-PE, R-PERLE and
+        # R-MinRLE do, and the search starts from x0 if its estimate is
+        # better than the warm start's (docs/phase7-plan.md, step 7)
+        candidates = {candidate, self.x0}
+        feasible = self.upsample(candidates)
+        _check_warm_start(self, candidates)
+        if not feasible:
+            # iteration 1, where the warm start is x0
             raise ValueError(
-                'x0={0} is infeasible. RA solvers require a feasible starting point.'.format(candidate)
+                'x0={0} is infeasible. RA solvers require a feasible starting point.'.format(self.x0)
             )
-        ws = warm_start.pop()
+        ws = candidate
+        if self.gbar[self.x0][0] < self.gbar[ws][0]:
+            ws = self.x0
         _, xmin, _, _ = self.spline(ws)
         # return a singleton set
         return {xmin}

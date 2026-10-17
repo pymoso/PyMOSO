@@ -683,7 +683,9 @@ The decisions below are landed, not pending. Full reasoning in
     of names no longer importable are computed against the v1.1.0 tag,
     not from the Phase 5 notes above, which were relative to the Phase
     4 tree. `solve()` gives 1.1.0's results for the same seed; only
-    `testsolve()` moved (issue 10).
+    `testsolve()` moved (issue 10). Phase 7 changed that for R-SPLINE,
+    which now re-estimates x0 every iteration (CHANGELOG, "Numerical
+    results").
   - **The 16,384-draw per-replication limit shipped in 1.1.0,**
     undocumented. It is now `Oracle.replication_draws`, a class
     attribute (a power of two up to 2^40); the bits come out of the
@@ -735,7 +737,9 @@ The decisions below are landed, not pending. Full reasoning in
   solver never has two points to submit, so the original RSPLINE
   benchmark cannot observe batching at all -- `ProbExpensiveBi` (2-D,
   bi-objective, not registered in `pymoso.problems`) exists for that
-  reason. Without `--crn`, 35-46% of an RA solver's replications
+  reason. (Phase 7: R-SPLINE now estimates x0 with its warm start every
+  iteration, so it submits one two-point batch per iteration; still too
+  little to observe. `docs/simpar-ceiling.md` has the note.) Without `--crn`, 35-46% of an RA solver's replications
   (38% for RPERLE on ProbTPA at budget 10,000) come from `ne()` and
   the `spli()` line search, which choose each point from the last
   result and cannot be batched. The one `--crn` run surveyed was 18%;

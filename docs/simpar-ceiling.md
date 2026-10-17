@@ -227,7 +227,18 @@ batched bound equals its intra-hit bound at every worker count. The
 Heavy tier's 3.62x is unchanged by this phase and will be unchanged by
 any executor work at all.
 `tests/test_batching.py::test_a_one_dimensional_problem_never_has_two_points_to_submit`
-holds that down.
+held that down.
+
+**Changed in Phase 7 (2026-10-17), slightly.** R-SPLINE now estimates
+x0 again in every iteration, together with its warm start
+(`docs/phase7-plan.md`, step 7), so the `upsample` call carries two
+points whenever the warm start is not x0: one two-point batch per
+iteration, and every other call still one point (32 of 99 submissions
+on `ProbSimpleSO` from 97 at budget 2,000). The tables above were
+measured before that, and the conclusion stands: one call in three
+batching two points cannot move the bound much.
+`tests/test_batching.py::test_a_one_dimensional_problem_has_two_points_to_submit_only_with_x0`
+holds the new shape down.
 
 That is why `ProbExpensiveBi` was added
 (`pymoso/problems/probexpensive.py`): ProbTPA's two-dimensional,
