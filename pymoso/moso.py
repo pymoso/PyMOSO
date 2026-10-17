@@ -276,13 +276,22 @@ def front(points, objs):
         Tpts, Tobjs = front(points[0:halfind], objs[0:halfind])
         Bpts, Bobjs = front(points[halfind:cardP], objs[halfind:cardP])
         brange = range(len(Bpts))
+        # Each point of the bottom front is compared with the top front
+        # only, not with the bottom points appended before it. Those
+        # comparisons are always False: nothing front() returns is
+        # dominated by anything earlier in its own output (true of each
+        # half by induction; an appended point is dominated by no top
+        # point, and the points appended before it precede it in the
+        # bottom half's own output). Skipping them leaves the answer and
+        # its order unchanged (docs/phase7-plan.md, step 2).
+        nT = len(Tpts)
         for i in brange:
             pt = Bpts[i]
             gvals = Bobjs[i]
             delz = [0]*len(gvals)
             pt_nondom = True
             j = 0
-            while j < len(Tpts) and pt_nondom:
+            while j < nT and pt_nondom:
                 if does_dominate(Tobjs[j], gvals, delz, delz):
                     pt_nondom = False
                 j += 1

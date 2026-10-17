@@ -56,6 +56,14 @@ requires every run identical. `step2_before.jsonl` was recorded on the
 tree before step 2a. `step2_after_relaxations.jsonl` is after step 2a,
 computing relaxations once: 39 of 39 identical.
 `step2_after_early_exit.jsonl` is after step 2b, the early exit: 39 of
-39 identical to the record after step 2a, with fewer predicate calls. `STEP2_ONLY=<substring>`
+39 identical to the record after step 2a, with fewer predicate calls.
+For step 2c the script also digests every `get_nondom` call the solver
+bases make, input and answer in order, and counts the `does_dominate`
+calls inside it (`front.does_dominate`); `--compare` checks those only
+when both records have them. `step2c_before.jsonl` is the tree after
+step 2b recorded that way (39 of 39 identical to
+`step2_after_early_exit.jsonl` on the older fields), and
+`step2c_after.jsonl` is after step 2c: 39 of 39 identical, every
+`get_nondom` answer included. `STEP2_ONLY=<substring>`
 and `--compare-subset` run part of it, which is how a deliberately
 wrong version was shown to be caught.

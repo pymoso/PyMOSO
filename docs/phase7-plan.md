@@ -385,6 +385,29 @@ move. Known so far:
   identical. A regression test can assert the call count.
   Confirmed in real runs by step 1: 6-11% more `does_dominate` calls
   than the bounded loop, at mean |S| 2.3-2.6. Real and small.
+  **Done (step 2c).** `front()` captures the top front's length before
+  the merge. The comparisons it skips are always False: nothing
+  `front()` returns is dominated by anything earlier in its own output
+  (each half by induction; an appended point is dominated by no top
+  point, and the points appended before it precede it in the bottom
+  half's own output). The proof is in the code comment.
+  `tests/test_get_nondom_work.py` keeps the old `front` verbatim and
+  holds the new one to it, answer and order, on 400 random sets (ties,
+  equal vectors, nan; sorted as `get_nondom` sorts them and unsorted),
+  and checks that property directly on every `front()` output at every
+  level of the recursion, so the result does not rest on the argument
+  alone. Two exact counts: 16 mutually non-dominated points take
+  n(n-1)/2 = 120 comparisons (the previous code made 164), and a set
+  with domination takes 10 (previously 11); both failed first. A bound
+  one too small is caught by every test, the invariant check included;
+  dropping the short-circuit, which only costs work, by the second
+  count. On the 39 counted runs, with `step2_record.py` extended to
+  digest every `get_nondom` call's input and answer, every run was
+  identical to the record after step 2b, and every other counter
+  unchanged. `does_dominate` calls inside `get_nondom`: 7.0% fewer on
+  the RPERLE bi-objective runs and 6.9% on RMINRLE's, inside step 1's
+  6-11%; 22% fewer at M = 2 on lattice DTLZ2, 30-32% at M = 3-6 (step
+  1 did not measure these). No golden moved.
 - **`get_ncn` part (b) recomputes each member's relaxation for every
   candidate** (step 1): `calc_delta` 10x the calls needed at M = 2,
   45-546x at M = 3-6. Computing `dels` once per member is the largest
@@ -754,6 +777,10 @@ README, and belong in the same place.
   has the shadow-and-assert check and no golden movement. Before each
   of the first two lands, it must be observed giving identical results
   on the counted runs, not only passing goldens.
+  All three done (2026-10-17), each identical on the counted runs.
+  Next: re-run the many-objective sweep against the optimized code.
+  Step 1's estimates (10-32% from 2a, 12-19% from 2b at M = 3-6, and
+  2c's share) were never measured together end to end.
 - ~~Random feasibility: refused and documented.~~ Withdrawn
   2026-10-17 (step 1b's decisions). In its place, in this order:
   issue 18 withdrawn with these plan entries; `WarmStartInfeasible`

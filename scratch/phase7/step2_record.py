@@ -16,6 +16,13 @@ Per run: the solution, the end seed, simcalls, a digest of the whole
 sequence of (mcS, ncn) pairs and their number, and the calls get_ncn
 made to calc_delta and to the three dominance predicates (counted on
 the names get_ncn reads, chnbase.*, and seen non-zero).
+
+Added for step 2c: every get_nondom call the solver bases make (through
+chnbase.get_nondom), its input and its answer in iteration order, as a
+digest and a count, and the does_dominate calls made inside it (counted
+on moso.does_dominate, the name front() reads, as 'front.does_dominate').
+Records made before step 2c lack these fields; --compare checks them
+only when both records have them.
 """
 import contextlib
 import hashlib
@@ -30,6 +37,7 @@ sys.path.insert(0, str(HERE))
 import dtlz2_lattice as dl  # noqa: E402
 
 import pymoso.chnbase as chnbase  # noqa: E402
+import pymoso.moso as moso  # noqa: E402
 from pymoso.layout import get_solv_prnstreams  # noqa: E402
 from pymoso.paths import isp_run  # noqa: E402
 from pymoso.prng import registry  # noqa: E402
@@ -61,10 +69,17 @@ class Recorder:
         self.calls = 0
         self.inside = 0
         self.counts = {}
+        self.nondom_digest = hashlib.sha256()
+        self.nondom_calls = 0
+        self.in_nondom = 0
 
     def bump(self, key):
         if self.inside:
             self.counts[key] = self.counts.get(key, 0) + 1
+
+    def bump_front(self):
+        if self.in_nondom:
+            self.counts['front.does_dominate'] = self.counts.get('front.does_dominate', 0) + 1
 
 
 @contextlib.contextmanager
@@ -104,6 +119,27 @@ def recording():
             rec.bump(_name)
             return _real(*a)
         patch(chnbase, name, counted)
+
+    real_nondom = chnbase.get_nondom
+
+    def get_nondom(edict):
+        before = sorted(edict.items())
+        rec.in_nondom += 1
+        try:
+            nondom = real_nondom(edict)
+        finally:
+            rec.in_nondom -= 1
+        rec.nondom_calls += 1
+        rec.nondom_digest.update(repr((before, list(nondom))).encode())
+        return nondom
+    patch(chnbase, 'get_nondom', get_nondom)
+
+    real_dd = moso.does_dominate
+
+    def front_dd(*a):
+        rec.bump_front()
+        return real_dd(*a)
+    patch(moso, 'does_dominate', front_dd)
     try:
         yield rec
     finally:
@@ -120,9 +156,13 @@ def run(name, cls, solver, x0, budget, gen, seed):
     last = max(res['itersoln'])
     if not rec.calls or not rec.counts.get('calc_delta') or not rec.counts.get('does_weak_dominate'):
         raise AssertionError('{0}: a counter was never reached'.format(name))
+    if not rec.nondom_calls or not rec.counts.get('front.does_dominate'):
+        raise AssertionError('{0}: a get_nondom counter was never reached'.format(name))
     return dict(config=name, generator=gen, seed=list(seed), soln=sorted(res['itersoln'][last]),
                 endseed=list(res['endseed']), simcalls=res['simcalls'][last],
-                ncn_calls=rec.calls, ncn_digest=rec.digest.hexdigest(), counts=rec.counts)
+                ncn_calls=rec.calls, ncn_digest=rec.digest.hexdigest(),
+                nondom_calls=rec.nondom_calls, nondom_digest=rec.nondom_digest.hexdigest(),
+                counts=rec.counts)
 
 
 def record(out):
@@ -148,11 +188,15 @@ def compare(before, after, subset=False):
     for x, y in zip(a, b):
         key = (x['config'], x['generator'], x['seed'])
         assert key == (y['config'], y['generator'], y['seed']), key
-        ident = all(x[k] == y[k] for k in ('soln', 'endseed', 'simcalls', 'ncn_calls', 'ncn_digest'))
+        fields = ['soln', 'endseed', 'simcalls', 'ncn_calls', 'ncn_digest']
+        fields += [k for k in ('nondom_calls', 'nondom_digest') if k in x and k in y]
+        ident = all(x[k] == y[k] for k in fields)
         same += ident
         print(*key, 'IDENTICAL' if ident else 'DIFFERS',
               {k: (x['counts'].get(k), y['counts'].get(k)) for k in sorted(set(x['counts']) | set(y['counts']))})
-    print('{0} of {1} runs identical (solution, end seed, simcalls, every get_ncn answer)'.format(same, len(a)))
+    nondom = all('nondom_digest' in r for r in a + b)
+    print('{0} of {1} runs identical (solution, end seed, simcalls, every get_ncn answer{2})'.format(
+        same, len(a), ', every get_nondom answer' if nondom else ''))
     return same == len(a)
 
 
