@@ -118,3 +118,23 @@ def test_bench_radius_runs(tmp_path, monkeypatch):
     assert len(rows) == 4 and all("certified" in r for r in rows if r["problem"] == "Barrier1")
     bench.report(str(out), str(tmp_path / "nbors.json"), str(tmp_path / "report.md"))
     assert "escape the barrier" in (tmp_path / "report.md").read_text()
+
+
+def test_bench_plateau_runs(tmp_path, monkeypatch):
+    # run as on Windows, which has no os.getloadavg (see
+    # test_bench_biobjective_profile_runs_and_reports)
+    monkeypatch.delattr(os, "getloadavg", raising=False)
+    bench = _load("bench_plateau")
+    agree, total, positives = bench.verify(widths=(1, 10), radii=(1,), extra=2, verbose=False)
+    assert agree == total and positives
+    # extra=20: with 2 random points per radius "the radius ignored" goes uncaught
+    assert all(caught for _, caught in bench.mutations(verbose=False, widths=(1, 10), radii=(1, 2), extra=20))
+    desc = bench.describe(str(tmp_path / "describe.json"), widths=(1, 10), radii=(1,))
+    assert desc["rows"][1]["traps"]["1"] > desc["rows"][0]["traps"]["1"]
+    out = tmp_path / "runs.jsonl"
+    bench.run(str(out), configs=[("RPERLE", 10, 1, "default"), ("RPERLE", 1, 1, "default"), ("RSPLINE", 10, 1, "crn"),
+                                 ("RSPLINE", 1, 1, "crn")], reps=1, budget=300, checkpoints=(150, 300), verbose=False)
+    rows = [json.loads(line) for line in open(out)]
+    assert len(rows) == 4 and all(r["finished"] for r in rows)
+    bench.report(str(out), str(tmp_path / "describe.json"), str(tmp_path / "report.md"))
+    assert "What the search does on a plateau" in (tmp_path / "report.md").read_text()

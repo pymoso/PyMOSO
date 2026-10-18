@@ -16,7 +16,7 @@ in-tree as a **compatibility-only** pass: the fixes that landed with them
 `sys.exit()` on missing parameters, a silent-corruption interaction with
 `--crn`) make the files run correctly on the current branch. Their
 algorithmic behavior has **not** been reviewed or validated against the
-source papers — that is separate, future work. The three items below are
+source papers — that is separate, future work. The items below are
 caveats in this codebase's own implementation, not defects in the
 published algorithms; see each file's docstring for the full citation and
 disclaimer.
@@ -29,6 +29,28 @@ plus the `random.sample()`/`sys.exit()`/`--crn` findings this doc doesn't
 repeat — lives in `docs/rng-interface-design.md`, sections 4.1-4.3, where
 these two files were analyzed as external validation of the RNG interface
 redesign.
+
+## 0. MOPBnB's subregions are not regions: the implementation is not partition-and-bound
+
+**The headline finding about this port** (Phase 7 step 6,
+2026-10-18), and the one that decides whether it implements the
+algorithm. MOPBnB (Huang and Zabinsky) partitions the feasible region
+into subregions, samples each, and prunes the subregions that cannot
+hold efficient points; that a pruned subregion is a *region*, a
+contiguous piece of the space, is what makes pruning it informative.
+Here, `get_isubreg` builds subregion `i` as
+`set(islice(mcX, i, xcard, B))`: every B-th point of a Python set in
+its iteration order, which follows the points' hashes, not their
+positions. Each "subregion" is a sample scattered over the whole box.
+Measured on {0..10}^2 with `B = 2`: both first-level subregions span 0
+to 10 in both coordinates (61 and 60 points, interleaved). Pruning one
+removes a scattered sample, so the port is global random sampling with
+elimination, not partition-and-bound. A structural divergence from the
+published algorithm, not an implementation slip beside items 2 and 2b.
+Not fixed: this is the correctness review's question, and the review
+has not been done. Any result obtained with `ExampleBnBSolver` says
+nothing about partition-and-bound (docs/plateau-problems.md uses it
+only as "a non-local sampler").
 
 ## 1. MOCOMPASS materializes the entire feasible region
 
@@ -51,6 +73,24 @@ a bug — observed producing a nonsensical downstream sample-size request
 ("16221167823086 additional replications") in a real test run, caught
 harmlessly by the `rdiff*len(allspts) < budget` guard before it did
 anything. Not fixed here.
+
+## 2b. MOPBnB asks for replications unbounded by its budget
+
+Found in the same step. After each iteration `solve()` sets the next
+sample size from the smallest gap between any two estimated values,
+`R = max(R, ceil((z * maxS2 / (dmin / 2))^2))`, and the next iteration
+takes `R` replications at every sampled point. The budget is checked
+only between iterations, and the guard `rdiff * len(allspts) < budget`
+covers only the top-up of points already sampled, not the next
+iteration's sampling. Among a few dozen noisy estimates the smallest gap
+is tiny, so `R` is enormous on any noisy problem: on the plateau
+problem's control (no plateaus, `{0..59}^2`, sigma 1, budget 20,000) the
+second iteration asked for 119,016 replications per point, and 306,783
+to 680,614 on the plateaus (docs/plateau-problems.md). Item 2's
+"16221167823086 additional replications" is the same mechanism. Also:
+`get_reps` turns a standard error into a variance as `sex**2 *
+sqrt(m)`; from a standard error of the mean that should be `sex**2 *
+m`. Not fixed.
 
 ## 3. MOCOMPASS's `self.seeds` cross-point synchronization: deliberate policy, buggy implementation
 

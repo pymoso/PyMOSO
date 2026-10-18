@@ -848,6 +848,40 @@ the global solver, which nobody has published. (MOPBnB in-tree is
 `ExampleBnBSolver`, unverified against its paper. See
 `docs/mocompass-mopbnb-known-issues.md` before relying on it.)
 
+**Plateaus: done (2026-10-18)** (`docs/plateau-problems.md`; tables by
+`docs/bench_plateau.py`; the problem `scratch/phase7/plateau.py`).
+W x W cells on {0..59}^2, flat at the value of two quadratics at the
+cell's centre; W = 1 the matched control. The known answer by
+enumeration, the exact certificate agreeing with PyMOSO's own on 568 of
+568 plateau sets, five wrong certificates (two of them tie-specific)
+each caught. Measured:
+- **Noise turns a plateau into a random walk.** Without CRN PLI's
+  pseudo-gradient is never exactly zero (0% of calls): it is a random
+  direction, and SPLI's moves on a plateau are almost all accepted on
+  noise (R-SPLINE at width 10: 28 true, 812 noise; NE 435 of 437 moves
+  within a cell). **CRN turns it into a stall:** the pseudo-gradient is
+  exactly zero on 65-92% of calls, no noise-accepted move ever, quality
+  frozen. Neither reaches the optimum at radius 1 on 10- and 20-wide
+  plateaus; neither is the correct behaviour.
+- **Radius helps without CRN, not with it.** At width 10, radius 6
+  reaches the optimum for every solver without CRN (the random walk
+  brings a boundary within reach); with CRN the point is left 7-10 from
+  any better point, beyond the radius (17 of 20 R-SPLINE runs).
+- **A trap descriptor of the problem alone:** certified single points
+  per width and radius (2,860 of 3,600 at width 10, radius 1; none on
+  the control).
+- **ExampleBnBSolver cannot run at budget 20,000:** its second iteration
+  asks for 56,450 to 91,626,291 replications per point
+  (docs/mocompass-mopbnb-known-issues.md, item 2b); 6 of 20 control runs
+  finish, none on 10- or 20-wide plateaus. It is not partition-and-bound
+  in any case (item 0, the headline finding about that port).
+- **Against the prediction:** "defeats PLI and the line search"
+  confirmed; "stalls where it starts" and "radius does not help" true
+  only with CRN.
+
+The remaining structures (interaction-dominated objectives, misleading
+local gradients, heteroscedastic noise) are not built.
+
 ### 6b. Where CRN fails
 
 CRN reduces Var(g(x) - g(y)) = Var(x) + Var(y) - 2Cov(x, y). It helps

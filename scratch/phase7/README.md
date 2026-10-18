@@ -125,3 +125,11 @@ reverted; `docs/ne-quadratic-tables.md` is generated from it and
 runs); `radius_nbors_1.json` and `radius_nbors_2.json` are two runs of
 `bench_radius.py nbors`, the construction timing (the report uses the
 first). `docs/neighbourhood-radius-tables.md` is generated from them.
+
+## Step 6: plateaus
+
+`plateau.py` is the plateau problem (kept here, by decision; it reuses
+`barrier.certified_by`). `plateau_runs.jsonl` is
+`docs/bench_plateau.py run`'s raw output (1,040 runs, ExampleBnBSolver's
+included); `plateau_describe.json` is `describe`'s, the problem's trap
+counts. `docs/plateau-problems-tables.md` is generated from them.
