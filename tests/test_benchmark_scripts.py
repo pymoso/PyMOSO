@@ -97,3 +97,18 @@ def test_bench_ne_quadratic_runs(tmp_path):
     assert any(r["candidates"] for r in rows if r["cell"] == "best+quadratic")
     bench.report(str(out), str(tmp_path / "report.md"))
     assert "### Quality" in (tmp_path / "report.md").read_text()
+
+
+def test_bench_radius_runs(tmp_path):
+    bench = _load("bench_radius")
+    table, agree, total, positives = bench.verify(radii=(1, 2), thicknesses=(1,), extra=3, random_tables=2,
+                                                  verbose=False)
+    assert agree == total and positives and table[(1, 1)] == (True, True) and table[(1, 2)] == (True, False)
+    nb = bench.nbors(str(tmp_path / "nbors.json"), radii=(1, 2), dims=(2,), repeats=2)
+    out = tmp_path / "runs.jsonl"
+    bench.run(str(out), pairs=[("RPERLE", "Barrier1"), ("RSPLINE", "ProbSimpleSO")], radii=(1, 2),
+              seeds={"subject": 1, "control": 1}, budget=300, checkpoints=(150, 300), verbose=False)
+    rows = [json.loads(line) for line in open(out)]
+    assert len(rows) == 4 and all("certified" in r for r in rows if r["problem"] == "Barrier1")
+    bench.report(str(out), str(tmp_path / "nbors.json"), str(tmp_path / "report.md"))
+    assert "escape the barrier" in (tmp_path / "report.md").read_text()

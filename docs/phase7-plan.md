@@ -764,6 +764,48 @@ order that prunes them could change the scaling. Determine whether
 provably-safe pruning exists. If it does, it is a step-2 fix, not a
 toggle.
 
+**Settled: no provably safe pruning exists** (reasoning, approved). A
+neighbour's part in certification depends only on its own estimate,
+which a black-box oracle gives only by simulating it; points already
+evaluated say nothing about it. For any neighbour there are estimates
+that put it in the non-conforming neighbourhood (one strictly dominating
+every member) and estimates that rule it out (one a member weakly
+dominates), so skipping any can change the certified set, whatever the
+order. The same holds for `remove_nlwep` and best-improvement NE;
+first-improvement NE is order-dependent by construction. The one saving
+already exists: overlapping neighbourhoods are unioned and `gbar`
+returns a point already estimated this iteration. Anything more needs
+structure the oracle does not give (a Lipschitz bound, monotonicity): a
+different algorithm. No step-2 fix.
+
+**Done (2026-10-17): measured** (`docs/neighbourhood-radius.md`; tables
+by `docs/bench_radius.py`; barrier problem `scratch/phase7/barrier.py`).
+- **The known answer:** an annulus t cells thick around the true
+  efficient set E traps a set T that is certified at radius r exactly
+  when r <= t, by enumeration on the true means; the exact check agrees
+  with PyMOSO's own certificate on 1,840 of 1,840 sets (743 certified),
+  and four wrong versions of it are each caught.
+- **Finding: SPLINE's line search jumps a one-cell barrier at radius 1**
+  (15 of 20 runs for R-SPLINE and for R-PERLE, every crossing by SPLI,
+  none by NE); a two-cell one holds. The barrier the plan proposed, one
+  step wide, does not trap these solvers.
+- **Radius pays past a barrier the line search cannot jump:** on the
+  two-cell barrier, radius 3 and above beat radius 1 in 20 of 20 seeds
+  at 5,000 and 20,000 simulations for R-PERLE, R-PE and R-MinRLE (18-19
+  for R-SPLINE); radius 2 is still trapped.
+- **Scaling, dimensions 1-3:** construction is about 0.65 µs per point
+  at every radius (timed), at most 9% of a run; estimation grows with
+  the neighbourhood and is the cost; no run reached the 50x guard (most
+  3.5x its budget), and a large radius shows as slower first iterations
+  (at radius 5, 34-35 of 80 barrier runs had no iteration by 1,000
+  simulations). Higher dimension not measured.
+- **The control** (the built-in problems): no consistent effect at any
+  radius.
+- **Against the prediction:** "prohibitively expensive" refuted at
+  dimensions 1-3; "buys nothing on the test problems" confirmed; "pays
+  on the barrier" confirmed only once the barrier is thicker than the
+  line search's reach.
+
 ### 6. Pathological test problems
 
 Everything measured so far runs on problems where PLI's

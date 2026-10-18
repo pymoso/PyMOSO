@@ -1,0 +1,120 @@
+{
+ "python": "3.14.8",
+ "loadavg_before": [
+  0.6640625,
+  0.62841796875,
+  0.80712890625
+ ],
+ "loadavg_after": [
+  0.6640625,
+  0.62841796875,
+  0.80712890625
+ ],
+ "rows": [
+  {
+   "dim": 1,
+   "radius": 1,
+   "points": 2,
+   "us_per_call": 3.2350432593375444,
+   "us_per_point": 1.6175216296687722
+  },
+  {
+   "dim": 1,
+   "radius": 2,
+   "points": 4,
+   "us_per_call": 3.4957367461174726,
+   "us_per_point": 0.8739341865293682
+  },
+  {
+   "dim": 1,
+   "radius": 3,
+   "points": 6,
+   "us_per_call": 4.4622598215937614,
+   "us_per_point": 0.7437099702656269
+  },
+  {
+   "dim": 1,
+   "radius": 4,
+   "points": 8,
+   "us_per_call": 5.2351232928534355,
+   "us_per_point": 0.6543904116066794
+  },
+  {
+   "dim": 1,
+   "radius": 5,
+   "points": 10,
+   "us_per_call": 6.996250012889504,
+   "us_per_point": 0.6996250012889504
+  },
+  {
+   "dim": 2,
+   "radius": 1,
+   "points": 4,
+   "us_per_call": 4.831193170199791,
+   "us_per_point": 1.2077982925499477
+  },
+  {
+   "dim": 2,
+   "radius": 2,
+   "points": 12,
+   "us_per_call": 9.921576905374726,
+   "us_per_point": 0.8267980754478939
+  },
+  {
+   "dim": 2,
+   "radius": 3,
+   "points": 28,
+   "us_per_call": 19.916653400287032,
+   "us_per_point": 0.7113090500102511
+  },
+  {
+   "dim": 2,
+   "radius": 4,
+   "points": 48,
+   "us_per_call": 30.855286555985607,
+   "us_per_point": 0.6428184699163668
+  },
+  {
+   "dim": 2,
+   "radius": 5,
+   "points": 80,
+   "us_per_call": 48.50332004328569,
+   "us_per_point": 0.6062915005410712
+  },
+  {
+   "dim": 3,
+   "radius": 1,
+   "points": 6,
+   "us_per_call": 8.134533418342471,
+   "us_per_point": 1.3557555697237451
+  },
+  {
+   "dim": 3,
+   "radius": 2,
+   "points": 32,
+   "us_per_call": 27.900669956579804,
+   "us_per_point": 0.8718959361431189
+  },
+  {
+   "dim": 3,
+   "radius": 3,
+   "points": 122,
+   "us_per_call": 85.83503658883274,
+   "us_per_point": 0.7035658736789568
+  },
+  {
+   "dim": 3,
+   "radius": 4,
+   "points": 256,
+   "us_per_call": 173.70873674129447,
+   "us_per_point": 0.6785497528956815
+  },
+  {
+   "dim": 3,
+   "radius": 5,
+   "points": 514,
+   "us_per_call": 337.1480635056893,
+   "us_per_point": 0.6559300846414189
+  }
+ ]
+}
