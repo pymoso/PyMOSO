@@ -85,3 +85,15 @@ def test_bench_biobjective_profile_runs_and_reports(tmp_path, monkeypatch):
     bench.report(raw, tiers=("Light",), out=out)
     text = out.getvalue()
     assert "RPERLE" in text and "Model check" in text and "Required against done" in text
+
+
+def test_bench_ne_quadratic_runs(tmp_path):
+    bench = _load("bench_ne_quadratic")
+    out = tmp_path / "runs.jsonl"
+    bench.run(str(out), pairs=[("RPERLE", "ProbTPA"), ("RSPLINE", "ProbSimpleSO")], reps=1, budget=300,
+              checkpoints=(150, 300), verbose=False)
+    rows = [json.loads(line) for line in open(out)]
+    assert len(rows) == 2 * len(bench.CELLS)
+    assert any(r["candidates"] for r in rows if r["cell"] == "best+quadratic")
+    bench.report(str(out), str(tmp_path / "report.md"))
+    assert "### Quality" in (tmp_path / "report.md").read_text()

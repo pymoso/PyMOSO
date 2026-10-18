@@ -45,10 +45,10 @@ def test_testsolve_refuses_one_too():
 
 
 @pytest.mark.parametrize("solver,problem,x0,accepted", [
-    (RPERLE, ProbTPA, (30, 30), {"radius", "mconst", "bconst", "bestimprove", "betadel", "betaeps"}),
-    (RMINRLE, ProbTPA, (30, 30), {"radius", "mconst", "bconst", "bestimprove", "betadel"}),
-    (RPE, ProbTPA, (30, 30), {"radius", "mconst", "bconst", "bestimprove", "betaeps"}),
-    (RSPLINE, ProbSimpleSO, (40,), {"radius", "mconst", "bconst", "bestimprove"}),
+    (RPERLE, ProbTPA, (30, 30), {"radius", "mconst", "bconst", "bestimprove", "quadratic", "betadel", "betaeps"}),
+    (RMINRLE, ProbTPA, (30, 30), {"radius", "mconst", "bconst", "bestimprove", "quadratic", "betadel"}),
+    (RPE, ProbTPA, (30, 30), {"radius", "mconst", "bconst", "bestimprove", "quadratic", "betaeps"}),
+    (RSPLINE, ProbSimpleSO, (40,), {"radius", "mconst", "bconst", "bestimprove", "quadratic"}),
 ])
 def test_every_parameter_a_solver_lists_is_one_it_takes(solver, problem, x0, accepted):
     """The list in the error is the solver's own declaration; this
@@ -56,7 +56,7 @@ def test_every_parameter_a_solver_lists_is_one_it_takes(solver, problem, x0, acc
     from pymoso.chnbase import accepted_params
     assert set(accepted_params(solver)) == accepted
     for name in sorted(accepted):
-        solve(problem, solver, x0, budget=60, seed=SEED, **{name: 2 if name == "radius" else 1 if name == "bestimprove" else 0.5 if name.startswith("beta") else 3})
+        solve(problem, solver, x0, budget=60, seed=SEED, **{name: 2 if name == "radius" else 1 if name in ("bestimprove", "quadratic") else 0.5 if name.startswith("beta") else 3})
 
 
 @pytest.mark.parametrize("solver,extra,accepted", [

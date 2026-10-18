@@ -180,6 +180,14 @@ draws apart (more with `philox4x32`), as before.
   the best, as the MATLAB R-SPLINE does, instead of to the first that
   improves. For comparison; the default is unchanged, and so are
   results without it.
+- **`quadratic`, an RA solver parameter, default 0.** With 1, the
+  neighbourhood search also fits a parabola along each axis through a
+  point and its two neighbours, and evaluates one more point assembled
+  from the vertices, as the MATLAB R-SPLINE does. Radius 1 only. It has
+  an effect only with `bestimprove=1`: the default search stops at the
+  first improving neighbour, so the fit is made only when none
+  improved, and then the fitted point is, except at exact ties, the
+  point itself. Results without it are unchanged.
 
 ### Performance
 

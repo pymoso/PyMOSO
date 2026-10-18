@@ -92,6 +92,68 @@ def _toggle(name, value):
     return bool(value)
 
 
+_INT32_MIN = -2 ** 31
+_INT32_MAX = 2 ** 31 - 1
+
+
+def _matlab_int32(v):
+    """
+    MATLAB's int32() of a double: rounded half away from zero (Python's
+    round() rounds half to even), saturated at the int32 limits, and 0
+    for NaN. NE's quadratic candidate casts its vertex with it.
+    """
+    if v != v:          # NaN
+        return 0
+    if v >= _INT32_MAX:
+        return _INT32_MAX
+    if v <= _INT32_MIN:
+        return _INT32_MIN
+    av = abs(v)
+    r = floor(av)
+    # av - r is exact, so this rounds 0.49999999999999994 down, where
+    # floor(av + 0.5) would not
+    if av - r >= 0.5:
+        r += 1
+    r = int(r) if v >= 0 else -int(r)
+    return min(_INT32_MAX, max(_INT32_MIN, r))
+
+
+def _quadratic_coordinate(xi, y1, y2, y3):
+    """
+    One coordinate of NE's quadratic candidate (docs/RSPLINE.m, lines
+    275-289): the vertex of the parabola through x_i - 1, x_i, x_i + 1,
+    where it is convex.
+
+    Parameters
+    ----------
+    xi : int
+        The centre's coordinate.
+    y1, y3 : float or None
+        The objective at x + e_i and at x - e_i; None if infeasible,
+        and then there is no fit.
+    y2 : float
+        The objective at the centre.
+
+    Returns
+    -------
+    int
+    """
+    xq = xi
+    if y1 is not None and y3 is not None:
+        a = (y1 + y3) / 2.0 - y2
+        b = (y1 - y3) / 2.0
+        if a - 0.00005 > 0:
+            xq = _matlab_int32(xi - (b / (a + a)))
+    # Deliberately the MATLAB's behaviour, not an oversight: a
+    # coordinate that fails this guard is 0, not the centre's value.
+    # ixquad starts as zeros (line 230) and is written only when the
+    # guard passes (lines 287-288), so falling back to the centre covers
+    # only the non-convex and infeasible cases.
+    if abs(xq) < 2147483646.0:
+        return xq
+    return 0
+
+
 class WarmStartInfeasible(RuntimeError):
     """
     Raised when a point a solver carried into an RA iteration as
@@ -277,13 +339,19 @@ class RASolver(MOSOSolver):
     # (accepted_params merges them), and pops them before calling
     # super().__init__(orc, **kwargs): whatever is still there when
     # this __init__ has taken its own is refused.
-    PARAMS = ('radius', 'mconst', 'bconst', 'bestimprove')
+    PARAMS = ('radius', 'mconst', 'bconst', 'bestimprove', 'quadratic')
 
     def __init__(self, orc, **kwargs):
         self.nbor_rad = kwargs.pop('radius', 1)
         self.mconst = kwargs.pop('mconst', 2)
         self.bconst = kwargs.pop('bconst', 8)
         self.bestimprove = _toggle('bestimprove', kwargs.pop('bestimprove', 0))
+        self.quadratic = _toggle('quadratic', kwargs.pop('quadratic', 0))
+        if self.quadratic and self.nbor_rad != 1:
+            raise ValueError(
+                'quadratic needs radius 1: the candidate is fitted to x - e_i, x, '
+                'x + e_i (radius is {0}).'.format(self.nbor_rad)
+            )
         try:
             self.sprn = kwargs.pop('sprn')
             self.x0 = kwargs.pop('x0')
@@ -499,6 +567,16 @@ class RASolver(MOSOSolver):
         nbor_rad = self.nbor_rad
         # optimize the case for neighborhood radius of 1
         if nbor_rad == 1:
+            quadratic = self.quadratic
+            if quadratic:
+                # NE's quadratic candidate (docs/RSPLINE.m, NE): each
+                # coordinate's parabola vertex, from the centre and the
+                # two neighbours on its axis, assembled into one point
+                # and evaluated after every neighbour. Reached only if
+                # the scan completes: under first-improvement, only when
+                # no neighbour improved (docs/phase7-plan.md, step 4).
+                y2 = fx[nobj]
+                xquad = [0] * q
             for i in range(q):
                 xp1 = tuple(x[j] + 1 if i == j else x[j] for j in range(q))
                 xm1 = tuple(x[j] - 1 if i == j else x[j] for j in range(q))
@@ -520,6 +598,25 @@ class RASolver(MOSOSolver):
                         vxs = vxm1
                         if not self.bestimprove:
                             return xs, fxs, vxs, n
+                if quadratic:
+                    xquad[i] = _quadratic_coordinate(
+                        x[i], fxp1[nobj] if isfeas1 else None, y2, fxm1[nobj] if isfeas2 else None
+                    )
+            if quadratic:
+                # Evaluated even when it is the centre or a neighbour
+                # already evaluated, as the MATLAB does (lines 293-294).
+                # Such a repeat is in gbar here, so it costs no
+                # simulation, but it is charged to SPLINE's budget like
+                # any feasible neighbour. Skipping it is a candidate
+                # improvement, not made.
+                xq = tuple(xquad)
+                isfeasq, fxq, vxq = self.estimate(xq, e, kcon)
+                if isfeasq:
+                    n += m
+                    if fxq[nobj] < fxs[nobj]:
+                        xs = xq
+                        fxs = fxq
+                        vxs = vxq
         else:
             # for neighborhoods not 1, generate the list of neighbors
             nbors = get_nbors(x, nbor_rad)

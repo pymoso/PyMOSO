@@ -110,3 +110,10 @@ R-SPLINE without it, on step 4's problems, starts and seeds, and counts
 how often the search restarted from x0 and how often the warm start it
 gave up was truly better. Output: `rspline_x0_measure.txt`. The change
 was reverted on this evidence (docs/phase7-plan.md, step 7).
+
+## Steps 4 and 5: NE
+
+`ne_quadratic_runs.jsonl` is `docs/bench_ne_quadratic.py run`'s raw
+output (1,040 runs), made after R-SPLINE's x0 re-estimation was
+reverted; `docs/ne-quadratic-tables.md` is generated from it and
+`docs/ne-quadratic.md` reads it.
