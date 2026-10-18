@@ -69,6 +69,14 @@ CHECKPOINTS = (1000, 2500, 5000)
 REPS = 20
 
 
+def _loadavg():
+    """The load averages where the platform has them (not Windows)."""
+    try:
+        return os.getloadavg()
+    except (AttributeError, OSError):
+        return None
+
+
 def seed_for(rep):
     return (1000 + rep,) * 6
 
@@ -232,7 +240,7 @@ def run(path, pairs=PAIRS, cells=CELLS, reps=REPS, budget=BUDGET, checkpoints=CH
                     continue
                 t0 = time.perf_counter()
                 row = run_one(solver, problem, cell, rep, budget, checkpoints, fmins.get(problem))
-                row.update(python=platform.python_version(), loadavg=os.getloadavg()[0],
+                row.update(python=platform.python_version(), loadavg=(_loadavg() or [None])[0],
                            when=time.strftime('%Y-%m-%dT%H:%M:%S'))
                 with open(path, 'a') as f:
                     f.write(json.dumps(row) + '\n')

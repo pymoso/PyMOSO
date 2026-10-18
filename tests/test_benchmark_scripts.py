@@ -87,7 +87,10 @@ def test_bench_biobjective_profile_runs_and_reports(tmp_path, monkeypatch):
     assert "RPERLE" in text and "Model check" in text and "Required against done" in text
 
 
-def test_bench_ne_quadratic_runs(tmp_path):
+def test_bench_ne_quadratic_runs(tmp_path, monkeypatch):
+    # run as on Windows, which has no os.getloadavg (see
+    # test_bench_biobjective_profile_runs_and_reports)
+    monkeypatch.delattr(os, "getloadavg", raising=False)
     bench = _load("bench_ne_quadratic")
     out = tmp_path / "runs.jsonl"
     bench.run(str(out), pairs=[("RPERLE", "ProbTPA"), ("RSPLINE", "ProbSimpleSO")], reps=1, budget=300,
@@ -99,7 +102,10 @@ def test_bench_ne_quadratic_runs(tmp_path):
     assert "### Quality" in (tmp_path / "report.md").read_text()
 
 
-def test_bench_radius_runs(tmp_path):
+def test_bench_radius_runs(tmp_path, monkeypatch):
+    # run as on Windows, which has no os.getloadavg (see
+    # test_bench_biobjective_profile_runs_and_reports)
+    monkeypatch.delattr(os, "getloadavg", raising=False)
     bench = _load("bench_radius")
     table, agree, total, positives = bench.verify(radii=(1, 2), thicknesses=(1,), extra=3, random_tables=2,
                                                   verbose=False)

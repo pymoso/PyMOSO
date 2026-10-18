@@ -90,6 +90,14 @@ PAIRS = ([('RSPLINE', p) for p in SUBJECT] + [(s, p) for s in ('RPERLE', 'RPE', 
          + [(s, p) for s in ('RPERLE', 'RPE', 'RMINRLE') for p in ('ProbTPA', 'ProbTPB', 'ProbTPC')])
 
 
+def _loadavg():
+    """The load averages where the platform has them (not Windows)."""
+    try:
+        return os.getloadavg()
+    except (AttributeError, OSError):
+        return None
+
+
 def seed_for(rep):
     return (1000 + rep,) * 6
 
@@ -246,7 +254,7 @@ def verify(radii=RADII, thicknesses=(1, 2), extra=60, random_tables=40, seed=7, 
 
 def nbors(out, radii=RADII, dims=(1, 2, 3), repeats=300):
     rows = []
-    load = os.getloadavg()
+    load = _loadavg()
     for d in dims:
         x = (7,) * d
         for r in radii:
@@ -256,7 +264,7 @@ def nbors(out, radii=RADII, dims=(1, 2, 3), repeats=300):
                 moso.get_nbors(x, r)
             us = (time.perf_counter() - t0) / repeats * 1e6
             rows.append(dict(dim=d, radius=r, points=n, us_per_call=us, us_per_point=us / n))
-    result = dict(python=platform.python_version(), loadavg_before=load, loadavg_after=os.getloadavg(),
+    result = dict(python=platform.python_version(), loadavg_before=load, loadavg_after=_loadavg(),
                   rows=rows)
     with open(out, 'w') as f:
         json.dump(result, f, indent=1)
@@ -419,7 +427,7 @@ def run(path, pairs=PAIRS, radii=RADII, seeds=SEEDS, budget=BUDGET, checkpoints=
                 if (solver, problem, radius, rep) in done:
                     continue
                 row = run_one(solver, problem, radius, rep, budget, checkpoints, fmins.get(problem))
-                row.update(python=platform.python_version(), loadavg=os.getloadavg()[0],
+                row.update(python=platform.python_version(), loadavg=(_loadavg() or [None])[0],
                            when=time.strftime('%Y-%m-%dT%H:%M:%S'))
                 with open(path, 'a') as f:
                     f.write(json.dumps(row) + '\n')
@@ -497,8 +505,11 @@ def report(path, nbors_path, out):
               'returned set\'s size, simulations per returned point (counted simulations over the final set\'s '
               'size, finished runs only), and wall time split into constructing neighbourhoods and estimating '
               '(under timing wrappers: shares, not absolute costs).', ''])
-    L.append('Python {0}, load {1:.2f} before and {2:.2f} after.'.format(
-        nb['python'], nb['loadavg_before'][0], nb['loadavg_after'][0]))
+    if nb['loadavg_before'] and nb['loadavg_after']:
+        L.append('Python {0}, load {1:.2f} before and {2:.2f} after.'.format(
+            nb['python'], nb['loadavg_before'][0], nb['loadavg_after'][0]))
+    else:
+        L.append('Python {0}, load not recorded (no os.getloadavg on this platform).'.format(nb['python']))
     L.append('')
     L.append('| dim | radius | points | µs per call | µs per point |')
     L.append('|---|---|---|---|---|')
