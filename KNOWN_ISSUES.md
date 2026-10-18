@@ -838,9 +838,10 @@ and R-MinRLE raise `pymoso.chnbase.WarmStartInfeasible` (a `RuntimeError`)
 where they re-estimate the warm start, naming the point and the
 iteration. The message gives the likelier cause first, a `g()` whose
 feasibility depends on its random numbers, which these solvers do not
-support, and a defect in PyMOSO second. x0 counts as part of the warm
-start after iteration 1: it was estimated feasible then, and is
-re-estimated in every iteration. In iteration 1 an infeasible x0 is
+support, and a defect in PyMOSO second. For R-PE, R-PERLE and
+R-MinRLE, x0 counts as part of the warm start after iteration 1: it was
+estimated feasible then, and they re-estimate it in every iteration
+(R-SPLINE does not; docs/phase7-plan.md, step 7). In iteration 1 an infeasible x0 is
 still the caller's error, a `ValueError`. `RASolver` does not raise it:
 an algorithm with random constraints could legitimately meet an
 infeasible warm start. `tests/test_warm_start.py`. For R-PE and

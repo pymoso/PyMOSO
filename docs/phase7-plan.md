@@ -835,20 +835,77 @@ The MATLAB is a second reference for R-SPLINE:
   PyMOSO.
 
 **Found 2026-10-17, from the detour through random feasibility:**
-- **x0 re-estimation.** R-PE and R-PERLE (`pe`: `upsample(aold |
-  {x0})`) and R-MinRLE (`get_min` upsamples `mcS | {x0}`) re-estimate
-  x0 every iteration and keep it as a candidate. R-SPLINE does not:
-  its warm start is the previous minimizer alone. The other three
-  start an objective's search from x0, because its fresh estimate is
-  better, in 1-8 of 11-15 iterations on ProbTPA at budget 1,000 (three
-  seeds), so R-SPLINE is the outlier. **Decided:** R-SPLINE re-estimates
-  x0 every iteration and starts from the better of x0 and the warm
-  start. Moves its golden (1,023 to 1,009 simcalls, same solution);
-  approved, its own commit. **Done.** The golden moved exactly as the
-  shadow predicted; `tests/test_rspline_x0.py`. On a one-dimensional
-  problem R-SPLINE now submits one two-point batch per iteration
-  (x0 with its warm start), which narrows a claim in
-  `docs/simpar-ceiling.md` (corrected there).
+- **x0 re-estimation: built, measured, reverted (2026-10-17).** R-PE
+  and R-PERLE (`pe`: `upsample(aold | {x0})`) and R-MinRLE (`get_min`
+  upsamples `mcS | {x0}`) re-estimate x0 every iteration and keep it as
+  a candidate; R-SPLINE's warm start is the previous minimizer alone.
+  The other three start an objective's search from x0, because its
+  fresh estimate is better, in 1-8 of 11-15 iterations on ProbTPA at
+  budget 1,000 (three seeds). R-SPLINE was made to match: re-estimate
+  x0 every iteration and start from the better of x0 and the warm start
+  (commit `00c3dea`, approved on the convergence argument; its golden
+  moved, 1,023 to 1,009 simcalls, same solution). **Step 4's
+  measurement then showed it a regression, and it was reverted, golden
+  included** (the golden is back at its earlier value;
+  `tests/golden/README.md`). `tests/test_rspline_warm_start.py` holds
+  R-SPLINE to the reverted behaviour; it failed on the commit-4 code.
+
+  Measured (`scratch/phase7/rspline_x0_measure.py`, output beside it;
+  20 seeds, starts drawn by each tester, budget 5,000; gap between the
+  true first objective of R-SPLINE's solution and the true minimum,
+  median, then seeds better / same / worse with x0 re-estimation than
+  without):
+
+  | problem | at | with | without | better / same / worse |
+  |---|---|---|---|---|
+  | ProbTPA | 1,000 | 2.89 | 3.04 | 12 / 0 / 8 |
+  | ProbTPA | 2,500 | 3.99 | 2.60 | 5 / 0 / 15 |
+  | ProbTPA | 5,000 | 4.16 | 2.53 | 4 / 0 / 16 |
+  | ProbTPB | 1,000 | 1.70 | 1.60 | 5 / 5 / 10 |
+  | ProbTPB | 2,500 | 1.76 | 1.62 | 6 / 7 / 7 |
+  | ProbTPB | 5,000 | 1.74 | 1.64 | 4 / 6 / 10 |
+  | ProbTPC | 1,000 | 8.94 | 8.43 | 9 / 1 / 10 |
+  | ProbTPC | 2,500 | 7.97 | 6.40 | 7 / 0 / 13 |
+  | ProbTPC | 5,000 | 7.55 | 4.22 | 7 / 0 / 13 |
+  | ProbSimpleSO | 1,000 | 30.50 | 0.50 | 0 / 5 / 15 |
+  | ProbSimpleSO | 2,500 | 0.00 | 0.00 | 0 / 13 / 7 |
+  | ProbSimpleSO | 5,000 | 0.00 | 0.00 | 0 / 16 / 4 |
+
+  Two mechanisms, both measured. x0 and the warm start were estimated
+  together, fresh, at the iteration's sample size, so the comparison was
+  fair in sample size and equally noisy on both sides:
+
+  | problem | iterations after the first | warm start not x0 | restarted from x0 | of those, warm start truly better |
+  |---|---|---|---|---|
+  | ProbTPA | 683 | 585 | 247 (42%) | 139 (56%) |
+  | ProbTPB | 692 | 546 | 221 (40%) | 81 (37%) |
+  | ProbTPC | 596 | 531 | 209 (39%) | 116 (56%) |
+  | ProbSimpleSO | 840 | 840 | 0 | 0 |
+
+  - **Noise-driven restarts** (the TP problems): about 40% of the
+    iterations that had a choice restarted from x0, and in 37-56% of
+    those the warm start given up was truly better. Each restart
+    discards the progress since x0, and SPLINE's per-iteration budget
+    is too small to recover it. **This is why R-SPLINE got worse with
+    more budget on ProbTPA** (median gap 2.89 at 1,000 simulations, 4.16
+    at 5,000): its runs wander near their start instead of reaching the
+    minimum at (20, 10).
+  - **The estimation cost** (everywhere, and the only mechanism on
+    ProbSimpleSO, where x0 was never chosen): `m` simulations every
+    iteration for x0, so fewer iterations within the budget.
+
+  The framing, by decision: the convergence condition is real and
+  asymptotic -- as sample sizes grow the comparison becomes reliable --
+  but at finite budgets it is noise-dominated, so implementing it
+  naively pays an asymptotic cost for no finite-budget benefit. The
+  approval was on the theoretical argument, and the measurement says the
+  argument does not apply at practical budgets. Whether the same rule
+  costs R-PE, R-PERLE and R-MinRLE is not measured.
+
+  **Speculative, not work:** a restart that requires x0 to be better by
+  some margin, rather than merely better, would keep the asymptotic
+  property without firing on noise. Nobody has tried it, and it is a
+  different change from the one measured.
 - **The finite-variance condition.** The R-SPLINE paper omits it too.
   A requirement on the user's oracle, not on the implementation.
 - **`pe`'s silent filter of the warm start.** `upsample` returns the
@@ -958,7 +1015,8 @@ README, and belong in the same place.
   2026-10-17 (step 1b's decisions). In its place, in this order:
   issue 18 withdrawn with these plan entries; `WarmStartInfeasible`
   with issue 19; `pe`'s filter removed; R-SPLINE's x0 re-estimation
-  with its golden; then step 2b.
+  with its golden (reverted later the same day, golden included, after
+  step 4's measurement: step 7, "x0 re-estimation"); then step 2b.
 - Steps 2 and 3 drop in priority. They remain golden-neutral and can
   land in any order, but at realistic cost neither changes much for
   two-objective users, and step 3's gain is already available through

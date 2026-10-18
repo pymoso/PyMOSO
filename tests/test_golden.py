@@ -75,9 +75,7 @@ CASES = {
     ),
     "rspline_simpleso": (
         ["pymoso", "solve", "--budget=1000", "ProbSimpleSO", "RSPLINE", "40"],
-        # moved in Phase 7: R-SPLINE re-estimates x0 every iteration
-        # (tests/golden/README.md); the solution, (0,), did not move
-        (3284326634, 477001502, 351030955, 2381370830, 1499024205, 1527143741),
+        (2327071160, 589288757, 3791179983, 1866895284, 2094692759, 3256882931),
     ),
     # testsolve_tpa/testsolve_mocompass/testsolve_mopbnb used to be
     # bit-identical -- the testsolve()-shaped analog of the mocompass_tpa/

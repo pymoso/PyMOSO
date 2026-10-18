@@ -194,16 +194,13 @@ def test_a_bi_objective_solver_really_does_submit_several_points_at_once(monkeyp
     assert max(sizes) >= 4 and sum(1 for n in sizes if n > 1) >= 10
 
 
-def test_a_one_dimensional_problem_has_two_points_to_submit_only_with_x0(monkeypatch):
-    """Why the original --simpar benchmark can barely observe batching
+def test_a_one_dimensional_problem_never_has_two_points_to_submit(monkeypatch):
+    """Why the original --simpar benchmark cannot observe batching
     (docs/simpar-ceiling.md): R-SPLINE on a one-dimensional problem
-    estimates one new point at a time, except at the start of an
-    iteration, where it estimates its warm start and x0 together
-    (Phase 7; before that it never had two points to submit)."""
-    batches = []
+    estimates one new point at a time, always."""
+    sizes = []
     real_run = executor_module.SerialExecutor.run
     monkeypatch.setattr(executor_module.SerialExecutor, "run",
-                        lambda self, blocks: (batches.append([b.x for b in blocks]), real_run(self, blocks))[1])
+                        lambda self, blocks: (sizes.append(len(blocks)), real_run(self, blocks))[1])
     _run(ProbSimpleSO, RSPLINE, (97,), 2000, False, "mrg32k3a")
-    assert batches and {len(b) for b in batches} == {1, 2}
-    assert all((97,) in b for b in batches if len(b) == 2)
+    assert sizes and set(sizes) == {1}

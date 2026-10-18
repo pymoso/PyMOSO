@@ -89,14 +89,7 @@ too; numerical results changed there.
 ### Numerical results
 
 - **`solve()` gives the same results as 1.1.0** for the same problem,
-  solver, seed and options, with the default generator, **except with
-  R-SPLINE.**
-- **R-SPLINE estimates x0 again in every iteration** and starts its
-  search from x0 when x0's estimate is better than the previous
-  solution's, as R-PE, R-PERLE and R-MinRLE already did. In 1.1.0 it
-  started from the previous solution alone. Its results and end seeds
-  differ from 1.1.0's, and a run of the same budget can take fewer
-  iterations, since estimating x0 uses simulation calls.
+  solver, seed and options, with the default generator.
 - **`testsolve()` does not.** In 1.1.0, the first sample path's oracle
   stream and the last path's solver stream started from the same seed
   (`KNOWN_ISSUES.md` issue 10). Every role of every path now has a

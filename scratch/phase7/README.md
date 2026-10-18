@@ -101,3 +101,12 @@ second jumps (the power tables' build cost). `step3_after_jump.jsonl`
 is `step2_record.py` after step 3: 39 of 39 identical to
 `step2c_after.jsonl`. Results: docs/hit-cost-baseline.md, "After the
 cheaper jump".
+
+## R-SPLINE's x0 re-estimation, reverted
+
+`rspline_x0_measure.py` compares R-SPLINE with the x0 re-estimation of
+commit `00c3dea` (a subclass holding that commit's `spsolve`) against
+R-SPLINE without it, on step 4's problems, starts and seeds, and counts
+how often the search restarted from x0 and how often the warm start it
+gave up was truly better. Output: `rspline_x0_measure.txt`. The change
+was reverted on this evidence (docs/phase7-plan.md, step 7).

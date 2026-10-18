@@ -1,0 +1,22 @@
+load average (0.75732421875, 0.974609375, 1.16162109375)
+
+Gap to the true minimum of the first objective (median of 20 seeds), and by seed with x0 re-estimation against without: better / same / worse
+ProbTPA      at  1000: with   2.89  without   3.04  12/0/8
+ProbTPA      at  2500: with   3.99  without   2.60  5/0/15
+ProbTPA      at  5000: with   4.16  without   2.53  4/0/16
+ProbTPB      at  1000: with   1.70  without   1.60  5/5/10
+ProbTPB      at  2500: with   1.76  without   1.62  6/7/7
+ProbTPB      at  5000: with   1.74  without   1.64  4/6/10
+ProbTPC      at  1000: with   8.94  without   8.43  9/1/10
+ProbTPC      at  2500: with   7.97  without   6.40  7/0/13
+ProbTPC      at  5000: with   7.55  without   4.22  7/0/13
+ProbSimpleSO at  1000: with  30.50  without   0.50  0/5/15
+ProbSimpleSO at  2500: with   0.00  without   0.00  0/13/7
+ProbSimpleSO at  5000: with   0.00  without   0.00  0/16/4
+
+With x0 re-estimation, iterations after the first: how often the search restarted from x0, and how often the warm start it gave up was truly better (by the tester's true first objective)
+ProbTPA      iterations  683, warm start not x0  585, restarted from x0  247 (42%), of which the warm start was truly better  139 (56%)
+ProbTPB      iterations  692, warm start not x0  546, restarted from x0  221 (40%), of which the warm start was truly better   81 (37%)
+ProbTPC      iterations  596, warm start not x0  531, restarted from x0  209 (39%), of which the warm start was truly better  116 (56%)
+ProbSimpleSO iterations  840, warm start not x0  840, restarted from x0    0 (0%), of which the warm start was truly better    0 (0%)
+load average (1.6240234375, 1.16748046875, 1.2197265625)

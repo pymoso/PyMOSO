@@ -91,7 +91,26 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (post R-SPLINE x0 re-estimation)
+### Current values (R-SPLINE x0 re-estimation reverted)
+
+**One case moved back, `rspline_simpleso`, to its value before the
+section below.** R-SPLINE's x0 re-estimation was reverted, by decision,
+after it was measured to make R-SPLINE worse at practical budgets
+(`docs/phase7-plan.md`, step 7, "x0 re-estimation"). The case is
+`rspline_simpleso`'s value in "Historical: post testsolve() role-layout
+fix, pre R-SPLINE x0 re-estimation", below, again: end seed
+`2327071160, 589288757, 3791179983, 1866895284, 2094692759, 3256882931`,
+1,023 simcalls, 29 iterations, solution `{(0,)}`. Before restoring it,
+the reverted code was run under the golden's command, twice on each of
+`.venv-baseline` and `.venv-dev`, and gave that end seed every time; and a stand-in for the reverted `spsolve`, used for the
+measurement, reproduces it too. Every other case is as it has been
+since the role-layout fix.
+
+### Historical: post R-SPLINE x0 re-estimation, pre its reversion
+
+Superseded: R-SPLINE's x0 re-estimation was reverted (above). Kept as
+the record of the move and the reasons for it.
+
 
 **Capture conditions:** `.venv-baseline` (CPython 3.10.22) and
 `.venv-dev` (CPython 3.14.8), this repo installed editable, captured
@@ -124,7 +143,8 @@ other row of the table below is unchanged.
 
 ### Historical: post testsolve() role-layout fix, pre R-SPLINE x0 re-estimation
 
-All of this section's values are current except `rspline_simpleso`'s.
+All of this section's values are current, `rspline_simpleso`'s included
+since the reversion (above).
 
 **Capture conditions:** `.venv-baseline`, CPython 3.10.22, this repo
 installed editable, captured from the source tree directly, at the

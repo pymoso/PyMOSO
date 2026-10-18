@@ -103,9 +103,9 @@ def test_several_points_are_all_recorded_and_the_first_named():
     assert str(e).startswith('RMINRLE: the point (-2, 5) (and 2 others), carried into iteration 4')
 
 
-@pytest.mark.parametrize("solver, x0", [(RSPLINE, (6, 20)), (RMINRLE, (6, 20)), (RPE, (3, 20)), (RPERLE, (3, 20))])
+@pytest.mark.parametrize("solver, x0", [(RSPLINE, (8, 20)), (RMINRLE, (6, 20)), (RPE, (3, 20)), (RPERLE, (3, 20))])
 def test_a_whole_run_with_random_feasibility_raises_it(solver, x0):
-    """The runs that failed with "x0=(4, 10) is infeasible" and with a
+    """The runs that failed with "x0=(4, 9) is infeasible" and with a
     KeyError for (2, 17), and two whose warm start pe used to filter."""
     with pytest.raises(WarmStartInfeasible) as info:
         solve(RandomEdgeBi, solver, x0, budget=3000, seed=SEED, crn=False)

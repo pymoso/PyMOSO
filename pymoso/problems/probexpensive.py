@@ -181,9 +181,7 @@ class ProbExpensiveBi(Oracle):
     already estimated, and its neighbourhood search stops at the first
     improvement. So ProbExpensive's benchmarks cannot observe batching
     whatever it does (docs/simpar-ceiling.md). This problem, solved
-    with a bi-objective solver, can. (Since Phase 7 R-SPLINE estimates
-    x0 with its warm start, one two-point batch per iteration; too
-    little to change that.)
+    with a bi-objective solver, can.
 
     Not registered in pymoso.problems: it is a benchmark and test
     fixture, and `pymoso listitems` does not list it.
