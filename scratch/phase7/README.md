@@ -133,3 +133,13 @@ first). `docs/neighbourhood-radius-tables.md` is generated from them.
 `docs/bench_plateau.py run`'s raw output (1,040 runs, ExampleBnBSolver's
 included); `plateau_describe.json` is `describe`'s, the problem's trap
 counts. `docs/plateau-problems-tables.md` is generated from them.
+
+## Step 6b: CRN synchronization
+
+`crnsync.py` holds the inventory twins (`SyncVar`, `SyncFixed` and
+their single-objective counterparts), the calibration oracles (`Calib`,
+`CalibVar`) and `RandRange`; it reuses `barrier.certified_by`.
+`crn_covariance.json` is `docs/bench_crn.py covariance`'s raw output and
+`crn_covariance.log` its progress log (about 33 minutes on 3.14, load
+0.72 at the start); `docs/crn-failure-tables.md` is generated from the
+JSON. No solver has run on these problems yet.

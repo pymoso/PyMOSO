@@ -138,3 +138,17 @@ def test_bench_plateau_runs(tmp_path, monkeypatch):
     assert len(rows) == 4 and all(r["finished"] for r in rows)
     bench.report(str(out), str(tmp_path / "describe.json"), str(tmp_path / "report.md"))
     assert "What the search does on a plateau" in (tmp_path / "report.md").read_text()
+
+
+def test_bench_crn_runs(tmp_path):
+    bench = _load("bench_crn")
+    assert bench.calibrate(reps=200, verbose=False)
+    agree, total, positives, _ = bench.verify(radii=(1, 2), extra=2, random_tables=4, verbose=False)
+    assert agree == total and positives
+    assert all(caught for _, caught in bench.mutations(verbose=False, reps=200))
+    out = tmp_path / "cov.json"
+    bench.covariance(str(out), reps=200, sweep_reps=20, randrange_reps=50, builtin_reps=20, builtin_points=1,
+                     lattice_points=[(2, 2), (9, 9), (16, 16)], sweep_t=(1, 30), shift_reps=20, shift_periods=30,
+                     verbose=False)
+    bench.report(str(out), str(tmp_path / "report.md"))
+    assert "randint over a range" in (tmp_path / "report.md").read_text()

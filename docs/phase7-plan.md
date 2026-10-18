@@ -916,6 +916,48 @@ assumes that the warm start from iteration v-1 is useful at v, and CRN
 is part of what makes consecutive sample paths comparable. A problem
 class where CRN fails may degrade the RA framework's advantage too.
 
+**Answered from the code (2026-10-18): it cannot, here.** The framing
+above, that CRN makes consecutive sample paths comparable, does not
+describe PyMOSO. The CRN stream is the iteration number
+(`oracle.py`, `_block_for`), so iteration v is independent of v-1 with
+or without CRN, and a CRN failure has nothing across iterations to
+lose. What CRN affects is the comparisons within an iteration (SPLI,
+NE, certification). Also from the code: every replication starts in
+step at every point, so a draw-count difference desynchronizes only the
+rest of one replication.
+
+**Synchronization: measured without a solver (2026-10-18)**
+(`docs/crn-failure.md`; tables by `docs/bench_crn.py`; the problems
+`scratch/phase7/crnsync.py`). Inventory twins with identical marginals,
+`SyncVar` (draw count depends on x) and `SyncFixed` (it does not); a
+calibration oracle with exact correlations; the measurement and the
+known answer each shown to detect every mutation tried, ties first.
+Measured:
+- **Desynchronization degrades CRN; it does not switch it off.**
+  `SyncVar` under CRN: correlation 0.91 / 0.94, against 1.00 / 0.99
+  synchronized; the difference's variance 5-23 times what synchronized
+  CRN gives, and still 11-18 times below independent sampling.
+- **The draws re-align by themselves.** A value-dependent pattern of
+  draws re-couples after a misalignment (correlation 0.99+ for a shift
+  of 1-8 raw draws); a fixed cyclic pattern shifted by an odd amount
+  never does (holding correlation -0.01). Equal draw counts are the
+  wrong measure of synchronization: at T = 300 they hold for 7% of a
+  replication, while 73% of periods start on the same draw at both
+  points and the correlation is 0.87.
+- **`randint` over an x-dependent range** loses correlation where the
+  range's size crosses a power of two (0.41-0.48, counts differing in
+  about half of replications), and keeps 0.70-0.98 elsewhere.
+- **The built-in problems are all synchronized** (`BSProb` included:
+  variable draw counts that do not depend on x).
+- **Against the predictions:** "correlation collapses to near zero"
+  refuted for this structure; mine, "falls with the share in step",
+  refuted too.
+
+Not yet run: the solver runs on the twins (quality at matched counted
+simulations, CRN on and off). Proposed next, not built: a fixed cyclic
+pattern with one x-dependent extra draw, where the collapse should
+happen; the threshold and antithetic problems.
+
 ### 7. Algorithmic completeness audit
 
 The quadratic candidate was in a published implementation and not in
@@ -1076,6 +1118,28 @@ The MATLAB is a second reference for R-SPLINE:
   reaches every one; `tests/test_ne_best_improvement.py` checks each
   path sees it.
 - **The MATLAB's NE is radius 1 only.**
+
+**Found 2026-10-18, from step 6b (a framework gap, not an algorithm
+discrepancy; recorded here so it is not lost):**
+- **One stream per purpose, the textbook way to keep CRN synchronized,
+  is reachable from `g()` only through `rng.advance()`,** which is not
+  documented for `g()` authors. It returns a new stream `delta` raw
+  draws past the current position.
+- **The replication-reserve overrun check cannot see draws taken on such
+  a derived stream.** `SerialExecutor.run` reads `raw_consumed()` on the
+  replication's own stream only. Without CRN, replications are
+  `2**14` raw draws apart (`Oracle.replication_draws`), so a `g()` that
+  advances to purpose-specific offsets and draws past the reserve runs
+  silently into the next replication's draws: the overlap the check
+  exists to refuse. A user following good CRN practice escapes the
+  guard. Under CRN the stride is `2**76`, so the overlap is not
+  reachable there.
+- **Under Philox it is not reachable at all:** `g()` receives a
+  `RandomCompatAdapter` (`prng/base.py`), which has no `advance`, so
+  such a `g()` raises `AttributeError` on that generator only.
+- Nothing built. A fix is a decision: document a supported per-purpose
+  API with the reserve enforced on derived streams, or say that `g()`
+  gets one sequential stream and nothing else.
 
 **Report discrepancies; do not fix them in this step.** Some will be
 deliberate.
