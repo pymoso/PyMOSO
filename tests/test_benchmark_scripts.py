@@ -150,5 +150,12 @@ def test_bench_crn_runs(tmp_path):
     bench.covariance(str(out), reps=200, sweep_reps=20, randrange_reps=50, builtin_reps=20, builtin_points=1,
                      lattice_points=[(2, 2), (9, 9), (16, 16)], sweep_t=(1, 30), shift_reps=20, shift_periods=30,
                      verbose=False)
-    bench.report(str(out), str(tmp_path / "report.md"))
-    assert "randint over a range" in (tmp_path / "report.md").read_text()
+    runs = tmp_path / "runs.jsonl"
+    bench.run(str(runs), configs=[("RPERLE", "CycRare", "crn"), ("RPERLE", "CycFixed", "crn"),
+                                  ("RSPLINE", "SyncVarSO", "default"), ("RSPLINE", "SyncFixedSO", "default")],
+              reps=1, budget=300, checkpoints=(150, 300), verbose=False)
+    rows = [json.loads(line) for line in open(runs)]
+    assert len(rows) == 4 and all(r["finished"] for r in rows)
+    bench.report(str(out), str(tmp_path / "report.md"), str(runs))
+    text = (tmp_path / "report.md").read_text()
+    assert "randint over a range" in text and "The solvers on the twins" in text

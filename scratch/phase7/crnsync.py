@@ -86,6 +86,34 @@ def simulate(x, rng, periods, fixed, trace=None):
     return hold / periods, short / periods
 
 
+MUQ = 10
+
+
+def simulate_cyc(x, rng, periods, fixed, trace=None):
+    """
+    The cyclic twins' replication: a fixed cycle of draws -- each item's
+    demand D and expediting cost P, every period -- and one rare extra
+    draw that depends on x: when D == x (the item ends the period with
+    exactly nothing), a reorder-delay cost Q ~ Exp(mean MUQ), added to
+    shortage. `fixed` always draws Q and discards it unless D == x.
+    """
+    hold = short = 0.0
+    for _ in range(periods):
+        for xi in x:
+            d = int(M * rng.random())
+            p = rng.expovariate(1.0 / MU)
+            q = rng.expovariate(1.0 / MUQ) if fixed else None
+            if d > xi:
+                short += B * (d - xi) + p
+            else:
+                hold += H * (xi - d)
+                if d == xi:
+                    short += q if q is not None else rng.expovariate(1.0 / MUQ)
+        if trace is not None:
+            trace.append(rng.raw_consumed())
+    return hold / periods, short / periods
+
+
 def _item(xi):
     """Exact (E holding, E shortage) of one item at stock xi, one period."""
     hold = sum(Fraction(H * (xi - d), M) for d in range(M) if d < xi)
@@ -102,6 +130,18 @@ def true_g(x):
     return tuple(float(v) for v in exact_g(x))
 
 
+def exact_g_cyc(x):
+    """The cyclic twins' means: the inventory twins', plus Q's mean on
+    the 1-in-M periods each item ends at exactly zero. The addition is
+    the same at every x, so the efficient set is the same."""
+    h, s = exact_g(x)
+    return h, s + 2 * Fraction(MUQ, M)
+
+
+def true_g_cyc(x):
+    return tuple(float(v) for v in exact_g_cyc(x))
+
+
 def true_cost(x):
     """The single-objective twins' mean: holding plus shortage."""
     return float(sum(exact_g(x)))
@@ -111,6 +151,14 @@ class _Sync(Oracle):
     FIXED = None
     PERIODS = T
     NUM_OBJ = 2
+    SIM = staticmethod(simulate)
+    TRUE_G = staticmethod(true_g)
+
+    @classmethod
+    def run(cls, x, rng, periods=None, trace=None):
+        """One replication's objectives, as g() computes them before
+        any single-objective sum."""
+        return cls.SIM(x, rng, cls.PERIODS if periods is None else periods, cls.FIXED, trace)
 
     def __init__(self, rng):
         self.num_obj = self.NUM_OBJ
@@ -120,7 +168,7 @@ class _Sync(Oracle):
     def g(self, x, rng):
         if not in_box(x):
             return False, ()
-        return True, simulate(x, rng, self.PERIODS, self.FIXED)
+        return True, self.run(x, rng)
 
 
 class SyncVar(_Sync):
@@ -139,7 +187,7 @@ class _SyncSO(_Sync):
     def g(self, x, rng):
         if not in_box(x):
             return False, ()
-        return True, (sum(simulate(x, rng, self.PERIODS, self.FIXED)),)
+        return True, (sum(self.run(x, rng)),)
 
 
 class SyncVarSO(_SyncSO):
@@ -156,7 +204,31 @@ def with_periods(cls, periods):
                 {'PERIODS': periods, '__module__': __name__})
 
 
-PROBLEMS = {c.__name__: c for c in (SyncVar, SyncFixed, SyncVarSO, SyncFixedSO)}
+class _Cyc:
+    SIM = staticmethod(simulate_cyc)
+    TRUE_G = staticmethod(true_g_cyc)
+
+
+class CycRare(_Cyc, SyncVar):
+    """A fixed cycle of draws, plus Q only when D == x."""
+
+
+class CycFixed(_Cyc, SyncFixed):
+    """Always draws Q: six draws a period at every point."""
+
+
+class CycRareSO(_Cyc, SyncVarSO):
+    pass
+
+
+class CycFixedSO(_Cyc, SyncFixedSO):
+    pass
+
+
+PROBLEMS = {c.__name__: c for c in (SyncVar, SyncFixed, SyncVarSO, SyncFixedSO,
+                                    CycRare, CycFixed, CycRareSO, CycFixedSO)}
+# (desynchronizing twin, synchronized twin), for the measurement
+TWINS = ((SyncVar, SyncFixed), (CycRare, CycFixed))
 
 
 def values():

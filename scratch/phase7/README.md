@@ -136,10 +136,12 @@ counts. `docs/plateau-problems-tables.md` is generated from them.
 
 ## Step 6b: CRN synchronization
 
-`crnsync.py` holds the inventory twins (`SyncVar`, `SyncFixed` and
+`crnsync.py` holds the inventory and cyclic twins (`SyncVar`, `SyncFixed`, `CycRare`, `CycFixed` and
 their single-objective counterparts), the calibration oracles (`Calib`,
 `CalibVar`) and `RandRange`; it reuses `barrier.certified_by`.
 `crn_covariance.json` is `docs/bench_crn.py covariance`'s raw output and
-`crn_covariance.log` its progress log (about 33 minutes on 3.14, load
-0.72 at the start); `docs/crn-failure-tables.md` is generated from the
-JSON. No solver has run on these problems yet.
+`crn_covariance.log` its progress log (with both twin pairs, about 74
+minutes on 3.14, beside the solver runs). `crn_runs.jsonl` is
+`docs/bench_crn.py run`'s output (640 runs, six worker processes; counted,
+so running in parallel does not matter) and `crn_runs.log` its log.
+`docs/crn-failure-tables.md` is generated from both.

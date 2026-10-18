@@ -2,7 +2,7 @@
 
 Python 3.14.8, seed 12345. Counted, not timed.
 
-### The inventory twins over the whole box
+### The twins over the whole box
 
 1000 replications per point; every axis pair (x, x + e_i) in the box. Correlation and variance ratio Var(g(x) - g(y)) / (Var g(x) + Var g(y)) per objective: median (quartiles) over pairs. A ratio of 1 is independent sampling; below 1 CRN helps, above 1 it hurts. "CI excludes 0": pairs whose 95% interval for the correlation lies above zero. Draws differ: the share of replications whose total draw counts differ, mean over pairs.
 
@@ -16,41 +16,64 @@ Python 3.14.8, seed 12345. Counted, not timed.
 | SyncVar | crn | shortage | 0.94 (0.92-0.96) | 0.056 (0.041-0.087) | 758/758 | 0/758 | 51.5% |
 | SyncVar | default | holding | 0.00 (-0.02-0.02) | 0.999 (0.977-1.020) | 25/758 | 12/758 | 91.4% |
 | SyncVar | default | shortage | -0.00 (-0.03-0.02) | 1.001 (0.979-1.025) | 16/758 | 23/758 | 91.4% |
+| CycFixed | crn | holding | 1.00 (1.00-1.00) | 0.003 (0.002-0.008) | 758/758 | 0/758 | 0.0% |
+| CycFixed | crn | shortage | 0.99 (0.98-0.99) | 0.015 (0.011-0.025) | 760/760 | 0/760 | 0.0% |
+| CycFixed | default | holding | 0.00 (-0.02-0.02) | 0.998 (0.979-1.022) | 16/758 | 21/758 | 0.0% |
+| CycFixed | default | shortage | -0.00 (-0.02-0.02) | 1.002 (0.979-1.022) | 17/760 | 26/760 | 0.0% |
+| CycRare | crn | holding | 0.59 (0.54-0.63) | 0.410 (0.373-0.465) | 758/758 | 0/758 | 69.8% |
+| CycRare | crn | shortage | 0.75 (0.67-0.79) | 0.255 (0.210-0.336) | 760/760 | 0/760 | 69.8% |
+| CycRare | default | holding | 0.00 (-0.02-0.02) | 1.000 (0.978-1.022) | 17/758 | 29/758 | 83.1% |
+| CycRare | default | shortage | -0.00 (-0.02-0.02) | 1.001 (0.980-1.021) | 16/760 | 24/760 | 83.1% |
 
-Marginals without CRN, the twins' identical-distribution argument checked: largest |z| over points and objectives of each twin's mean against the closed form (3.11, 2.63), of the twins' means against each other (2.43) and of their variances (2.98), over 400 points x 2 objectives.
+Marginals without CRN, each pair's identical-distribution argument checked: largest |z| over 400 points x 2 objectives of each twin's mean against the closed form, of the twins' means against each other, and of their variances.
+
+| pair | desynchronizing twin vs closed form | synchronized twin vs closed form | means | variances |
+|---|---|---|---|---|
+| SyncVar / SyncFixed | 3.11 | 2.63 | 2.43 | 2.98 |
+| CycRare / CycFixed | 2.96 | 3.37 | 2.72 | 3.23 |
 
 ### Periods in a replication (T), CRN
 
-1000 replications per point; pairs from x in {2, 9, 16}^2 along both axes. "Same count": the mean share of a replication's periods completed before the two points' cumulative draw counts first part. "In role": the mean share of periods that start on the same raw draw at both points (each reads that uniform as item 1's demand), at whatever period index. SyncFixed: both always 100%.
+1000 replications per point; pairs from x in {2, 9, 16}^2 along both axes. "Same count": the mean share of a replication's periods completed before the two points' cumulative draw counts first part. "In role": the mean share of periods that start on the same raw draw at both points (each reads that uniform as item 1's demand), at whatever period index. The synchronized twins: both always 100%.
 
 | T | problem | same count | in role | holding correlation | shortage correlation | holding ratio | shortage ratio |
 |---|---|---|---|---|---|---|---|
 | 1 | SyncFixed | 100% | 100% | 1.00 (0.99-1.00) | 0.99 (0.99-0.99) | 0.003 (0.002-0.009) | 0.009 (0.007-0.016) |
 | 1 | SyncVar | 95% | 100% | 0.99 (0.97-1.00) | 0.99 (0.97-0.99) | 0.012 (0.002-0.034) | 0.014 (0.008-0.027) |
+| 1 | CycFixed | 100% | 100% | 1.00 (0.99-1.00) | 0.99 (0.98-0.99) | 0.003 (0.002-0.008) | 0.013 (0.011-0.021) |
+| 1 | CycRare | 90% | 100% | 0.99 (0.94-1.00) | 0.98 (0.96-0.99) | 0.012 (0.003-0.079) | 0.024 (0.014-0.040) |
 | 5 | SyncFixed | 100% | 100% | 1.00 (0.99-1.00) | 0.99 (0.98-0.99) | 0.003 (0.002-0.008) | 0.010 (0.007-0.018) |
 | 5 | SyncVar | 87% | 93% | 0.95 (0.92-0.97) | 0.96 (0.94-0.97) | 0.057 (0.035-0.077) | 0.041 (0.025-0.058) |
+| 5 | CycFixed | 100% | 100% | 1.00 (1.00-1.00) | 0.99 (0.98-0.99) | 0.003 (0.002-0.008) | 0.013 (0.009-0.023) |
+| 5 | CycRare | 75% | 84% | 0.83 (0.81-0.84) | 0.90 (0.86-0.91) | 0.167 (0.157-0.200) | 0.103 (0.092-0.141) |
 | 30 | SyncFixed | 100% | 100% | 1.00 (0.99-1.00) | 0.99 (0.98-0.99) | 0.003 (0.002-0.008) | 0.010 (0.007-0.020) |
 | 30 | SyncVar | 53% | 80% | 0.88 (0.86-0.95) | 0.93 (0.92-0.96) | 0.132 (0.051-0.156) | 0.072 (0.040-0.085) |
+| 30 | CycFixed | 100% | 100% | 1.00 (0.99-1.00) | 0.99 (0.97-0.99) | 0.003 (0.002-0.008) | 0.015 (0.010-0.026) |
+| 30 | CycRare | 29% | 52% | 0.60 (0.55-0.63) | 0.72 (0.67-0.79) | 0.409 (0.374-0.454) | 0.286 (0.210-0.334) |
 | 100 | SyncFixed | 100% | 100% | 1.00 (0.99-1.00) | 0.99 (0.98-0.99) | 0.003 (0.002-0.008) | 0.011 (0.008-0.020) |
 | 100 | SyncVar | 21% | 74% | 0.87 (0.83-0.94) | 0.93 (0.92-0.95) | 0.160 (0.058-0.171) | 0.074 (0.045-0.084) |
+| 100 | CycFixed | 100% | 100% | 1.00 (1.00-1.00) | 0.99 (0.98-0.99) | 0.003 (0.002-0.008) | 0.014 (0.010-0.025) |
+| 100 | CycRare | 9% | 41% | 0.53 (0.43-0.62) | 0.70 (0.63-0.79) | 0.467 (0.380-0.574) | 0.301 (0.211-0.373) |
 | 300 | SyncFixed | 100% | 100% | 1.00 (0.99-1.00) | 0.99 (0.98-0.99) | 0.003 (0.002-0.009) | 0.010 (0.007-0.019) |
 | 300 | SyncVar | 7% | 73% | 0.87 (0.83-0.94) | 0.94 (0.92-0.96) | 0.161 (0.057-0.171) | 0.069 (0.043-0.084) |
+| 300 | CycFixed | 100% | 100% | 1.00 (0.99-1.00) | 0.99 (0.98-0.99) | 0.003 (0.002-0.008) | 0.015 (0.011-0.026) |
+| 300 | CycRare | 3% | 37% | 0.52 (0.40-0.61) | 0.72 (0.61-0.79) | 0.478 (0.411-0.595) | 0.285 (0.211-0.388) |
 
 ### Misaligned on purpose: a point against itself, k raw draws later
 
 x = (9, 9), T = 300, CRN streams, 1000 replications. Replication j at x against x simulated from the same stream advanced by k raw draws: misaligned from the first draw, with no x-dependence. Correlation per objective.
 
-| k | SyncFixed holding | SyncFixed shortage | SyncVar holding | SyncVar shortage |
-|---|---|---|---|---|
-| 0 | 1.000 | 1.000 | 1.000 | 1.000 |
-| 1 | -0.008 | 0.431 | 0.998 | 0.999 |
-| 2 | 0.998 | 0.999 | 0.997 | 0.998 |
-| 3 | -0.009 | 0.431 | 0.996 | 0.996 |
-| 4 | 0.997 | 0.997 | 0.995 | 0.996 |
-| 8 | 0.994 | 0.994 | 0.989 | 0.992 |
-| 100 | 0.917 | 0.922 | 0.879 | 0.887 |
-| 1000 | 0.192 | 0.163 | -0.029 | -0.020 |
-| 2000 | -0.012 | -0.059 | 0.003 | -0.043 |
+| k | SyncFixed holding | SyncFixed shortage | SyncVar holding | SyncVar shortage | CycFixed holding | CycFixed shortage | CycRare holding | CycRare shortage |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+| 1 | -0.008 | 0.431 | 0.998 | 0.999 | -0.015 | 0.234 | 0.981 | 0.989 |
+| 2 | 0.998 | 0.999 | 0.997 | 0.998 | 0.013 | 0.283 | 0.997 | 0.998 |
+| 3 | -0.009 | 0.431 | 0.996 | 0.996 | 0.998 | 0.998 | 0.980 | 0.988 |
+| 4 | 0.997 | 0.997 | 0.995 | 0.996 | -0.013 | 0.235 | 0.995 | 0.996 |
+| 8 | 0.994 | 0.994 | 0.989 | 0.992 | 0.014 | 0.284 | 0.990 | 0.991 |
+| 100 | 0.917 | 0.922 | 0.879 | 0.887 | 0.010 | 0.226 | 0.901 | 0.916 |
+| 1000 | 0.192 | 0.163 | -0.029 | -0.020 | 0.028 | 0.113 | 0.149 | 0.123 |
+| 2000 | -0.012 | -0.059 | 0.003 | -0.043 | -0.005 | -0.051 | -0.051 | -0.010 |
 
 ### randint over a range that grows with x
 
@@ -134,3 +157,60 @@ RandRange, g = randint(0, 4 + x) + Z, 2000 replications per point; pair (x, x + 
 | ProbTPC | default | 29 | 0.00 (-0.02-0.02) | -0.01 (-0.03-0.02) | 1.00 (0.98-1.02) | 1.01 (0.98-1.03) | 0.0% |
 | BSProb | crn | 90 | 1.00 (1.00-1.00) | 1.00 (1.00-1.00) | 0.00 (0.00-0.00) | 0.00 (0.00-0.00) | 0.0% |
 | BSProb | default | 90 | 0.00 (-0.03-0.03) | 0.00 (-0.03-0.03) | 1.00 (0.97-1.03) | 1.00 (0.97-1.03) | 99.0% |
+
+### The solvers on the twins: quality at matched counted simulations
+
+Runs: 640, Python ['3.14.8'], budget [20000], 20 seeds per configuration. Quality: for R-PERLE, R-PE and R-MinRLE the Hausdorff distance between the true images of the returned set and of the efficient set; for R-SPLINE (on the single-objective twins) the gap to the true minimum cost. Lower is better. Median, then seeds where CRN is better / same / worse than the default arm on the same seed. "-": no iteration finished by that checkpoint.
+
+| solver | problem | finished (crn / default) | at 500: default | at 500: crn (better/same/worse) | at 1,000: default | at 1,000: crn (better/same/worse) | at 2,000: default | at 2,000: crn (better/same/worse) | at 5,000: default | at 5,000: crn (better/same/worse) | at 20,000: default | at 20,000: crn (better/same/worse) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| RMINRLE | CycFixed | 20/20 / 20/20 | 28 | 14.7 (16/0/4) | 12 | 7.82 (17/0/3) | 7.63 | 3.22 (19/0/1) | 4 | 0.412 (20/0/0) | 2.01 | 0.206 (20/0/0) |
+| RMINRLE | CycRare | 20/20 / 20/20 | 23.5 | 21.2 (14/0/6) | 13.3 | 8.39 (16/1/3) | 7.38 | 4.42 (15/0/5) | 4.1 | 2.36 (18/0/2) | 2.1 | 0.412 (18/0/2) |
+| RMINRLE | SyncFixed | 20/20 / 20/20 | 20.3 | 15.8 (14/1/5) | 11.7 | 6.77 (18/0/2) | 6.82 | 2.74 (19/0/1) | 4.1 | 0.825 (20/0/0) | 2.64 | 0.206 (20/0/0) |
+| RMINRLE | SyncVar | 20/20 / 20/20 | 37.3 | 18.7 (15/1/4) | 14.3 | 7.21 (17/0/3) | 8.31 | 3.61 (20/0/0) | 4.1 | 0.412 (20/0/0) | 2.27 | 0.206 (20/0/0) |
+| RPE | CycFixed | 20/20 / 20/20 | 35.2 | 24.4 (18/0/2) | 20.3 | 4.3 (18/0/2) | 4.18 | 1.24 (18/0/2) | 3.71 | 0.412 (20/0/0) | 2.83 | 0.206 (20/0/0) |
+| RPE | CycRare | 20/20 / 20/20 | 31.6 | 25.2 (14/0/6) | 20.8 | 11.7 (13/0/7) | 7.35 | 2.93 (20/0/0) | 3.71 | 1.84 (19/0/1) | 2.83 | 0.412 (20/0/0) |
+| RPE | SyncFixed | 20/20 / 20/20 | 34.8 | 21.6 (16/0/4) | 13.9 | 6.35 (15/1/4) | 4 | 1.21 (19/0/1) | 3.71 | 0.412 (20/0/0) | 3.12 | 0.206 (20/0/0) |
+| RPE | SyncVar | 20/20 / 20/20 | 33.2 | 26.4 (15/1/4) | 20.6 | 4.3 (20/0/0) | 4.64 | 1.24 (18/1/1) | 3.71 | 0.412 (20/0/0) | 3.31 | 0.206 (20/0/0) |
+| RPERLE | CycFixed | 20/20 / 20/20 | 42.6 | 25.8 (16/0/4) | 20.4 | 2.66 (17/0/3) | 4.94 | 0.825 (20/0/0) | 3.8 | 0.412 (20/0/0) | 2.36 | 0.206 (20/0/0) |
+| RPERLE | CycRare | 20/20 / 20/20 | 33.7 | 32.4 (7/0/13) | 14.4 | 5.32 (13/1/6) | 4.2 | 2.93 (19/0/1) | 3.71 | 1.68 (19/0/1) | 2.36 | 0.412 (17/1/2) |
+| RPERLE | SyncFixed | 20/20 / 20/20 | 34.7 | 25.8 (17/0/3) | 19.6 | 4.06 (17/0/3) | 4.2 | 0.618 (20/0/0) | 3.8 | 0.206 (20/0/0) | 2.83 | 0.206 (20/0/0) |
+| RPERLE | SyncVar | 20/20 / 20/20 | 35.4 | 29.3 (14/2/4) | 20.1 | 2.75 (18/0/2) | 4.99 | 0.412 (20/0/0) | 3.71 | 0.412 (20/0/0) | 2.83 | 0.206 (20/0/0) |
+| RSPLINE | CycFixedSO | 20/20 / 20/20 | 0.25 | 0 (10/7/3) | 0 | 0.25 (4/8/8) | 0 | 0 (4/14/2) | 0 | 0 (4/15/1) | 0 | 0 (0/20/0) |
+| RSPLINE | CycRareSO | 20/20 / 20/20 | 0.25 | 0.25 (8/7/5) | 0 | 0 (7/9/4) | 0.125 | 0 (6/9/5) | 0 | 0 (3/12/5) | 0 | 0 (1/19/0) |
+| RSPLINE | SyncFixedSO | 20/20 / 20/20 | 0 | 0 (5/9/6) | 0.25 | 0 (7/11/2) | 0.125 | 0 (8/11/1) | 0 | 0 (5/14/1) | 0 | 0 (2/18/0) |
+| RSPLINE | SyncVarSO | 20/20 / 20/20 | 0.25 | 0.25 (9/4/7) | 0 | 0 (6/13/1) | 0 | 0 (6/9/5) | 0 | 0 (4/13/3) | 0 | 0 (2/18/0) |
+
+The control: each pair's two default arms have identical marginals, so they should match in distribution. Desynchronizing twin better / same / worse than the synchronized twin, default arm, same seed, at the last checkpoint; and the same for the CRN arm.
+
+| solver | pair | default arm | crn arm |
+|---|---|---|---|
+| RMINRLE | SyncVar / SyncFixed | 15/0/5 | 5/4/11 |
+| RMINRLE | CycRare / CycFixed | 9/0/11 | 0/0/20 |
+| RPE | SyncVar / SyncFixed | 7/5/8 | 6/2/12 |
+| RPE | CycRare / CycFixed | 9/0/11 | 0/2/18 |
+| RPERLE | SyncVar / SyncFixed | 10/1/9 | 2/2/16 |
+| RPERLE | CycRare / CycFixed | 10/0/10 | 0/2/18 |
+| RSPLINE | SyncVarSO / SyncFixedSO | 2/16/2 | 0/20/0 |
+| RSPLINE | CycRareSO / CycFixedSO | 0/19/1 | 0/20/0 |
+
+Median simulations per RA iteration (simcalls at the end over iterations), crn / default:
+
+| solver | problem | crn | default |
+|---|---|---|---|
+| RMINRLE | CycFixed | 835 | 910 |
+| RMINRLE | CycRare | 907 | 924 |
+| RMINRLE | SyncFixed | 825 | 925 |
+| RMINRLE | SyncVar | 835 | 915 |
+| RPE | CycFixed | 854 | 974 |
+| RPE | CycRare | 934 | 984 |
+| RPE | SyncFixed | 862 | 984 |
+| RPE | SyncVar | 874 | 968 |
+| RPERLE | CycFixed | 856 | 987 |
+| RPERLE | CycRare | 966 | 1010 |
+| RPERLE | SyncFixed | 846 | 989 |
+| RPERLE | SyncVar | 875 | 986 |
+| RSPLINE | CycFixedSO | 416 | 415 |
+| RSPLINE | CycRareSO | 420 | 414 |
+| RSPLINE | SyncFixedSO | 417 | 414 |
+| RSPLINE | SyncVarSO | 415 | 411 |

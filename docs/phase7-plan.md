@@ -949,14 +949,27 @@ Measured:
   about half of replications), and keeps 0.70-0.98 elsewhere.
 - **The built-in problems are all synchronized** (`BSProb` included:
   variable draw counts that do not depend on x).
+- **The bad case, built to find it:** a fixed cycle of draws with a
+  rare x-dependent extra one (`CycRare` / `CycFixed`). Correlation 0.59
+  / 0.75 under CRN; the difference's variance over 100 times what
+  synchronized CRN gives on holding, and only 2.4 and 3.9 times below
+  independent sampling. It re-aligns too, but slowly compared with how
+  often neighbours part.
+- **What it costs the solvers** (R-PERLE, R-PE, R-MinRLE; 20 seeds,
+  budget 20,000): under CRN, `CycRare` is worse than `CycFixed` on the
+  same seed in 18-20 of 20 seeds (median 0.41 against 0.21 at 20,000;
+  1.7-2.4 against 0.41 at 5,000). CRN still beats the default arm on
+  every twin, `CycRare` included (17-20 of 20). The default arms, the
+  control, are balanced. R-SPLINE's single-objective twins are too easy
+  to say anything.
 - **Against the predictions:** "correlation collapses to near zero"
-  refuted for this structure; mine, "falls with the share in step",
-  refuted too.
+  refuted, even on the bad case; mine, "falls with the share in step",
+  refuted too. The guidance is "CRN helps less", not "CRN does not
+  help".
 
-Not yet run: the solver runs on the twins (quality at matched counted
-simulations, CRN on and off). Proposed next, not built: a fixed cyclic
-pattern with one x-dependent extra draw, where the collapse should
-happen; the threshold and antithetic problems.
+Not built: the threshold and antithetic problems. Their design waits
+for a decision about realism (`docs/crn-failure.md` has the reasoning:
+a routing model shares other draws that keep the covariance positive).
 
 ### 7. Algorithmic completeness audit
 
