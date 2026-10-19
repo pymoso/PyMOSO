@@ -178,3 +178,12 @@ def test_bench_crn_sign_runs(tmp_path):
     bench.report(str(out), str(tmp_path / "report.md"), str(runs))
     text = (tmp_path / "report.md").read_text()
     assert "Exact correlations under CRN" in text and "Antithetic against its twin" in text
+
+
+def test_audit_checks_runs():
+    checks = _load("audit_checks")
+    counts = checks.pe_counts(seeds=(1,), budget=300, problems=checks.PROBLEMS[:1])
+    assert counts["runs, each identical to the shipped R-PERLE"] == 1 and counts["pe calls"]
+    out = checks.probes()
+    assert out["exact tie: get_nondom keeps"] == [(0,), (1,), (2,), (3,)]
+    assert out["RPERLE on one objective"] == "SystemExit"

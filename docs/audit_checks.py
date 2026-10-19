@@ -1,0 +1,183 @@
+#!/usr/bin/env python
+"""
+The runtime checks behind docs/algorithm-audit.md (Phase 7 step 7). The
+audit is reading; these are the places where reading was not enough.
+
+    python docs/audit_checks.py            # all of them, as the audit reports them
+
+- `pe_counts`: R-PERLE's `pe`, copied verbatim with counters added, run
+  beside the shipped solver and required to give identical results.
+  Counts how often the traceback reads the epsilon intervals of the
+  objective it does not constrain (`mcJ` left over from the last pass of
+  the `for k` loop), how often that changes the traceback's lower bound,
+  how often the counts of epsilon values tie, whether the epsilon-
+  placement set ever differs from Min's output, and the simulations
+  spent in `remove_nlwep(aold)`.
+- `probes`: `get_biparetos` on an exact tie; R-PERLE and R-PE on a
+  three-objective and (in a subprocess, since it calls sys.exit) a
+  one-objective problem.
+
+Counted, not timed. tests/test_benchmark_scripts.py only checks that it
+runs.
+"""
+import collections
+import subprocess
+import sys
+
+from pymoso.chnbase import Oracle, _check_warm_start
+from pymoso.chnutils import solve
+from pymoso.moso import get_biparetos, get_nondom
+from pymoso.problems import probtpa, probtpb, probtpc
+from pymoso.solvers.rpe import RPE
+from pymoso.solvers.rperle import RPERLE
+
+PROBLEMS = (('ProbTPA', probtpa.ProbTPA, (5, 5)), ('ProbTPB', probtpb.ProbTPB, (5, 5)),
+            ('ProbTPC', probtpc.ProbTPC, (5, 5, 5)))
+
+
+def _audited(counts):
+    class Audited(RPERLE):
+        def pe(self, aold):
+            # rperle.pe, verbatim but for the counts and a dict for each
+            # objective's intervals, so the one the traceback uses can be
+            # compared with the one it would use for its own objective
+            start = self.num_calls
+            aold = aold | {self.x0}
+            self.upsample(aold)
+            _check_warm_start(self, aold)
+            mnumin = self.get_min(aold)
+            before = self.num_calls
+            aold, domset = self.remove_nlwep(aold)
+            counts['simulations in remove_nlwep(aold)'] += self.num_calls - before
+            a0new = mnumin | aold
+            tmp = {x: self.gbar[x] for x in mnumin | a0new}
+            a1new = get_biparetos(tmp) | mnumin
+            counts['pe calls'] += 1
+            counts['placement set equals Min output'] += a1new == mnumin
+            c0 = len(a1new)
+            epslst, ck, Lk, J = {}, {}, {}, {}
+            HI, LO = 1, 0
+            for k in range(self.num_obj):
+                kcon = 1 - k % 2
+                sphat = sorted(a1new, key=lambda t: self.gbar[t][kcon])
+                Lk[k] = self.gbar[sphat[0]][kcon] + self.fse(self.sehat[sphat[0]][kcon])
+                mcJ = []
+                for i in range(1, c0):
+                    low_b = self.gbar[sphat[i]][kcon] - self.fse(self.sehat[sphat[i]][kcon])
+                    hi_b = self.gbar[sphat[i]][kcon] + self.fse(self.sehat[sphat[i]][kcon])
+                    mcJ.append((low_b, hi_b))
+                J[k] = mcJ
+                overlap = []
+                for i1 in range(c0 - 1):
+                    is_inJ = False
+                    eps_c = mcJ[i1][LO]
+                    for j in mcJ:
+                        if eps_c > j[LO] and eps_c <= j[HI]:
+                            is_inJ = True
+                    overlap.append(is_inJ)
+                epslst[k] = [mcJ[i][LO] for i in range(c0 - 1) if mcJ[i][LO] > Lk[k] and not overlap[i]]
+                ck[k] = len(epslst[k])
+            k_opt = min(ck, key=lambda k: ck[k])
+            k_con = 1 - k_opt % 2
+            counts['epsilon counts tied (resolved to objective 1)'] += len(set(ck.values())) == 1
+            used = J[self.num_obj - 1]      # the shipped code's mcJ after the loop
+            L = Lk[k_opt]
+            eps = sorted(epslst[k_opt])
+            mcAeps = set()
+            for ep in eps:
+                counts['tracebacks'] += 1
+                lmax = max([j[HI] for j in used if j[HI] < ep], default=float('-inf'))
+                own = max([j[HI] for j in J[k_opt] if j[HI] < ep], default=float('-inf'))
+                epL = max(lmax, L)
+                if used is not J[k_opt]:
+                    counts['tracebacks reading the other objective\'s intervals'] += 1
+                    if epL != max(own, L):
+                        counts['... lower bound changed'] += 1
+                        counts['... ... higher, so the traceback stops sooner' if epL > max(own, L)
+                               else '... ... lower, so the traceback runs longer'] += 1
+                epnew = ep
+                mcA = set()
+                mcT = set()
+                while epL < epnew:
+                    stpts = {x: self.gbar[x] for x in a1new | mcT if self.gbar[x][k_con] <= epnew}
+                    tbx0 = min(stpts, key=lambda t: self.gbar[t][k_opt])
+                    mcTp, xst, fxst, sexst = self.spline(tbx0, epnew, k_opt, k_con)
+                    mcA |= {xst}
+                    mcT |= mcTp
+                    back_dist = self.fse(sexst[k_con])
+                    if back_dist == 0.0:
+                        back_dist = 0.000001
+                    epnew = fxst[k_con] - back_dist
+                mcAeps |= mcA
+            tmp = {x: self.gbar[x] for x in mcAeps | a1new}
+            counts['simulations in pe'] += self.num_calls - start
+            return get_biparetos(tmp)
+    return Audited
+
+
+def pe_counts(seeds=range(1, 6), budget=3000, problems=PROBLEMS):
+    """Counts over every run; raises if the copy and the shipped solver
+    ever differ, in which case the counts would not describe it."""
+    counts = collections.Counter()
+    audited = _audited(counts)
+    runs = 0
+    for name, prob, x0 in problems:
+        for seed in seeds:
+            s = (seed,) * 6
+            if solve(prob, RPERLE, x0, budget=budget, seed=s) != solve(prob, audited, x0, budget=budget, seed=s):
+                raise AssertionError('the audited copy of pe differs from the shipped one: {0} seed {1}'.format(
+                    name, seed))
+            runs += 1
+    counts['runs, each identical to the shipped R-PERLE'] = runs
+    return counts
+
+
+class _Three(Oracle):
+    def __init__(self, rng):
+        self.num_obj = 3
+        self.dim = 2
+        super().__init__(rng)
+
+    def g(self, x, rng):
+        if not all(-10 <= v <= 10 for v in x):
+            return False, ()
+        z = rng.normalvariate(0, 1)
+        return True, ((x[0] - 3) ** 2 + z, (x[1] + 2) ** 2 + z, (x[0] + x[1]) ** 2 + z)
+
+
+_ONE = """
+from pymoso.chnutils import solve
+from pymoso.problems.probsimpleso import ProbSimpleSO
+from pymoso.solvers.{0} import {1}
+try:
+    solve(ProbSimpleSO, {1}, (5,), budget=300, seed=(1,) * 6)
+    print('ran')
+except SystemExit:
+    print('SystemExit')
+except BaseException as e:
+    print(type(e).__name__)
+"""
+
+
+def probes():
+    out = {}
+    tied = {(0,): (1.0, 2.0), (1,): (1.0, 2.0), (2,): (0.5, 3.0), (3,): (2.0, 1.0)}
+    out['exact tie: get_biparetos keeps'] = sorted(get_biparetos(tied))
+    out['exact tie: get_nondom keeps'] = sorted(get_nondom(tied))
+    for cls in (RPERLE, RPE):
+        try:
+            solve(_Three, cls, (0, 0), budget=500, seed=(1,) * 6)
+            out[cls.__name__ + ' on three objectives'] = 'ran'
+        except Exception as e:
+            out[cls.__name__ + ' on three objectives'] = type(e).__name__
+        r = subprocess.run([sys.executable, '-c', _ONE.format(cls.__name__.lower(), cls.__name__)],
+                           capture_output=True, text=True, timeout=600)
+        out[cls.__name__ + ' on one objective'] = r.stdout.strip().splitlines()[-1]
+    return out
+
+
+if __name__ == '__main__':
+    for k, v in sorted(pe_counts().items()):
+        print('{0:55s} {1}'.format(k, v))
+    for k, v in probes().items():
+        print('{0:55s} {1}'.format(k, v))

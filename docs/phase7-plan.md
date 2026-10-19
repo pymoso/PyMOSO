@@ -1005,6 +1005,17 @@ Schmeiser and Pasupathy 2013), R-PERLE (Cooper, Hunter and Nagaraj
 2020) and R-MinRLE against the code, for steps, safeguards and
 tolerances present in one and not the other.
 
+**Done (2026-10-19): `docs/algorithm-audit.md`,** against the
+published R-SPLINE paper and the R-PERLE preprint of 2019-06-20.
+Seventeen findings, nothing fixed. The two to decide first: PE's
+traceback reads the epsilon intervals of the wrong objective (a
+defect, measured, in every R-PERLE and R-PE run since 2018), and the
+relaxation is se / m^β where the preprint has se · m^(1/2 - β), so
+PyMOSO's β = 1/2 is the preprint's β = 1 (only the authors can say
+which is intended). The entries below were rechecked there; one is
+corrected: neither paper omits finite variance (R-SPLINE's Lemma 5.2;
+the preprint's Assumption 3).
+
 The MATLAB is a second reference for R-SPLINE:
 - **Its 0.00005 tolerances throughout:** in NE (lines 250, 266, 281,
   298) and in SPLI (lines 371, 387, 414, 417, 505, 522).
