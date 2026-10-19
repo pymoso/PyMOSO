@@ -124,6 +124,11 @@ them. Convergence holds for any β in (0, ∞) under either convention,
 so this is about what the parameter means and about efficiency, not
 about correctness.
 
+Measured afterwards, `docs/relaxation-sweep.md`: a sweep of the
+shipped code against §9.3's figures matches the published β study
+read as the code's β, and not read as the preprint's, except for a
+right-hand rise in the figures that neither reading reproduces.
+
 ### 3. PE's LWEP filter is applied to the wrong set, then undone
 
 **Defect against the listing. Measured.** PE Step 2 removes the

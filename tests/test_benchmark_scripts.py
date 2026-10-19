@@ -187,3 +187,10 @@ def test_audit_checks_runs():
     out = checks.probes()
     assert out["exact tie: get_nondom keeps"] == [(0,), (1,), (2,), (3,)]
     assert out["RPERLE on one objective"] == "SystemExit"
+
+
+def test_bench_beta_sweep_runs():
+    sweep = _load("bench_beta_sweep")
+    results = sweep.sweep(runs=2, proc=1, budget=300, betas=(0.0, 0.5), testers=sweep.TESTERS[:1])
+    assert set(results["TA"]) == {0.0, 0.5} and all(len(xs) == 2 for xs in results["TA"].values())
+    assert "least median" in sweep.table(results)
