@@ -1,4 +1,5 @@
  15:33:56 up 7 days,  2:45,  1 user,  load average: 0.90, 0.39, 0.18
-lattice done 2052
-sweep done 3774
-done 4440
+rerun 2026-10-18 with the part/rejoin counts; identical to the previous run in every other field
+lattice done 2234
+sweep done 3964
+done 4629

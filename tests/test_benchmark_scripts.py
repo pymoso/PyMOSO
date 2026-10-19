@@ -159,3 +159,22 @@ def test_bench_crn_runs(tmp_path):
     bench.report(str(out), str(tmp_path / "report.md"), str(runs))
     text = (tmp_path / "report.md").read_text()
     assert "randint over a range" in text and "The solvers on the twins" in text
+
+
+def test_bench_crn_sign_runs(tmp_path):
+    bench = _load("bench_crn_sign")
+    agree, total, positives = bench.verify(radii=(1, 2), extra=2, random_tables=4, verbose=False)
+    assert agree == total and positives
+    small = {"Route": [(0, 0), (4, 3), (9, 9)], "Antithetic": [(2, 2), (9, 9), (16, 16)]}
+    assert all(caught for _, caught in bench.mutations(verbose=False, reps=200, points=small))
+    out = tmp_path / "cov.json"
+    bench.covariance(str(out), reps=200, points=dict(small, SyncFixed=small["Antithetic"]), verbose=False)
+    runs = tmp_path / "runs.jsonl"
+    bench.run(str(runs), configs=[("RPERLE", "Route", "crn"), ("RPERLE", "Antithetic", "crn"),
+                                  ("RPERLE", "SyncFixed", "default")],
+              reps=1, budget=300, checkpoints=(150, 300), verbose=False)
+    rows = [json.loads(line) for line in open(runs)]
+    assert len(rows) == 3 and all(r["finished"] for r in rows)
+    bench.report(str(out), str(tmp_path / "report.md"), str(runs))
+    text = (tmp_path / "report.md").read_text()
+    assert "Exact correlations under CRN" in text and "Antithetic against its twin" in text

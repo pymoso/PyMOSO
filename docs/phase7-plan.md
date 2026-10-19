@@ -954,7 +954,9 @@ Measured:
   / 0.75 under CRN; the difference's variance over 100 times what
   synchronized CRN gives on holding, and only 2.4 and 3.9 times below
   independent sampling. It re-aligns too, but slowly compared with how
-  often neighbours part.
+  often neighbours part: measured, it parts in about 1 period in 10 and
+  rejoins in about 1 in 19 (`SyncVar`: 1 in 20 and 1 in 9), and those
+  two rates predict the share of periods in role to within 2 points.
 - **What it costs the solvers** (R-PERLE, R-PE, R-MinRLE; 20 seeds,
   budget 20,000): under CRN, `CycRare` is worse than `CycFixed` on the
   same seed in 18-20 of 20 seeds (median 0.41 against 0.21 at 20,000;
@@ -965,11 +967,35 @@ Measured:
 - **Against the predictions:** "correlation collapses to near zero"
   refuted, even on the bad case; mine, "falls with the share in step",
   refuted too. The guidance is "CRN helps less", not "CRN does not
-  help".
+  help": synchronize if you can, and use CRN either way.
 
-Not built: the threshold and antithetic problems. Their design waits
-for a decision about realism (`docs/crn-failure.md` has the reasoning:
-a routing model shares other draws that keep the covariance positive).
+**The covariance's sign: measured (2026-10-18)** (`docs/crn-failure.md`;
+tables by `docs/bench_crn_sign.py`; the problems
+`scratch/phase7/crnsign.py`). Three synchronized problems with exact
+correlations, every measured pair held to its exact value:
+- **Threshold (`Route`, a routing level and then a shared service
+  time):** positive at every pair, 0.20-0.94 along the threshold axis.
+  Structural: a branch on a shared uniform is a monotone coupling, and
+  the draws after the branch are shared too. Lowest at capacity
+  boundaries, not at a balanced allocation as predicted.
+- **Conservation (`Split`, a fixed total split by one shared
+  preference draw; exact only):** no axis pair negative (smallest
+  0.69). My prediction that it would go negative was refuted by the
+  enumeration before building.
+- **Antithetic (artificial: `SyncFixed` with u read as 1 - u at odd
+  points):** correlation -0.85 / -0.79, variance ratio 1.85 / 1.79.
+  Yet CRN did not lose to the default arm on more seeds than it won
+  for any of the three solvers (R-PE, R-PERLE better on 15 of 20; R-MinRLE
+  even), while against its twin the control passed and CRN lost 14-15
+  of 20. Reasoning: comparisons between x + e1 and x + e2 share a parity
+  and keep a correlation of 0.99.
+- **So:** a negative covariance between neighbours needs the draws to
+  change role between them, and no realistic structure built here did
+  that; desynchronization goes to about zero, not below.
+
+Not built: distribution mixes (a common draw meaning different things
+at different points). After the above, it would be one more way for
+draws to change role, which desynchronization already measures.
 
 ### 7. Algorithmic completeness audit
 

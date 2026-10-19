@@ -145,3 +145,15 @@ minutes on 3.14, beside the solver runs). `crn_runs.jsonl` is
 `docs/bench_crn.py run`'s output (640 runs, six worker processes; counted,
 so running in parallel does not matter) and `crn_runs.log` its log.
 `docs/crn-failure-tables.md` is generated from both.
+`crn_covariance.json` was rerun once to add the sweep's part/rejoin
+counts; every other field came back identical.
+
+`crnsign.py` holds the sign problems: `Route` (and `RouteBelow`, a
+wrong model for the mutation check), `Split` (exact only) and
+`Antithetic`, with each one's exact correlations. `crn_sign_covariance.json`
+is `docs/bench_crn_sign.py covariance`'s output (about 23 minutes on
+3.14; its `anti_exact_swap` rows were added afterwards from
+`exact_only()`, which samples nothing) and `crn_sign_covariance.log`
+its log; `crn_sign_runs.jsonl` is `docs/bench_crn_sign.py run`'s output
+(360 runs, six workers) and `crn_sign_runs.log` its log.
+`docs/crn-sign-tables.md` is generated from both.

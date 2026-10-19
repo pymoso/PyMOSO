@@ -1,4 +1,4 @@
-# Where CRN fails: synchronization
+# Where CRN fails: synchronization, and the covariance's sign
 
 Phase 7, step 6b (`docs/phase7-plan.md`). CRN reduces
 Var(g(x) - g(y)) = Var g(x) + Var g(y) - 2 Cov(g(x), g(y)), and helps
@@ -7,11 +7,17 @@ is synchronization: neighbouring points that consume different numbers
 of variates, so the same random number is used for different purposes.
 This document measures that case directly, as the correlation between
 neighbouring points' replications, and then what it costs the solvers.
+The second half asks whether any structure makes the covariance
+negative: a routing threshold, a conservation constraint, and an
+antithetic construction.
 
 Tables are generated: `docs/crn-failure-tables.md`, by
 `python docs/bench_crn.py report` from `scratch/phase7/crn_covariance.json`
-and `scratch/phase7/crn_runs.jsonl`.
-The script's docstring has the commands. **Everything here is measured**
+and `scratch/phase7/crn_runs.jsonl`; and `docs/crn-sign-tables.md`, by
+`python docs/bench_crn_sign.py report` from
+`scratch/phase7/crn_sign_covariance.json` and
+`scratch/phase7/crn_sign_runs.jsonl`.
+The scripts' docstrings have the commands. **Everything here is measured**
 unless it says it is reasoning. Correlations and counts, not timings.
 
 ## Three facts about PyMOSO's CRN, from the code
@@ -131,16 +137,31 @@ time: a point against itself shifted by 1 to 8 raw draws keeps a
 correlation of 0.98 or more at T = 300. `CycFixed`, shifted by 1, 2,
 4, 8 or 100 raw draws, loses it (holding -0.02 to 0.01); a shift of 3
 only swaps the two items. What
-differs from `SyncVar` is the balance between two rates, which is
-reasoning from the in-role column, not separately measured:
-- **How often neighbours part.** `CycRare`'s neighbours part on
-  different demand values about once in ten periods, against once in
-  twenty for `SyncVar`.
-- **How fast they re-couple.** `SyncVar`'s pattern depends on the
-  draw's value about half the time (a stockout or not), so two readers
-  out of step come back together within a few periods. `CycRare`'s
-  depends on it only when D equals the stock level exactly, one period
-  in twenty, so a misalignment lasts many periods.
+differs from `SyncVar` is a race between two rates, **measured** along
+the sweep's pairs (the sweep table's "part" and "rejoin" columns): of
+periods in role, the share followed by one out of role, and of periods
+out of role, the share followed by one back in.
+
+| T = 300 | part, per period | rejoin, per period | in role, predicted from the two | in role, measured |
+|---|---|---|---|---|
+| `SyncVar` | 0.048 | 0.117 | 71% | 73% |
+| `CycRare` | 0.099 | 0.054 | 35% | 37% |
+
+- **How often neighbours part.** `CycRare`'s neighbours part about once
+  in ten periods (Q is drawn on D1 = x1 at one point and D1 = x1 + 1 at
+  the other), `SyncVar`'s about once in twenty.
+- **How fast they rejoin.** `CycRare`, about once in nineteen periods:
+  it can re-couple only on a period whose demand equals the stock level
+  exactly. `SyncVar`, about once in nine on these pairs. Its pattern
+  depends on the draw's value whenever a stockout is possible, so its
+  rate depends on x: a first look at four other pairs gave 0.053 for
+  `SyncVar` and 0.051 for `CycRare`. That `CycRare`'s rate does not
+  move with x and `SyncVar`'s does is what the mechanism predicts; the
+  dependence on x itself is reasoning from two samples of pairs.
+- **The two rates account for the share in role.** A two-state chain
+  with those rates settles within 2 points of the measured share at
+  T = 300. At T = 30 the measured share is higher (80% and 52%
+  against 72% and 38%), because every replication starts in role.
 
 So the stated mechanism holds where re-coupling is slow compared with
 parting: a mostly fixed cycle of draws with a rare value-dependent
@@ -190,7 +211,92 @@ CRN arm:
 So the guidance from these twins is "CRN helps less", not "CRN does
 not help": even where the correlation falls to about 0.6, CRN is the
 better arm, and only on the bad case is the loss visible in solution
-quality.
+quality. **For a user: synchronize if you can, and use CRN either way.**
+Drawing a variate every period whether or not it is needed (`CycFixed`'s
+discarded Q) bought back the whole loss here; turning CRN off helped
+on none of the four twins.
+
+## The sign of the covariance: threshold, conservation, antithetic
+
+Three more problems, each synchronized (every point draws the same
+variates in the same roles), so that only the shape of a point's
+response to its draws sets the covariance. Every period is i.i.d.,
+so a replication's correlation between two points equals one
+period's at any number of periods, and each pair's correlation is
+known exactly (`scratch/phase7/crnsign.py`). The measured correlations
+were held to those values pair by pair.
+
+| exact, under CRN, median (min) | objective 1 | objective 2 |
+|---|---|---|
+| `Route`, threshold axis | 0.81 (0.51) | 0.77 (0.20) |
+| `Route`, capacity axis | 0.98 (0.68) | 0.99 (0.75) |
+| `Split`, axis pairs | 0.99 (0.69) | 0.99 (0.69) |
+| `Split`, swap pairs (x + e1, x + e2) | 0.98 (-0.05) | 0.98 (-0.05) |
+| `Antithetic`, axis pairs | -0.85 (-1.00) | -0.80 (-0.94) |
+| `Antithetic`, swap pairs | 0.99 (0.00) | 0.98 (0.00) |
+
+- **`Route`, the threshold case.** Customers draw a routing level
+  (server A below the threshold x1, else B) and then a service time,
+  shared after the branch. Positive at every pair (measured median 0.88
+  and 0.89; variance ratio 0.13 and 0.12). The customers that change
+  server at x + e1 keep their service time, and that shared draw moves
+  both points the same way whichever server is costlier. **This is
+  structural, not a weakness of this model:** it is the same Chebyshev
+  argument that predicted it. A shared uniform choosing a branch is a
+  monotone coupling, and every draw after the branch is shared too.
+  The correlation is lowest where the step moves customers across a
+  capacity (overflow 0.51 at x1 = 8 to 9 with capacity 9) or sends the
+  first customers to A (idle + transfer 0.20 at x1 = 0), **not near a
+  balanced allocation, as I predicted.**
+- **`Split`, the conservation case.** A fixed total demand of 20 split
+  between two substitutes by one shared preference draw. Exact only:
+  the enumeration is the answer and a simulation would add only noise.
+  No axis pair is negative (smallest 0.69); 2 of 400 swap pairs are, at
+  -0.05. **My prediction, that it would go negative near the balanced
+  stocking point, is refuted, and was refuted before anything was
+  built.** The split makes the two products respond in opposite
+  directions at the same point; CRN compares one objective at two
+  neighbouring points, and there each product's cost is a V-shaped
+  function of the draw whose corner moves by one demand level per
+  step. The two responses disagree only within that one level.
+- **`Antithetic`, artificial on purpose.** `SyncFixed`, reading every
+  uniform u as 1 - u at points with x1 + x2 odd. Every axis neighbour
+  has the other parity, so the coupling is reversed; swap pairs share a
+  parity and keep `SyncFixed`'s. Marginals identical to `SyncFixed`'s
+  (checked; and at even points the outputs are `SyncFixed`'s,
+  replication for replication). Measured: correlation -0.85 and -0.79,
+  **variance ratio 1.85 and 1.79**: CRN nearly doubles the variance of a
+  neighbour difference against independent sampling.
+
+**So a negative covariance between neighbours needs the draws to change
+role between them.** If neighbours use the same draws in the same roles,
+their responses are nearly the same function of the draws, and the
+covariance is positive; a threshold, a routing decision and a
+conservation constraint do not change that. Desynchronization changes
+roles, and goes to about zero (the shift table), not below. Only the
+deliberate construction went negative.
+
+**What it costs the solvers** (R-PERLE, R-PE, R-MinRLE; 20 seeds,
+budget 20,000; `SyncFixed` rerun with the same seeds, and its 120 runs
+reproduce the earlier ones exactly):
+- **`Antithetic` against its twin, the control passes:** default arm,
+  `Antithetic` worse than `SyncFixed` on the same seed in 5-11 of 20.
+  Under CRN, worse in 14-15 of 20.
+- **But CRN is not worse than the default arm on `Antithetic`.** R-PE
+  and R-PERLE: better on 15 of 20 seeds at 20,000 (median 0.21 against
+  2.7-3.0), and slightly better at 5,000 (11-13 better, 5-7 worse;
+  medians 3.4-3.5 against 3.7-3.8).
+  R-MinRLE: even (9 better, 10 worse; median 2.83 against 1.93). My
+  reasoning, not measured: a solver compares neighbours with each
+  other as well as with x, and those comparisons (x + e1 against
+  x + e2) share a parity and keep a correlation of about 0.99.
+- **`Route`:** CRN better than default in 10-12 of 20 seeds at 20,000,
+  worse in 4-6 (medians 0.14-0.20 against 0.29-0.31); mixed at 5,000.
+
+So even the artificial reversal, applied to every axis pair, did not
+make CRN lose to the default arm on more seeds than it won, for any
+solver; R-MinRLE's median is worse under CRN, on an even split of
+seeds. The guidance stands.
 
 ## `randint` over a range that depends on x
 
@@ -271,6 +377,24 @@ problems exercises this failure.
     the box counted;
   - **the closed form:** a stockout at d >= x; the cyclic twins'
     means without Q's term.
+- **The sign problems** (`scratch/phase7/crnsign.py`,
+  `bench_crn_sign.py`). Route's closed-form means are exact fractions
+  by enumeration (19 efficient points, one tie), checked against the
+  simulation without CRN (largest |z| 2.38); `bench_crn_sign.py verify`
+  holds its exact certificate to PyMOSO's on 717 of 717 sets (377
+  certified). Every measured pair, in both arms, is within 4.5 standard
+  errors of its exact correlation (Fisher z; a jackknife error, because
+  a normal-theory one put `SyncFixed`'s largest |z| at 4.1; the
+  normal-theory error only where the jackknife is undefined, one pair).
+  `bench_crn_sign.py mutations` catches all 14 wrong versions tried:
+  replications paired off by one, default coordinates in the CRN arm,
+  correlation pooled across objectives (each on Route and on
+  Antithetic); Antithetic's exact correlation with the cost and its flip
+  taken as independent, and without the flip; Route's closed form with
+  the threshold at R <= x1; and the five wrong certificates, of which
+  Route alone catches three (strict domination, no non-dominated test,
+  outside neighbours) and the random tables the other two (ties, the
+  radius), Route having one tie and no radius-dependent set.
 - **The recorder was reached.** Every replication is recorded from
   `SerialExecutor.run`, and every point's count is checked against what
   was asked for. The sweep and shift experiments replay the recorded
@@ -291,16 +415,41 @@ problems exercises this failure.
   refuted.** Equal draw counts are the wrong measure of
   synchronization; draws used in the same role, at any offset, are the
   right one.
-- **The threshold case** is not built. The prior argument stands as
-  reasoning: a shared uniform choosing a branch is a monotone coupling,
-  so a negative covariance needs outputs that move in opposite
-  directions with the draw. A realistic routing model has a second
-  difficulty: it also shares the draws that follow the branch (a
-  service time, a demand), and those move both points the same way
-  whichever branch is costlier. So the flip in the branch's direction
-  should lower the correlation near where the branches' costs cross,
-  not make it negative. A negative covariance needs a model whose
-  response to its dominant shared draw changes sign between neighbours:
-  a hedge, or a balance between two resources whose demands move in
-  opposite directions. Which of these to build is a decision about
-  realism, not yet made.
+- **"Threshold structure gives a genuinely negative covariance":
+  refuted, by the Chebyshev argument in advance and by `Route` after.**
+  Positive at every pair. Mine, that it dips near the balanced
+  allocation: wrong about where; it dips at capacity boundaries.
+- **Mine, "a split between substitutes goes negative near the balanced
+  stocking point": refuted by exact enumeration, before building.**
+- **The rates' race, inferred in part 2:** confirmed by measuring the
+  two rates; the in-role share they predict is within 2 points.
+
+## How often the apparatus was wrong
+
+Six times in this step, plus one prediction of mine, each caught by a
+check or by a contradiction between two measurements before any
+conclusion rested on it. That is the reason to trust what survived.
+Counted are errors that would have produced a wrong number or a false
+alarm; crashes are not.
+1. **The certificate check could not see a radius-ignoring
+   certificate** on the sync problem, which has no radius-dependent
+   set. Found by its mutation passing; random tie-rich tables added.
+2. **A covariance run used an older script** (a background process
+   started before an edit). Noticed, killed and rerun.
+3. **Equal draw counts as the measure of synchronization.** The shift
+   experiment contradicted it; "in role" replaced it.
+4. **The solver control table's columns were swapped**, so a passing
+   control read as a failed one. The raw values contradicted the
+   table.
+5. **The rates prototype aligned periods by index,** which measures
+   "in step", and gave a rejoin rate of 0.001. It contradicted the
+   sweep's 73% in role.
+6. **The sign measurement's gate was wrong for this data:** a
+   normal-theory error, too small for heavy-tailed correlations near 1
+   (`SyncFixed` reached |z| = 4.1 on a correct measurement), and then a
+   jackknife undefined at a correlation within one replication of 1,
+   which stopped a run on a correct pair. Both false alarms, not false
+   passes.
+And **`Split`'s prediction**, an error of reasoning rather than of the
+apparatus, caught the same way: by an exact check, before anything was
+built on it.

@@ -458,12 +458,15 @@ def _sweep(reps, sweep_t=SWEEP_T):
             s = samples(cls, points, reps, True, on_block)
             for x, y, i in pairs:
                 in_step, in_role = [], []
+                moves = dict(stay_in=0, part=0, stay_out=0, rejoin=0)
                 for tx, ty in zip(traces[x], traces[y]):
                     k = next((j for j in range(periods) if tx[j] != ty[j]), periods)
                     in_step.append(k / periods)
                     in_role.append(len(_starts(tx) & _starts(ty)) / periods)
+                    _transitions(tx, ty, moves)
                 rows.append(dict(problem=base.__name__, periods=periods, x=list(x), axis=i,
                                  in_step=statistics.fmean(in_step), in_role=statistics.fmean(in_role),
+                                 moves=moves,
                                  **_summ(*pair_stats(s[x], s[y]))))
     return rows
 
@@ -471,6 +474,28 @@ def _sweep(reps, sweep_t=SWEEP_T):
 def _starts(trace):
     """The raw positions at which a replication's periods start."""
     return {0} | set(trace[:-1])
+
+
+def _transitions(tx, ty, moves):
+    """
+    Counts, along x's periods, the moves between in role (the period
+    starts on a raw draw where one of y's periods starts) and out of it:
+    the two rates whose race sets the in-role share. Two consecutive
+    periods give one move; the first period is always in role.
+    """
+    ys = _starts(ty)
+    state = [s in ys for s in sorted(_starts(tx))]
+    for a, b in zip(state, state[1:]):
+        moves[('stay_in' if b else 'part') if a else ('rejoin' if b else 'stay_out')] += 1
+
+
+def rates(moves):
+    """(parting rate, rejoining rate, the in-role share they predict):
+    a two-state chain's stationary share, rejoin / (part + rejoin)."""
+    p = moves['part'] / (moves['part'] + moves['stay_in']) if moves['part'] + moves['stay_in'] else 0.0
+    q = moves['rejoin'] / (moves['rejoin'] + moves['stay_out']) if moves['rejoin'] + moves['stay_out'] else None
+    share = None if q is None else (1.0 if p + q == 0 else q / (p + q))
+    return p, q, share
 
 
 SHIFTS = (0, 1, 2, 3, 4, 8, 100, 1000, 2000)
@@ -786,15 +811,23 @@ def report(path, out, runs=None):
               'mean share of a replication\'s periods completed before the two points\' cumulative draw counts '
               'first part. "In role": the mean share of periods that start on the same raw draw at both points '
               '(each reads that uniform as item 1\'s demand), at whatever period index. The synchronized twins: '
-              'both always 100%.'.format(d['sweep_reps']), ''])
-    L.append('| T | problem | same count | in role | holding correlation | shortage correlation | holding ratio | '
-             'shortage ratio |')
-    L.append('|---|---|---|---|---|---|---|---|')
+              'both always 100%. "Part" and "rejoin": along the first point\'s periods, the share of in-role '
+              'periods followed by one out of role, and of out-of-role periods followed by one in role, pooled '
+              'over the pairs; "predicted": the in-role share a two-state chain with those rates settles at, '
+              'rejoin / (part + rejoin). Every replication starts in role, so at small T the measured share is '
+              'above it.'.format(d['sweep_reps']), ''])
+    L.append('| T | problem | same count | in role | part | rejoin | predicted | holding correlation | '
+             'shortage correlation | holding ratio | shortage ratio |')
+    L.append('|---|---|---|---|---|---|---|---|---|---|---|')
     for periods in d['sweep_t']:
         for prob in [c.__name__ for c in ORDER]:
             rs = [r for r in d['sweep'] if r['periods'] == periods and r['problem'] == prob]
-            L.append('| {0} | {1} | {2:.0%} | {3:.0%} | {4} | {5} | {6} | {7} |'.format(
+            moves = {k: sum(r['moves'][k] for r in rs) for k in rs[0]['moves']}
+            p, q, share = rates(moves)
+            L.append('| {0} | {1} | {2:.0%} | {3:.0%} | {4} | {5} | {6} | {7} | {8} | {9} | {10} |'.format(
                 periods, prob, statistics.fmean(r['in_step'] for r in rs), statistics.fmean(r['in_role'] for r in rs),
+                '{0:.3f}'.format(p) if periods > 1 else '-', '-' if q is None else '{0:.3f}'.format(q),
+                '-' if share is None or periods == 1 else '{0:.0%}'.format(share),
                 _q(r['rho'][0] for r in rs), _q(r['rho'][1] for r in rs), _q((r['vr'][0] for r in rs), 3),
                 _q((r['vr'][1] for r in rs), 3)))
     L.extend(['', '### Misaligned on purpose: a point against itself, k raw draws later', '',
