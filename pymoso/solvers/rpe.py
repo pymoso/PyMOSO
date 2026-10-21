@@ -78,6 +78,7 @@ class RPE(RASolver):
         epslst = dict()
         ck = dict()
         Lk = dict()
+        J = dict()
         HI = 1
         LO = 0
         krange = range(self.num_obj)
@@ -111,8 +112,12 @@ class RPE(RASolver):
                 overlap.append(is_inJ)
             epslst[k] = [mcJ[i][LO] for i in range(c0 - 1) if mcJ[i][LO] > Lk[k] and not overlap[i]]
             ck[k] = len(epslst[k])
+            J[k] = mcJ
         k_opt = min(ck, key=lambda k: ck[k])
         k_con = 1 - k_opt % 2
+        # the traceback's bounds are the intervals on the objective it
+        # constrains, not the last pass's (docs/algorithm-audit.md, finding 1)
+        mcJ = J[k_opt]
         L = Lk[k_opt]
         eps = sorted(epslst[k_opt])
         c = len(eps)

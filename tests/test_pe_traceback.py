@@ -1,0 +1,68 @@
+"""
+PE's traceback (R-PERLE preprint, Algorithm 2, steps 20-24) stops at
+the larger of L, the constrained objective's lower start, and the
+highest upper bound, below the current epsilon, of the intervals on
+the constrained objective -- the objective k_opt constrains. Until
+2.0 the code read the intervals left over from the last pass of the
+loop over objectives, which are the other objective's whenever k_opt
+is not the last one (docs/algorithm-audit.md, finding 1).
+
+The scenario has three points with no sampling error, so the intervals
+are their values, and both objectives get two epsilon values, so
+k_opt is objective 0 and the traceback constrains objective 1:
+
+    point   objective 0   objective 1
+    P            0            20
+    Q            3             7
+    R           10             0
+
+On objective 1 the epsilons are 7 and 20 and the bounds below them
+are none (so L = 0) and 7. On objective 0 the bounds are 3 and 10. A
+stub SPLINE returns a point 2 below the constraint each time, and the
+step back is the 1e-6 used when the standard error is 0, so the
+traceback from 7 calls SPLINE at 7, 5, 3 and 1 (stopping at 0) and
+from 20 at 20, 18, ..., 8 (stopping at 7). Reading objective 0's
+bounds stops them at 3 and 10 instead.
+"""
+import pytest
+
+from pymoso.solvers.rpe import RPE
+from pymoso.solvers.rperle import RPERLE
+
+P, Q, R = (0,), (1,), (2,)
+VALUES = {P: (0.0, 20.0), Q: (3.0, 7.0), R: (10.0, 0.0)}
+
+
+def _solver(cls):
+    solver = cls.__new__(cls)
+    solver.x0 = P
+    solver.nu = 1
+    solver.m = 10
+    solver.num_obj = 2
+    solver.betaeps = 0.5
+    solver.gbar = dict(VALUES)
+    solver.sehat = {x: (0.0, 0.0) for x in VALUES}
+    solver.upsample = lambda points: None
+    solver.get_min = lambda points: {P, Q, R}
+    solver.remove_nlwep = lambda points: (set(), set())
+    solver.calls = []
+
+    def spline(x, eps, k_opt, k_con):
+        assert (k_opt, k_con) == (0, 1)
+        solver.calls.append(eps)
+        found = (100 + len(solver.calls),)
+        solver.gbar[found] = (50.0, eps - 2)
+        solver.sehat[found] = (0.0, 0.0)
+        return set(), found, solver.gbar[found], solver.sehat[found]
+    solver.spline = spline
+    return solver
+
+
+@pytest.mark.parametrize('cls', (RPERLE, RPE))
+def test_traceback_stops_at_the_constrained_objectives_bound(cls):
+    solver = _solver(cls)
+    solver.pe(set())
+    from_7 = [e for e in solver.calls if e <= 7]
+    from_20 = [e for e in solver.calls if e > 7]
+    assert from_7 == pytest.approx([7, 5, 3, 1], abs=1e-4)
+    assert from_20 == pytest.approx([20, 18, 16, 14, 12, 10, 8], abs=1e-4)

@@ -45,7 +45,7 @@ intended).
 
 | # | Finding | Algorithms | Class | Evidence |
 |---|---|---|---|---|
-| 1 | PE's traceback reads the epsilon intervals of the wrong objective | R-PERLE, R-PE | defect | measured |
+| 1 | PE's traceback reads the epsilon intervals of the wrong objective | R-PERLE, R-PE | defect; fixed | measured |
 | 2 | The relaxation is se / m^β; the preprint's is se · m^(1/2 - β) | R-PERLE, R-PE, R-MinRLE | defect (decided); fixed | read |
 | 3 | PE's LWEP filter is applied to the wrong set and then undone | R-PERLE, R-PE | defect | measured |
 | 4 | SPLI's line search floors instead of rounding to nearest | all four | defect | read |
@@ -101,6 +101,17 @@ it, so its guarantees should be untouched (inferred). R-PE's
 convergence proof (Theorem 2) is about PE as listed, so the code is
 not the algorithm that theorem covers (read; not assessed further).
 The same lines are in `v1.1.0` and at `a914c3e` (2018-10-30).
+
+**Fixed (2026-10-19), after the relaxation (finding 2).** `pe` keeps
+each objective's intervals and the traceback reads `k_opt`'s
+(`tests/test_pe_traceback.py`, seen failing first). The counts above
+were taken with the old relaxation, which placed three times as many
+epsilon values. Against the corrected relaxation, counted along the
+fixed runs (`docs/audit_checks.py`): of 66 tracebacks in 308 PE calls
+(the same 15 runs), the code before the fix would have read the other
+objective's intervals in 61 and had a different lower bound in 15 (4
+higher, 11 lower). At budget 30,000 (three seeds per problem): 13 of
+79, in 387 PE calls.
 
 ### 2. The relaxation's scale: se / m^β against se · m^(1/2 - β)
 

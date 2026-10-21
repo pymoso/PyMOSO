@@ -7,9 +7,10 @@ audit is reading; these are the places where reading was not enough.
 
 - `pe_counts`: R-PERLE's `pe`, copied verbatim with counters added, run
   beside the shipped solver and required to give identical results.
-  Counts how often the traceback reads the epsilon intervals of the
-  objective it does not constrain (`mcJ` left over from the last pass of
-  the `for k` loop), how often that changes the traceback's lower bound,
+  Counts how often the traceback, before finding 1 was fixed, read the
+  epsilon intervals of the objective it does not constrain (`mcJ` left
+  over from the last pass of the `for k` loop) and how often that would
+  have changed the traceback's lower bound, along the fixed run,
   how often the counts of epsilon values tie, whether the epsilon-
   placement set ever differs from Min's output, and the simulations
   spent in `remove_nlwep(aold)`.
@@ -80,20 +81,23 @@ def _audited(counts):
             k_opt = min(ck, key=lambda k: ck[k])
             k_con = 1 - k_opt % 2
             counts['epsilon counts tied (resolved to objective 1)'] += len(set(ck.values())) == 1
-            used = J[self.num_obj - 1]      # the shipped code's mcJ after the loop
+            # since the fix (finding 1) the traceback reads J[k_opt]; the
+            # counts are of how often the code before the fix, which read
+            # the last pass's J[num_obj - 1], would have had another bound
+            prefix = J[self.num_obj - 1]
             L = Lk[k_opt]
             eps = sorted(epslst[k_opt])
             mcAeps = set()
             for ep in eps:
                 counts['tracebacks'] += 1
-                lmax = max([j[HI] for j in used if j[HI] < ep], default=float('-inf'))
-                own = max([j[HI] for j in J[k_opt] if j[HI] < ep], default=float('-inf'))
+                lmax = max([j[HI] for j in J[k_opt] if j[HI] < ep], default=float('-inf'))
+                old = max([j[HI] for j in prefix if j[HI] < ep], default=float('-inf'))
                 epL = max(lmax, L)
-                if used is not J[k_opt]:
+                if prefix is not J[k_opt]:
                     counts['tracebacks reading the other objective\'s intervals'] += 1
-                    if epL != max(own, L):
+                    if max(old, L) != epL:
                         counts['... lower bound changed'] += 1
-                        counts['... ... higher, so the traceback stops sooner' if epL > max(own, L)
+                        counts['... ... higher, so the traceback stops sooner' if max(old, L) > epL
                                else '... ... lower, so the traceback runs longer'] += 1
                 epnew = ep
                 mcA = set()
