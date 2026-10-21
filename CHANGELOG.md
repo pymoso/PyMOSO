@@ -50,7 +50,10 @@ too; numerical results changed there.
   with the default, a tenth of a standard error at m = 100. To
   reproduce the previous behaviour, add 1/2 to the value you used, or
   set 1 where you relied on the default. Results of these three
-  solvers change (below).
+  solvers change (below). A β at or below 0 is still used as given,
+  now with a warning: there the relaxation does not shrink as m
+  grows (below 0 it grows), and the convergence guarantee does not
+  hold.
 - **`x0` is checked at the call.** It is converted to a tuple, so a
   list works; a starting point of the wrong dimension, or containing
   something that is not a number, raises before any simulation.

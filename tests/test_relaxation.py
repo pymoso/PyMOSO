@@ -10,7 +10,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from pymoso.chnbase import RLESolver
+from pymoso.chnbase import RLESolver, accepted_params
+from pymoso.solvers.rminrle import RMINRLE
 from pymoso.solvers.rpe import RPE
 from pymoso.solvers.rperle import RPERLE
 
@@ -39,3 +40,41 @@ def test_infinite_beta_is_no_relaxation(name, relax, param):
     # the preprint's f(x, inf) := 0, a sample-path local efficient set
     solver = SimpleNamespace(m=100, **{param: float('inf')})
     assert relax(solver, 0.3) == 0.0
+
+
+# At beta <= 0 the relaxation does not shrink as m grows (se is of order
+# m**-1/2, so se * m**(1/2 - beta) is of order m**-beta), and it grows
+# with m below 0. The value is used, with a warning, once per solver.
+
+def _construct(cls, **kwargs):
+    from pymoso.prng import mrg32k3a
+    from pymoso.problems.probtpa import ProbTPA
+    orc = ProbTPA(mrg32k3a.stream_at(mrg32k3a.DEFAULT_SEED, 1, 0))
+    return cls(orc, sprn=None, x0=(5, 5), **kwargs)
+
+
+def _beta_warnings(record):
+    return [w for w in record if 'convergence guarantee' in str(w.message)]
+
+
+@pytest.mark.parametrize('cls, param', (
+    (RPERLE, 'betaeps'), (RPE, 'betaeps'), (RPERLE, 'betadel'), (RMINRLE, 'betadel')))
+@pytest.mark.parametrize('beta', (0.0, -0.5))
+def test_beta_at_or_below_zero_warns_and_is_used(cls, param, beta):
+    with pytest.warns(UserWarning) as record:
+        solver = _construct(cls, **{param: beta})
+    found = _beta_warnings(record)
+    assert len(found) == 1
+    message = str(found[0].message)
+    assert message.startswith('{0}={1}:'.format(param, beta))
+    assert 'continues with this value' in message
+    assert 'grows' in message
+    assert getattr(solver, param) == beta
+
+
+@pytest.mark.parametrize('cls', (RPERLE, RPE, RMINRLE))
+@pytest.mark.parametrize('beta', (None, 0.1, 0.5, float('inf')))
+def test_beta_above_zero_does_not_warn(cls, beta, recwarn):
+    params = ('betaeps', 'betadel') if beta is not None else ()
+    _construct(cls, **{p: beta for p in params if p in accepted_params(cls)})
+    assert not _beta_warnings(recwarn.list)

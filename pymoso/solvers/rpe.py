@@ -5,7 +5,7 @@ Summary
 Provide an implementation of R-Pe for users needing a 
 bi-objective simulation optimization solver. 
 """
-from ..chnbase import RASolver, _check_warm_start
+from ..chnbase import RASolver, _check_warm_start, _warn_if_beta_not_positive
 from ..moso import get_biparetos
 import sys
 
@@ -29,6 +29,7 @@ class RPE(RASolver):
     def __init__(self, orc, **kwargs):
         self.betaeps = kwargs.pop('betaeps', 0.5)
         super().__init__(orc, **kwargs)
+        _warn_if_beta_not_positive('betaeps', self.betaeps)
 
     def spsolve(self, warm_start):
         """

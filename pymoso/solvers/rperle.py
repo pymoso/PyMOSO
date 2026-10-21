@@ -6,7 +6,7 @@ Provide an implementation of R-PERLE for users needing a
 bi-objective simulation optimization solver.
 """
 import sys
-from ..chnbase import RLESolver, _check_warm_start
+from ..chnbase import RLESolver, _check_warm_start, _warn_if_beta_not_positive
 from ..moso import get_biparetos, get_nondom
 
 
@@ -29,6 +29,7 @@ class RPERLE(RLESolver):
     def __init__(self, orc, **kwargs):
         self.betaeps = kwargs.pop('betaeps', 0.5)
         super().__init__(orc, **kwargs)
+        _warn_if_beta_not_positive('betaeps', self.betaeps)
 
     def accel(self, warm_start):
         """

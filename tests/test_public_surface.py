@@ -116,7 +116,7 @@ SURFACE = {
 INCIDENTAL = {
     "pymoso.chnbase": {
         # What the solver bases need.
-        "ceil", "floor",
+        "ceil", "floor", "warnings",
     },
     "pymoso.chnutils": {
         "registry", "numbers", "random",

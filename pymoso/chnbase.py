@@ -18,6 +18,7 @@ RASolver(MOSOSolver), class
 RLESolver(RASolver), class
 Oracle(object), class (from pymoso.oracle)
 """
+import warnings
 from math import ceil, floor
 from .oracle import Oracle
 from .moso import perturb, argsort, enorm, get_setnbors, get_nbors, is_lwep, get_nondom, does_strict_dominate, does_weak_dominate, does_dominate
@@ -206,6 +207,25 @@ class WarmStartInfeasible(RuntimeError):
     def __reduce__(self):
         # so that it reaches the parent intact from a --proc worker
         return (type(self), (self.points, self.iteration, self.solver))
+
+
+def _warn_if_beta_not_positive(name, beta):
+    """
+    Warn, without refusing the value, when a relaxation's beta is at or
+    below 0. The relaxation is se * m**(1/2 - beta), of order m**-beta
+    because se is of order m**-1/2: it shrinks as m grows only for
+    beta > 0, which the convergence guarantee needs.
+    """
+    try:
+        if not beta <= 0:
+            return
+    except TypeError:
+        return
+    warnings.warn(
+        '{0}={1}: at beta <= 0 the relaxation se*m**(1/2 - beta) does not '
+        'shrink as the sample size m grows, and grows with m for beta < 0, '
+        'so the convergence guarantee does not hold there. The run '
+        'continues with this value.'.format(name, beta), UserWarning, stacklevel=3)
 
 
 def _check_warm_start(solver, points):
@@ -1101,6 +1121,7 @@ class RLESolver(RASolver):
     def __init__(self, orc, **kwargs):
         self.betadel = kwargs.pop('betadel', 0.5)
         super().__init__(orc, **kwargs)
+        _warn_if_beta_not_positive('betadel', self.betadel)
 
     def spsolve(self, warm_start):
         """
