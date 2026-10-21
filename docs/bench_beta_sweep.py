@@ -1,21 +1,23 @@
 #!/usr/bin/env python
 """
 Where R-PE's coverage error is smallest as betaeps varies
-(docs/relaxation-sweep.md).
+(docs/beta-sweep-reference.md, the reference figures for the current
+code; docs/relaxation-sweep.md is the earlier, withdrawn study).
 
 Written when the relaxation was se/m**beta, to compare that arithmetic
 with the preprint's (Cooper, Hunter and Nagaraj, Optimization Online
 2018/06/6649, section 3.2), se*m**(1/2 - beta): the two differ by
 exactly 1/2 in beta. The code now computes the preprint's, so beta here
 is the preprint's beta; the tables in docs/relaxation-sweep.md were run
-before that fix, and their "shipped beta" is the old code's.
+before that fix, and their "shipped beta" is the old code's. The tables
+in docs/beta-sweep-reference.md were run after it.
 
     python docs/bench_beta_sweep.py [runs] [proc] [crn]   # defaults 100, 6, 1
 
 Runs use CRN by default, as the preprint's do (its listings say "with
 CRN"; PyMOSO's default is without). Without CRN, R-PE's coverage error
-on TA at this budget is about five times the published level and
-nearly flat in beta, so a sweep without it does not reproduce the
+on TA at this budget is about 4 at every beta, against 0.41 at best
+with CRN, so a sweep without it does not reproduce the
 experiment; pass 0 as the third argument to see that.
 
 Every beta value uses the same seed, so each run sees the same random

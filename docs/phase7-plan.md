@@ -1233,7 +1233,13 @@ with CRN. Without it, R-PE's coverage error on Problem T_A at
 t = 0.4 × 10^6 is about 4 at every β_ε (100 runs per β), about five
 times the published level and nearly flat in β; with CRN it is at the
 published level and depends strongly on β. Measured with the old
-relaxation; not re-measured since the fix. The guidance has to say
+relaxation. **Re-measured on the corrected code (2026-10-21,
+`docs/beta-sweep-reference.md`): T_A's median is 3.9 to 4.35 at every
+β without CRN, against 0.41 at best with it; T_C settles at 1.78
+without and 0.646 with.** The three fixes did not change it, so it is
+the method's behaviour without CRN, not a defect's. The same sweep
+puts the default β = 0.5 at the top of T_A's fall with CRN (median
+1.45, against 0.41 at β = 0.9). The guidance has to say
 this, and whether the default should change is a decision for this
 step.
 
