@@ -48,11 +48,17 @@ from pymoso.solvers.rperle import RPERLE
 # streams start, so every path's replications -- and therefore its
 # search path -- changed. Again the class of change this golden exists
 # to catch, and again deliberate.
+#
+# Recaptured a third time for the relaxation fix (docs/algorithm-audit.md
+# finding 2): R-PERLE's relaxation is now the preprint's, so every
+# path's search changed. A solver change, which the module docstring
+# says this golden also sees; tests/golden/README.md has the prior
+# values.
 EXPECTED_SOLUTIONS = {
-    0: {(32, 1), (32, 3)},
-    1: {(12, 16), (16, 8)},
-    2: {(9, 3), (11, 0)},
-    3: {(18, 18), (18, 19), (19, 16), (19, 17)},
+    0: {(36, 5), (37, 6), (38, 5), (38, 6)},
+    1: {(16, 8)},
+    2: {(11, 3)},
+    3: {(15, 12)},
 }
 
 
@@ -83,4 +89,6 @@ def test_testsolve_ranx0_solution_sets_match_baseline():
     # value and testsolve_tpa's moved to the same new value, which is
     # what a uniform change to the layout should do to two runs of the
     # same computation.
-    assert end_seed == (2485384564, 3157617357, 1600102004, 2564266890, 2564580077, 3801707191)
+    #
+    # And after the relaxation fix, which moved both again, together.
+    assert end_seed == (2313342306, 4042774198, 3964834499, 2176857534, 4175967009, 2563160311)

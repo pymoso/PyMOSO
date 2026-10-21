@@ -91,7 +91,66 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (R-SPLINE x0 re-estimation reverted)
+### Current values (the relaxation fix)
+
+**Capture conditions:** `.venv-baseline` (CPython 3.10) and
+`.venv-dev` (CPython 3.14), this repo installed editable, captured
+from the source tree, twice on each: identical values. The "before"
+column was taken from the commit before the fix (`4b01e2b`), in a
+scratch install, and reproduces the previous goldens exactly.
+
+**Why they moved, deliberately.** R-PERLE, R-PE and R-MinRLE computed
+their relaxation as se/m^β with se already σ̂/√m; the R-PERLE
+preprint defines se · m^(1/2 - β), larger by √m. The code now computes
+the preprint's (`docs/algorithm-audit.md`, finding 2;
+`tests/test_relaxation.py`). R-SPLINE and the two example solvers do
+not use the relaxation, and their cases did not move.
+
+| Case | Iterations | Simcalls before / after | Solution before | Solution after | End seed |
+|---|---|---|---|---|---|
+| rperle_tpa | 14 / 14 | 1,042 / 1,132 | `{(34,38), (35,38), (35,39), (36,39)}` | `{(32,40), (33,40)}` | moved |
+| rperle_tpa_simpar2 | 14 / 14 | 1,042 / 1,132 | as rperle_tpa | as rperle_tpa | moved, with it |
+| rpe_tpa | 14 / 14 | 1,029 / 1,084 | `{(35,39), (40,40), (41,40)}` | `{(32,40), (33,40)}` | moved; still equal to rperle_tpa's |
+| rminrle_tpa | 16 / 16 | 1,306 / 1,024 | `{(27,28), (27,29)}` | `{(36,41), (37,41)}` | moved |
+| rperle_tpa_seed2 | 12 / 12 | 1,029 / 1,028 | `{(28,31), (29,31), (30,31)}` | `{(21,20), (22,16)}` | **unchanged** |
+| rperle_tpa_crn | 8 / 8 | 1,183 / 1,119 | 11 points | 12 points, 4 of them new | **unchanged** |
+| testsolve_tpa | -- | -- | four paths (`tests/test_solution_sensitivity.py`'s prior values) | all four changed | moved |
+| solve() library call | as rperle_tpa | | | | moved, with it |
+| testsolve() library call (ranx0=False) | -- | -- | not recorded | not recorded | **unchanged** |
+
+**Two cases kept their end seeds while their solutions changed
+completely.** `rperle_tpa_seed2` went from `{(28,31), (29,31),
+(30,31)}` to `{(21,20), (22,16)}`, no point in common, with an
+identical end seed. The end seed is one past the largest oracle
+coordinate touched (`Oracle.get_endseed`). Without CRN that is set by
+the last iteration, its largest point code and the replications drawn
+there, so a run ending at the same iteration with the same largest
+touch lands on the same value whatever else it found. With CRN the
+coordinate has no point in it at all. `docs/end-seed-scope.md`, the
+seventh instance.
+
+| Case | End seed |
+|---|---|
+| rperle_tpa | `3379879516, 2064463187, 3070037076, 2057738628, 3140940286, 2423122255` |
+| rminrle_tpa | `1660848401, 3982892888, 3117683308, 3201171133, 1965520305, 1045130260` |
+| rpe_tpa | `3379879516, 2064463187, 3070037076, 2057738628, 3140940286, 2423122255` |
+| rspline_simpleso | `2327071160, 589288757, 3791179983, 1866895284, 2094692759, 3256882931` |
+| testsolve_tpa | `2313342306, 4042774198, 3964834499, 2176857534, 4175967009, 2563160311` |
+| rperle_tpa_crn | `1128359308, 3860538173, 798726527, 4016157990, 1667726745, 709835043` |
+| rperle_tpa_seed2 | `2175629958, 147802191, 2425104019, 853609596, 4132240727, 4089413332` |
+| rperle_tpa_simpar2 | `3379879516, 2064463187, 3070037076, 2057738628, 3140940286, 2423122255` |
+| solve() library call | `3379879516, 2064463187, 3070037076, 2057738628, 3140940286, 2423122255` |
+| testsolve() library call | `608833221, 1812491834, 2623259368, 3887640181, 811678161, 2382318639` |
+| example_search_tpa, example_bnb_tpa, testsolve_example_search, testsolve_example_bnb | unchanged; `tests/test_golden.py` |
+
+Superseded by this capture: rperle_tpa, rperle_tpa_simpar2 and the
+solve() library call `900181699, 3252648471, 384599192, 813079481,
+747618736, 882165191`; rpe_tpa the same; rminrle_tpa `3101702307,
+2274224287, 2252695779, 2887425027, 4188880773, 159891216`;
+testsolve_tpa `2485384564, 3157617357, 1600102004, 2564266890,
+2564580077, 3801707191`.
+
+### Historical: R-SPLINE x0 re-estimation reverted, pre the relaxation fix
 
 **One case moved back, `rspline_simpleso`, to its value before the
 section below.** R-SPLINE's x0 re-estimation was reverted, by decision,

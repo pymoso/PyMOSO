@@ -379,3 +379,40 @@ repeated point has the final iteration's largest point code). That is
 the end seed's blind spot, the subject of this document, once more.
 If step 1b lands, its regression test has to count blocks or `g()`
 calls, not compare results.
+
+## A seventh instance: a solver change that every end seed should see, and two do not
+
+Found 2026-10-19, regenerating the goldens for the relaxation fix
+(`docs/algorithm-audit.md`, finding 2). The clearest demonstration of
+this document's subject the project has produced, because nothing about
+it is subtle: the fix changes what R-PERLE does on every iteration of
+every run.
+
+**Seen:** `rperle_tpa_seed2` (`--seed 1,2,3,4,5,6`, budget 1,000)
+returned `{(28,31), (29,31), (30,31)}` before the fix and
+`{(21,20), (22,16)}` after it, with no point in common, and an
+identical end seed. `rperle_tpa_crn` returned 11 points before and 12
+after, four of them new, also with an identical end seed. Four other
+R-PERLE, R-PE and R-MinRLE cases did move. Captured twice on 3.10 and
+3.14; `tests/golden/README.md` has every case's before and after.
+
+**Why:** the end seed is one past the largest oracle coordinate a run
+touched (`Oracle.get_endseed`). Without CRN that coordinate is set by
+the final iteration, its largest point code and the replications drawn
+at it. `seed2` ended at the same iteration (12 of them, 1,029 and 1,028
+simulation calls) and its largest touch came out the same, so its end
+seed did too, whatever the solutions. With CRN the coordinate has no
+point in it: the end seed depends on the iteration count and sample
+sizes, and the CRN run kept both.
+
+**What did catch it:** `tests/test_solution_sensitivity.py`, which
+goldens solution sets rather than end seeds (Candidate A, above), and
+the bench shadow in `docs/bench_biobjective_profile.py`, which
+recomputes `get_ncn`'s answer independently. Four end-seed cases moved
+as well, so the suite did fail; it would have failed less than it
+should have if those four had happened to end on the same touch, as
+two of six did.
+
+The lesson is the one this document opened with, at its plainest: an
+unchanged end seed says that the run's final coordinate is unchanged,
+and nothing about what it found.
