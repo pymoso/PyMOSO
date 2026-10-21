@@ -358,7 +358,9 @@ for simulations; nobody has decided it.
   `commands/`; the three in `chnbase.py` are commented out (now lines
   1174, 1179 and 1189).
 - **`RLESolver.spsolve` re-wraps exceptions: accurate**
-  (`chnbase.py:1122-1144`).
+  (`chnbase.py:1122-1144`). **Removed since (2026-10-21):** whatever
+  `accel()` raises reaches the caller as itself
+  (`tests/test_error_handling.py`, seen failing first).
 - **`pe`'s filter, removed; anything else silently dropping: three
   more.**
   - `rle`'s `upsample` of its input: accurate, recorded.

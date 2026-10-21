@@ -73,7 +73,7 @@ def test_rspline_reports_an_infeasible_warm_start_as_that_not_as_x0():
 def test_a_set_warm_start_with_an_infeasible_point_is_reported_not_dropped(cls):
     """R-MinRLE used to fail with a KeyError, R-PE and R-PERLE to drop
     the point. R-MinRLE and R-PERLE go through RLESolver.spsolve, whose
-    wrapper would otherwise report it as "Unable to run accel()"."""
+    wrapper (removed since) reported it as "Unable to run accel()"."""
     solver = _solver(cls, (40, 40), 3)
     with pytest.raises(WarmStartInfeasible) as info:
         solver.spsolve({OUTSIDE, (40, 41)})

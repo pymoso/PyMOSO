@@ -1140,29 +1140,9 @@ class RLESolver(RASolver):
     Set of feasible points which solve the sample path problem
     of the current iteration
         """
-        try:
-            anew = self.accel(warm_start)
-        except (ValueError, WarmStartInfeasible):
-            # a deliberate, already-clear error (e.g. an infeasible x0,
-            # raised by get_min) -- do not bury it in a generic wrapper
-            raise
-        except AttributeError as e:
-            raise RuntimeError(
-                '{0}: Unable to run accel(). Missing an import, or accel() not implemented? '
-                'Message: {1}'.format(type(self).__name__, e)
-            ) from e
-        except ZeroDivisionError as e:
-            raise RuntimeError(
-                '{0}: Unable to run accel(). Message: {1}'.format(type(self).__name__, e)
-            ) from e
-        except TypeError as e:
-            raise RuntimeError(
-                '{0}: Unable to run accel(). Points must be tuples. Message: {1}'.format(type(self).__name__, e)
-            ) from e
-        except Exception as e:
-            raise RuntimeError(
-                '{0}: Unable to run accel(). Message: {1}'.format(type(self).__name__, e)
-            ) from e
+        # whatever accel() raises reaches the caller as itself; a wrapper
+        # here once reported WarmStartInfeasible as "Unable to run accel()"
+        anew = self.accel(warm_start)
         ales = self.rle(anew)
         return ales
 

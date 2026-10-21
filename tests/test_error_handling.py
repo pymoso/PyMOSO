@@ -42,13 +42,12 @@ def test_broken_oracle_raises_real_exception_not_generic_message():
 
 
 def test_broken_oracle_raises_through_rlesolver_too():
-    """The same must hold for an RLESolver (RPERLE), whose spsolve() has
-    its own try/except around accel() -- this is the exact call site
-    where a SystemExit used to be re-caught by a bare except: and
-    reported as a second, unrelated 'Unable to run accel()' message.
-    Now both layers wrap-and-chain (via `raise ... from e`) instead of
-    printing and exiting, so the original TypeError is still findable by
-    walking __cause__, and nothing is silently discarded."""
+    """The same must hold for an RLESolver (RPERLE), whose spsolve() had
+    its own try/except around accel() -- the call site where a
+    SystemExit used to be re-caught by a bare except: and reported as a
+    second, unrelated 'Unable to run accel()' message. That wrapper is
+    gone (Phase 7), so the oracle's own report reaches the caller, with
+    the original TypeError findable by walking __cause__."""
 
     class BrokenOracle2(Oracle):
         num_obj = 2
@@ -59,7 +58,7 @@ def test_broken_oracle_raises_through_rlesolver_too():
 
     with pytest.raises(RuntimeError) as exc_info:
         solve(BrokenOracle2, RPERLE, (1, 1), **SOLVE_KWARGS)
-    assert 'Unable to run accel()' in str(exc_info.value)
+    assert 'Unable to simulate' in str(exc_info.value)
     cause = exc_info.value.__cause__
     seen_types = []
     while cause is not None:
@@ -106,3 +105,21 @@ def test_hit_m_less_than_one_raises_assertionerror():
     orc = TinyOracle(rng)
     with pytest.raises(AssertionError):
         orc.hit((1,), 0)
+
+
+@pytest.mark.parametrize('error', (KeyError, AttributeError, ZeroDivisionError, LookupError))
+def test_an_exception_in_accel_reaches_the_caller_as_itself(error):
+    """RLESolver.spsolve used to re-raise anything from accel() other
+    than a ValueError or WarmStartInfeasible as a RuntimeError, "Unable
+    to run accel()" (docs/algorithm-audit.md, the accumulated entries).
+    It no longer wraps: the caller sees the exception accel() raised."""
+    from pymoso.chnbase import RLESolver
+    from pymoso.problems.probtpa import ProbTPA
+
+    class Raises(RLESolver):
+        def accel(self, warm_start):
+            raise error('from accel')
+
+    with pytest.raises(error, match='from accel') as exc_info:
+        solve(ProbTPA, Raises, (40, 40), **SOLVE_KWARGS)
+    assert type(exc_info.value) is error

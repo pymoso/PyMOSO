@@ -98,6 +98,10 @@ too; numerical results changed there.
   and `mp_cleanup()` remain, and `par_diff()` keeps its signature.
 - **`pymoso.prng.mrg32k3a.ISP_MAX_MARGIN` is removed;**
   `ISP_MAX_PATHS` is the number of sample paths the layout holds.
+- **An exception raised in an `RLESolver`'s `accel()` reaches the
+  caller as itself.** It used to be re-raised as a `RuntimeError`,
+  "Unable to run accel()". A custom solver's caller that caught
+  `RuntimeError` there now catches the original exception.
 
 ### Numerical results
 
