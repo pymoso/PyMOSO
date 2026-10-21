@@ -91,7 +91,36 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (the relaxation fix)
+### Current values (the traceback fix)
+
+**Capture conditions:** as for the relaxation fix, below: twice on
+each of `.venv-baseline` and `.venv-dev`, identical; "before" from the
+relaxation fix's tree in a scratch install.
+
+**One case moved, the `testsolve()` library call** (`ranx0=False`,
+x0 `(40, 40)`, four paths). PE's traceback now reads the intervals on
+the objective it constrains (`docs/algorithm-audit.md`, finding 1;
+`tests/test_pe_traceback.py`). Paths 0-2 are unchanged. Path 3:
+
+| | Before | After |
+|---|---|---|
+| Iterations | 12 | 13 |
+| Simcalls | 1,033 | 1,137 |
+| Solution | `{(21,31)}` | `{(36,29), (39,19)}` |
+| End seed (whole call) | `608833221, 1812491834, 2623259368, 3887640181, 811678161, 2382318639` | `3347470030, 2041325172, 2574648445, 2621857106, 1320715482, 98588082` |
+
+**Every other case is unchanged, and not only in its end seed:** the
+six R-PERLE, R-PE and R-MinRLE `solve()` cases and `testsolve_tpa`'s
+four paths returned the same solutions and simcalls as after the
+relaxation fix. Whatever the corrected bound changed on those runs
+did not reach a solution or a simulation count.
+
+| Case | End seed |
+|---|---|
+| testsolve() library call | `3347470030, 2041325172, 2574648445, 2621857106, 1320715482, 98588082` |
+| every other case | as in the next section |
+
+### Historical: the relaxation fix, pre the traceback fix
 
 **Capture conditions:** `.venv-baseline` (CPython 3.10) and
 `.venv-dev` (CPython 3.14), this repo installed editable, captured

@@ -63,6 +63,13 @@ from pymoso.testers.tpatester import TPATester
 # evidence that those runs were unaffected. tests/golden/README.md has
 # the before and after of every case.
 
+# An eighth capture, for the traceback fix (docs/algorithm-audit.md
+# finding 1). Only the testsolve() library case moved: its path 3 ran 13
+# iterations instead of 12 and returned {(36,29), (39,19)} instead of
+# {(21,31)}. Every solve() case returned the same solution, simcalls and
+# end seed as before -- checked directly, not inferred from the end
+# seeds (tests/golden/README.md).
+
 SEED_RE = re.compile(r"^--\s+(?:next|ending) seed:\s+(.+)$", re.M)
 
 CASES = {
@@ -183,4 +190,4 @@ def test_library_testsolve_end_seed_matches_baseline():
         TPATester, RPERLE, (40, 40),
         budget=1000, seed=(12345,) * 6, isp=4, proc=1, crn=False, ranx0=False,
     )
-    assert end_seed == (608833221, 1812491834, 2623259368, 3887640181, 811678161, 2382318639)
+    assert end_seed == (3347470030, 2041325172, 2574648445, 2621857106, 1320715482, 98588082)
