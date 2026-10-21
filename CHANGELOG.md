@@ -232,6 +232,10 @@ about 6× faster. Results are identical in every case.
   breaks such ties randomly, and so does PE now, with a draw from the
   solver's own stream taken only on a tie. The counts tie in about half
   of PE's calls on the test problems.
+- **`get_biparetos` kept only one of a group of exactly tied points;**
+  two equal vectors do not dominate each other, so it now keeps all of
+  them, as `get_nondom` always did. R-PE's returned set and PE's
+  epsilon placement use it. Without a tie its result is unchanged.
 - **R-PERLE and R-PE called `sys.exit()` on a one-objective problem,**
   killing a library caller's process (1.1.0's entry below said such
   calls were gone; these two were missed). They do not check the

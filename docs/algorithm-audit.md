@@ -52,7 +52,7 @@ intended).
 | 5 | SPLI does not stop at an infeasible line-search point | all four | defect | read |
 | 6 | Under an epsilon constraint, PLI's gradient uses vertices that violate it | R-PERLE, R-PE | unknown | read |
 | 7 | PE breaks ties between objectives deterministically, not randomly | R-PERLE, R-PE | defect; fixed | measured |
-| 8 | `get_biparetos` drops exactly tied points | R-PERLE, R-PE | defect | measured |
+| 8 | `get_biparetos` drops exactly tied points | R-PERLE, R-PE | defect; fixed | measured |
 | 9 | The search limit has a factor (dim - 1) and is 0 in one dimension | all four | defect at d = 1; unknown otherwise | read |
 | 10 | R-PERLE and R-PE run on three or more objectives without a word | R-PERLE, R-PE | the `sys.exit()` fixed; the objective count left to the user, by decision | measured |
 | 11 | Min adds SPLINE's trajectories to its output | R-PERLE, R-PE, R-MinRLE | unknown | read |
@@ -231,6 +231,16 @@ only one of a set of exactly equal vectors. For R-PE that is the
 returned set. Exact ties need discrete outputs or symmetry under CRN
 (the step 6b mirror ties are an example).
 
+**Fixed (2026-10-21), in `get_biparetos` itself,** so any caller gets
+the corrected set: a point whose values equal the current
+non-dominated point's is kept. Measured before the fix, on the audit's
+15 runs: no call of the 610 in `pe` met a tie, so no golden was
+expected to move. Without a tie the set is built exactly as before,
+element and order (`tests/test_chnutils_nondom.py` keeps the old
+function verbatim as the reference; that check was seen failing on a
+correct set built in another order). The tie tests were seen failing
+first.
+
 ### 9. The search limit: (dim - 1), and zero in one dimension
 
 **Defect at d = 1; unknown at d > 2. Read.** The preprint sets
@@ -364,7 +374,7 @@ for simulations; nobody has decided it.
 - **`pe`'s filter, removed; anything else silently dropping: three
   more.**
   - `rle`'s `upsample` of its input: accurate, recorded.
-  - `get_biparetos` drops exact ties (finding 8).
+  - `get_biparetos` drops exact ties (finding 8; fixed).
   - `pe`'s `remove_nlwep(aold)`: its result is computed and then
     effectively discarded (finding 3).
   - R-SPLINE on a multi-objective problem prints a warning to stdout

@@ -176,20 +176,13 @@ def test_get_biparetos_empty_and_singleton():
     assert get_biparetos({(0, 0): (1, 2)}) == {(0, 0)}
 
 
-def test_get_biparetos_disagrees_with_get_nondom_on_duplicate_values():
-    """FINDING: get_biparetos silently drops all but one of a group of
-    tied, mutually-non-dominated points. Its sweep only advances to a
-    new candidate on a *strict* improvement in the second objective
-    (`edict[bkey][1] > edict[newp][1]`); a tie never satisfies that, so
-    the tied point is skipped -- never added to plist at all, since it
-    also never becomes the new bkey. get_nondom does not have this
-    problem (does_dominate correctly treats a tie as "does not
-    dominate"). This disagrees with the mathematical definition (both
-    tied, non-dominated points belong in the non-dominated set of
-    points) and with get_nondom's own behavior on the identical input.
-    Asserting the actual (buggy) behavior here, not the correct one --
-    see the phase 4 report.
-    """
+def test_get_biparetos_keeps_exactly_tied_points():
+    """Two equal vectors do not dominate each other, so both belong in
+    the non-dominated set. get_biparetos kept only one of a group of
+    exactly tied points until 2.0 (docs/algorithm-audit.md, finding 8):
+    its sweep moved on only at a strict improvement in the second
+    objective. This test asserted that behaviour, as a finding, before
+    the fix."""
     edict = {
         (0, 0): (1, 5),
         (1, 0): (1, 5),   # duplicate of (0,0)
@@ -197,5 +190,68 @@ def test_get_biparetos_disagrees_with_get_nondom_on_duplicate_values():
     }
     correct = {(0, 0), (1, 0), (2, 0)}
     assert get_nondom(edict) == correct
-    assert get_biparetos(edict) != correct
-    assert len(get_biparetos(edict)) == 2  # drops exactly one of the tied pair
+    assert get_biparetos(edict) == correct
+
+
+def test_get_biparetos_keeps_ties_anywhere_and_drops_tied_dominated_points():
+    edict = {
+        (0,): (0, 9), (1,): (0, 9), (2,): (0, 9),   # a tie of three, first
+        (3,): (4, 4), (4,): (4, 4),                 # a tie in the middle
+        (5,): (9, 0), (6,): (9, 0),                 # a tie last
+        (7,): (5, 5), (8,): (5, 5),                 # tied, and dominated by (4, 4)
+    }
+    expected = {(0,), (1,), (2,), (3,), (4,), (5,), (6,)}
+    assert get_nondom(edict) == expected
+    assert get_biparetos(edict) == expected
+
+
+def test_get_biparetos_agrees_with_get_nondom_on_random_ties():
+    import random
+    rng = random.Random(8)
+    for _ in range(2000):
+        n = rng.randint(1, 12)
+        edict = {(i,): (rng.randint(0, 3), rng.randint(0, 3)) for i in range(n)}
+        assert get_biparetos(edict) == get_nondom(edict), edict
+
+
+def _get_biparetos_before_2_0(edict):
+    # verbatim, before finding 8's fix; the reference for the order
+    # below. Do not tidy.
+    from pymoso.moso import argsort
+    pts = list(edict.keys())
+    vals = list(edict.values())
+    sind = argsort(vals)
+    g2 = 1
+    dlen = len(pts)
+    plist = set()
+    if dlen > 1:
+        i = 0
+        j = 0
+        while j < dlen:
+            is_pareto = False
+            bkey = pts[sind[i]]
+            plist |= {bkey}
+            j = i + 1
+            while not is_pareto and j < dlen:
+                newp = pts[sind[j]]
+                if edict[bkey][g2] > edict[newp][g2]:
+                    is_pareto = True
+                    i = j
+                else:
+                    j += 1
+    else:
+        plist |= set(pts)
+    return plist
+
+
+def test_get_biparetos_without_ties_is_unchanged_element_and_order():
+    """Solvers iterate the returned set, and the order of a set of
+    tuples depends on how it was built, so without a tie the fix must
+    build it exactly as before."""
+    import random
+    rng = random.Random(9)
+    for _ in range(2000):
+        n = rng.randint(1, 30)
+        vals = rng.sample([(a, b) for a in range(20) for b in range(20)], n)
+        edict = {(rng.randint(-50, 50), rng.randint(-50, 50), i): v for i, v in enumerate(vals)}
+        assert list(get_biparetos(edict)) == list(_get_biparetos_before_2_0(edict)), edict

@@ -242,7 +242,12 @@ def get_biparetos(edict):
             #print('i: ', i, ' j: ', j, ' bkey: ', bkey, ' len: ', dlen)
             while not is_pareto and j < dlen:
                 newp = pts[sind[j]]
-                if edict[bkey][g2] > edict[newp][g2]:
+                if edict[newp] == edict[bkey]:
+                    # an exact tie dominates nothing and is not dominated:
+                    # keep it (docs/algorithm-audit.md, finding 8)
+                    plist |= {newp}
+                    j += 1
+                elif edict[bkey][g2] > edict[newp][g2]:
                     is_pareto = True
                     i = j
                 else:
