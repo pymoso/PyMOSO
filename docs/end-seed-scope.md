@@ -416,3 +416,15 @@ two of six did.
 The lesson is the one this document opened with, at its plainest: an
 unchanged end seed says that the run's final coordinate is unchanged,
 and nothing about what it found.
+
+**Twice more, two commits later** (the tie-break fix, finding 7).
+`rperle_tpa_crn` kept its end seed for a second fix in a row while its
+solution changed (12 points to 10, four of them new). And the
+`testsolve()` library call's end seed returned to the value it had
+before the traceback fix, `608833221, ...`, although all four of its
+paths returned solutions different from both earlier captures (the
+end seed is combined from the paths' high-water marks; the one path
+that ran 14 iterations in every capture is likely what sets it,
+inferred). A golden that had been regenerated for the traceback fix would, without
+that intermediate commit, have read as "unchanged" across two
+solver changes that each moved every path's answer.

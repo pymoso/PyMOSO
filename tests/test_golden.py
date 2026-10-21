@@ -70,26 +70,35 @@ from pymoso.testers.tpatester import TPATester
 # end seed as before -- checked directly, not inferred from the end
 # seeds (tests/golden/README.md).
 
+# A ninth capture, for the tie-break fix (docs/algorithm-audit.md
+# finding 7): PE now breaks a tie between the objectives with a draw
+# from the solver's stream. Every R-PERLE and R-PE case's solution
+# moved. rperle_tpa_crn kept its end seed again, and the testsolve()
+# library case's end seed went back to its value from before the
+# traceback fix while every one of its four paths returned something
+# different from both earlier captures (tests/golden/README.md;
+# docs/end-seed-scope.md, the seventh instance).
+
 SEED_RE = re.compile(r"^--\s+(?:next|ending) seed:\s+(.+)$", re.M)
 
 CASES = {
     "rperle_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RPERLE", "40", "40"],
-        (3379879516, 2064463187, 3070037076, 2057738628, 3140940286, 2423122255),
+        (2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658),
     ),
     "rminrle_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RMINRLE", "40", "40"],
         (1660848401, 3982892888, 3117683308, 3201171133, 1965520305, 1045130260),
     ),
-    # rpe_tpa coincides with rperle_tpa again -- not an error, checked
-    # directly: a crnflag=False end seed depends only on (Oracle.
-    # _iteration, m) at the last hit() call (§12 step 8's own high-water
-    # mark, oracle-role only), and calc_m(nu) is the same function of nu
-    # for every RASolver-family solver; both solvers ended this run at
-    # the same nu (13), so both land on the same coordinate.
+    # rpe_tpa no longer coincides with rperle_tpa (since the tie-break
+    # fix). It used to, while both runs ended at the same iteration with
+    # the same largest touched coordinate; the end seed is one past that
+    # coordinate, which the iteration alone does not fix (it includes
+    # the largest point code and its replications). Both still run 15
+    # iterations here.
     "rpe_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RPE", "40", "40"],
-        (3379879516, 2064463187, 3070037076, 2057738628, 3140940286, 2423122255),
+        (2818038775, 1087741337, 3653104262, 2674052920, 139999430, 3804951309),
     ),
     "rspline_simpleso": (
         ["pymoso", "solve", "--budget=1000", "ProbSimpleSO", "RSPLINE", "40"],
@@ -104,7 +113,7 @@ CASES = {
     "testsolve_tpa": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--metric",
          "TPATester", "RPERLE"],
-        (2313342306, 4042774198, 3964834499, 2176857534, 4175967009, 2563160311),
+        (129432915, 1994717513, 830958108, 2162896734, 3623015892, 338784799),
     ),
     # rperle_tpa_crn moved too, contrary to this golden's own long-
     # standing expectation of staying fixed while the crnflag=False
@@ -121,11 +130,11 @@ CASES = {
     "rperle_tpa_seed2": (
         ["pymoso", "solve", "--budget=1000", "--seed", "1,2,3,4,5,6",
          "ProbTPA", "RPERLE", "40", "40"],
-        (2175629958, 147802191, 2425104019, 853609596, 4132240727, 4089413332),
+        (475503349, 3494235769, 3386972397, 2983267235, 3075726867, 2248836774),
     ),
     "rperle_tpa_simpar2": (
         ["pymoso", "solve", "--budget=1000", "--simpar=2", "ProbTPA", "RPERLE", "40", "40"],
-        (3379879516, 2064463187, 3070037076, 2057738628, 3140940286, 2423122255),
+        (2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658),
     ),
     # mocompass_tpa and mopbnb_tpa now diverge -- the fix step 8 exists
     # for: previously identical despite verified-different internal
@@ -182,7 +191,7 @@ def test_library_solve_end_seed_matches_baseline():
         ProbTPA, RPERLE, (40, 40),
         budget=1000, seed=(12345,) * 6, simpar=1, crn=False,
     )
-    assert end_seed == (3379879516, 2064463187, 3070037076, 2057738628, 3140940286, 2423122255)
+    assert end_seed == (2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658)
 
 
 def test_library_testsolve_end_seed_matches_baseline():
@@ -190,4 +199,4 @@ def test_library_testsolve_end_seed_matches_baseline():
         TPATester, RPERLE, (40, 40),
         budget=1000, seed=(12345,) * 6, isp=4, proc=1, crn=False, ranx0=False,
     )
-    assert end_seed == (3347470030, 2041325172, 2574648445, 2621857106, 1320715482, 98588082)
+    assert end_seed == (608833221, 1812491834, 2623259368, 3887640181, 811678161, 2382318639)

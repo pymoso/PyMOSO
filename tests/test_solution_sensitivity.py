@@ -54,11 +54,14 @@ from pymoso.solvers.rperle import RPERLE
 # path's search changed. A solver change, which the module docstring
 # says this golden also sees; tests/golden/README.md has the prior
 # values.
+#
+# And a fourth time for the tie-break fix (finding 7): PE breaks ties
+# between objectives with a draw from the solver's stream now.
 EXPECTED_SOLUTIONS = {
-    0: {(36, 5), (37, 6), (38, 5), (38, 6)},
-    1: {(16, 8)},
-    2: {(11, 3)},
-    3: {(15, 12)},
+    0: {(42, 3)},
+    1: {(14, 9), (14, 10), (14, 11), (16, 6), (18, 4)},
+    2: {(11, 3), (12, 4), (13, 4)},
+    3: {(13, 18)},
 }
 
 
@@ -90,5 +93,6 @@ def test_testsolve_ranx0_solution_sets_match_baseline():
     # what a uniform change to the layout should do to two runs of the
     # same computation.
     #
-    # And after the relaxation fix, which moved both again, together.
-    assert end_seed == (2313342306, 4042774198, 3964834499, 2176857534, 4175967009, 2563160311)
+    # And after the relaxation fix and the tie-break fix, which moved
+    # both again, together.
+    assert end_seed == (129432915, 1994717513, 830958108, 2162896734, 3623015892, 338784799)

@@ -91,7 +91,52 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (the traceback fix)
+### Current values (the tie-break fix)
+
+**Capture conditions:** twice on each of `.venv-baseline` and
+`.venv-dev`, identical. "Before" is the traceback fix's values, below.
+
+**Why they moved, deliberately.** PE now breaks a tie between the two
+objectives' epsilon counts with one draw from the solver's stream,
+where it always took objective 0 (`docs/algorithm-audit.md`, finding
+7; `tests/test_pe_traceback.py`). A tie shifts every later draw on
+that stream, which SPLI's perturbations also use. R-MinRLE has no PE
+and did not move; nor did R-SPLINE or the example solvers.
+
+| Case | Iterations before / after | Simcalls before / after | Solution before | Solution after | End seed |
+|---|---|---|---|---|---|
+| rperle_tpa (and simpar2, solve() library call) | 14 / 15 | 1,132 / 1,084 | `{(32,40), (33,40)}` | `{(35,39), (39,38)}` | moved |
+| rpe_tpa | 14 / 15 | 1,084 / 1,138 | `{(32,40), (33,40)}` | `{(33,40)}` | moved; no longer equal to rperle_tpa's |
+| rperle_tpa_seed2 | 12 / 13 | 1,028 / 1,022 | `{(21,20), (22,16)}` | `{(30,36), (30,37), (30,38)}` | moved |
+| rperle_tpa_crn | 8 / 8 | 1,119 / 1,181 | 12 points | 10 points, 4 not in the 12 | **unchanged** |
+| testsolve_tpa | -- | -- | `{(36,5), (37,6), (38,5), (38,6)}`, `{(16,8)}`, `{(11,3)}`, `{(15,12)}` | `{(42,3)}`, `{(14,9), (14,10), (14,11), (16,6), (18,4)}`, `{(11,3), (12,4), (13,4)}`, `{(13,18)}` | moved |
+| testsolve() library call | 13, 13, 14, 13 / 12, 12, 14, 12 | -- | `{(22,38), (22,39)}`, `{(33,32), (33,33)}`, `{(32,27), (32,28)}`, `{(36,29), (39,19)}` | `{(22,25), (23,24)}`, `{(32,25), (33,24)}`, `{(36,40)}`, `{(15,31), (17,31)}` | **returned to its value before the traceback fix** |
+
+**Two more blind spots of the end seed** (`docs/end-seed-scope.md`,
+the seventh instance). `rperle_tpa_crn` kept its end seed for the
+second capture running while its solution changed. The `testsolve()`
+library call's end seed is again `608833221, ...`, its value before
+the traceback fix, although every one of its four paths returned a
+solution different from both earlier captures. Its end seed is
+combined from the four paths' high-water marks; path 2 ran 14
+iterations in all three captures, the most of any path, and is likely
+(inferred, not traced) what sets it.
+
+| Case | End seed |
+|---|---|
+| rperle_tpa | `2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658` |
+| rminrle_tpa | `1660848401, 3982892888, 3117683308, 3201171133, 1965520305, 1045130260` |
+| rpe_tpa | `2818038775, 1087741337, 3653104262, 2674052920, 139999430, 3804951309` |
+| rspline_simpleso | `2327071160, 589288757, 3791179983, 1866895284, 2094692759, 3256882931` |
+| testsolve_tpa | `129432915, 1994717513, 830958108, 2162896734, 3623015892, 338784799` |
+| rperle_tpa_crn | `1128359308, 3860538173, 798726527, 4016157990, 1667726745, 709835043` |
+| rperle_tpa_seed2 | `475503349, 3494235769, 3386972397, 2983267235, 3075726867, 2248836774` |
+| rperle_tpa_simpar2 | `2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658` |
+| solve() library call | `2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658` |
+| testsolve() library call | `608833221, 1812491834, 2623259368, 3887640181, 811678161, 2382318639` |
+| example_search_tpa, example_bnb_tpa, testsolve_example_search, testsolve_example_bnb | unchanged; `tests/test_golden.py` |
+
+### Historical: the traceback fix, pre the tie-break fix
 
 **Capture conditions:** as for the relaxation fix, below: twice on
 each of `.venv-baseline` and `.venv-dev`, identical; "before" from the
