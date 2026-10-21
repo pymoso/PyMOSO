@@ -15,8 +15,8 @@ audit is reading; these are the places where reading was not enough.
   placement set ever differs from Min's output, and the simulations
   spent in `remove_nlwep(aold)`.
 - `probes`: `get_biparetos` on an exact tie; R-PERLE and R-PE on a
-  three-objective and (in a subprocess, since it calls sys.exit) a
-  one-objective problem.
+  three-objective and (in a subprocess, since until finding 10 was
+  fixed it called sys.exit) a one-objective problem.
 
 Counted, not timed. tests/test_benchmark_scripts.py only checks that it
 runs.

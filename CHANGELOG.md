@@ -228,6 +228,11 @@ about 6× faster. Results are identical in every case.
   breaks such ties randomly, and so does PE now, with a draw from the
   solver's own stream taken only on a tie. The counts tie in about half
   of PE's calls on the test problems.
+- **R-PERLE and R-PE called `sys.exit()` on a one-objective problem,**
+  killing a library caller's process (1.1.0's entry below said such
+  calls were gone; these two were missed). They do not check the
+  number of objectives: on one objective the error the algorithm meets
+  now reaches the caller, and on three or more they run, as before.
 - **`testsolve --proc` hung on Python 3.14** with a problem or tester
   from a file, as 1.1.0 documented (`KNOWN_ISSUES.md` issue 7). A
   sample path now travels to a worker as data.

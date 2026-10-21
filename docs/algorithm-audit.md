@@ -54,7 +54,7 @@ intended).
 | 7 | PE breaks ties between objectives deterministically, not randomly | R-PERLE, R-PE | defect; fixed | measured |
 | 8 | `get_biparetos` drops exactly tied points | R-PERLE, R-PE | defect | measured |
 | 9 | The search limit has a factor (dim - 1) and is 0 in one dimension | all four | defect at d = 1; unknown otherwise | read |
-| 10 | R-PERLE and R-PE run on three or more objectives without a word | R-PERLE, R-PE | defect | measured |
+| 10 | R-PERLE and R-PE run on three or more objectives without a word | R-PERLE, R-PE | the `sys.exit()` fixed; the objective count left to the user, by decision | measured |
 | 11 | Min adds SPLINE's trajectories to its output | R-PERLE, R-PE, R-MinRLE | unknown | read |
 | 12 | R-MinRLE may start a minimizer's search from x0 | R-MinRLE | unknown | read |
 | 13 | PE's traceback step when the standard error is 0 is an absolute 1e-6 | R-PERLE, R-PE | implementation necessity, with a hazard | read; the float limit computed |
@@ -251,6 +251,15 @@ block (`rperle.py:85-93`, `rpe.py:86-94`) is reached only through an
 the end, measured: `kcon = 1 - k % 2` maps the third objective onto
 the second's role, and `get_biparetos` compares two objectives only.
 
+**Fixed (2026-10-21), by removing the block, not by a check.** The
+maintainer's decision: PyMOSO does not police which algorithm a user
+runs on which problem. The defect was library code exiting the
+process, not the absent check. The `IndexError`/`sys.exit()` block,
+and with it R-PE's message naming R-PERLE, is gone; on one objective
+the `IndexError` reaches the caller, and three objectives run as
+before. `tests/test_objective_count.py`, the one-objective case seen
+failing first.
+
 ### 11. Min adds SPLINE's trajectories to its output
 
 **Unknown. Read.** Min Step 5 returns RemoveDominated(Âold ∪ M_n ∪
@@ -342,7 +351,7 @@ for simulations; nobody has decided it.
 ## The accumulated entries, rechecked
 
 - **`sys.exit()` in rperle.py and rpe.py: accurate, with lines moved
-  and two additions.** The exits are now at `rperle.py:93` and
+  and two additions. Removed since (finding 10).** The exits are now at `rperle.py:93` and
   `rpe.py:94` (the block starts at 85 and 86). They fire only at d = 1;
   d >= 3 runs silently (finding 10). R-PE's message says "RPERLE
   Error". Still no other `sys.exit()` outside `cli.py` and

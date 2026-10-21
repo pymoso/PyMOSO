@@ -186,7 +186,7 @@ def test_audit_checks_runs():
     assert counts["runs, each identical to the shipped R-PERLE"] == 1 and counts["pe calls"]
     out = checks.probes()
     assert out["exact tie: get_nondom keeps"] == [(0,), (1,), (2,), (3,)]
-    assert out["RPERLE on one objective"] == "SystemExit"
+    assert out["RPERLE on one objective"] != "SystemExit"
 
 
 def test_bench_beta_sweep_runs():
