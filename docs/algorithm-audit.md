@@ -46,7 +46,7 @@ intended).
 | # | Finding | Algorithms | Class | Evidence |
 |---|---|---|---|---|
 | 1 | PE's traceback reads the epsilon intervals of the wrong objective | R-PERLE, R-PE | defect | measured |
-| 2 | The relaxation is se / m^β; the preprint's is se · m^(1/2 - β) | R-PERLE, R-PE, R-MinRLE | unknown | read |
+| 2 | The relaxation is se / m^β; the preprint's is se · m^(1/2 - β) | R-PERLE, R-PE, R-MinRLE | defect (decided); fixed | read |
 | 3 | PE's LWEP filter is applied to the wrong set and then undone | R-PERLE, R-PE | defect | measured |
 | 4 | SPLI's line search floors instead of rounding to nearest | all four | defect | read |
 | 5 | SPLI does not stop at an infeasible line-search point | all four | defect | read |
@@ -104,7 +104,12 @@ The same lines are in `v1.1.0` and at `a914c3e` (2018-10-30).
 
 ### 2. The relaxation's scale: se / m^β against se · m^(1/2 - β)
 
-**Unknown: the authors decide which is intended.** Read. The preprint
+**Defect, decided by the authors (2026-10-19), and fixed: the
+preprint is the source of truth.** The code now computes
+`se * m**(1/2 - beta)` (`tests/test_relaxation.py`). What follows is the
+finding as written, then the measurement that came after it.
+
+Read. The preprint
 defines f̂_k(x, β) := ŝe(Ḡ_k,n(x)) · n^(1/2 - β) with ŝe = σ̂/√n
 (§3.2; the same in the dissertation, `ch3.tex:292-295`, and in the
 introduction's statement of PE), so f̂ = σ̂ · n^(-β). That is both
@@ -128,6 +133,16 @@ Measured afterwards, `docs/relaxation-sweep.md`: a sweep of the
 shipped code against §9.3's figures matches the published β study
 read as the code's β, and not read as the preprint's, except for a
 right-hand rise in the figures that neither reading reproduces.
+
+**Resolved: that sweep does not bear on the question.** The
+published figures predate this repository. They were produced by
+earlier code that was never committed; it exists, outside this
+repository, and is deliberately out of scope. The first commit's
+formula is what was written when the package was assembled
+afterwards, and is where the error entered: s.e. · n^(1/2 - β)
+translated into code whose `se` already carries the 1/√n, divided by
+it again. So the sweep compared the figures with different code, which
+also explains the right-hand rise it could not reproduce.
 
 ### 3. PE's LWEP filter is applied to the wrong set, then undone
 
@@ -406,7 +421,13 @@ for simulations; nobody has decided it.
 
 ## What I could not settle
 
-Findings 2, 6, 9 (above two dimensions), 11, 12, 15 and 17. Finding 2
-in particular needs the authors: whether the preprint's f̂ or the
-code's `se / m**beta` is the intended relaxation, and so what the
-published β values mean.
+Findings 6, 9 (above two dimensions), 11, 12, 15 and 17.
+
+Finding 2 was settled by the authors after this was written: the
+preprint's f̂ is the intended relaxation, and the code was fixed to
+it. Two questions it raised are closed with it. How the preprint's
+figures were produced: by earlier code, never committed, which exists
+outside this repository and is out of scope; do not reopen this from
+the repository's history. And why a sweep of this code did not
+reproduce the figures' right-hand side: it is not the code that
+produced them (`docs/relaxation-sweep.md`).

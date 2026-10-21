@@ -1325,5 +1325,5 @@ class RLESolver(RASolver):
     relax : float
         """
         m = self.m
-        relax = se/pow(m, self.betadel)
+        relax = se*pow(m, 0.5 - self.betadel)
         return relax

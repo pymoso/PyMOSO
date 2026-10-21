@@ -164,5 +164,5 @@ class RPERLE(RLESolver):
         relax : float
         """
         m = self.m
-        relax = se/pow(m, self.betaeps)
+        relax = se*pow(m, 0.5 - self.betaeps)
         return relax

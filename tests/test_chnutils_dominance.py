@@ -145,7 +145,7 @@ def test_strict_implies_ordinary_implies_weak():
 
 # ---------------------------------------------------------------------------
 # Relaxation parameters: zero (already covered above), positive, and
-# negative. calc_delta(se) = se / m**betadel in RLESolver is always
+# negative. calc_delta(se) = se * m**(1/2 - betadel) in RLESolver is always
 # non-negative for real (se>=0, m>0) inputs, so negative relaxation is
 # not reachable through that call path -- but the function itself
 # places no restriction on sign, so it's tested here for robustness.
@@ -166,7 +166,7 @@ def test_negative_relaxation_tightens_not_reachable_via_calc_delta():
     number), tightening the comparison against g1. A small negative
     delta1 isn't enough to flip it; a large enough one is.
 
-    Not reachable in practice: RLESolver.calc_delta(se) = se / m**betadel
+    Not reachable in practice: RLESolver.calc_delta(se) = se * m**(1/2 - betadel)
     is always >= 0 for real standard errors and positive sample sizes.
     """
     g1, g2 = (1,), (2,)

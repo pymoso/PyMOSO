@@ -1012,7 +1012,11 @@ traceback reads the epsilon intervals of the wrong objective (a
 defect, measured, in every R-PERLE and R-PE run since 2018), and the
 relaxation is se / m^β where the preprint has se · m^(1/2 - β), so
 PyMOSO's β = 1/2 is the preprint's β = 1 (only the authors can say
-which is intended). The entries below were rechecked there; one is
+which is intended). **Decided the same day: the preprint is the source
+of truth, and the code was fixed to se · m^(1/2 - β)** (the audit's
+finding 2 has the resolution; the preprint's figures came from earlier,
+uncommitted code held outside this repository, so the repository's
+history is not evidence of what they ran). The entries below were rechecked there; one is
 corrected: neither paper omits finite variance (R-SPLINE's Lemma 5.2;
 the preprint's Assumption 3).
 
@@ -1221,6 +1225,17 @@ family and R-SPLINE, that whether a point is feasible depends on the
 point alone. The point contract (Phase 4) and the per-replication draw
 limit (Phase 6) are already stated, in `Oracle`'s docstring and the
 README, and belong in the same place.
+
+**PyMOSO's default is no CRN, and a user on the defaults does not get
+the published behaviour** (added 2026-10-19, measured,
+`docs/relaxation-sweep.md`). The R-PERLE preprint's experiments run
+with CRN. Without it, R-PE's coverage error on Problem T_A at
+t = 0.4 × 10^6 is about 4 at every β_ε (100 runs per β), about five
+times the published level and nearly flat in β; with CRN it is at the
+published level and depends strongly on β. Measured with the old
+relaxation; not re-measured since the fix. The guidance has to say
+this, and whether the default should change is a decision for this
+step.
 
 ## Sequencing
 

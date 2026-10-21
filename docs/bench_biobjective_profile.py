@@ -278,7 +278,7 @@ def _get_ncn_after(mcS, ncn, self, _mcS):
     z = tuple(0 for _ in range(d))
     nb = moso.get_nbors
     sdom, wdom, dom = _ORIG_SDOM, _ORIG_WDOM, _ORIG_DOM
-    delta = lambda se: se / pow(self.m, self.betadel)
+    delta = lambda se: se * pow(self.m, 0.5 - self.betadel)
     pairs = [(s, x) for s in mcS for x in nb(s, r) - mcS]
     feas_pairs = [(s, x) for s, x in pairs if x in self.gbar]
     # (a) with an early exit: skip a pair whose x is already known to be in ncn.

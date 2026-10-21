@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 """
-Where R-PE's coverage error is smallest as betaeps varies, under the
-shipped relaxation arithmetic (docs/relaxation-sweep.md).
+Where R-PE's coverage error is smallest as betaeps varies
+(docs/relaxation-sweep.md).
 
-The shipped relaxation is se/m**beta; the preprint's (Cooper, Hunter
-and Nagaraj, Optimization Online 2018/06/6649, section 3.2) is
-se*m**(1/2 - beta). The two differ by exactly 1/2 in beta at every
-sample size, so the preprint's section 9.3 "sweet spot" for betaeps,
-(0.2, 0.4) on Problem TA, sits at shipped beta 0.2-0.4 if the published
-experiments used the shipped arithmetic, and at -0.3 to -0.1 if they
-used the preprint's. This sweeps the shipped code over both.
+Written when the relaxation was se/m**beta, to compare that arithmetic
+with the preprint's (Cooper, Hunter and Nagaraj, Optimization Online
+2018/06/6649, section 3.2), se*m**(1/2 - beta): the two differ by
+exactly 1/2 in beta. The code now computes the preprint's, so beta here
+is the preprint's beta; the tables in docs/relaxation-sweep.md were run
+before that fix, and their "shipped beta" is the old code's.
 
     python docs/bench_beta_sweep.py [runs] [proc] [crn]   # defaults 100, 6, 1
 
@@ -38,7 +37,7 @@ from pymoso.solvers.rpe import RPE
 from pymoso.testers.tpatester import TPATester
 from pymoso.testers.tpctester import TPCTester
 
-BETAS = tuple(round(-0.4 + 0.1 * i, 1) for i in range(15))       # -0.4 .. 1.0
+BETAS = tuple(round(0.1 + 0.1 * i, 1) for i in range(15))        # 0.1 .. 1.5, the published axis
 TESTERS = (('TA', TPATester), ('TC', TPCTester))
 BUDGET = 400000
 SEED = (12345,) * 6
@@ -72,11 +71,11 @@ def table(results):
     for name, by_beta in results.items():
         lines.append('Problem {0}: dH at the end of the run, quantiles over {1} runs'.format(
             name, len(next(iter(by_beta.values())))))
-        lines.append('  shipped beta  preprint beta    q0.25    median    q0.75    q0.90')
+        lines.append('          beta    q0.25    median    q0.75    q0.90')
         best = min(by_beta, key=lambda b: quantile(by_beta[b], 0.5))
         for beta, xs in by_beta.items():
-            lines.append('  {0:12.1f}  {1:13.1f}  {2:7.3f}  {3:8.3f}  {4:7.3f}  {5:7.3f}{6}'.format(
-                beta, beta + 0.5, quantile(xs, 0.25), quantile(xs, 0.5), quantile(xs, 0.75), quantile(xs, 0.9),
+            lines.append('  {0:12.1f}  {1:7.3f}  {2:8.3f}  {3:7.3f}  {4:7.3f}{5}'.format(
+                beta, quantile(xs, 0.25), quantile(xs, 0.5), quantile(xs, 0.75), quantile(xs, 0.9),
                 '   <- least median' if beta == best else ''))
     return '\n'.join(lines)
 

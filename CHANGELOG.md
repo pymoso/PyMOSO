@@ -41,6 +41,16 @@ too; numerical results changed there.
   solver as a float, as before. A numeric string (`"2"`) or a
   `Decimal` used to be converted and now raises `TypeError` naming the
   parameter.
+- **`betaeps` and `betadel` now mean what the papers mean, which they
+  never did before.** R-PERLE, R-PE and R-MinRLE relax their
+  comparisons by se · m^(1/2 - β), as the R-PERLE paper defines it, so
+  the default, β = 1/2, is one standard error, and a β taken from the
+  paper gives the method the paper describes. Every earlier release
+  computed se / m^β, which is smaller by a factor of √m at every β:
+  with the default, a tenth of a standard error at m = 100. To
+  reproduce the previous behaviour, add 1/2 to the value you used, or
+  set 1 where you relied on the default. Results of these three
+  solvers change (below).
 - **`x0` is checked at the call.** It is converted to a tuple, so a
   list works; a starting point of the wrong dimension, or containing
   something that is not a number, raises before any simulation.
@@ -89,7 +99,9 @@ too; numerical results changed there.
 ### Numerical results
 
 - **`solve()` gives the same results as 1.1.0** for the same problem,
-  solver, seed and options, with the default generator.
+  solver, seed and options, with the default generator, **except with
+  R-PERLE, R-PE and R-MinRLE,** whose relaxation was corrected (above).
+  R-SPLINE's results are unchanged.
 - **`testsolve()` does not.** In 1.1.0, the first sample path's oracle
   stream and the last path's solver stream started from the same seed
   (`KNOWN_ISSUES.md` issue 10). Every role of every path now has a

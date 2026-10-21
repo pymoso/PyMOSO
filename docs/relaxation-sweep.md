@@ -5,7 +5,24 @@ Phase 7, after step 7 (2026-10-19). A follow-up to
 `python docs/bench_beta_sweep.py 100 6 1` (with CRN) and
 `python docs/bench_beta_sweep.py 100 6 0` (without); each took about
 100 minutes with six workers on this machine.
-`tests/test_benchmark_scripts.py` checks only that it runs.
+`tests/test_benchmark_scripts.py` checks only that it runs. Since the
+fix, the script runs the corrected formula over the published axis
+(0.1 to 1.5), so it reproduces the tables' "preprint beta" rows, not
+bit for bit: the two formulas round differently in the last place.
+
+**Resolved, and the conclusion below is withdrawn (2026-10-19).** The
+published figures predate this repository: they were produced by
+earlier code that was never committed, which exists outside this
+repository and is out of scope. So this sweep compared the figures
+with different code, and its match tells nothing about which formula
+the experiments used. That also explains the right-hand rise the
+sweep could not reproduce. The authors decided the preprint's
+formula is the intended one, and the code was fixed to it
+(`docs/algorithm-audit.md`, finding 2). The measurements stand as
+measurements of the code as it was, and the no-CRN result stands on
+its own (`docs/phase7-plan.md`, step 8). Everything below is as
+written before the resolution; the tables were run with the old
+formula, so their "shipped beta" is the old code's β.
 
 ## The question
 
@@ -124,7 +141,7 @@ are differences between the 2018 code and today's that are not
 supposed to change behaviour, the 1,000 runs against 100, and how the
 figures define Â(t); none was tested.
 
-**Conclusion (measured, with the right-side caveat):** the published
+**Conclusion (withdrawn; see the note at the top):** the published
 β study is consistent with the shipped arithmetic, se / m^β, and
 inconsistent with the preprint's formula. If so, the published β
 values, including the defaults and the (0.2, 0.4) sweet spot, are in
