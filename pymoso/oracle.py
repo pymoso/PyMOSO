@@ -54,6 +54,13 @@ class Oracle(object):
     The built-in RA solvers search the integer lattice, so the points
     they generate are integers wherever they start.
 
+    **What `g()` must give.** At a feasible point, every objective's
+    observations must have finite variance. The convergence results of
+    the built-in algorithms assume it (Wang, Pasupathy and Schmeiser
+    2013, Lemma 5.2, for R-SPLINE; Assumption 3 of Cooper, Hunter and
+    Nagaraj, the paper that introduces R-MinRLE, R-PE and R-PERLE).
+    Nothing checks it.
+
     Attributes
     ----------
     rng : Stream object

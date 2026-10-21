@@ -69,6 +69,13 @@ table's defaults and solver lists are checked against the code
 have not been checked against their papers at all
 (docs/mocompass-mopbnb-known-issues.md).
 
+The finite-variance requirement on `g()` (Phase 7) is the papers'
+assumption, cited by lemma and assumption number
+(docs/algorithm-audit.md, the accumulated entries, checked those
+citations). "PyMOSO does not check it" is true by reading: nothing in
+the framework examines a variance except to compute a sample one. No
+test could establish an absence of checking.
+
 ## What the README leaves out, by decision
 
 - **The README does not describe `ExampleSearchSolver` or

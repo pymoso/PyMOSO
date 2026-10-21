@@ -418,7 +418,8 @@ for simulations; nobody has decided it.
     (§8.1), noted as implied by Lemma 2's conditions.
   - **What is true** is the plan's other sentence (its "write what an
     `Oracle` must guarantee" paragraph): PyMOSO's own documentation
-    does not state it.
+    does not state it. **Stated since (2026-10-21),** in the README's
+    requirements for `g` and in `Oracle`'s docstring; nothing checks it.
 - **`rng.advance()`: accurate.** `RandomCompatAdapter` has no
   `advance` (checked), and `SerialExecutor.run` reads `raw_consumed()`
   on the replication's own stream only (`executor.py:732-733`). A
