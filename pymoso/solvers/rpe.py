@@ -113,7 +113,11 @@ class RPE(RASolver):
             epslst[k] = [mcJ[i][LO] for i in range(c0 - 1) if mcJ[i][LO] > Lk[k] and not overlap[i]]
             ck[k] = len(epslst[k])
             J[k] = mcJ
-        k_opt = min(ck, key=lambda k: ck[k])
+        # the objective with the fewest epsilon values is minimized; ties
+        # are broken randomly (docs/algorithm-audit.md, finding 7), with a
+        # draw from the solver's stream only when there is a tie
+        fewest = [k for k in krange if ck[k] == min(ck.values())]
+        k_opt = fewest[0] if len(fewest) == 1 else fewest[int(self.sprn.random()*len(fewest))]
         k_con = 1 - k_opt % 2
         # the traceback's bounds are the intervals on the objective it
         # constrains, not the last pass's (docs/algorithm-audit.md, finding 1)

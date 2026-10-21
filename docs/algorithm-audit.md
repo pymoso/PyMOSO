@@ -51,7 +51,7 @@ intended).
 | 4 | SPLI's line search floors instead of rounding to nearest | all four | defect | read |
 | 5 | SPLI does not stop at an infeasible line-search point | all four | defect | read |
 | 6 | Under an epsilon constraint, PLI's gradient uses vertices that violate it | R-PERLE, R-PE | unknown | read |
-| 7 | PE breaks ties between objectives deterministically, not randomly | R-PERLE, R-PE | defect | measured |
+| 7 | PE breaks ties between objectives deterministically, not randomly | R-PERLE, R-PE | defect; fixed | measured |
 | 8 | `get_biparetos` drops exactly tied points | R-PERLE, R-PE | defect | measured |
 | 9 | The search limit has a factor (dim - 1) and is 0 in one dimension | all four | defect at d = 1; unknown otherwise | read |
 | 10 | R-PERLE and R-PE run on three or more objectives without a word | R-PERLE, R-PE | defect | measured |
@@ -212,6 +212,14 @@ the objective with fewer epsilon values and "break[s] ties randomly".
 Measured: the counts tied in 209 of 293 PE calls, so the code mostly
 minimizes the first objective and constrains the second. Not assessed
 for its effect on convergence; I would expect none (inferred).
+
+**Fixed (2026-10-19), after findings 2 and 1.** A tie is broken by one
+draw from the solver's stream (`sprn.random()`, the stream SPLI's
+perturbations use), taken only when the counts tie, so a run with no
+tie draws exactly what it did. A tie shifts every later draw on that
+stream. `tests/test_pe_traceback.py`, seen failing first. With the
+corrected relaxation the counts tie in 161 of 305 PE calls (the same
+15 runs; `docs/audit_checks.py`).
 
 ### 8. `get_biparetos` drops exactly tied points
 

@@ -101,7 +101,8 @@ too; numerical results changed there.
 - **`solve()` gives the same results as 1.1.0** for the same problem,
   solver, seed and options, with the default generator, **except with
   R-PERLE, R-PE and R-MinRLE,** whose relaxation was corrected (above);
-  R-PERLE's and R-PE's traceback was corrected too (under Fixed).
+  R-PERLE's and R-PE's traceback and tie-breaking were corrected too
+  (under Fixed).
   R-SPLINE's results are unchanged.
 - **`testsolve()` does not.** In 1.1.0, the first sample path's oracle
   stream and the last path's solver stream started from the same seed
@@ -219,6 +220,11 @@ about 6× faster. Results are identical in every case.
   three test problems stopped in a different place. It now uses the
   intervals on the objective it constrains, as the paper's PE does.
   Results of the two solvers change.
+- **R-PERLE's and R-PE's PE always minimized the first objective when
+  the two objectives had equally many epsilon values;** the paper
+  breaks such ties randomly, and so does PE now, with a draw from the
+  solver's own stream taken only on a tie. The counts tie in about half
+  of PE's calls on the test problems.
 - **`testsolve --proc` hung on Python 3.14** with a problem or tester
   from a file, as 1.1.0 documented (`KNOWN_ISSUES.md` issue 7). A
   sample path now travels to a worker as data.

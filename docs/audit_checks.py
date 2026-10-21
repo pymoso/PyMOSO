@@ -78,9 +78,10 @@ def _audited(counts):
                     overlap.append(is_inJ)
                 epslst[k] = [mcJ[i][LO] for i in range(c0 - 1) if mcJ[i][LO] > Lk[k] and not overlap[i]]
                 ck[k] = len(epslst[k])
-            k_opt = min(ck, key=lambda k: ck[k])
+            fewest = [k for k in range(self.num_obj) if ck[k] == min(ck.values())]
+            k_opt = fewest[0] if len(fewest) == 1 else fewest[int(self.sprn.random()*len(fewest))]
             k_con = 1 - k_opt % 2
-            counts['epsilon counts tied (resolved to objective 1)'] += len(set(ck.values())) == 1
+            counts['epsilon counts tied (broken by a draw since finding 7)'] += len(fewest) > 1
             # since the fix (finding 1) the traceback reads J[k_opt]; the
             # counts are of how often the code before the fix, which read
             # the last pass's J[num_obj - 1], would have had another bound
