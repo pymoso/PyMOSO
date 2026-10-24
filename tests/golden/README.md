@@ -91,7 +91,35 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (the search-limit fix)
+### Current values (the SPLINE stop fix)
+
+**Capture conditions:** twice on each of `.venv-baseline` and
+`.venv-dev`, identical. "Before" is the search-limit fix's values,
+below. ν is the final RA iteration's number.
+
+**Why they moved, deliberately.** SPLINE now stops when its calls
+exceed the search limit b, not when they reach it, and so takes one
+more pass when a pass lands exactly on b (`docs/algorithm-audit.md`,
+finding 14; `tests/test_spline_stop.py`). Every case's solution was
+compared, not only those whose end seed moved: R-PERLE's, R-PE's and
+R-SPLINE's are unchanged in every case, as is the `testsolve()`
+library call.
+
+| Case | Final ν before / after | Simcalls before / after | Solution before | Solution after | End seed |
+|---|---|---|---|---|---|
+| rminrle_tpa | 15 / 16 | 1,024 / 1,195 | `{(36,41), (37,41)}` | `{(33,40), (34,40)}` | moved |
+| testsolve_tpa | -- | -- | path 0 `{(42,3)}`, path 3 `{(13,18)}` | path 0 `{(32,1)}`, path 3 `{(18,18), (19,18)}` | moved; paths 1 and 2 unchanged |
+
+`tests/test_solution_sensitivity.py`'s solution sets are `testsolve_tpa`'s
+computation and moved with it, paths 0 and 3.
+
+| Case | End seed |
+|---|---|
+| rminrle_tpa | `934352227, 2566036280, 3952654006, 4077942181, 2316375006, 212199263` |
+| testsolve_tpa | `428304056, 346485484, 1619176594, 1600379305, 3253197826, 3926570837` |
+| every other case | as in the next section |
+
+### Historical: the search-limit fix, pre the SPLINE stop fix
 
 **Capture conditions:** twice on each of `.venv-baseline` and
 `.venv-dev`, identical. "Before" is the tie-break fix's values, below.

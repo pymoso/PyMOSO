@@ -88,7 +88,7 @@ CASES = {
     ),
     "rminrle_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RMINRLE", "40", "40"],
-        (1660848401, 3982892888, 3117683308, 3201171133, 1965520305, 1045130260),
+        (934352227, 2566036280, 3952654006, 4077942181, 2316375006, 212199263),
     ),
     # rpe_tpa no longer coincides with rperle_tpa (since the tie-break
     # fix). It used to, while both runs ended at the same iteration with
@@ -113,7 +113,7 @@ CASES = {
     "testsolve_tpa": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--metric",
          "TPATester", "RPERLE"],
-        (129432915, 1994717513, 830958108, 2162896734, 3623015892, 338784799),
+        (428304056, 346485484, 1619176594, 1600379305, 3253197826, 3926570837),
     ),
     # rperle_tpa_crn moved too, contrary to this golden's own long-
     # standing expectation of staying fixed while the crnflag=False
