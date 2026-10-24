@@ -799,12 +799,15 @@ class RASolver(MOSOSolver):
                 s = ss*pow(c, i - 1)
                 x1 = tuple(int(floor(x0[j] - s*gamma[j]/enorm(gamma))) for j in range(q))
                 isfeas, fx1, sex1 = self.estimate(x1, e, kcon)
-                if isfeas:
-                    n += m
-                    if fx1[nobj] < fxs[nobj]:
-                        xs = x1
-                        fxs = fx1
-                        sexs = sex1
+                if not isfeas:
+                    # Algorithm 4, step 13: an infeasible line-search point
+                    # ends SPLI (docs/algorithm-audit.md, finding 5)
+                    return xs, fxs, sexs, n
+                n += m
+                if fx1[nobj] < fxs[nobj]:
+                    xs = x1
+                    fxs = fx1
+                    sexs = sex1
                 if not x1 == xs or n > b:
                     should_stop = True
             x0 = xs

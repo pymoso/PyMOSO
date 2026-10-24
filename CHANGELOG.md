@@ -253,6 +253,11 @@ about 6× faster. Results are identical in every case.
   and then did not use the result. It now filters Min's output. The
   filter's simulations, which bought nothing before, now decide where
   the epsilons go. Results of the two solvers change.
+- **SPLI went on to a new gradient after an infeasible line-search
+  point,** whenever the line search had taken three steps or more; the
+  paper's SPLI returns there. It now returns. Every RA solver's
+  results can change, on problems with infeasible points or under an
+  epsilon constraint.
 - **SPLINE stopped when its simulation calls reached the search limit,**
   where both papers stop when they exceed it. It now takes one more
   pass in that case. In the runs measured it happened in 5 of 1,085

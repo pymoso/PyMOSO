@@ -49,7 +49,7 @@ intended).
 | 2 | The relaxation is se / m^β; the preprint's is se · m^(1/2 - β) | R-PERLE, R-PE, R-MinRLE | defect (decided); fixed | read |
 | 3 | PE's LWEP filter is applied to the wrong set and then undone | R-PERLE, R-PE | defect; fixed | measured |
 | 4 | SPLI's line search floors instead of rounding to nearest | all four | defect | read |
-| 5 | SPLI does not stop at an infeasible line-search point | all four | defect | read |
+| 5 | SPLI does not stop at an infeasible line-search point | all four | defect; fixed | read |
 | 6 | Under an epsilon constraint, PLI's gradient uses vertices that violate it | R-PERLE, R-PE | unknown | read |
 | 7 | PE breaks ties between objectives deterministically, not randomly | R-PERLE, R-PE | defect; fixed | measured |
 | 8 | `get_biparetos` drops exactly tied points | R-PERLE, R-PE | defect; fixed | measured |
@@ -207,6 +207,16 @@ search (`chnbase.py:786`), and then SPLI returns only if the line
 search was short (`i <= 2`, `chnbase.py:789`). From the third step on
 it starts a new gradient instead. Under an epsilon constraint,
 "infeasible" includes violating it. Again finite-time behaviour only.
+
+**Fixed (2026-10-24):** the line search returns at an infeasible point,
+as step 13 does. The point is still simulated to find it infeasible and
+still not charged to n, as before. `tests/test_spli_infeasible.py`
+(seen failing: the third-step case took a second gradient and visited
+one more point). Of the goldens, the solutions of `rperle_tpa`,
+`rpe_tpa`, `rperle_tpa_crn` and one path each of `testsolve_tpa` and
+the `testsolve()` library case changed; no end seed did
+(`tests/golden/README.md`). Quality is unmeasured; the re-sweep covers
+it.
 
 ### 6. Under an epsilon constraint, PLI's gradient uses vertices that violate it
 
