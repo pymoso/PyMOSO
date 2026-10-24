@@ -428,3 +428,35 @@ that ran 14 iterations in every capture is likely what sets it,
 inferred). A golden that had been regenerated for the traceback fix would, without
 that intermediate commit, have read as "unchanged" across two
 solver changes that each moved every path's answer.
+
+## An eighth instance: a draw count that never looked where the draws landed
+
+Found in Phase 7, after the audit's finding 8, tracing what
+`rng.advance()` means under each generator. Not an end seed this time, but the same shape: a check that
+measures a quantity next to the one it is read as guarding.
+
+**Seen:** `Philox4x32Stream` stepped its counter from the wrong end, so
+after four draws every Philox stream continued as the stream at
+offset + 2^96, another point's coordinate without CRN and replication
+r + 256 with it (`docs/rng-interface-design.md`, the correction at the
+end of §3.9). The fix changed every Philox stream from its fifth draw
+on. Nothing in the suite failed, before or after.
+
+**Why:** what covered Philox counted, or looked at starts.
+- The replication-draw check (`Oracle.replication_draws`, enforced
+  through `raw_consumed()`) counts counter positions a replication
+  used. It refused the 16,385th draw correctly the whole time,
+  while the draws before it were coming from another point.
+- `tests/test_replication_draws.py`'s
+  `test_replications_with_a_larger_reserve_do_not_share_draws`, and the
+  conformance suite's distinctness checks, compare the first draw of
+  each stream, which the defect never touched.
+- No golden runs Philox, and of the built-in problems only BSProb
+  draws more than four values a replication.
+
+**What detects it now:** `tests/test_philox_counter_order.py`, which
+checks where the draws land: in counter space, and on real oracles with
+and without CRN. It failed 36 of 36 before the fix.
+
+The lesson is the first instance's, moved from end seeds to draws: a
+count of how much was used says nothing about where it came from.

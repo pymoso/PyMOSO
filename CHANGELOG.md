@@ -171,6 +171,12 @@ draws apart (more with `philox4x32`), as before.
 - **`pymoso.dispatch_cost()`** times one request for replications in
   this process and on a backend and reports both. It runs only when
   called and gives no advice.
+- **`rng.advance(d)` in `g`,** for one stream of random numbers per
+  purpose: a second generator `d` draws past `rng`, with `rng` left
+  where it was, the same on every generator. Draws on it are not
+  counted against `replication_draws`, so without `--crn` a `g` that
+  advances and draws past the limit uses the next replication's
+  numbers without an error.
 - **`Oracle.hit_many()` and `RASolver.estimate_many()`:** several
   points' replications handed to the worker processes at once.
 - **`ExampleSearchSolver` and `ExampleBnBSolver`,** example

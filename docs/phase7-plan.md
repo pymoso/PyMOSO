@@ -1194,6 +1194,16 @@ discrepancy; recorded here so it is not lost):**
 - Nothing built. A fix is a decision: document a supported per-purpose
   API with the reserve enforced on derived streams, or say that `g()`
   gets one sequential stream and nothing else.
+- **Decided and done (2026-10-24): documented, not enforced.**
+  `rng.advance(d)` is `d` draws (one `random()` call each) on every
+  generator; `RandomCompatAdapter.advance` converts from Philox's
+  four-draw counter positions (`Philox4x32Stream.advance_draws`). The
+  Oracle docstring, the README and the CHANGELOG warn that the reserve
+  check does not see draws on an advanced generator, and
+  `tests/test_rng_advance.py` shows the overlap happening on all three
+  generators. The check itself is not built. Tracing this is what
+  found the Philox counter-order defect (rng-interface-design.md
+  §3.9's correction).
 
 **Report discrepancies; do not fix them in this step.** Some will be
 deliberate.

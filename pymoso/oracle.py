@@ -61,6 +61,16 @@ class Oracle(object):
     Nagaraj, the paper that introduces R-MinRLE, R-PE and R-PERLE).
     Nothing checks it.
 
+    **One stream per purpose.** `rng.advance(d)` returns a second
+    generator `d` draws past `rng`, leaving `rng` where it was: drawing
+    from it gives what `rng` would give after `d` more draws, a draw
+    being one `random()` call, on every generator. **The replication's
+    reserve is checked on `rng` only.** Draws taken on an advanced
+    generator are not counted, so without common random numbers a `g()`
+    that advances, and draws, past `replication_draws` reaches the next
+    replication's numbers and nothing raises
+    (tests/test_rng_advance.py records it).
+
     Attributes
     ----------
     rng : Stream object

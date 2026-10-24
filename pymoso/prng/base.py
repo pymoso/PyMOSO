@@ -141,6 +141,17 @@ class RandomCompatAdapter(random.Random):
         """The wrapped stream's own count (layout.check_role_draws)."""
         return self._stream.raw_consumed()
 
+    def advance(self, draws: int) -> "RandomCompatAdapter":
+        """
+        A second generator `draws` draws past this one, which does not
+        move: what `rng.advance(d)` gives a g() on the MRG family, in
+        the same unit (one random() call), so the contract is the same
+        on every generator. The wrapped stream's own advance() counts
+        counter positions of four draws and is the executor's;
+        advance_draws() converts (tests/test_rng_advance.py).
+        """
+        return RandomCompatAdapter(self._stream.advance_draws(draws))
+
     def getrandbits(self, k: int) -> int:
         return self._stream.getrandbits(k)
 

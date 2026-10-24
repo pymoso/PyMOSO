@@ -427,6 +427,9 @@ for simulations; nobody has decided it.
   `advance` (checked), and `SerialExecutor.run` reads `raw_consumed()`
   on the replication's own stream only (`executor.py:732-733`). A
   framework gap, not an algorithm discrepancy, as recorded.
+  **Since (2026-10-24):** the adapter has `advance`, in draws like the
+  MRG family's, and the gap in the reserve check is documented rather
+  than closed (phase7-plan.md, step 7, "Found 2026-10-18").
 - **Best- against first-improvement, now a toggle: accurate, and the
   paper sanctions the default.** NE as described evaluates the whole
   neighbourhood and returns the best (§3.2). §6(iv) adds that "NE

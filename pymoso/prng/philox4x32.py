@@ -748,6 +748,36 @@ class Philox4x32Stream:
         new_counter_int = (counter_int + delta) & ((1 << COUNTER_BITS) - 1)
         return Philox4x32Stream((self._key, _int_to_words(new_counter_int, 4)))
 
+    def advance_draws(self, draws):
+        """
+        The stream `draws` words past this one's current position,
+        leaving this one where it is: exactly this stream after `draws`
+        more random() calls. advance() counts counter positions from
+        the end of the buffer, which is what oracle.py needs; this
+        counts words from the next one random() would return, which is
+        what `rng.advance(d)` means in a g() (RandomCompatAdapter.
+        advance, and MRG32k3a.advance's own unit). The buffered words
+        are skipped first, then whole positions by advance(), then the
+        rest are drawn and discarded.
+
+        Parameters
+        ----------
+        draws : int
+            Non-negative.
+
+        Returns
+        -------
+        Philox4x32Stream
+        """
+        buffered = len(self._buffer)
+        if draws < buffered:
+            return Philox4x32Stream((self._key, self._counter, self._buffer[draws:]))
+        whole, rest = divmod(draws - buffered, DRAWS_PER_OFFSET)
+        ahead = self.advance(whole)
+        for _ in range(rest):
+            ahead._next_word()
+        return ahead
+
 
 def _int_to_words(n, count):
     """Split a non-negative int into `count` 32-bit words, most-
