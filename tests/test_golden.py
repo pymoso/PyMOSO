@@ -79,6 +79,15 @@ from pymoso.testers.tpatester import TPATester
 # different from both earlier captures (tests/golden/README.md;
 # docs/end-seed-scope.md, the seventh instance).
 
+# A tenth capture, for the search-limit fix (finding 9): only
+# rspline_simpleso, the one-dimensional case. An eleventh, for the
+# SPLINE stop (finding 14): rminrle_tpa and testsolve_tpa; every other
+# case's solution was compared and is unchanged. A twelfth, for PE's
+# LWEP filter (finding 3): every R-PERLE and R-PE case's solution moved
+# and rperle_tpa, rperle_tpa_simpar2 and the solve() library case kept
+# their end seed, a third time for this blind spot (tests/golden/
+# README.md; docs/end-seed-scope.md, the seventh instance).
+
 SEED_RE = re.compile(r"^--\s+(?:next|ending) seed:\s+(.+)$", re.M)
 
 CASES = {
@@ -90,15 +99,16 @@ CASES = {
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RMINRLE", "40", "40"],
         (934352227, 2566036280, 3952654006, 4077942181, 2316375006, 212199263),
     ),
-    # rpe_tpa no longer coincides with rperle_tpa (since the tie-break
-    # fix). It used to, while both runs ended at the same iteration with
-    # the same largest touched coordinate; the end seed is one past that
-    # coordinate, which the iteration alone does not fix (it includes
-    # the largest point code and its replications). Both still run 15
-    # iterations here.
+    # rpe_tpa coincides with rperle_tpa again (since finding 3's fix):
+    # the same solution, simulation calls and end seed, so R-PERLE's RLE,
+    # all that separates the two, changed nothing in this run (inferred
+    # from the identical results, not traced). From the tie-break fix
+    # until then they differed. The end seed is one past the largest
+    # coordinate a run touched, which the iteration alone does not fix
+    # (it includes the largest point code and its replications).
     "rpe_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RPE", "40", "40"],
-        (2818038775, 1087741337, 3653104262, 2674052920, 139999430, 3804951309),
+        (2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658),
     ),
     "rspline_simpleso": (
         ["pymoso", "solve", "--budget=1000", "ProbSimpleSO", "RSPLINE", "40"],
@@ -113,7 +123,7 @@ CASES = {
     "testsolve_tpa": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--metric",
          "TPATester", "RPERLE"],
-        (428304056, 346485484, 1619176594, 1600379305, 3253197826, 3926570837),
+        (3152774270, 410798641, 30954636, 1162836765, 3775738568, 4231190908),
     ),
     # rperle_tpa_crn moved too, contrary to this golden's own long-
     # standing expectation of staying fixed while the crnflag=False
@@ -125,12 +135,12 @@ CASES = {
     # regression -- confirmed nothing beyond it was ever touched.
     "rperle_tpa_crn": (
         ["pymoso", "solve", "--budget=1000", "--crn", "ProbTPA", "RPERLE", "40", "40"],
-        (1128359308, 3860538173, 798726527, 4016157990, 1667726745, 709835043),
+        (923826343, 324720588, 3520057607, 2369325274, 481703105, 875203729),
     ),
     "rperle_tpa_seed2": (
         ["pymoso", "solve", "--budget=1000", "--seed", "1,2,3,4,5,6",
          "ProbTPA", "RPERLE", "40", "40"],
-        (475503349, 3494235769, 3386972397, 2983267235, 3075726867, 2248836774),
+        (3017716348, 1164624147, 1959750905, 3905490566, 3460109705, 2293446127),
     ),
     "rperle_tpa_simpar2": (
         ["pymoso", "solve", "--budget=1000", "--simpar=2", "ProbTPA", "RPERLE", "40", "40"],
@@ -199,4 +209,4 @@ def test_library_testsolve_end_seed_matches_baseline():
         TPATester, RPERLE, (40, 40),
         budget=1000, seed=(12345,) * 6, isp=4, proc=1, crn=False, ranx0=False,
     )
-    assert end_seed == (608833221, 1812491834, 2623259368, 3887640181, 811678161, 2382318639)
+    assert end_seed == (3821022682, 3698201652, 1914137393, 374897783, 2982944267, 2480987988)

@@ -60,11 +60,14 @@ from pymoso.solvers.rperle import RPERLE
 #
 # And a fifth time for the SPLINE stop (finding 14): SPLINE takes one
 # more pass when its calls land exactly on b. Paths 0 and 3 moved.
+#
+# And a sixth time for PE's LWEP filter (finding 3): epsilons are
+# placed from the LWEPs among Min's output. Every path moved.
 EXPECTED_SOLUTIONS = {
-    0: {(32, 1)},
-    1: {(14, 9), (14, 10), (14, 11), (16, 6), (18, 4)},
-    2: {(11, 3), (12, 4), (13, 4)},
-    3: {(18, 18), (19, 18)},
+    0: {(43, 0), (43, 1), (44, 1)},
+    1: {(16, 8)},
+    2: {(11, 4), (11, 5), (14, 2)},
+    3: {(27, 19)},
 }
 
 
@@ -97,5 +100,6 @@ def test_testsolve_ranx0_solution_sets_match_baseline():
     # same computation.
     #
     # And after the relaxation fix and the tie-break fix, which moved
-    # both again, together, and after the SPLINE stop fix.
-    assert end_seed == (428304056, 346485484, 1619176594, 1600379305, 3253197826, 3926570837)
+    # both again, together, and after the SPLINE stop fix and the
+    # LWEP filter fix.
+    assert end_seed == (3152774270, 410798641, 30954636, 1162836765, 3775738568, 4231190908)

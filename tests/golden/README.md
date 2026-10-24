@@ -91,7 +91,45 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (the SPLINE stop fix)
+### Current values (PE's LWEP filter)
+
+**Capture conditions:** twice on each of `.venv-baseline` and
+`.venv-dev`, identical. "Before" is the SPLINE stop fix's values,
+below. ν is the final RA iteration's number.
+
+**Why they moved, deliberately.** PE places its epsilon values from the
+LWEPs among Min's output, and starts its tracebacks from Min's output,
+as the listing does; it filtered the previous solution and placed from
+all of Min's output (`docs/algorithm-audit.md`, finding 3;
+`tests/test_pe_lwep_filter.py`). R-MinRLE has no PE and did not move;
+nor did R-SPLINE or the example solvers.
+
+| Case | Final ν before / after | Simcalls before / after | Solution before | Solution after | End seed |
+|---|---|---|---|---|---|
+| rperle_tpa (and simpar2, solve() library call) | 14 / 14 | 1,084 / 1,028 | `{(35,39), (39,38)}` | `{(8,21)}` | **unchanged** |
+| rpe_tpa | 14 / 14 | 1,138 / 1,028 | `{(33,40)}` | `{(8,21)}` | moved; equal to rperle_tpa's again |
+| rperle_tpa_seed2 | 12 / 14 | 1,022 / 1,134 | `{(30,36), (30,37), (30,38)}` | `{(27,26)}` | moved |
+| rperle_tpa_crn | 7 / 8 | 1,181 / 1,085 | 10 points | `{(0,7), (0,8), (10,7)}` | moved |
+| testsolve_tpa | -- | -- | `{(32,1)}`, `{(14,9), (14,10), (14,11), (16,6), (18,4)}`, `{(11,3), (12,4), (13,4)}`, `{(18,18), (19,18)}` | `{(43,0), (43,1), (44,1)}`, `{(16,8)}`, `{(11,4), (11,5), (14,2)}`, `{(27,19)}` | moved |
+| testsolve() library call | 11, 11, 13, 11 / 14, 14, 14, 14 | -- | `{(22,25), (23,24)}`, `{(32,25), (33,24)}`, `{(36,40)}`, `{(15,31), (17,31)}` | `{(26,22), (26,23), (29,22)}`, `{(25,23), (29,20)}`, `{(37,40), (37,41), (40,40)}`, `{(19,13), (21,11)}` | moved |
+
+**The end seed's blind spot, a third time for `rperle_tpa`**
+(`docs/end-seed-scope.md`, the seventh instance): its solution went
+from two points to one, none in common, in 56 fewer simulation calls,
+and its end seed, with `rperle_tpa_simpar2`'s and the `solve()`
+library call's, is what it was. `tests/test_solution_sensitivity.py`
+(the `testsolve_tpa` computation) moved on every path.
+
+| Case | End seed |
+|---|---|
+| rpe_tpa | `2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658` |
+| rperle_tpa_crn | `923826343, 324720588, 3520057607, 2369325274, 481703105, 875203729` |
+| rperle_tpa_seed2 | `3017716348, 1164624147, 1959750905, 3905490566, 3460109705, 2293446127` |
+| testsolve_tpa | `3152774270, 410798641, 30954636, 1162836765, 3775738568, 4231190908` |
+| testsolve() library call | `3821022682, 3698201652, 1914137393, 374897783, 2982944267, 2480987988` |
+| every other case | as in the next section |
+
+### Historical: the SPLINE stop fix, pre PE's LWEP filter
 
 **Capture conditions:** twice on each of `.venv-baseline` and
 `.venv-dev`, identical. "Before" is the search-limit fix's values,

@@ -429,6 +429,13 @@ inferred). A golden that had been regenerated for the traceback fix would, witho
 that intermediate commit, have read as "unchanged" across two
 solver changes that each moved every path's answer.
 
+**A third time** (PE's LWEP filter, finding 3). `rperle_tpa` returned
+`{(35,39), (39,38)}` before and `{(8,21)}` after, in 1,084 and 1,028
+simulation calls, with an identical end seed; so did its `--simpar=2`
+twin and the `solve()` library call, which are the same computation.
+Every other R-PERLE and R-PE case moved, as did
+`tests/test_solution_sensitivity.py`.
+
 ## An eighth instance: a draw count that never looked where the draws landed
 
 Found in Phase 7, after the audit's finding 8, tracing what
