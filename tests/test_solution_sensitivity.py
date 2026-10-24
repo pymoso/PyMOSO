@@ -25,7 +25,16 @@ itersoln entries are plain Python sets, compared with == below --
 Python set equality (unlike a list/tuple comparison) does not depend on
 iteration order, so there is no ordering fragility to work around here.
 """
-from pymoso.chnutils import testsolve
+import pytest
+
+from pymoso.chnutils import solve, testsolve
+from pymoso.problems.probsimpleso import ProbSimpleSO
+from pymoso.problems.probtpa import ProbTPA
+from pymoso.solvers.mocompass import ExampleSearchSolver
+from pymoso.solvers.mopbnb import ExampleBnBSolver
+from pymoso.solvers.rminrle import RMINRLE
+from pymoso.solvers.rpe import RPE
+from pymoso.solvers.rspline import RSPLINE
 from pymoso.testers.tpatester import TPATester
 from pymoso.solvers.rperle import RPERLE
 
@@ -110,3 +119,79 @@ def test_testsolve_ranx0_solution_sets_match_baseline():
     # LWEP filter fix. Not after the SPLI fix (finding 5), which moved
     # path 0's solution. And after the nearest-integer line search.
     assert end_seed == (4244682198, 3625174356, 12273143, 1664344229, 2348137384, 1201660776)
+
+
+# ---------------------------------------------------------------------------
+# The solution set of every other case in tests/test_golden.py. The end
+# seeds there missed every solution finding 5's fix moved (five, in four
+# cases) and rperle_tpa's three times before that (docs/end-seed-scope.md,
+# the seventh instance). Each call here is its golden case's computation
+# through the library; every end seed was checked against the case's
+# golden when these were captured (twice on each of .venv-baseline and
+# .venv-dev, identical). The same caveat as the module docstring's: a
+# solver change can move these legitimately. rperle_tpa stands for the
+# solve() library call too, which is the same call.
+# ---------------------------------------------------------------------------
+EXAMPLE = dict(lb=0, ub=50)
+
+SOLVE_CASES = {
+    "rperle_tpa": (ProbTPA, RPERLE, (40, 40), {}, {(23, 38)}),
+    "rminrle_tpa": (ProbTPA, RMINRLE, (40, 40), {},
+                    {(34, 40), (34, 41), (35, 41), (36, 41)}),
+    "rpe_tpa": (ProbTPA, RPE, (40, 40), {}, {(23, 38)}),
+    "rspline_simpleso": (ProbSimpleSO, RSPLINE, (40,), {}, {(0,)}),
+    "rperle_tpa_crn": (ProbTPA, RPERLE, (40, 40), {"crn": True},
+                       {(0, 6), (0, 7), (0, 8), (10, 8), (21, 8)}),
+    "rperle_tpa_seed2": (ProbTPA, RPERLE, (40, 40), {"seed": (1, 2, 3, 4, 5, 6)},
+                         {(6, 7), (7, 8), (8, 7)}),
+    "rperle_tpa_simpar2": (ProbTPA, RPERLE, (40, 40), {"simpar": 2}, {(23, 38)}),
+    "example_search_tpa": (ProbTPA, ExampleSearchSolver, (40, 40), EXAMPLE,
+                           {(0, 1), (0, 3)}),
+    "example_bnb_tpa": (ProbTPA, ExampleBnBSolver, (40, 40), EXAMPLE,
+                        {(2, 9), (4, 12), (12, 29), (14, 7), (22, 11), (31, 9)}),
+}
+
+TESTSOLVE_CASES = {
+    # the testsolve() library call: x0 given, ranx0=False
+    "testsolve_library": (RPERLE, (40, 40), False, {}, {
+        0: {(27, 33)},
+        1: {(30, 36), (32, 37)},
+        2: {(30, 38), (31, 38), (31, 39)},
+        3: {(7, 25), (7, 26)},
+    }),
+    "testsolve_example_search": (ExampleSearchSolver, (0,), True, EXAMPLE, {
+        0: {(5, 11), (9, 9)},
+        1: {(23, 8), (23, 10), (26, 6)},
+        2: {(4, 9)},
+        3: {(4, 6), (4, 10)},
+    }),
+    "testsolve_example_bnb": (ExampleBnBSolver, (0,), True, EXAMPLE, {
+        0: {(8, 5), (12, 15)},
+        1: {(5, 20), (6, 26), (14, 18), (16, 18), (27, 13)},
+        2: {(8, 18), (17, 0), (18, 2)},
+        3: {(1, 0), (2, 16), (10, 25)},
+    }),
+}
+
+
+@pytest.mark.parametrize("name", sorted(SOLVE_CASES))
+def test_solve_solution_set_matches_baseline(name):
+    problem, solver, x0, kwargs, expected = SOLVE_CASES[name]
+    args = dict(budget=1000, seed=(12345,) * 6, simpar=1, crn=False)
+    args.update(kwargs)
+    res, _ = solve(problem, solver, x0, **args)
+    assert res == expected
+
+
+@pytest.mark.parametrize("name", sorted(TESTSOLVE_CASES))
+def test_testsolve_solution_sets_match_baseline(name):
+    solver, x0, ranx0, kwargs, expected = TESTSOLVE_CASES[name]
+    res, _ = testsolve(
+        TPATester, solver, x0,
+        budget=1000, seed=(12345,) * 6, isp=4, proc=1, crn=False, ranx0=ranx0, **kwargs,
+    )
+    actual = {
+        path: res[path]['itersoln'][max(res[path]['itersoln'])]
+        for path in res
+    }
+    assert actual == expected

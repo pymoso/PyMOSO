@@ -451,6 +451,18 @@ moved, and two of its five points changed with its end seed
 unchanged: the second fix in a row for that case, and the fourth
 since the relaxation fix (only finding 3's moved it).
 
+**What was done about it** (2026-10-24). Every golden case now has
+its solution set goldened as well, in `tests/test_solution_sensitivity.py`,
+through the library call that is the case's computation. Seen failing
+by reverting one fix at a time on the tree that has all of them:
+reverting finding 5's return fails no end seed and fails two solution
+goldens (`testsolve_tpa`'s, as before, and `rperle_tpa_seed2`'s, new);
+reverting finding 4's rounding fails eight end seeds and eight solution
+goldens, `rperle_tpa_crn`'s among the latter only; reverting finding
+3's placement fails two end seeds and three solution goldens. The end
+seeds stay: they are what sees a change in consumption that leaves the
+answers alone.
+
 ## An eighth instance: a draw count that never looked where the draws landed
 
 Found in Phase 7, after the audit's finding 8, tracing what

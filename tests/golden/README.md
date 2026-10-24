@@ -7,6 +7,13 @@ asserts the reported ending seed matches a hardcoded value. It is a pure
 regression check on the RNG stream's final position -- it does not (by
 itself) say anything about solution quality.
 
+Nor about which solution a run returned: an unchanged end seed has
+repeatedly sat beside a changed solution (`docs/end-seed-scope.md`,
+the seventh instance). Since 2026-10-24 every case here also has its
+solution set goldened, in `tests/test_solution_sensitivity.py`. A fix
+that moves solutions regenerates those too, in the same goldens
+commit, with their before and after recorded here.
+
 ## This baseline is captured against github.com/pymoso/PyMOSO, not the earlier fork
 
 Earlier baselines (see "Historical: PyPI 1.0.4" below) were captured
