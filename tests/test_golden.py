@@ -102,7 +102,7 @@ CASES = {
     ),
     "rspline_simpleso": (
         ["pymoso", "solve", "--budget=1000", "ProbSimpleSO", "RSPLINE", "40"],
-        (2327071160, 589288757, 3791179983, 1866895284, 2094692759, 3256882931),
+        (1637142171, 3902145111, 18424598, 4071908608, 2396963664, 4071290962),
     ),
     # testsolve_tpa/testsolve_mocompass/testsolve_mopbnb used to be
     # bit-identical -- the testsolve()-shaped analog of the mocompass_tpa/

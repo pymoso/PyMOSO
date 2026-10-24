@@ -91,7 +91,29 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (the tie-break fix)
+### Current values (the search-limit fix)
+
+**Capture conditions:** twice on each of `.venv-baseline` and
+`.venv-dev`, identical. "Before" is the tie-break fix's values, below.
+
+**Why it moved, deliberately.** The search limit b was 0 in one
+dimension, in every iteration, and is now ceil(8 x 1.2^nu) there
+(`docs/algorithm-audit.md`, finding 9; `tests/test_search_limit.py`).
+Only `rspline_simpleso` is one-dimensional; every other case is two-
+dimensional, where b is unchanged, and did not move.
+`tests/test_solution_sensitivity.py` has no one-dimensional case and
+did not move either.
+
+| Case | Iterations before / after | Simcalls before / after | Solution before / after | End seed |
+|---|---|---|---|---|
+| rspline_simpleso | 29 / 25 | 1,023 / 1,076 | `{(0,)}` / `{(0,)}` | moved |
+
+| Case | End seed |
+|---|---|
+| rspline_simpleso | `1637142171, 3902145111, 18424598, 4071908608, 2396963664, 4071290962` |
+| every other case | as in the next section |
+
+### Historical: the tie-break fix, pre the search-limit fix
 
 **Capture conditions:** twice on each of `.venv-baseline` and
 `.venv-dev`, identical. "Before" is the traceback fix's values, below.
