@@ -357,7 +357,7 @@ Henceforth, we present `solve` examples only for solving `MyProblem`.  Since `My
 
 `pymoso solve myproblem.py RMINRLE 97`  
 
-For a single objective problem, PyMOSO implements `R-SPLINE`. We remark that if given a multi-objective problem, `R-SPLINE` will simply minimize the first objective. We do not necessarily prohibit such use, but urge that users take care when using R-SPLINE to minimize one objective of a many-objective problem.  
+For a single objective problem, PyMOSO implements `R-SPLINE`. We remark that if given a multi-objective problem, `R-SPLINE` will simply minimize the first objective. <!-- verified: tests/test_rspline_first_objective.py::test_rspline_minimizes_the_first_objective_of_a_multi_objective_problem --> We do not necessarily prohibit such use, but urge that users take care when using R-SPLINE to minimize one objective of a many-objective problem.  
 
 `pymoso solve myproblem.py RSPLINE 97`  
 

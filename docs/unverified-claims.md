@@ -25,11 +25,6 @@ the documents that record the measurements.
 
 ## Behaviour with no test
 
-- **R-SPLINE minimizes the first objective of a multi-objective
-  problem.** True of the code (`RSPLINE` calls `spline` with its default
-  objective, 0) but untested. A test would solve a two-objective problem
-  with `RSPLINE` and check the solution against the first objective
-  alone.
 - **`RPE` and `RSPLINE` under `--crn`.** The README's claim that the
   built-in solvers other than the two example solvers support common
   random numbers is backed for `RPERLE` (a golden) and `RMINRLE` (the

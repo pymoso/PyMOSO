@@ -379,7 +379,10 @@ for simulations; nobody has decided it.
     effectively discarded (finding 3).
   - R-SPLINE on a multi-objective problem prints a warning to stdout
     and optimizes the first objective (`rspline.py:26-28`). It says
-    so, but with `print`, not `warnings`.
+    so, but with `print`, not `warnings`. **Removed since
+    (2026-10-21), by decision:** the behaviour is documented in the
+    README, so R-SPLINE runs silently, and a test now checks the
+    README's claim (`tests/test_rspline_first_objective.py`).
   - `remove_nlwep`'s `upsample` of neighbours drops infeasible
     neighbours. That one is correct: they are not in X.
 - **`ne`'s strict `<` against the MATLAB's `+ 0.00005 <`: accurate.**

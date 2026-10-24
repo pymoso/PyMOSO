@@ -241,6 +241,9 @@ about 6× faster. Results are identical in every case.
   calls were gone; these two were missed). They do not check the
   number of objectives: on one objective the error the algorithm meets
   now reaches the caller, and on three or more they run, as before.
+- **R-SPLINE printed a warning to standard output** from library code
+  when given a multi-objective problem. It now runs silently: that it
+  minimizes the first objective is documented, and now tested.
 - **`testsolve --proc` hung on Python 3.14** with a problem or tester
   from a file, as 1.1.0 documented (`KNOWN_ISSUES.md` issue 7). A
   sample path now travels to a worker as data.
