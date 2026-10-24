@@ -109,13 +109,18 @@ CASES = {
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RMINRLE", "40", "40"],
         (4141303608, 3438113027, 28307458, 3941246114, 1564520191, 4162565512),
     ),
-    # rpe_tpa coincides with rperle_tpa again (since finding 3's fix):
-    # the same solution, simulation calls and end seed, so R-PERLE's RLE,
-    # all that separates the two, changed nothing in this run (inferred
-    # from the identical results, not traced). From the tie-break fix
-    # until then they differed. The end seed is one past the largest
-    # coordinate a run touched, which the iteration alone does not fix
-    # (it includes the largest point code and its replications).
+    # rpe_tpa has rperle_tpa's end seed again (since finding 3's fix),
+    # and that is all the match says. R-PERLE runs RLE after PE and R-PE
+    # does not; traced on the current code, RLE finds no non-conforming
+    # neighbour in any of the run's 15 iterations and returns PE's set
+    # unchanged, and it costs 6 simulation calls in iteration 4 (1,145
+    # against 1,139), so the two returned the same solution by different
+    # paths. On 11 other seeds RLE changed PE's set in 0-4 of 12-15
+    # iterations, 4-6 of 6-8 with --crn. After finding 5's fix, before
+    # finding 4's, the two shared this end seed with different solutions.
+    # The end seed is one past the largest coordinate a run touched,
+    # which the iteration alone does not fix (it includes the largest
+    # point code and its replications).
     "rpe_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RPE", "40", "40"],
         (2517142237, 665811671, 3380533723, 2206904786, 2365409261, 2739352961),

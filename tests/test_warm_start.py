@@ -110,7 +110,10 @@ def test_a_whole_run_with_random_feasibility_raises_it(solver, x0):
     R-SPLINE started from (8, 20) until SPLI rounded to the nearest
     integer (docs/algorithm-audit.md, finding 4), after which that run
     meets no refused warm start; from (8, 15) it does, in iteration 23.
-    (8, 15) was not run on the code before issue 19's fix."""
+    On the code before issue 19's fix (920946c) (8, 15) failed with
+    "x0=(5, 9) is infeasible", and (8, 20) there with the "(4, 9)"
+    above. On the current code with _check_warm_start disabled it fails
+    with "x0=(3, 15) is infeasible"."""
     with pytest.raises(WarmStartInfeasible) as info:
         solve(RandomEdgeBi, solver, x0, budget=3000, seed=SEED, crn=False)
     e = info.value

@@ -175,8 +175,8 @@ fallback has no counterpart, because the set can never be empty.
 `a1new = lweps or mnumin`, and the traceback starts from Min's output
 with SPLINE's trajectories (the listing's 𝒯 ∪ Â⁰), which the code
 reached through `a1new` only while `a1new` was Min's output. The last
-step is unchanged, by decision: the listing adds {x0} there, and x0 is
-in Âʷ or dominated by a point of it. `tests/test_pe_lwep_filter.py`
+step, where the listing adds {x0}, is unchanged, by decision.
+`tests/test_pe_lwep_filter.py`
 (seen failing: the filter's set and the placement, 4 of 6; the
 traceback start, 8 of 8 with only that line reverted). The case for
 the fix is correctness, not cost: the filter still costs simulations,
