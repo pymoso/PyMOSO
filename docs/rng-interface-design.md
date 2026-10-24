@@ -990,6 +990,24 @@ for endseed reporting (§8 covers what that becomes). `RASolver`/
 `RLESolver` subclasses — including any third-party ones — need zero
 changes; this is entirely internal to `Oracle`.
 
+**Correction (Phase 7, 2026-10-21): Philox's counter walked the wrong
+way.** `stream_at` packs `offset` into the counter most significant
+word first, and every reserve in this section assumes drawing walks
+forward from there one position at a time. `Philox4x32Stream` stepped
+word 0 first, so a stream's fifth draw came from offset + 2**96: the
+top of the point code without CRN, replication r + 256 with it.
+Measured on a 9-D oracle without CRN: (0,0,0,0,0,0,2,0,0)'s first four
+draws were the origin's draws 5-8, in the same iteration. The conformance
+suite checked where a stream starts, never where its later draws land,
+and the replication-draw check counted blocks without seeing where they
+were. Fixed by stepping word 3 first; the counter-space arithmetic, with
+the capacity of each field, is in the comment above `OFFSET_CAPACITY`
+in `philox4x32.py`, and `tests/test_philox_counter_order.py` checks the
+walk in counter space and on real oracles with and without CRN (seen
+failing first, 36 of 36). Every Philox stream's first four draws are
+unchanged; everything after them moves. Found by tracing what
+`rng.advance()` means under each generator.
+
 ### 4.1 The `gbar`/`sehat` cache is part of the specification, not an optimization — and the `visit` extension point
 
 `hit()` has exactly one caller in this codebase: `RASolver.estimate()`

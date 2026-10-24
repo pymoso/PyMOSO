@@ -182,6 +182,41 @@ def validate_seed(tokens):
 # stream_at calls, exactly as before this step.
 OFFSET_CAPACITY = 1 << 118
 
+# Counter-space arithmetic (Phase 7, written out when the counter order
+# was fixed; tests/test_philox_counter_order.py). The counter is the
+# 128-bit integer stream_at packs from `offset`, most significant word
+# first; the key is `stream`. A stream at offset o draws block k (words
+# 4k+1..4k+4) from counter o + k, and never changes its key. So each
+# coordinate owns the positions [o, o + reserve), and what keeps a
+# stream inside them is a count of blocks drawn (raw_consumed), checked
+# against that reserve:
+#
+#   coordinate             o (low to high bits)              reserve, blocks   checked by
+#   without CRN            reserve r | repl 30 | visit 4 |    2**r              ReplicationDrawOverflow
+#                          point 72-(r-12); r = 12 (16,384               (executor, drawn > stride)
+#                          draws) unless replication_draws
+#                          moves bits from the point code,
+#                          up to r = 38 (2**40 draws)
+#   CRN                    replication * 2**88               2**88             ReplicationDrawOverflow
+#   sync=                  the same, one key per sync value  2**88             ReplicationDrawOverflow
+#   a role (solver, x0)    0, in the role's own key          2**118            RoleDrawOverflow
+#                                                                              (layout.check_role_draws)
+#
+# Block o + k stays below the next coordinate's start for every k the
+# check allows: without CRN, o + 2**r - 1 has reserve bits all ones and
+# the same replication, visit and point fields as o; with CRN,
+# (r + 1) * 2**88 is replication r + 1's start. Every o is below 2**118
+# and every allowed k at most 2**118, so o + k < 2**119 and the counter
+# (2**128) never wraps; its top ten bits are always 0. The checks run
+# after g() returns, so an overrunning replication has drawn its extra
+# blocks before it raises, but nothing it drew is used.
+#
+# Until Phase 7 the stream stepped word 0, the most significant, first:
+# block k came from o + k * 2**96, which is the top of the point code
+# (bits 96-117) without CRN and replication r + 256k with it. Only g()s
+# drawing more than four values per replication reached it (of the
+# built-in problems, BSProb). Philox was not selectable in 1.1.0.
+
 POINT_BITS = 72
 VISIT_BITS = 4
 REPL_COUNT_BITS = 30
@@ -482,8 +517,10 @@ class Philox4x32Stream:
     guarantees (§3.1).
 
     Draws are produced 4 words (one block) at a time, buffered, and
-    consumed low-word-first; the counter is incremented by 1 (mod
-    2**128) whenever the buffer is exhausted and refilled. A single
+    consumed in the block's word order (index 0 first); the counter,
+    read as stream_at packs it (most significant word first), is
+    incremented by 1 (mod 2**128) whenever the buffer is exhausted and
+    refilled, so k blocks drawn from offset o are positions o..o+k-1. A single
     stream's own counter therefore only ever moves within the 2**128
     block range stream_at handed it -- staying inside the same key for
     its entire lifetime, exactly as Random123's own key/counter roles
@@ -523,7 +560,15 @@ class Philox4x32Stream:
         self._refill_count = 0
 
     def _increment_counter(self):
-        for i in range(4):
+        # The counter is the 128-bit integer stream_at packed, most
+        # significant word first, so the step is +1 on word 3 with the
+        # carry going towards word 0: drawing walks offset, offset + 1,
+        # ... through the reserve the layout gave this coordinate.
+        # Until Phase 7 this stepped word 0 first, so after four draws
+        # a stream became the one at offset + 2**96, another point's
+        # (tests/test_philox_counter_order.py; the counter-space
+        # arithmetic is in the comment above OFFSET_CAPACITY).
+        for i in (3, 2, 1, 0):
             self._counter[i] = (self._counter[i] + 1) & _MASK32
             if self._counter[i] != 0:
                 break

@@ -139,6 +139,18 @@ the screen and typed by hand, then checked with
 `docs/databricks/dbx_kit.py verify`. The three blocks are reproduced
 at the end of this section and kept in `docs/databricks/results/`.
 
+**Philox's counter order was fixed after these runs (Phase 7,
+2026-10-21; `docs/rng-interface-design.md`, the correction at the end
+of §3.9).** The runs establish bit-identity across hosts, which holds
+whatever positions a stream draws from, so they stand. Checked locally
+rather than assumed: with the old counter order, today's code
+reproduces the `core` value the blocks were verified against
+(707b5a73); with the fix it changes (e4811c83), because `core` draws
+440 values in a row from Philox streams. `libm` does not change. The
+`I philox` probe solves a problem drawing two values per replication,
+so its replications were placed correctly; its value had already gone
+stale with Phase 7's R-PERLE fixes.
+
 | | Run 1 | Run 2 | Run 3 |
 |---|---|---|---|
 | Runtime | DBR 17.3, Spark 4.0.0 | DBR 16.4, Spark 3.5.2 | DBR 17.3, Spark 4.0.0 |
