@@ -1022,7 +1022,9 @@ class RASolver(MOSOSolver):
     The sample limit
         """
         mmul = 1.2
-        m_init = self.bconst*(self.dim - 1)
+        # (dim - 1) was 0 in one dimension; b must be positive
+        # (docs/algorithm-audit.md, finding 9)
+        m_init = self.bconst*max(self.dim - 1, 1)
         return ceil(m_init*pow(mmul, nu))
 
     def remove_nlwep(self, mcS):

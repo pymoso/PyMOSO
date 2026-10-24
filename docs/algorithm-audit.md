@@ -53,7 +53,7 @@ intended).
 | 6 | Under an epsilon constraint, PLI's gradient uses vertices that violate it | R-PERLE, R-PE | unknown | read |
 | 7 | PE breaks ties between objectives deterministically, not randomly | R-PERLE, R-PE | defect; fixed | measured |
 | 8 | `get_biparetos` drops exactly tied points | R-PERLE, R-PE | defect; fixed | measured |
-| 9 | The search limit has a factor (dim - 1) and is 0 in one dimension | all four | defect at d = 1; unknown otherwise | read |
+| 9 | The search limit has a factor (dim - 1) and is 0 in one dimension | all four | defect at d = 1, fixed; unknown above d = 2 | read; the effect measured on one golden |
 | 10 | R-PERLE and R-PE run on three or more objectives without a word | R-PERLE, R-PE | the `sys.exit()` fixed; the objective count left to the user, by decision | measured |
 | 11 | Min adds SPLINE's trajectories to its output | R-PERLE, R-PE, R-MinRLE | unknown | read |
 | 12 | R-MinRLE may start a minimizer's search from x0 | R-MinRLE | unknown | read |
@@ -253,6 +253,14 @@ and SPLI's limits are 0 too. The factor has been there since the
 first commit (`a024c09`, 2018-05-08, as `8*(self.dim - 1)`); no reason
 is recorded anywhere I found.
 
+**Fixed at d = 1 (2026-10-24); d > 2 left open, by decision.** `calc_b`
+uses max(dim - 1, 1), so b is the papers' value at d = 1 and d = 2.
+`tests/test_search_limit.py` (seen failing: 11 calc_b cases at d = 1,
+and no line-search step in a 1-D run). The golden `rspline_simpleso`,
+`--budget=1000`: 29 iterations and 1,023 simulation calls with b = 0,
+25 and 1,076 with b = 10, 12, 14, 17, ...; the solution `{(0,)}` both
+times. Quality is unmeasured; the re-sweep covers it.
+
 ### 10. R-PERLE and R-PE on three or more objectives
 
 **Defect. Measured.** PE is defined for d = 2. The "not bi-objective"
@@ -398,7 +406,8 @@ for simulations; nobody has decided it.
   calls: accurate, and the classification changes.** Both papers
   define b_k as a limit on oracle calls, so PyMOSO follows the papers
   and the MATLAB departs from them. What does depart from the papers
-  is the (dim - 1) factor and b = 0 at d = 1 (finding 9).
+  is the (dim - 1) factor and b = 0 at d = 1 (finding 9; fixed at
+  d = 1).
 - **No counterpart to the revert-to-start guard: accurate, and
   inferred unnecessary.** The MATLAB needs it because its line search
   accepts points up to 0.00005 worse (finding 17), so SPLINE can end

@@ -110,7 +110,9 @@ too; numerical results changed there.
   R-PERLE, R-PE and R-MinRLE,** whose relaxation was corrected (above);
   R-PERLE's and R-PE's traceback and tie-breaking were corrected too
   (under Fixed).
-  R-SPLINE's results are unchanged.
+  On a one-dimensional problem every RA solver's results change, its
+  search limit corrected (under Fixed); otherwise R-SPLINE's results
+  are unchanged.
 - **`testsolve()` does not.** In 1.1.0, the first sample path's oracle
   stream and the last path's solver stream started from the same seed
   (`KNOWN_ISSUES.md` issue 10). Every role of every path now has a
@@ -238,6 +240,12 @@ about 6× faster. Results are identical in every case.
   breaks such ties randomly, and so does PE now, with a draw from the
   solver's own stream taken only on a tie. The counts tie in about half
   of PE's calls on the test problems.
+- **The search limit was 0 on a one-dimensional problem,** in every
+  release. It is bconst x (dim - 1) x 1.2^nu, so in one dimension
+  SPLINE stopped after one pass in every iteration and SPLI never took
+  a line-search step. Both papers require it to be positive. It now
+  uses max(dim - 1, 1), the papers' value in one and two dimensions;
+  above two it is unchanged. Results change in one dimension only.
 - **`get_biparetos` kept only one of a group of exactly tied points;**
   two equal vectors do not dominate each other, so it now keeps all of
   them, as `get_nondom` always did. R-PE's returned set and PE's
