@@ -253,6 +253,11 @@ about 6× faster. Results are identical in every case.
   and then did not use the result. It now filters Min's output. The
   filter's simulations, which bought nothing before, now decide where
   the epsilons go. Results of the two solvers change.
+- **SPLI's line search rounded each point down,** where the paper takes
+  the nearest integer point; it now rounds to the nearest, halves up,
+  as the MATLAB R-SPLINE does. Results of every RA solver change on
+  problems of two or more dimensions; in one dimension the line search
+  only reaches whole numbers and nothing changes.
 - **SPLI went on to a new gradient after an infeasible line-search
   point,** whenever the line search had taken three steps or more; the
   paper's SPLI returns there. It now returns. Every RA solver's

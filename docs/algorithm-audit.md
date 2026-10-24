@@ -48,7 +48,7 @@ intended).
 | 1 | PE's traceback reads the epsilon intervals of the wrong objective | R-PERLE, R-PE | defect; fixed | measured |
 | 2 | The relaxation is se / m^β; the preprint's is se · m^(1/2 - β) | R-PERLE, R-PE, R-MinRLE | defect (decided); fixed | read |
 | 3 | PE's LWEP filter is applied to the wrong set and then undone | R-PERLE, R-PE | defect; fixed | measured |
-| 4 | SPLI's line search floors instead of rounding to nearest | all four | defect | read |
+| 4 | SPLI's line search floors instead of rounding to nearest | all four | defect; fixed | read; occurrences counted |
 | 5 | SPLI does not stop at an infeasible line-search point | all four | defect; fixed | read |
 | 6 | Under an epsilon constraint, PLI's gradient uses vertices that violate it | R-PERLE, R-PE | unknown | read |
 | 7 | PE breaks ties between objectives deterministically, not randomly | R-PERLE, R-PE | defect; fixed | measured |
@@ -198,6 +198,19 @@ half (`chnbase.py:778`), so every line-search point is biased by up to
 one unit towards negative infinity in each coordinate. SPLI is a
 heuristic as far as convergence goes (§4.2's R-SPLINE(0) remark), so
 this changes finite-time behaviour only.
+
+**Fixed (2026-10-24):** `floor(x + 0.5)`, the MATLAB's rule; Python's
+`round()` would take halves to even. `tests/test_spli_nearest.py`
+(seen failing, 3 of 3; with `round()` in place of the fix the half case
+fails). Floor and nearest differed at 675 of 886 line-search points on
+the audit's runs and five ProbSimpleSO runs, counted before findings 9,
+14, 3 and 5 were fixed. Every golden R-PERLE, R-PE and
+R-MinRLE case moved; R-SPLINE's, one-dimensional, did not, because a
+step there is a whole number. `rperle_tpa_crn`'s solution moved with
+its end seed unchanged (`tests/golden/README.md`).
+`tests/test_warm_start.py`'s R-SPLINE whole run no longer met a
+refused warm start from (8, 20) and starts from (8, 15). Quality is
+unmeasured; the re-sweep covers it.
 
 ### 5. SPLI does not stop at an infeasible line-search point
 

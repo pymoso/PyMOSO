@@ -103,10 +103,14 @@ def test_several_points_are_all_recorded_and_the_first_named():
     assert str(e).startswith('RMINRLE: the point (-2, 5) (and 2 others), carried into iteration 4')
 
 
-@pytest.mark.parametrize("solver, x0", [(RSPLINE, (8, 20)), (RMINRLE, (6, 20)), (RPE, (3, 20)), (RPERLE, (3, 20))])
+@pytest.mark.parametrize("solver, x0", [(RSPLINE, (8, 15)), (RMINRLE, (6, 20)), (RPE, (3, 20)), (RPERLE, (3, 20))])
 def test_a_whole_run_with_random_feasibility_raises_it(solver, x0):
     """The runs that failed with "x0=(4, 9) is infeasible" and with a
-    KeyError for (2, 17), and two whose warm start pe used to filter."""
+    KeyError for (2, 17), and two whose warm start pe used to filter.
+    R-SPLINE started from (8, 20) until SPLI rounded to the nearest
+    integer (docs/algorithm-audit.md, finding 4), after which that run
+    meets no refused warm start; from (8, 15) it does, in iteration 23.
+    (8, 15) was not run on the code before issue 19's fix."""
     with pytest.raises(WarmStartInfeasible) as info:
         solve(RandomEdgeBi, solver, x0, budget=3000, seed=SEED, crn=False)
     e = info.value

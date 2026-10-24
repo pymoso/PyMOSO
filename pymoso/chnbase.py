@@ -797,7 +797,9 @@ class RASolver(MOSOSolver):
             while not should_stop:
                 i += 1
                 s = ss*pow(c, i - 1)
-                x1 = tuple(int(floor(x0[j] - s*gamma[j]/enorm(gamma))) for j in range(q))
+                # the nearest integer, halves up, as RSPLINE.m's floor(x + 0.5)
+                # (Algorithm 4, step 12; docs/algorithm-audit.md, finding 4)
+                x1 = tuple(int(floor(x0[j] - s*gamma[j]/enorm(gamma) + 0.5)) for j in range(q))
                 isfeas, fx1, sex1 = self.estimate(x1, e, kcon)
                 if not isfeas:
                     # Algorithm 4, step 13: an infeasible line-search point
