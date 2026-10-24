@@ -63,8 +63,11 @@ from pymoso.solvers.rperle import RPERLE
 #
 # And a sixth time for PE's LWEP filter (finding 3): epsilons are
 # placed from the LWEPs among Min's output. Every path moved.
+#
+# And a seventh time for SPLI's return at an infeasible line-search point
+# (finding 5). Path 0 moved; the end seed below did not.
 EXPECTED_SOLUTIONS = {
-    0: {(43, 0), (43, 1), (44, 1)},
+    0: {(39, 0), (39, 1)},
     1: {(16, 8)},
     2: {(11, 4), (11, 5), (14, 2)},
     3: {(27, 19)},
@@ -101,5 +104,6 @@ def test_testsolve_ranx0_solution_sets_match_baseline():
     #
     # And after the relaxation fix and the tie-break fix, which moved
     # both again, together, and after the SPLINE stop fix and the
-    # LWEP filter fix.
+    # LWEP filter fix. Not after the SPLI fix (finding 5), which moved
+    # path 0's solution.
     assert end_seed == (3152774270, 410798641, 30954636, 1162836765, 3775738568, 4231190908)

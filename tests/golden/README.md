@@ -91,7 +91,27 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values (PE's LWEP filter)
+### Current values: unchanged by SPLI's return at an infeasible point
+
+**No end seed moved; five solutions did.** SPLI now returns at an
+infeasible line-search point (`docs/algorithm-audit.md`, finding 5;
+`tests/test_spli_infeasible.py`). Every case was run before and after,
+twice on each of `.venv-baseline` and `.venv-dev`, identical. Only
+`tests/test_solution_sensitivity.py` failed, and it is the one file
+regenerated.
+
+| Case | Simcalls before / after | Solution before | Solution after | End seed |
+|---|---|---|---|---|
+| rperle_tpa (and simpar2, solve() library call) | 1,028 / 1,060 | `{(8,21)}` | `{(11,20)}` | unchanged |
+| rpe_tpa | 1,028 / 1,036 | `{(8,21)}` | `{(11,21)}` | unchanged |
+| rperle_tpa_crn | 1,085 / 1,080 | `{(0,7), (0,8), (10,7)}` | `{(0,7), (0,8), (10,7), (20,8), (21,8)}` | unchanged |
+| testsolve_tpa | -- | path 0 `{(43,0), (43,1), (44,1)}` | path 0 `{(39,0), (39,1)}` | unchanged |
+| testsolve() library call | -- | path 3 `{(19,13), (21,11)}` | path 3 `{(14,14), (15,14)}` | unchanged |
+
+Every other case returned what it did. The end seeds are those of the
+next section (`docs/end-seed-scope.md`, the seventh instance).
+
+### Values set by PE's LWEP filter
 
 **Capture conditions:** twice on each of `.venv-baseline` and
 `.venv-dev`, identical. "Before" is the SPLINE stop fix's values,

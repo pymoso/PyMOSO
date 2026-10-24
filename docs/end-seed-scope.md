@@ -436,6 +436,15 @@ twin and the `solve()` library call, which are the same computation.
 Every other R-PERLE and R-PE case moved, as did
 `tests/test_solution_sensitivity.py`.
 
+**And then none at all** (SPLI's return at an infeasible point,
+finding 5). Five solutions moved: `rperle_tpa`'s, `rpe_tpa`'s,
+`rperle_tpa_crn`'s, and one path each of `testsolve_tpa` and the
+`testsolve()` library case. All fourteen end seeds stayed as they were.
+The one test that failed was `tests/test_solution_sensitivity.py`, and
+it covers only `testsolve_tpa`'s computation: had that path not moved,
+a change to every RA solver would have passed the suite with nothing
+regenerated.
+
 ## An eighth instance: a draw count that never looked where the draws landed
 
 Found in Phase 7, after the audit's finding 8, tracing what

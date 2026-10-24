@@ -87,6 +87,11 @@ from pymoso.testers.tpatester import TPATester
 # and rperle_tpa, rperle_tpa_simpar2 and the solve() library case kept
 # their end seed, a third time for this blind spot (tests/golden/
 # README.md; docs/end-seed-scope.md, the seventh instance).
+#
+# No capture for SPLI's return at an infeasible point (finding 5): five
+# solutions moved, in rperle_tpa, rpe_tpa, rperle_tpa_crn and one path
+# each of the two testsolve cases, and no end seed did. Only
+# tests/test_solution_sensitivity.py failed (tests/golden/README.md).
 
 SEED_RE = re.compile(r"^--\s+(?:next|ending) seed:\s+(.+)$", re.M)
 
