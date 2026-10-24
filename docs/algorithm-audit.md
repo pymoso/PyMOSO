@@ -58,7 +58,7 @@ intended).
 | 11 | Min adds SPLINE's trajectories to its output | R-PERLE, R-PE, R-MinRLE | unknown | read |
 | 12 | R-MinRLE may start a minimizer's search from x0 | R-MinRLE | unknown | read |
 | 13 | PE's traceback step when the standard error is 0 is an absolute 1e-6 | R-PERLE, R-PE | implementation necessity, with a hazard | read; the float limit computed |
-| 14 | SPLINE stops at `n >= b`, not `n > b` | all four | defect (minor) | read |
+| 14 | SPLINE stops at `n >= b`, not `n > b` | all four | defect (minor); fixed | read; occurrences counted |
 | 15 | SPLI charges a full simplex whatever it cost | all four | unknown | read |
 | 16 | The listings say "with CRN"; PyMOSO defaults to no CRN | all four | deliberate, recorded | read |
 | 17 | The MATLAB's tolerances and caps are in neither the paper nor PyMOSO | R-SPLINE | unknown | read |
@@ -316,6 +316,15 @@ deterministic constrained objective of that size loops forever
 the preprint's Algorithm 4 Step 8). The code stops at `bp >= b`
 (`chnbase.py:523`). With b = 0 (finding 9) the two agree on stopping
 after one pass anyway.
+
+**Fixed (2026-10-24):** `bp > b`. The calls land exactly on b in 5 of
+1,085 SPLINE calls (the audit's runs and five ProbSimpleSO runs,
+counted before finding 9's fix). `tests/test_spline_stop.py` (seen
+failing: the two cases that land on b). Of the goldens, `rminrle_tpa`
+and two of `testsolve_tpa`'s four paths changed; R-PERLE's, R-PE's and
+R-SPLINE's runs and the `testsolve()` library case did not
+(`tests/golden/README.md`). Quality is unmeasured; the re-sweep covers
+it.
 
 ### 15. SPLI charges a full simplex whatever it cost
 

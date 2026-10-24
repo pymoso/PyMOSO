@@ -540,7 +540,9 @@ class RASolver(MOSOSolver):
             xn, fxn, sexn, npp = self.ne(xs, fxs, sexs, nobj, e, kcon)
             mcT |= {xn}
             bp += np + npp
-            if bp >= b or fxn[nobj] == fxs[nobj]:
+            # stop once the calls exceed b, not reach it (docs/algorithm-
+            # audit.md, finding 14)
+            if bp > b or fxn[nobj] == fxs[nobj]:
                 should_stop = True
         return mcT, xn, fxn, sexn
 

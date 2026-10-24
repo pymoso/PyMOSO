@@ -246,6 +246,11 @@ about 6× faster. Results are identical in every case.
   a line-search step. Both papers require it to be positive. It now
   uses max(dim - 1, 1), the papers' value in one and two dimensions;
   above two it is unchanged. Results change in one dimension only.
+- **SPLINE stopped when its simulation calls reached the search limit,**
+  where both papers stop when they exceed it. It now takes one more
+  pass in that case. In the runs measured it happened in 5 of 1,085
+  SPLINE calls; R-MinRLE's results and some `testsolve()` paths
+  change.
 - **`get_biparetos` kept only one of a group of exactly tied points;**
   two equal vectors do not dominate each other, so it now keeps all of
   them, as `get_nondom` always did. R-PE's returned set and PE's
