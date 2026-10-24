@@ -92,17 +92,22 @@ from pymoso.testers.tpatester import TPATester
 # solutions moved, in rperle_tpa, rpe_tpa, rperle_tpa_crn and one path
 # each of the two testsolve cases, and no end seed did. Only
 # tests/test_solution_sensitivity.py failed (tests/golden/README.md).
+#
+# A thirteenth capture, for SPLI's nearest-integer line search (finding
+# 4): every R-PERLE, R-PE and R-MinRLE case moved but rperle_tpa_crn,
+# whose solution moved with its end seed unchanged; rspline_simpleso is
+# one-dimensional, where floor and nearest agree on every step.
 
 SEED_RE = re.compile(r"^--\s+(?:next|ending) seed:\s+(.+)$", re.M)
 
 CASES = {
     "rperle_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RPERLE", "40", "40"],
-        (2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658),
+        (2517142237, 665811671, 3380533723, 2206904786, 2365409261, 2739352961),
     ),
     "rminrle_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RMINRLE", "40", "40"],
-        (934352227, 2566036280, 3952654006, 4077942181, 2316375006, 212199263),
+        (4141303608, 3438113027, 28307458, 3941246114, 1564520191, 4162565512),
     ),
     # rpe_tpa coincides with rperle_tpa again (since finding 3's fix):
     # the same solution, simulation calls and end seed, so R-PERLE's RLE,
@@ -113,7 +118,7 @@ CASES = {
     # (it includes the largest point code and its replications).
     "rpe_tpa": (
         ["pymoso", "solve", "--budget=1000", "ProbTPA", "RPE", "40", "40"],
-        (2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658),
+        (2517142237, 665811671, 3380533723, 2206904786, 2365409261, 2739352961),
     ),
     "rspline_simpleso": (
         ["pymoso", "solve", "--budget=1000", "ProbSimpleSO", "RSPLINE", "40"],
@@ -128,7 +133,7 @@ CASES = {
     "testsolve_tpa": (
         ["pymoso", "testsolve", "--budget=1000", "--isp=4", "--metric",
          "TPATester", "RPERLE"],
-        (3152774270, 410798641, 30954636, 1162836765, 3775738568, 4231190908),
+        (4244682198, 3625174356, 12273143, 1664344229, 2348137384, 1201660776),
     ),
     # rperle_tpa_crn moved too, contrary to this golden's own long-
     # standing expectation of staying fixed while the crnflag=False
@@ -145,11 +150,11 @@ CASES = {
     "rperle_tpa_seed2": (
         ["pymoso", "solve", "--budget=1000", "--seed", "1,2,3,4,5,6",
          "ProbTPA", "RPERLE", "40", "40"],
-        (3017716348, 1164624147, 1959750905, 3905490566, 3460109705, 2293446127),
+        (2610745870, 2569889759, 3472340748, 590630483, 3721417536, 1652950390),
     ),
     "rperle_tpa_simpar2": (
         ["pymoso", "solve", "--budget=1000", "--simpar=2", "ProbTPA", "RPERLE", "40", "40"],
-        (2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658),
+        (2517142237, 665811671, 3380533723, 2206904786, 2365409261, 2739352961),
     ),
     # mocompass_tpa and mopbnb_tpa now diverge -- the fix step 8 exists
     # for: previously identical despite verified-different internal
@@ -206,7 +211,7 @@ def test_library_solve_end_seed_matches_baseline():
         ProbTPA, RPERLE, (40, 40),
         budget=1000, seed=(12345,) * 6, simpar=1, crn=False,
     )
-    assert end_seed == (2431818911, 3719736500, 2728328142, 1004091251, 3855901505, 2641704658)
+    assert end_seed == (2517142237, 665811671, 3380533723, 2206904786, 2365409261, 2739352961)
 
 
 def test_library_testsolve_end_seed_matches_baseline():
@@ -214,4 +219,4 @@ def test_library_testsolve_end_seed_matches_baseline():
         TPATester, RPERLE, (40, 40),
         budget=1000, seed=(12345,) * 6, isp=4, proc=1, crn=False, ranx0=False,
     )
-    assert end_seed == (3821022682, 3698201652, 1914137393, 374897783, 2982944267, 2480987988)
+    assert end_seed == (8469352, 1992542596, 263836292, 1756683918, 1965808740, 924476425)

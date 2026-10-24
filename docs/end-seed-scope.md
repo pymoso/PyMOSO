@@ -445,6 +445,12 @@ it covers only `testsolve_tpa`'s computation: had that path not moved,
 a change to every RA solver would have passed the suite with nothing
 regenerated.
 
+**And `rperle_tpa_crn` once more** (the nearest-integer line search,
+finding 4): every other R-PERLE, R-PE and R-MinRLE case's end seed
+moved, and two of its five points changed with its end seed
+unchanged: the second fix in a row for that case, and the fourth
+since the relaxation fix (only finding 3's moved it).
+
 ## An eighth instance: a draw count that never looked where the draws landed
 
 Found in Phase 7, after the audit's finding 8, tracing what

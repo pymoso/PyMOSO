@@ -91,7 +91,38 @@ what every subsequent regeneration should do.
   baseline to preserve continuity with. See
   `docs/mocompass-mopbnb-known-issues.md` for detail.
 
-### Current values: unchanged by SPLI's return at an infeasible point
+### Current values (SPLI's nearest-integer line search)
+
+**Capture conditions:** twice on each of `.venv-baseline` and
+`.venv-dev`, identical. "Before" is the values after SPLI's return at
+an infeasible point, below.
+
+**Why they moved, deliberately.** SPLI's line search now goes to the
+nearest integer point, halves up, where it floored
+(`docs/algorithm-audit.md`, finding 4; `tests/test_spli_nearest.py`).
+In one dimension every step is a whole number, so `rspline_simpleso`
+did not move; nor did the example solvers.
+
+| Case | Final ν before / after | Simcalls before / after | Solution before | Solution after | End seed |
+|---|---|---|---|---|---|
+| rperle_tpa (and simpar2, solve() library call) | 14 / 15 | 1,060 / 1,145 | `{(11,20)}` | `{(23,38)}` | moved |
+| rpe_tpa | 14 / 15 | 1,036 / 1,139 | `{(11,21)}` | `{(23,38)}` | moved; equal to rperle_tpa's |
+| rminrle_tpa | 16 / 15 | 1,195 / 1,084 | `{(33,40), (34,40)}` | `{(34,40), (34,41), (35,41), (36,41)}` | moved |
+| rperle_tpa_seed2 | 14 / 12 | 1,134 / 1,035 | `{(27,26)}` | `{(6,7), (7,8), (8,7)}` | moved |
+| rperle_tpa_crn | 8 / 8 | 1,080 / 1,075 | `{(0,7), (0,8), (10,7), (20,8), (21,8)}` | `{(0,6), (0,7), (0,8), (10,8), (21,8)}` | **unchanged** |
+| testsolve_tpa | -- | -- | `{(39,0), (39,1)}`, `{(16,8)}`, `{(11,4), (11,5), (14,2)}`, `{(27,19)}` | `{(36,2), (36,3), (37,5)}`, `{(14,6), (15,8)}`, `{(12,4), (12,5)}`, `{(15,12), (16,14)}` | moved |
+| testsolve() library call | 14, 14, 14, 14 / 14, 15, 14, 13 | -- | `{(26,22), (26,23), (29,22)}`, `{(25,23), (29,20)}`, `{(37,40), (37,41), (40,40)}`, `{(14,14), (15,14)}` | `{(27,33)}`, `{(30,36), (32,37)}`, `{(30,38), (31,38), (31,39)}`, `{(7,25), (7,26)}` | moved |
+
+| Case | End seed |
+|---|---|
+| rperle_tpa, rperle_tpa_simpar2, rpe_tpa, solve() library call | `2517142237, 665811671, 3380533723, 2206904786, 2365409261, 2739352961` |
+| rminrle_tpa | `4141303608, 3438113027, 28307458, 3941246114, 1564520191, 4162565512` |
+| rperle_tpa_seed2 | `2610745870, 2569889759, 3472340748, 590630483, 3721417536, 1652950390` |
+| testsolve_tpa | `4244682198, 3625174356, 12273143, 1664344229, 2348137384, 1201660776` |
+| testsolve() library call | `8469352, 1992542596, 263836292, 1756683918, 1965808740, 924476425` |
+| every other case | as in the sections below |
+
+### Historical: unchanged by SPLI's return at an infeasible point
 
 **No end seed moved; five solutions did.** SPLI now returns at an
 infeasible line-search point (`docs/algorithm-audit.md`, finding 5;
