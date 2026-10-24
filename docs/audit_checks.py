@@ -12,8 +12,10 @@ audit is reading; these are the places where reading was not enough.
   over from the last pass of the `for k` loop) and how often that would
   have changed the traceback's lower bound, along the fixed run,
   how often the counts of epsilon values tie, whether the epsilon-
-  placement set ever differs from Min's output, and the simulations
-  spent in `remove_nlwep(aold)`.
+  placement set ever differs from Min's output, how often PE Step 3
+  falls back to Min's output, and the simulations spent in
+  `remove_nlwep` on Min's output (on the previous solution until
+  finding 3 was fixed).
 - `probes`: `get_biparetos` on an exact tie; R-PERLE and R-PE on a
   three-objective and (in a subprocess, since until finding 10 was
   fixed it called sys.exit) a one-objective problem.
@@ -48,13 +50,12 @@ def _audited(counts):
             _check_warm_start(self, aold)
             mnumin = self.get_min(aold)
             before = self.num_calls
-            aold, domset = self.remove_nlwep(aold)
-            counts['simulations in remove_nlwep(aold)'] += self.num_calls - before
-            a0new = mnumin | aold
-            tmp = {x: self.gbar[x] for x in mnumin | a0new}
-            a1new = get_biparetos(tmp) | mnumin
+            lweps, _ = self.remove_nlwep(mnumin)
+            counts['simulations in remove_nlwep(Min output)'] += self.num_calls - before
+            a1new = lweps or mnumin
             counts['pe calls'] += 1
             counts['placement set equals Min output'] += a1new == mnumin
+            counts['Step 3 fallback (no LWEP in Min output)'] += not lweps
             c0 = len(a1new)
             epslst, ck, Lk, J = {}, {}, {}, {}
             HI, LO = 1, 0
@@ -104,7 +105,7 @@ def _audited(counts):
                 mcA = set()
                 mcT = set()
                 while epL < epnew:
-                    stpts = {x: self.gbar[x] for x in a1new | mcT if self.gbar[x][k_con] <= epnew}
+                    stpts = {x: self.gbar[x] for x in mnumin | mcT if self.gbar[x][k_con] <= epnew}
                     tbx0 = min(stpts, key=lambda t: self.gbar[t][k_opt])
                     mcTp, xst, fxst, sexst = self.spline(tbx0, epnew, k_opt, k_con)
                     mcA |= {xst}

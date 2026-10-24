@@ -66,10 +66,11 @@ class RPERLE(RLESolver):
         self.upsample(aold)
         _check_warm_start(self, aold)
         mnumin = self.get_min(aold)
-        aold, domset = self.remove_nlwep(aold)
-        a0new = mnumin | aold
-        tmp = {x: self.gbar[x] for x in mnumin | a0new}
-        a1new = get_biparetos(tmp) | mnumin
+        # PE Steps 2 and 3: epsilons are placed from the LWEPs among Min's
+        # output, or from all of it if it has none (docs/algorithm-
+        # audit.md, finding 3)
+        lweps, _ = self.remove_nlwep(mnumin)
+        a1new = lweps or mnumin
         # print(' ------ iteration ', self.nu, ' -------')
         # for x in a1new:
         #     print(x, self.gbar[x])
@@ -132,7 +133,8 @@ class RPERLE(RLESolver):
                     # print('epL: ', epL)
                     # print('epnew: ', epnew)
                     #print('a1new: ', {x: self.gbar[x][k_con] for x in a1new})
-                    stpts = {x: self.gbar[x] for x in a1new | mcT if self.gbar[x][k_con] <= epnew}
+                    # the traceback starts from Min's output, not the LWEPs
+                    stpts = {x: self.gbar[x] for x in mnumin | mcT if self.gbar[x][k_con] <= epnew}
                     #print('starts: ', stpts)
                     tbx0 = min(stpts, key=lambda t: self.gbar[t][k_opt])
                     fxtb0 = self.gbar[tbx0]

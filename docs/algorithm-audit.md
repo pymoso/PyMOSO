@@ -47,7 +47,7 @@ intended).
 |---|---|---|---|---|
 | 1 | PE's traceback reads the epsilon intervals of the wrong objective | R-PERLE, R-PE | defect; fixed | measured |
 | 2 | The relaxation is se / m^β; the preprint's is se · m^(1/2 - β) | R-PERLE, R-PE, R-MinRLE | defect (decided); fixed | read |
-| 3 | PE's LWEP filter is applied to the wrong set and then undone | R-PERLE, R-PE | defect | measured |
+| 3 | PE's LWEP filter is applied to the wrong set and then undone | R-PERLE, R-PE | defect; fixed | measured |
 | 4 | SPLI's line search floors instead of rounding to nearest | all four | defect | read |
 | 5 | SPLI does not stop at an infeasible line-search point | all four | defect | read |
 | 6 | Under an epsilon constraint, PLI's gradient uses vertices that violate it | R-PERLE, R-PE | unknown | read |
@@ -170,6 +170,23 @@ counted simulations (26%). Some of those neighbour estimates are
 reused later in the same iteration through the cache (by RLE in
 R-PERLE), so the net waste is smaller; not measured. Step 3's
 fallback has no counterpart, because the set can never be empty.
+
+**Fixed (2026-10-24), as the listing:** `lweps = remove_nlwep(mnumin)`,
+`a1new = lweps or mnumin`, and the traceback starts from Min's output
+with SPLINE's trajectories (the listing's 𝒯 ∪ Â⁰), which the code
+reached through `a1new` only while `a1new` was Min's output. The last
+step is unchanged, by decision: the listing adds {x0} there, and x0 is
+in Âʷ or dominated by a point of it. `tests/test_pe_lwep_filter.py`
+(seen failing: the filter's set and the placement, 4 of 6; the
+traceback start, 8 of 8 with only that line reverted). The case for
+the fix is correctness, not cost: the filter still costs simulations,
+now on a set that decides the placement. On the audit's 15 runs,
+before and after (`docs/audit_checks.py`; different search paths, so
+not a saving): 307 and 336 PE calls, 45,300 and 46,291 simulations in
+PE, 12,259 in the filter on the previous solution and 4,069 on Min's
+output. The placement set is a strict subset of Min's output in 45 of
+336 calls, and the fallback fires once. Quality is unmeasured; the
+re-sweep covers it.
 
 ### 4. SPLI's line search floors instead of rounding to nearest
 

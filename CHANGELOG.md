@@ -246,6 +246,13 @@ about 6× faster. Results are identical in every case.
   a line-search step. Both papers require it to be positive. It now
   uses max(dim - 1, 1), the papers' value in one and two dimensions;
   above two it is unchanged. Results change in one dimension only.
+- **R-PERLE's and R-PE's PE placed its epsilon values from every point
+  Min returned,** where the paper places them from the locally
+  efficient ones among those, and from all of them only when there are
+  none. The code filtered the previous iteration's solution instead,
+  and then did not use the result. It now filters Min's output. The
+  filter's simulations, which bought nothing before, now decide where
+  the epsilons go. Results of the two solvers change.
 - **SPLINE stopped when its simulation calls reached the search limit,**
   where both papers stop when they exceed it. It now takes one more
   pass in that case. In the runs measured it happened in 5 of 1,085
