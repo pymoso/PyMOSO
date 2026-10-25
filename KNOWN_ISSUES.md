@@ -786,6 +786,57 @@ purpose and announced, not slipped in. Until then: results are
 reproducible from a seed on one side of the 3.12 boundary, and not
 across it.
 
+**Measured 2026-10-24: how far it reaches, and how close it has come.**
+First seen in a printed output: ExampleBnBSolver's "Taking N
+additional replications" figure differs in its last digits (3.14:
+3516989263297047, 3.10: 3516989263297037). Its own copy of `bsm`
+(`solvers/mopbnb.py`, the same code) returns the same bits on both
+interpreters for the same input. The difference comes from ProbTPA's
+`g()`, whose normal variates differ, so the variances and spacings the
+figure is computed from differ. In the RA golden runs, 3.14 against
+3.10:
+
+| Run | Normal variates differing | Estimates differing | Largest relative difference | Same points, same sample sizes |
+|---|---|---|---|---|
+| rperle_tpa | 1,388 of 3,435 (≤ 4 ulp) | 112 of 213 | 1.1e-15 | yes |
+| rminrle_tpa | 1,304 of 3,252 (≤ 4 ulp) | 106 of 200 | 1.1e-15 | yes |
+| rpe_tpa | 1,378 of 3,417 (≤ 4 ulp) | 112 of 211 | 1.1e-15 | yes |
+| rperle_tpa_crn | 1,037 of 3,225 (≤ 3 ulp) | 204 of 304 | 1.5e-15 | yes |
+| rperle_tpa_seed2 | 1,283 of 3,105 (≤ 3 ulp) | 131 of 228 | 1.4e-15 | yes |
+
+The margin, measured with a scratch shadow that wraps every mean and
+standard error `hit()` returns in a float whose arithmetic carries the
+wrapper and whose comparisons, and `floor()` in SPLI's line search,
+record their gap in ulps. The smallest gap of any decision a solver
+made:
+- the eight RA golden computations at budget 1,000: 3.4e11 ulps (a
+  comparison), 1.5e10 (a floor);
+- 80 more runs at budget 1,000 (R-PERLE, R-MinRLE, R-PE, and R-PERLE
+  with CRN, on 20 seeds): 1.0e10 ulps, relative 6e-7;
+- R-PE through `testsolve` on T_A and T_C, with and without CRN, four
+  paths each, at budgets 10^4, 10^5 and 4 x 10^5 (the sweep's): 9.5e8
+  ulps, relative 1.5e-7, T_A with CRN at 10^5 and 4 x 10^5.
+
+A decision flips only if the divergence, a few ulps, exceeds the gap,
+so in every run measured the margin was eight orders of magnitude or
+more. 3.10 and 3.14 returned the same solutions and end seeds in all
+of them. Exact ties between two different estimates do occur (T_C, at
+every budget, up to 10 per four paths): the same ties, at the same
+places, with the same values, on both interpreters, so they are
+structural (two points whose objective computes the same value from
+the same numbers), not ties that the last bit could break. That says
+the agreement so far is margin, not invariance, on these problems and
+budgets. It says nothing about a problem whose estimates sit closer.
+
+**`bsm` is not the only site.** The built-in `sum()` of three or more
+floats appears in ProbTPC's `g()` and TPCTester's true objective
+(three terms each), `moso.enorm` (used by SPLI's line search; one term
+per dimension), `moso.edist` on float arguments (one per objective),
+BSProb's `g()`, and ExampleSearchSolver. Two float terms are safe: a
+compensated sum of two terms rounds to the same value as their plain
+sum. So R-SPLINE's line search diverges only from three dimensions,
+and Hausdorff distances only from three objectives.
+
 Found building the Databricks kit, by computing its known-good
 values under five Python versions before trusting them. A cluster's
 driver and executors always run the same Python version (Spark

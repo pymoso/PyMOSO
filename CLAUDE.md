@@ -309,6 +309,13 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   whole-run hash has been seen to move across 3.10-3.14, which says
   how little those detectors see, not that it cannot. Not fixed: the
   fix changes results on 3.12+, and needs a decision.
+  **Measured 2026-10-24:** about half of all estimates in a ProbTPA
+  run differ between 3.10 and 3.14, by ~1e-15; the goldens agree
+  because no decision came within ~1e9 ulps of flipping (a scratch
+  shadow measuring every comparison's gap, up to the sweep's budget).
+  Margin, not invariance. `bsm` is not the only site: ProbTPC,
+  TPCTester, `moso.enorm`/`edist` and BSProb also `sum()` three or
+  more floats. The issue has the table.
 - **pyspark 3.5 (the declared floor) is verified in classic mode:**
   3.5.9 locally and 3.5.2 on Databricks 16.4. Not under Connect.
 - **A source install has to build under the setuptools a user already
