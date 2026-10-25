@@ -17,7 +17,10 @@ each, and each took about 2.5 hours; that is for planning a re-run,
 not a finding. The script fixes the seed, so a re-run on the same
 Python should give the same tables. That is inferred, not checked by
 a second run, and on another Python version the last bit of a variate
-can differ (`KNOWN_ISSUES.md` issue 17).
+can differ (`KNOWN_ISSUES.md` issue 17). Issue 17 was fixed on 2026-10-24: every Python
+now gives 3.10's variates. These tables were computed before that, on
+3.14, so a re-run on the fixed code may differ from them; the re-sweep
+replaces them.
 
 ## Method
 

@@ -5,6 +5,7 @@ Summary
 Provides implementation of the Test Problem C Oracle for use in PyMOSO.
 """
 from ..oracle import Oracle
+from ..moso import sum_left_to_right
 from math import exp, sqrt, sin
 
 
@@ -66,6 +67,6 @@ class ProbTPC(Oracle):
             s = [sin(i) for i in x]
             sum1 = [-10*xi[i]*exp(-0.2*sqrt(x[i]**2 + x[i+1]**2)) for i in [0, 1]]
             sum2 = [xi[i]*(pow(abs(x[i]), 0.8) + 5*pow(s[i], 3)) for i in [0, 1, 2]]
-            obj1 = sum(sum1)
-            obj2 = sum(sum2)
+            obj1 = sum_left_to_right(sum1)
+            obj2 = sum_left_to_right(sum2)
         return isfeas, (obj1, obj2)

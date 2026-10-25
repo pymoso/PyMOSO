@@ -777,7 +777,7 @@ whole-run detectors do not see changes at this level, so their
 agreement is not evidence that the numbers agree. It can move a
 result; it has not been seen to.
 
-**Not fixed.** The repair is small -- add the terms left to right,
+**Not fixed** (as first written). The repair is small -- add the terms left to right,
 explicitly, which is what Python up to 3.11 computes and what the
 goldens record -- but it changes every normal variate that currently
 differs on Python 3.12 and later, which is where most users now are.
@@ -785,6 +785,27 @@ That is a deliberate change to numerical output, to be made on
 purpose and announced, not slipped in. Until then: results are
 reproducible from a seed on one side of the 3.12 boundary, and not
 across it.
+
+**Fixed (2026-10-24), as that repair.** Both copies of `bsm`
+(`prng/mrg32k3a.py`, `solvers/mopbnb.py`) write their sums out as
+`+` chains, left to right; every other `sum()` of floats in the
+package goes through `moso.sum_left_to_right`, which adds from 0, left
+to right, as `sum()` did before 3.12. On 3.10 and 3.11 nothing changes,
+bit for bit. On 3.12 and later about 40% of normal variates change, to
+3.10's values. No golden moved on any interpreter, as the margin below
+predicted, and ExampleBnBSolver's figure now prints 3.10's value on
+3.14. `math.fsum` was considered and not used: it gives new bits on
+every version, 3.10 included (it differs from 3.10's `bsm` in 84,578
+of 200,000 variates), and BSM's own approximation error, about 1e-9,
+makes exactness worth nothing here; the requirement is reproducibility.
+The explicit form is also the cheapest (`bsm` 0.44 us a call against
+0.59 us with `sum()`, on 3.14; `fsum` 0.57). `tests/test_summation_order.py`
+holds `bsm`'s and every generator's normal variates to 3.10's, and
+fails if a `sum()` over anything but integers is added to the package;
+on 3.10 and 3.11 only that last check can fail, so CI's 3.12-3.14
+cells are where it is checked. The sites beyond `bsm` (below) are in
+scope because T_C's reference figures need ProbTPC's `g()` and
+TPCTester's true objective to be the same on every version.
 
 **Measured 2026-10-24: how far it reaches, and how close it has come.**
 First seen in a printed output: ExampleBnBSolver's "Taking N
@@ -824,9 +845,11 @@ of them. Exact ties between two different estimates do occur (T_C, at
 every budget, up to 10 per four paths): the same ties, at the same
 places, with the same values, on both interpreters, so they are
 structural (two points whose objective computes the same value from
-the same numbers), not ties that the last bit could break. That says
-the agreement so far is margin, not invariance, on these problems and
-budgets. It says nothing about a problem whose estimates sit closer.
+the same numbers), not ties that the last bit could break. So the agreement was safe,
+not lucky: every decision measured was at least eight orders of
+magnitude farther from flipping than the divergence could move it. It
+was margin, not invariance, and it says nothing about a problem whose
+estimates sit closer; since the fix, it no longer needs to.
 
 **`bsm` is not the only site.** The built-in `sum()` of three or more
 floats appears in ProbTPC's `g()` and TPCTester's true objective

@@ -9,7 +9,7 @@ from itertools import product
 from math import ceil, floor, log
 
 from ..chnbase import MOSOSolver, reject_unknown_params
-from ..moso import get_setnbors, get_nondom, enorm, edist
+from ..moso import get_setnbors, get_nondom, enorm, edist, sum_left_to_right
 
 #*************************
 # algorithm-specific parameters
@@ -191,7 +191,7 @@ class ExampleSearchSolver(MOSOSolver):
         for y in mcc:
             tmp1 = tuple(2*(y[i] - p[i]) for i in dr)
             tmp2 = pow(enorm(tuple(y[i] - p[i] for i in dr)), 2)
-            tmp3 = sum([tmp1[i]*ei[i] for i in dr])
+            tmp3 = sum_left_to_right([tmp1[i]*ei[i] for i in dr])
             if tmp3 == 0:
                 c = edist(y, p)/2
             else:

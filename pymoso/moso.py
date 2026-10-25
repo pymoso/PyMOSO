@@ -456,6 +456,32 @@ def get_setnbors(mcs, r):
     return set_nbors - mcs
 
 
+def sum_left_to_right(terms):
+    """
+    Add numbers from 0, left to right, as the built-in sum() did before
+    Python 3.12. From 3.12, sum() of floats carries a compensation term,
+    so the same terms give a different float on different Pythons
+    (KNOWN_ISSUES.md issue 17). Use this wherever floats are added.
+
+    Parameters
+    ----------
+    terms : iterable of numbers
+
+    Returns
+    -------
+    number
+
+    Examples
+    --------
+    >>> sum_left_to_right([1e16, 1.0, -1e16])
+    0.0
+    """
+    total = 0
+    for t in terms:
+        total = total + t
+    return total
+
+
 def enorm(x):
     """
     Compute the norm of a vector.
@@ -469,7 +495,7 @@ def enorm(x):
     float
     """
     q = len(x)
-    return sqrt(sum([pow(x[i], 2) for i in range(q)]))
+    return sqrt(sum_left_to_right([pow(x[i], 2) for i in range(q)]))
 
 
 def perturb(x, prn):
@@ -510,7 +536,7 @@ def edist(x1,x2):
     5.0
     """
     q = len(x1)
-    return sqrt(sum([pow(x1[i] - x2[i], 2) for i in range(q)]))
+    return sqrt(sum_left_to_right([pow(x1[i] - x2[i], 2) for i in range(q)]))
 
 
 def dxB(x, B):

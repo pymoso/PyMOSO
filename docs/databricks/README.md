@@ -34,6 +34,10 @@ numbers must not be quoted.
 4. **Treat the embedded Python-version split as provisional.** If
    KNOWN_ISSUES.md issue 17 is fixed, the `core` value stops
    depending on the Python version and `core_expected()` should go.
+   **Issue 17 was fixed on 2026-10-24:** every Python now gives the
+   values Python 3.10 and 3.11 gave, so the split is obsolete. The
+   kit's embedded values are left as they were, deliberately: they
+   are what keeps the three blocks verifiable.
 5. **Port it to the current backend.** The notebook imports a
    run-time warning and reads timing counters from the backend
    (`dispatch_seconds`, `work_seconds`, `jobs`) that pymoso no longer

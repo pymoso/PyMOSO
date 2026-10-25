@@ -4,6 +4,7 @@ Summary
 Provides implementation of the Bus Scheduling problem for use in PyMOSO.
 """
 from ..oracle import Oracle
+from ..moso import sum_left_to_right
 
 class BSProb(Oracle):
     """
@@ -115,7 +116,7 @@ class BSProb(Oracle):
 ##                print('-- -- number of arrivals does not match number of bus boarders. wtf?')
 ##          print(x, newx, waitsum, numperbus, num_buses)
             if newx:
-                buscost1 = sum([c0 + numperbus[bus]**gamma for bus in range(num_buses)])
+                buscost1 = sum_left_to_right([c0 + numperbus[bus]**gamma for bus in range(num_buses)])
             else:
                 buscost1 = 0
             buscost2 = c0 + numlastbus**gamma

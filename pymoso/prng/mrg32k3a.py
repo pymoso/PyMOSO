@@ -375,8 +375,10 @@ def bsm(u):
         r2 = pow(r, 2)
         r3 = pow(r, 3)
         r4 = pow(r, 4)
-        asum = sum([bsma[0], bsma[1]*r, bsma[2]*r2, bsma[3]*r3])
-        bsum = sum([1, bsmb[0]*r, bsmb[1]*r2, bsmb[2]*r3, bsmb[3]*r4])
+        # terms added left to right, as written, on every Python
+        # (KNOWN_ISSUES.md issue 17: sum() compensates from 3.12)
+        asum = bsma[0] + bsma[1]*r + bsma[2]*r2 + bsma[3]*r3
+        bsum = 1 + bsmb[0]*r + bsmb[1]*r2 + bsmb[2]*r3 + bsmb[3]*r4
         z = y*(asum/bsum)
     else:
         ## approximate from the tails (Moro 1995)
@@ -394,8 +396,8 @@ def bsm(u):
         s4 = pow(s, 6)
         s5 = pow(s, 7)
         s6 = pow(s, 8)
-        clst = [bsmc[0], bsmc[1]*s, bsmc[2]*s0, bsmc[3]*s1, bsmc[4]*s2, bsmc[5]*s3, bsmc[6]*s4, bsmc[7]*s5, bsmc[8]*s6]
-        t = sum(clst)
+        t = (bsmc[0] + bsmc[1]*s + bsmc[2]*s0 + bsmc[3]*s1 + bsmc[4]*s2
+             + bsmc[5]*s3 + bsmc[6]*s4 + bsmc[7]*s5 + bsmc[8]*s6)
         z = signum*t
     return z
 

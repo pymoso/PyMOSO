@@ -6,7 +6,7 @@ Provide the tester for Test Problem C
 """
 from ..problems import probtpc
 from math import sin, exp, sqrt
-from ..moso import dh
+from ..moso import dh, sum_left_to_right
 
 
 df = 2
@@ -30,8 +30,8 @@ def true_g(x):
     chisquare = 1.0
     sum1 = [-10*chisquare*exp(-0.2*sqrt(x[i]**2 + x[i+1]**2)) for i in [0, 1]]
     sum2 = [chisquare*(pow(abs(x[i]), 0.8) + 5*pow(s[i], 3)) for i in [0, 1, 2]]
-    obj1 = sum(sum1)
-    obj2 = sum(sum2)
+    obj1 = sum_left_to_right(sum1)
+    obj2 = sum_left_to_right(sum2)
     return obj1, obj2
 
 

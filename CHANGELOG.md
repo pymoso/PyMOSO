@@ -121,9 +121,13 @@ too; numerical results changed there.
 - **Results do not depend on `simpar`, `proc` or the backend.** The
   same call gives the same numbers serially, on any number of local
   processes, and on Spark.
-- **Results can differ in the last bit between Python 3.11 and 3.12**
-  (`KNOWN_ISSUES.md` issue 17), as they could in 1.1.0. Not fixed: the
-  fix would change results on 3.12 and later.
+- **Results no longer depend on the Python version** (`KNOWN_ISSUES.md`
+  issue 17). In 1.1.0 and until this release, normal variates on
+  Python 3.12 and later differed from 3.10's and 3.11's in the last
+  bit, because `sum()` of floats changed in 3.12; floats are now added
+  left to right everywhere. On 3.12 and later about 40% of normal
+  variates change, to the values 3.10 and 3.11 give; nothing changes
+  on 3.10 or 3.11. No result checked in the test suite moved.
 
 ### A limit that was there in 1.1.0, now documented and adjustable
 
@@ -318,8 +322,7 @@ about 6× faster. Results are identical in every case.
 
 `KNOWN_ISSUES.md` has every open issue. In particular: `--budget` is
 checked only between RA iterations, so a run can simulate several
-times its budget (issue 16), and results can differ in the last bit
-across Python 3.11 and 3.12 (issue 17).
+times its budget (issue 16).
 
 ## 1.1.0
 
