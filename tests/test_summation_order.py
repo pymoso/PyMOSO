@@ -6,13 +6,20 @@ Python 3.12 changed the built-in sum() of floats to carry a
 compensation term. bsm, the inverse-normal approximation behind every
 generator's normalvariate, added its terms with sum(), so on 3.12 and
 later about 40% of normal variates differed from 3.10's and 3.11's in
-the last bit or two. The expected values here were computed on 3.10,
-whose sum() adds left to right; on 3.10 and 3.11 these tests cannot
-fail, so it is CI's 3.12-3.14 cells that check them.
+the last bit or two.
+
+bsm is checked against a copy of itself here that adds with a plain
+loop, on the same platform, not against recorded bits: bsm also calls
+log and pow, which come from the platform's C library and differ
+between Linux, macOS and Windows, so recorded values hold on one
+platform only (this test's first version recorded them, and failed on
+macOS and Windows).
+On 3.10 and 3.11 sum() adds left to right too, so these tests cannot
+fail there; CI's 3.12 and later cells are where they check.
 """
 import ast
-import hashlib
 import pathlib
+from math import log
 
 import pytest
 
@@ -22,40 +29,63 @@ from pymoso.prng.base import ensure_random_compatible
 from pymoso.solvers import mopbnb
 
 PACKAGE = pathlib.Path(__file__).resolve().parent.parent / "pymoso"
+SEED = (12345,) * 6
+DRAWS = 20000
 
-# (u, bsm(u)) on 3.10, for uniforms whose bsm differed on 3.14: four
-# from the centre of the approximation and four from the tails
-BSM_310 = [
-    ('0x1.a6d566678d634p-1', '0x1.e031c222ec4b1p-1'),
-    ('0x1.c5e5e7c0cacc6p-3', '-0x1.888ceb1f86869p-1'),
-    ('0x1.ec5012a0010f3p-2', '-0x1.8af0f19dbd1e2p-5'),
-    ('0x1.6c17e397d368fp-2', '-0x1.7b3db8d411972p-2'),
-    ('0x1.17cb2c035513dp-5', '-0x1.d2adb41842ac3p+0'),
-    ('0x1.ddee37da518d7p-1', '0x1.808671270cc93p+0'),
-    ('0x1.08035ad682b9dp-9', '-0x1.701e2405103cfp+1'),
-    ('0x1.3b088adff6f0ep-4', '-0x1.6d1833fc34847p+0'),
-]
 
-# sha256 of the hex of 20,000 normalvariate(0, 1) draws from
-# stream_at((12345,)*6, 0, 0), on 3.10
-NORMALS_310 = {
-    'mrg31k3p': 'eb9640c737632f2da78e106f3e2ef676516f26c21db6108a01e1f3ec9adccfb0',
-    'mrg32k3a': 'b0f1eaee3110fc280e91ce78e329efee80b93b46ecddb7d74de8881dd9a2338c',
-    'philox4x32': '4790fbf21c223f08929392a1e1b21ec2f8a654b1d565117ba1129d97ec4a01c0',
-}
+def _added(terms):
+    total = 0
+    for t in terms:
+        total = total + t
+    return total
+
+
+def _reference_bsm(u):
+    """bsm as shipped, with every sum a plain left-to-right loop"""
+    a, b, c = mrg32k3a.bsma, mrg32k3a.bsmb, mrg32k3a.bsmc
+    y = u - 0.5
+    if abs(y) < 0.42:
+        r = pow(y, 2)
+        r2 = pow(r, 2)
+        r3 = pow(r, 3)
+        r4 = pow(r, 4)
+        asum = _added([a[0], a[1]*r, a[2]*r2, a[3]*r3])
+        bsum = _added([1, b[0]*r, b[1]*r2, b[2]*r3, b[3]*r4])
+        return y*(asum/bsum)
+    if y < 0.0:
+        signum = -1
+        r = u
+    else:
+        signum = 1
+        r = 1 - u
+    s = log(-log(r))
+    powers = [pow(s, k) for k in range(2, 9)]
+    return signum*_added([c[0], c[1]*s] + [c[k + 2]*powers[k] for k in range(7)])
+
+
+def _stream(name):
+    return ensure_random_compatible(registry.get_generator(name).stream_at(SEED, 0, 0))
+
+
+def test_the_reference_sees_the_central_and_tail_branches():
+    rng = _stream('mrg32k3a')
+    us = [rng.random() for _ in range(DRAWS)]
+    tails = sum(1 for u in us if abs(u - 0.5) >= 0.42)
+    assert 0 < tails < DRAWS
 
 
 @pytest.mark.parametrize("bsm", [mrg32k3a.bsm, mopbnb.bsm], ids=["prng", "mopbnb"])
-@pytest.mark.parametrize("u, z", BSM_310)
-def test_bsm_gives_3_10s_bits(bsm, u, z):
-    assert bsm(float.fromhex(u)).hex() == z
+def test_bsm_adds_left_to_right(bsm):
+    rng = _stream('mrg32k3a')
+    us = [rng.random() for _ in range(DRAWS)]
+    assert [bsm(u).hex() for u in us] == [_reference_bsm(u).hex() for u in us]
 
 
-@pytest.mark.parametrize("name", sorted(NORMALS_310))
-def test_normal_variates_are_3_10s(name):
-    rng = ensure_random_compatible(registry.get_generator(name).stream_at((12345,) * 6, 0, 0))
-    digest = hashlib.sha256(''.join(rng.normalvariate(0, 1).hex() for _ in range(20000)).encode())
-    assert digest.hexdigest() == NORMALS_310[name]
+@pytest.mark.parametrize("name", sorted(registry.GENERATORS))
+def test_normal_variates_are_bsm_of_one_uniform_added_left_to_right(name):
+    rng, uniforms = _stream(name), _stream(name)
+    drawn = [rng.normalvariate(0, 1).hex() for _ in range(DRAWS)]
+    assert drawn == [_reference_bsm(uniforms.random()).hex() for _ in range(DRAWS)]
 
 
 def test_sum_left_to_right_does_not_compensate():
@@ -83,8 +113,8 @@ INTEGER_SUMS = {
 def test_the_package_calls_sum_only_on_integers():
     found = set()
     for path in sorted(PACKAGE.rglob("*.py")):
-        lines = path.read_text().splitlines()
-        for node in ast.walk(ast.parse(path.read_text())):
+        lines = path.read_text(encoding='utf-8').splitlines()
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "sum":
                 found.add((path.relative_to(PACKAGE).as_posix(), lines[node.lineno - 1].strip()))
     assert found == INTEGER_SUMS

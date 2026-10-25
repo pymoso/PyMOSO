@@ -320,7 +320,11 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   right; every other float sum uses `moso.sum_left_to_right`. 3.10/3.11
   unchanged bit for bit; 3.12+ now give 3.10's values. No golden
   moved. `tests/test_summation_order.py` refuses a new `sum()` over
-  non-integers anywhere in the package.
+  non-integers anywhere in the package. **Not the same bits across
+  platforms:** `bsm`'s `log`/`pow` come from the C library, and a
+  test holding normals to Linux-recorded bits failed on every macOS
+  and Windows cell; the test now compares against a same-platform
+  left-to-right reference. macOS/Windows goldens agree by margin.
 - **pyspark 3.5 (the declared floor) is verified in classic mode:**
   3.5.9 locally and 3.5.2 on Databricks 16.4. Not under Connect.
 - **A source install has to build under the setuptools a user already

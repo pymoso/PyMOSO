@@ -800,12 +800,28 @@ of 200,000 variates), and BSM's own approximation error, about 1e-9,
 makes exactness worth nothing here; the requirement is reproducibility.
 The explicit form is also the cheapest (`bsm` 0.44 us a call against
 0.59 us with `sum()`, on 3.14; `fsum` 0.57). `tests/test_summation_order.py`
-holds `bsm`'s and every generator's normal variates to 3.10's, and
-fails if a `sum()` over anything but integers is added to the package;
-on 3.10 and 3.11 only that last check can fail, so CI's 3.12-3.14
-cells are where it is checked. The sites beyond `bsm` (below) are in
-scope because T_C's reference figures need ProbTPC's `g()` and
-TPCTester's true objective to be the same on every version.
+holds both `bsm` copies, and every generator's normal variates, to a
+copy of `bsm` that adds with a plain loop, on the platform it runs on,
+and fails if a `sum()` over anything but integers is added to the
+package; on 3.10 and 3.11 only that last check can fail, so CI's
+3.12-3.15 cells are where it is checked. The sites beyond `bsm`
+(below) are in scope because T_C's reference figures need ProbTPC's
+`g()` and TPCTester's true objective to be the same on every version.
+
+**What the fix does not give: the same bits on every platform.** The
+test's first version recorded 3.10's values, computed on Linux, and
+failed on every macOS and Windows cell, 3.10 and 3.11 included, where
+the fix changes nothing: of three checks on 20,000 normal variates
+each, all three failed, while eight single values (four through
+`log`) matched. `bsm` calls `log` and `pow`, which Python takes from
+the platform's C library, and those differ between glibc, macOS and
+Windows on some inputs (inferred from that pattern; which inputs, and
+by how much, was not measured). So a seed reproduces across Python
+versions on one platform, which is this issue, and not across
+platforms, which it never did and which CLAUDE.md's multi-host result
+already scopes to x86-64 and glibc. The goldens pass on macOS and
+Windows for the same reason they passed across versions before the
+fix: margin, not identical numbers.
 
 **Measured 2026-10-24: how far it reaches, and how close it has come.**
 First seen in a printed output: ExampleBnBSolver's "Taking N
