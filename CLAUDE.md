@@ -323,7 +323,14 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   **Fixed 2026-10-24:** both `bsm` copies add explicitly, left to
   right; every other float sum uses `moso.sum_left_to_right`. 3.10/3.11
   unchanged bit for bit; 3.12+ now give 3.10's values. No golden
-  moved. `tests/test_summation_order.py` refuses a new `sum()` over
+  moved. **That made the variates agree, not every estimate:**
+  `statistics.variance(data, xbar)` differs between 3.10 and 3.14
+  (3.10 squares with `**`, the C library's `pow`; 3.14 multiplies).
+  Fixed 2026-10-28: `oracle._mean`/`_variance` sum exactly and round
+  once, squaring with `d * d` -- 3.14's values, by decision, so 3.10's
+  standard errors moved (~1 in 5,000, last bit). No result comes from
+  `statistics` now except for `Decimal`/`Fraction` objectives.
+  `tests/test_exact_aggregation.py`. `tests/test_summation_order.py` refuses a new `sum()` over
   non-integers anywhere in the package. **Not the same bits across
   platforms:** `bsm`'s `log`/`pow` come from the C library, and a
   test holding normals to Linux-recorded bits failed on every macOS

@@ -12,8 +12,8 @@ Listing
 --------------
 Oracle(object), class
 """
-from statistics import mean, variance
-from math import sqrt
+import statistics
+from math import gcd, sqrt
 from .prng import registry
 from .prng import base as _prng_base
 from .prng.base import (
@@ -29,6 +29,68 @@ from .executor import (
 # family 49 bits of point code (Philox 46). Past it, hashed point codes
 # start to collide at realistic numbers of points per iteration.
 MAX_REPLICATION_DRAWS = 1 << 40
+
+
+# The mean and variance of replications, defined here rather than taken
+# from statistics, whose variance(data, xbar) changed between Python 3.10
+# and 3.14 (KNOWN_ISSUES.md issue 17): 3.10 squared each deviation with
+# **, which is the C library's pow, and 3.14 multiplies. Both sum exactly
+# and round once; so do these, with d * d, an IEEE multiply, so no part
+# depends on the Python version or the platform. They give 3.14's values.
+# ints and floats only; other number types (Decimal, Fraction) go to
+# statistics as before, so they keep their type.
+
+def _exact_sum(values):
+    """The exact sum of ints and floats as (numerator, denominator), or
+    None if one of them is an infinity or a nan."""
+    num, den = 0, 1
+    for v in values:
+        try:
+            p, q = v.as_integer_ratio()
+        except (OverflowError, ValueError):
+            return None
+        lcm = den // gcd(den, q) * q
+        num, den = num * (lcm // den) + p * (lcm // q), lcm
+    return num, den
+
+
+def _is_plain(data):
+    return all(isinstance(v, (int, float)) for v in data)
+
+
+def _mean(data):
+    """The mean, rounded once from the exact sum; an int when every value
+    is an int and the mean is whole, as statistics.mean gives"""
+    if not _is_plain(data):
+        return statistics.mean(data)
+    total = _exact_sum(data)
+    if total is None:
+        # an infinity or a nan decides the result, as in float addition
+        acc = 0
+        for v in data:
+            acc = acc + v
+        return acc / len(data)
+    num, den = total
+    den = den * len(data)
+    if num % den == 0 and all(isinstance(v, int) for v in data):
+        return num // den
+    return num / den
+
+
+def _variance(data, xbar):
+    """The sample variance about xbar: each deviation d = x - xbar and its
+    square d * d rounded as floats, those squares summed exactly, divided
+    by n - 1 and rounded once; nan if a value or xbar is not finite"""
+    if not _is_plain(data) or not isinstance(xbar, (int, float)):
+        return statistics.variance(data, xbar)
+    total = _exact_sum([(x - xbar) * (x - xbar) for x in data])
+    if total is None:
+        return float('nan')
+    num, den = total
+    den = den * (len(data) - 1)
+    if num % den == 0 and isinstance(xbar, int) and all(isinstance(v, int) for v in data):
+        return num // den
+    return num / den
 
 
 class Oracle(object):
@@ -896,8 +958,8 @@ class Oracle(object):
                 obmean = objm[0]
                 obse = [0 for o in objm[0]]
             else:
-                obmean = tuple([mean([objm[i][k] for i in mr]) for k in dr])
-                obvar = [variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
+                obmean = tuple([_mean([objm[i][k] for i in mr]) for k in dr])
+                obvar = [_variance([objm[i][k] for i in mr], obmean[k]) for k in dr]
                 obse = tuple([sqrt(obvar[i]/m) for i in dr])
         return isfeas, obmean, obse
 

@@ -794,7 +794,8 @@ to right, as `sum()` did before 3.12. On 3.10 and 3.11 nothing changes,
 bit for bit. On 3.12 and later about 40% of normal variates change, to
 3.10's values. No golden moved on any interpreter, as the margin below
 predicted, and ExampleBnBSolver's figure now prints 3.10's value on
-3.14. `math.fsum` was considered and not used: it gives new bits on
+3.14. (That made the variates agree, not every estimate: the standard
+error was a second site, below.) `math.fsum` was considered and not used: it gives new bits on
 every version, 3.10 included (it differs from 3.10's `bsm` in 84,578
 of 200,000 variates), and BSM's own approximation error, about 1e-9,
 makes exactness worth nothing here; the requirement is reproducibility.
@@ -824,6 +825,40 @@ and Windows cell. Why is inferred, not measured: margin is the likely
 reason, as it was across versions, but the version split moved values
 by a few ulps, and nothing bounds a different C library's differences
 to that, so how far the decisions there sit from flipping is unknown.
+
+**A second site, found 2026-10-27 and fixed 2026-10-28: the standard
+error.** The fix above made the variates agree across versions, not
+every estimate. `Oracle` took its mean and variance from `statistics`,
+and `statistics.variance(data, xbar)` gives different last bits on
+3.10 and 3.14: in 168 of 200,000 random samples on this machine, and
+in 48 of 217,056 estimates across 92 whole runs (golden cases, 80
+seeded solves, and R-PE at the beta sweep's budget), by 1 or 2 ulps,
+with every solution and end seed the same. Both versions sum exactly
+and round once; they differ in rounding each squared deviation, which
+3.10 computes with `**` and 3.14 by multiplying -- an exact sum of
+`(x - xbar) ** 2` matches 3.10 in all 200,000 samples and an exact sum
+of `d * d` matches 3.14 in all 200,000. A float `**` is the C
+library's `pow`, which is not correctly rounded: `d ** 2` and `d * d`
+differ in 168 of those samples (inferred to be `pow`; a multiply is
+always correctly rounded). `statistics.mean` agreed on both versions
+in every sample.
+
+Fixed by defining both in `oracle.py` (`_mean`, `_variance`): the mean
+is the exact sum divided by n, rounded once; the variance squares each
+deviation as `d * d`, sums the squares exactly and divides by n - 1,
+rounded once. An IEEE multiply, integer arithmetic and one correctly
+rounded division, so nothing depends on the Python version or the
+platform. These are 3.14's values, by decision: 3.10's would need
+`pow`, putting the platform's C library into a step that needs only a
+multiply. So on 3.10, and any version whose `statistics` squares as
+3.10's does, about 1 standard error in 5,000 changes in its last bit
+or two; on 3.14 nothing changes; the mean changes on no version
+checked, and was replaced so that no result depends on `statistics`
+at all. Values of other number types (`Decimal`, `Fraction`) still go
+to `statistics`, so they keep their type, as before. `tests/test_exact_aggregation.py`
+holds both to `Fraction` references on the same data, including 3,000
+`hit()` calls, and fails if a result is taken from `statistics` again;
+with `statistics.variance` restored, its `hit()` check fails on 3.10.
 
 **Measured 2026-10-24: how far it reaches, and how close it has come.**
 First seen in a printed output: ExampleBnBSolver's "Taking N
