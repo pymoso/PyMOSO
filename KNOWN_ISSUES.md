@@ -819,9 +819,11 @@ Windows on some inputs (inferred from that pattern; which inputs, and
 by how much, was not measured). So a seed reproduces across Python
 versions on one platform, which is this issue, and not across
 platforms, which it never did and which CLAUDE.md's multi-host result
-already scopes to x86-64 and glibc. The goldens pass on macOS and
-Windows for the same reason they passed across versions before the
-fix: margin, not identical numbers.
+scopes to Linux on x86-64 with glibc. The goldens pass on every macOS
+and Windows cell. Why is inferred, not measured: margin is the likely
+reason, as it was across versions, but the version split moved values
+by a few ulps, and nothing bounds a different C library's differences
+to that, so how far the decisions there sit from flipping is unknown.
 
 **Measured 2026-10-24: how far it reaches, and how close it has come.**
 First seen in a printed output: ExampleBnBSolver's "Taking N

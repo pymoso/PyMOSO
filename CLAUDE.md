@@ -274,8 +274,12 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
     replacement (proposed, not built).
   - A task checks `pymoso.__version__` against the sender's;
     confirmed raising on a real cluster.
-  - **Multi-host bit-identity is ESTABLISHED, within x86-64 and
-    glibc** (it was the open correctness question). Three Databricks
+  - **Multi-host bit-identity is ESTABLISHED across hosts of one
+    platform only: Linux, x86-64, glibc 2.39 and 2.41, which may be
+    the same `log`/`pow` implementation.** Never across platforms:
+    macOS and Windows produce different bits (KNOWN_ISSUES.md issue
+    17, the test that failed there), so this result says nothing about
+    them. (It was the open correctness question.) Three Databricks
     runs, 26/27/28 of 26/27/28 checks: every float identical across
     three executor hosts, between Broadwell and Skylake drivers and
     Ice Lake executors, and against this AMD machine on a different
@@ -324,7 +328,9 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   platforms:** `bsm`'s `log`/`pow` come from the C library, and a
   test holding normals to Linux-recorded bits failed on every macOS
   and Windows cell; the test now compares against a same-platform
-  left-to-right reference. macOS/Windows goldens agree by margin.
+  left-to-right reference. macOS/Windows goldens pass in CI; that
+  this is margin is inferred, NOT measured, and a different C library
+  is not bounded by the few ulps the version split was.
 - **pyspark 3.5 (the declared floor) is verified in classic mode:**
   3.5.9 locally and 3.5.2 on Databricks 16.4. Not under Connect.
 - **A source install has to build under the setuptools a user already

@@ -234,7 +234,11 @@ describes the moment of the probe, not the timings after it (below).
   the machine the known-good values came from (AMD, glibc 2.41,
   Python 3.14). What was *not* different: within each run every
   executor was the same CPU model (`cpus=1`), and everything was
-  x86-64 Linux with glibc.
+  x86-64 Linux with glibc. So this is bit-identity across hosts of
+  one platform, not across platforms: macOS and Windows give different
+  bits (`KNOWN_ISSUES.md` issue 17), and glibc 2.39 and 2.41 may share
+  one implementation of `log` and `pow`, so the second glibc may not
+  be a second maths library.
 - **Spark 3.5.2 as well as 4.0.0,** on a real runtime.
 - **The version check** raised `VersionMismatch`, by name, from an
   executor.
@@ -754,7 +758,7 @@ Core pymoso has no dependencies. Kept true by:
 | pyspark 3.5 (declared floor) | 3.5.9 locally with Python 3.11, classic; 3.5.2 on Databricks 16.4. Not under Connect |
 | Executors on other hosts | **yes** -- three Databricks runs, one with three executor hosts ("On a real cluster") |
 | A Databricks runtime | **yes**, classic sessions on DBR 16.4 and 17.3. **Not** serverless or shared-access |
-| Driver, executors and the reference machine on different hardware | **yes, within x86-64 and glibc**: Broadwell and Skylake drivers against Ice Lake executors, and all of them against an AMD Ryzen on a different glibc and Python. Every float agreed. **Not** established: non-x86 executors, another libc, mixed CPU models among the executors of one run |
+| Driver, executors and the reference machine on different hardware | **yes, across hosts of one platform only** (Linux, x86-64, glibc 2.39 and 2.41, which may be the same `log`/`pow` implementation). **Never across platforms:** macOS and Windows produce different bits (`KNOWN_ISSUES.md` issue 17), so this says nothing about them. Broadwell and Skylake drivers against Ice Lake executors, and all of them against an AMD Ryzen on a different glibc and Python. Every float agreed. **Not** established: non-x86 executors, another libc, mixed CPU models among the executors of one run |
 | Scale | three hosts, 24 vCPUs, on an autoscaling cluster. **Nothing larger, and no scaling curve on a cluster of fixed size** |
 
 ## Notebook use today
