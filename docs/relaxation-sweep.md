@@ -8,7 +8,7 @@ Phase 7, after step 7 (2026-10-19). A follow-up to
 `tests/test_benchmark_scripts.py` checks only that it runs. Since the
 fixes the script runs the corrected code, so it no longer reproduces
 these tables: **`docs/beta-sweep-reference.md` has the reference
-figures for the current code** (2026-10-21), and this document is the
+figures for the current code** (2026-10-21, re-measured 2026-11-16), and this document is the
 record of the old code's.
 
 **Resolved, and the conclusion below is withdrawn (2026-10-19).** The

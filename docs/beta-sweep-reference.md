@@ -1,26 +1,36 @@
 # R-PE's coverage error as betaeps varies: reference figures
 
-Phase 7, after step 7 (2026-10-21). Measured on the code with the three
-fixes from `docs/algorithm-audit.md`: the relaxation is the preprint's,
-se · m^(1/2 − β) (finding 2), PE's traceback reads the constrained
-objective's intervals (finding 1), and PE breaks ties between the
-objectives randomly (finding 7). These are the reference figures for
-that code. `docs/relaxation-sweep.md` is the earlier study on the old
-code, whose conclusion is withdrawn; it is kept as a record and is not
-a reference.
+Phase 7, re-measured 2026-11-16 on `6844210`. That is the code with
+every audit fix that touches R-PE (`docs/algorithm-audit.md`): the
+three from step 7 -- the preprint's relaxation, se · m^(1/2 − β)
+(finding 2), PE's traceback reading the constrained objective's
+intervals (finding 1), random tie-breaks between the objectives
+(finding 7) -- and, since, findings 8, 9, 10, 14, 3, 5 and 4, with
+`KNOWN_ISSUES.md` issue 17's fixes (floats added left to right; the
+oracle's mean and variance computed exactly). These are the reference
+figures for that code. They replace the tables of 2026-10-21, which
+were computed after step 7 and before the later fixes; "Which fixes
+moved the figures", below, connects the two. `docs/relaxation-sweep.md`
+is the earlier study on the old code, whose conclusion is withdrawn;
+it is kept as a record.
 
 Regenerate with `python docs/bench_beta_sweep.py 100 6 1` (with CRN)
 and `python docs/bench_beta_sweep.py 100 6 0` (without).
-`tests/test_benchmark_scripts.py` checks only that the script runs.
-The two runs went side by side on a 12-core machine, six workers
-each, and each took about 2.5 hours; that is for planning a re-run,
-not a finding. The script fixes the seed, so a re-run on the same
-Python should give the same tables. That is inferred, not checked by
-a second run, and on another Python version the last bit of a variate
-can differ (`KNOWN_ISSUES.md` issue 17). Issue 17 was fixed on 2026-10-24: every Python
-now gives 3.10's variates. These tables were computed before that, on
-3.14, so a re-run on the fixed code may differ from them; the re-sweep
-replaces them.
+`tests/test_benchmark_scripts.py` checks only that the script runs. If
+planning a re-run, note that on a 12-thread machine, two jobs side by
+side with six workers each, a job took about 2.5 hours on Python 3.14
+and 3.6 hours on 3.10.
+
+**The tables are identical on Python 3.10 and 3.14.** All four jobs
+were run on both, and all 6,000 per-run metrics are identical. They
+also equal, to the three decimals printed, the tables the same code
+gave before the oracle's exact mean and variance (`6844210`), so that
+change moved nothing here. Across platforms they were not run; the
+platform measurement (`KNOWN_ISSUES.md` issue 17) ran R-PE at this
+budget, four paths per problem and CRN setting, on Linux, Windows
+and macOS on both architectures, with the
+same results everywhere and margins of 4 x 10^10 or more. So the
+tables should reproduce there.
 
 ## Method
 
@@ -29,142 +39,198 @@ budget t = 0.4 × 10^6, β from 0.1 to 1.5 in steps of 0.1 (the
 preprint's axis, §9.3, Figures 10 and 12, left panels). Every β uses
 the same seed, `(12345,)*6`, so each run has the same x0 and, since
 streams are coordinate-derived, the same random numbers at each
-(point, iteration) under every β. The metric is the tester's: the
+(point, iteration) under every β; run i under one β and run i under
+another are a paired comparison. The metric is the tester's: the
 Hausdorff distance from the true images of the run's final solution to
 the true efficient set (T_A), or the least such distance over the
 local efficient sets (T_C). Quantiles are order statistics at q(n − 1),
-interpolated. Python 3.14 only. The preprint used 1,000 runs; these
-use 100.
+interpolated. Python 3.10 and 3.14. The preprint used 1,000 runs;
+these use 100.
 
 ## With CRN
 
 ```
 Problem TA: dH at the end of the run, quantiles over 100 runs
           beta    q0.25    median    q0.75    q0.90
-           0.1    1.284     1.596    1.846    2.257
-           0.2    1.282     1.588    1.847    2.152
-           0.3    1.316     1.623    1.846    2.124
-           0.4    1.316     1.630    1.847    2.122
-           0.5    1.263     1.453    1.712    1.852
-           0.6    0.746     0.858    1.006    1.282
-           0.7    0.439     0.559    0.761    1.051
-           0.8    0.390     0.442    0.620    0.761
-           0.9    0.360     0.410    0.628    0.841   <- least median
-           1.0    0.385     0.552    0.761    0.954
-           1.1    0.390     0.442    0.761    1.051
-           1.2    0.385     0.442    0.781    1.051
-           1.3    0.362     0.442    0.761    1.057
-           1.4    0.362     0.552    0.761    1.105
-           1.5    0.362     0.535    0.781    1.293
+           0.1    2.282     2.777    3.049    3.188
+           0.2    2.304     2.733    3.044    3.192
+           0.3    2.282     2.775    3.043    3.182
+           0.4    2.038     2.311    2.639    2.827
+           0.5    1.088     1.310    1.667    1.912
+           0.6    0.707     0.761    0.867    1.118
+           0.7    0.426     0.514    0.620    0.765
+           0.8    0.390     0.456    0.761    0.847
+           0.9    0.362     0.410    0.620    0.761   <- least median
+           1.0    0.362     0.410    0.580    0.796
+           1.1    0.390     0.552    0.761    0.951
+           1.2    0.390     0.518    0.841    1.057
+           1.3    0.362     0.502    0.761    1.051
+           1.4    0.383     0.442    0.761    1.051
+           1.5    0.362     0.442    0.841    1.105
 Problem TC: dH at the end of the run, quantiles over 100 runs
           beta    q0.25    median    q0.75    q0.90
-           0.1    2.230     3.582    4.130    4.419
-           0.2    1.867     2.684    4.130    4.432
-           0.3    1.780     2.006    2.329    3.319
-           0.4    1.101     1.780    1.817    1.817
-           0.5    0.646     1.101    1.817    1.817
-           0.6    0.646     0.646    0.646    1.817   <- least median
-           0.7    0.488     0.646    0.646    0.646
-           0.8    0.646     0.646    0.646    0.646
-           0.9    0.646     0.646    0.646    0.646
-           1.0    0.646     0.646    0.646    0.646
-           1.1    0.646     0.646    0.646    0.646
-           1.2    0.646     0.646    0.646    0.646
-           1.3    0.646     0.646    0.646    0.646
-           1.4    0.646     0.646    0.646    0.646
-           1.5    0.646     0.646    0.646    0.646
+           0.1    2.006     2.995    4.130    4.419
+           0.2    1.780     2.396    3.581    4.130
+           0.3    1.727     1.817    2.684    3.384
+           0.4    1.101     1.727    2.006    3.319
+           0.5    1.101     1.727    2.006    3.319
+           0.6    0.000     0.646    0.779    1.214
+           0.7    0.000     0.244    0.651    0.779
+           0.8    0.000     0.488    0.646    0.779
+           0.9    0.000     0.488    0.646    0.779
+           1.0    0.000     0.567    0.646    0.779
+           1.1    0.000     0.488    0.646    0.779
+           1.2    0.000     0.244    0.646    0.779
+           1.3    0.000     0.488    0.646    0.779
+           1.4    0.000     0.567    0.646    0.646
+           1.5    0.000     0.052    0.646    0.779   <- least median
 ```
 
-The "least median" marker picks the first of any ties: on T_C every β
-from 0.6 up has median 0.646.
+The "least median" marker picks the first of any ties: on T_A, β 0.9
+and 1.0 both have 0.410. On T_C from β 0.7 up the median is a poor
+guide: 44 to 50 of the 100 runs reach a distance of exactly 0 at
+each of those β, so the median falls between 0 and the next run's
+value, and 0.052 at 1.5 is not meaningfully better than 0.244 at 0.7.
+The mean is 0.34 to 0.38 at every β from 0.7 to 1.5 (0.60 at 0.6,
+1.62 at 0.5). β 0.4 and 0.5 have the same quantiles on T_C; 43 of
+their 100 runs are identical.
 
 ## Without CRN (PyMOSO's default)
 
 ```
 Problem TA: dH at the end of the run, quantiles over 100 runs
           beta    q0.25    median    q0.75    q0.90
-           0.1    3.387     3.921    4.706    5.406
-           0.2    3.308     4.068    4.800    5.336
-           0.3    3.321     4.115    4.641    5.406
-           0.4    3.263     3.922    4.913    5.406
-           0.5    3.111     4.071    4.590    5.345
-           0.6    3.515     4.071    4.686    5.615
-           0.7    3.485     3.921    4.584    5.422
-           0.8    3.231     3.896    4.307    5.012   <- least median
-           0.9    3.262     3.896    4.472    5.296
-           1.0    3.531     3.978    4.490    5.150
-           1.1    3.349     3.937    4.375    4.794
-           1.2    3.401     4.070    4.548    5.518
-           1.3    3.737     4.349    4.838    5.518
-           1.4    3.450     4.012    4.440    5.008
-           1.5    3.206     3.937    4.569    5.241
+           0.1    3.068     3.454    4.100    5.041   <- least median
+           0.2    3.125     3.820    4.544    5.112
+           0.3    3.021     3.819    4.550    5.099
+           0.4    3.108     3.843    4.543    4.866
+           0.5    3.058     3.755    4.223    4.777
+           0.6    3.161     3.814    4.381    4.928
+           0.7    2.722     3.814    4.184    4.901
+           0.8    3.073     3.780    4.444    4.698
+           0.9    2.730     3.665    4.308    4.916
+           1.0    3.326     3.835    4.438    4.795
+           1.1    2.856     3.746    4.308    4.796
+           1.2    3.000     3.704    4.074    4.793
+           1.3    3.366     3.794    4.184    5.148
+           1.4    3.298     3.805    4.292    4.814
+           1.5    3.290     3.922    4.330    4.726
 Problem TC: dH at the end of the run, quantiles over 100 runs
           beta    q0.25    median    q0.75    q0.90
-           0.1    3.384     3.683    4.419    5.663
-           0.2    3.384     3.683    4.203    5.663
-           0.3    2.083     2.258    3.258    3.683
-           0.4    1.780     1.817    2.186    2.684
-           0.5    1.780     1.817    2.279    2.684
-           0.6    1.485     1.780    2.211    2.684   <- least median
-           0.7    1.474     1.780    2.191    2.716
-           0.8    1.485     1.780    1.974    2.684
-           0.9    1.470     1.780    1.904    2.684
-           1.0    1.474     1.780    2.092    2.700
-           1.1    1.482     1.780    2.180    2.684
-           1.2    1.474     1.780    2.279    3.701
-           1.3    1.500     1.798    2.384    2.691
-           1.4    1.511     1.780    2.223    2.774
-           1.5    1.474     1.780    2.211    2.684
+           0.1    4.419     5.580    5.663    5.663
+           0.2    3.683     5.663    5.663    5.663
+           0.3    1.882     2.258    3.319    3.683
+           0.4    1.780     1.877    2.431    3.319
+           0.5    1.780     1.847    2.258    3.319
+           0.6    1.474     1.780    2.156    2.685   <- least median
+           0.7    1.474     1.780    2.135    2.684
+           0.8    1.474     1.780    2.180    3.341
+           0.9    1.429     1.780    1.884    2.747
+           1.0    1.473     1.780    1.884    2.275
+           1.1    1.482     1.780    1.930    2.686
+           1.2    1.474     1.780    1.984    2.445
+           1.3    1.472     1.780    1.947    2.669
+           1.4    1.339     1.780    1.899    2.341
+           1.5    1.485     1.780    1.908    2.684
 ```
+
+No run without CRN reaches 0 on either problem.
 
 ## What the tables say (measured, these runs)
 
-- **T_A without CRN, the default: the median coverage error is 3.9 to
-  4.35 at every β, flat in β, against 0.41 at best with CRN.** This
-  is the corrected solver, so the number is the method's without CRN
-  on this problem at this budget, not a symptom of the three defects.
-  The earlier study measured 3.7 to 4.3 on the old code; the fixes
-  did not change it. This is the step-8 item in `docs/phase7-plan.md`.
-- **T_C without CRN: the median settles at 1.78 from β = 0.6 up,
-  against 0.646 with CRN.** Better than T_A, still nearly three times
-  worse than with CRN.
-- **With CRN, T_A is worst and flat from 0.1 to 0.5 (medians 1.45 to
-  1.63), falls steeply from 0.5 to 0.8, and from 0.8 to 1.5 has
-  medians of 0.41 to 0.44 (at 0.8, 0.9 and 1.1 to 1.3) or 0.53 to
-  0.55 (at 1.0, 1.4 and 1.5).**
-  The default, 0.5, is the last β before the fall: its median is 1.45,
-  about 3.5 times the least.
-- **With CRN, T_C falls from 3.58 at 0.1 to 0.646 at 0.6 and stays
-  there to 1.5.** At the default its median is 1.10.
+- **T_A without CRN, the default: the median coverage error is 3.45
+  to 3.92 at every β, flat in β, against 0.41 at best with CRN.**
+  Paired with the default, every other β is better in 43 to 54 of the
+  100 runs: on this problem without CRN, β does not matter. The fixes
+  since step 7 lowered it a little (3.9 to 4.35 before); the
+  conclusion of step 7, that this is the method's behaviour without
+  CRN at this budget and not a defect's, stands.
+- **T_C without CRN: very poor at β 0.1 and 0.2 (medians 5.58 and
+  5.66), then 1.85 at the default and 1.78 at every β from 0.6 up,**
+  against medians of 0.05 to 0.57 with CRN over the same range.
+  Paired with the default, each β from 0.6 to 1.5 is better in 55 to
+  64 runs and worse in 30 to 41.
+- **With CRN, T_A is worst and flat from 0.1 to 0.3 (medians 2.73 to
+  2.78), falls from 0.4 to 0.7, and from 0.7 to 1.5 has medians of
+  0.41 to 0.55,** least at 0.9 and 1.0.
+- **With CRN, T_C falls from 3.00 at 0.1 to 1.73 at 0.4 and 0.5, then
+  drops at 0.6;** from 0.7 to 1.5 about half the runs reach 0 and the
+  mean is 0.34 to 0.38.
 
-## Against the earlier study (inferred)
+## The default, β = 0.5
 
-Under the old formula, old β = new β − 1/2, so the old CRN table's
-"preprint beta" column should line up with this one. It does in shape:
-the same plateau, the same fall, at the same place. On T_A the
-medians differ most at the fall (0.6: 0.858 here, 0.988 there; 0.7:
-0.559 against 0.626) and by up to 0.08 elsewhere; on T_C by up to
-0.26, at 0.1 (3.582 against 3.319), and not at all from 0.6 up.
-The traceback and tie-break fixes, which also changed every R-PE run
-(`tests/golden/README.md`), are the likely cause. They were not
-separated from the formula change, so this is inferred.
+The default stays 0.5, by decision. These figures say it is not the
+best setting for these two problems at this budget:
+
+- **With CRN it sits at the top of the fall on both problems.**
+  Paired run by run, β = 0.7 is better than 0.5 in 100 of the 100 T_A
+  runs, and in 87 of the T_C runs (4 worse, 9 the same). Every β from
+  0.6 to 1.5 is better than 0.5 in 90 to 100 T_A runs and 74 to 87
+  T_C runs. On T_A the default's median is 1.31 against 0.41 at best;
+  on T_C 1.73, against a mean of 0.34 to 0.38 from 0.7 up.
+- **Without CRN it hardly matters on T_A** (above), and on T_C β of
+  0.6 or more is modestly better (1.78 against 1.85 in the median).
+- **The low end is the worst place with CRN,** on both problems,
+  which includes the published "(0.2, 0.4)" guidance (below): β 0.1
+  to 0.3 is worse than the default in 95 or 96 of the T_A runs and
+  50 to 78 of the T_C runs.
+
+What this does not establish: one solver, two problems, one budget,
+one seed and 100 runs. It is not evidence about a user's problem, and
+not a recommendation of any other value; it says where these two test
+problems put the default.
+
+## Which fixes moved the figures (measured, 2026-10-28)
+
+A sweep on the tree after each fix, run on 2026-10-28 (Python 3.10;
+the last tree also on 3.14, identical in all 6,000 metrics). Its
+output files were lost to a reboot; the record of its analysis, as
+printed, is kept outside the repository with the Phase 7 working
+notes, and the last tree's tables are the ones above. Findings 8, 9 and 10 changed
+nothing: the tree after finding 9 reproduced the 2026-10-21 tables,
+all 60 rows to three decimals.
+
+| After finding | T_A, CRN, β 0.5 | T_A, CRN, least | T_C, CRN, β 0.5 | T_C, CRN, least | T_A, no CRN, medians | T_C, no CRN, least |
+|---|---|---|---|---|---|---|
+| 9 (and 8, 10) | 1.453 | 0.410 at 0.9 | 1.101 | 0.646 at 0.6 | 3.90 to 4.35 | 1.780 |
+| 14 | 1.438 | 0.410 at 0.9 | 0.908 | 0.646 at 0.6 | 3.87 to 4.28 | 1.780 |
+| 3 | 1.325 | 0.410 at 0.9 | 0.651 | 0.646 at 0.6 | 3.66 to 4.11 | 1.697 |
+| 5 | 1.389 | 0.410 at 0.9 | 0.646 | 0.646 at 0.5 | 3.58 to 4.00 | 1.635 |
+| 4 (current) | 1.310 | 0.410 at 0.9 | 1.727 | 0.052 at 1.5 | 3.45 to 3.92 | 1.780 |
+
+Medians of 100 runs; differences of a few hundredths are within
+noise. The paired counts (run i on one tree against run i on the
+next, all 15 β pooled, 1,500 pairs) are the better evidence:
+
+- **Finding 14 (SPLINE's stop) barely matters:** 1,310 of 1,500 T_A
+  runs and 1,379 T_C runs with CRN are unchanged.
+- **Finding 3 (PE's LWEP filter) is the large change on T_A with
+  CRN:** 821 runs worse, 515 better. The median at β 0.1 to 0.3 goes
+  from about 1.6 to about 2.8; at 0.5 and above it improves slightly;
+  the least, 0.410 at 0.9, does not move. Without CRN it makes T_C
+  worse at low β (median 3.68 to 5.58 at 0.1).
+- **Finding 5 (SPLI's infeasible return):** small effects either way.
+- **Finding 4 (SPLI's nearest-integer line search) reshapes T_C with
+  CRN:** 632 better, 481 worse. From β 0.6 up, runs reaching 0
+  appear for the first time; at the default, 70 of 100 runs are
+  worse and the median goes from 0.646 to 1.727. It is what moved the
+  default off T_C's good region.
 
 ## Against the published figures (read by eye)
 
 The published curves, read from Figures 10 and 12 to about 0.1
 (`docs/relaxation-sweep.md` has the table), have T_A least, at a
 median of about 0.7, for β in (0.2, 0.4), rising to about 1.25 at 1.0
-and 1.6 at 1.5. On the corrected code T_A is at its worst over
-(0.2, 0.4) and least at 0.8 to 1.3. The figures came from earlier code
-that is outside this repository and out of scope
-(`docs/algorithm-audit.md`, finding 2), so this is a difference
-between that code and this one, recorded and not explained. It is not
-evidence about the formula, which is decided.
+and 1.6 at 1.5. On the current code with CRN, T_A is at its worst
+over 0.1 to 0.3 (medians 2.73 to 2.78) and least at 0.9 and 1.0. The
+figures came from earlier code that is outside this repository and
+out of scope (`docs/algorithm-audit.md`, finding 2), so this is a
+difference between that code and this one, recorded and not
+explained. It is not evidence about the formula, which is decided.
 
 ## What this leaves open
 
-The default β = 0.5 sits at the top of the fall on both problems with
-CRN. Whether these figures bear on the default, the published
-"(0.2, 0.4)" guidance, or the README's examples is a decision, not
-something this sweep settles: it covers one solver, two problems, one
-budget and 100 runs.
+Whether the README's description of `betaeps`, or the guidance step 8
+writes, should say where these problems put the default is a decision,
+not something this sweep settles. The sweep covers one solver, two
+problems, one budget and 100 runs.

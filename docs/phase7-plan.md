@@ -1251,7 +1251,14 @@ the method's behaviour without CRN, not a defect's. The same sweep
 puts the default β = 0.5 at the top of T_A's fall with CRN (median
 1.45, against 0.41 at β = 0.9). The guidance has to say
 this, and whether the default should change is a decision for this
-step.
+step. **Re-measured 2026-11-16 on `6844210`, after findings 8, 9, 10,
+14, 3, 5 and 4 and issue 17 (`docs/beta-sweep-reference.md`, which
+now has these figures):** T_A without CRN 3.45 to 3.92 at every β;
+T_C without CRN 1.78 from β 0.6 up; with CRN the default's medians
+are 1.31 (T_A) and 1.73 (T_C), and paired run by run β = 0.7 beats it
+in 100 of 100 T_A runs and 87 of 100 T_C runs. Decided 2026-11-16:
+the default stays 0.5, and the reference document says it is not the
+best setting for these test problems.
 
 ## Sequencing
 
