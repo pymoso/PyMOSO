@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    # measure-platform is a throwaway measurement branch with its own workflow
+    branches-ignore: [measure-platform]
   pull_request:
 
 jobs:

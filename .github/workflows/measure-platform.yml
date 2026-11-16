@@ -1,0 +1,68 @@
+name: measure-platform
+
+# Throwaway: runs measure/capture.py on each platform and uploads what it
+# wrote. Lives only on the measure-platform branch, which is never merged.
+on:
+  push:
+    branches: [measure-platform]
+
+jobs:
+  capture:
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-latest is Apple Silicon; macos-15-intel is x86-64, so the
+        # two separate the maths library from the architecture.
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
+        python-version: ["3.14"]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.10"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Create virtual environment
+        run: uv venv --python ${{ matrix.python-version }}
+
+      - name: Install pymoso and test dependencies
+        run: uv pip install -e ".[test]"
+
+      - name: Capture
+        run: uv run --no-project python measure/capture.py capture-${{ matrix.os }}-${{ matrix.python-version }}.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capture-${{ matrix.os }}-${{ matrix.python-version }}
+          path: capture-${{ matrix.os }}-${{ matrix.python-version }}.json
+
+  # statistics.variance(data, xbar), which Oracle used for the standard
+  # error until 6844210 (now only for Decimal/Fraction data), gave
+  # different last bits on 3.10 and 3.14 locally; which version changed it.
+  statistics:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Create virtual environment
+        run: uv venv --python ${{ matrix.python-version }}
+
+      - name: Capture
+        run: uv run --no-project python measure/stat.py stat-${{ matrix.python-version }}.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stat-${{ matrix.python-version }}
+          path: stat-${{ matrix.python-version }}.json
