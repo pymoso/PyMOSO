@@ -816,21 +816,68 @@ the fix changes nothing: of three checks on 20,000 normal variates
 each, all three failed, while eight single values (four through
 `log`) matched. `bsm` calls `log` and `pow`, which Python takes from
 the platform's C library, and those differ between glibc, macOS and
-Windows on some inputs (inferred from that pattern; which inputs, and
-by how much, was not measured). So a seed reproduces across Python
-versions on one platform, which is this issue, and not across
+Windows on some inputs (inferred from that pattern at the time;
+measured 2026-11-16, below). So a seed reproduces bit for bit across
+Python versions on one platform, which is this issue, and not across
 platforms, which it never did and which CLAUDE.md's multi-host result
 scopes to Linux on x86-64 with glibc. The goldens pass on every macOS
-and Windows cell. Why is inferred, not measured: margin is the likely
-reason, as it was across versions, but the version split moved values
-by a few ulps, and nothing bounds a different C library's differences
-to that, so how far the decisions there sit from flipping is unknown.
+and Windows cell. That this was margin was inferred, not measured,
+until 2026-11-16: the version split moved values by a few ulps, and
+nothing bounded a different C library's differences to that.
+
+**Measured 2026-11-16: results across platforms.** The throwaway
+branch `measure-platform` (`5125902`: `6844210` plus `measure/`, never
+merged; CI run 43878951757) captured, on each platform, `log` and
+`bsm` on 200,000 MRG32k3a uniforms, every estimate `hit()` returned,
+and the signed gap of every comparison a solver made, in 93 runs: the
+RA golden `solve()` cases and two golden `testsolve()` cases at budget
+1,000; 80 seeded ProbTPA solves (R-PERLE, R-MinRLE, R-PE, and R-PERLE
+with CRN, seeds 100-119); and R-PE through `testsolve` on T_A and T_C,
+with and without CRN, four paths each, at the beta sweep's budget of
+4 x 10^5. Against Linux x86-64 (glibc 2.43), all on Python 3.14:
+
+| Platform | `log` differing (of 200,000) | `bsm` differing | Estimates differing (of 217,056) | Largest | Least safety factor |
+|---|---|---|---|---|---|
+| Windows, x86-64 | 371, ≤ 1 ulp | 126, ≤ 14 ulps | 2,009 | 7,022 ulps | 1.6e11 |
+| macOS, arm64 | 266, ≤ 1 ulp | 228, ≤ 14 ulps | 4,222 | 13,336 ulps | 4.3e10 (R-PE, T_C, no CRN) |
+| macOS, x86-64 | 266, ≤ 1 ulp | 228, ≤ 14 ulps | 2,664 | 7,022 ulps | 1.6e11 |
+
+In all 93 runs on every platform the solution and end seed are
+Linux's, no comparison changed sign, no `floor()` in SPLI's line
+search changed, and no tie broke differently. A run's safety factor is
+the least, over its comparisons, of Linux's gap divided by how far the
+platform moved it; set before any result was seen, 10^6 or more counts
+as safe. Linux on 3.10 gives every estimate 3.14 gives, so the fixes
+in this issue hold on CI's machines as well as this one.
+
+**The architecture matters, through the problem's own maths, not
+through `bsm`.** The two Macs give the same `bsm` on all 200,000
+inputs and differ in `log` on 2, yet their estimates differ, and only
+in the two T_C runs: ProbTPC's `g()` calls `sin`, `exp` and `pow`,
+whose arm64 and x86-64 builds in macOS's maths library must differ
+(inferred from where the differences fall; those functions were not
+captured one by one). macOS x86-64 and Windows have the same largest
+deviation, 7,022 ulps; arm64's is 13,336, in T_C. So a problem's `g()`
+brings its own exposure to the C library, beyond `bsm`'s.
+
+**Scope:** the same results and the same decisions, with margins of
+4 x 10^10 or more, on four platform-architecture combinations (Linux
+x86-64, Windows x86-64, macOS arm64, macOS x86-64), in these runs at
+these budgets, on Python 3.14 (and Linux on 3.10). Not the same bits:
+estimates differ by up to 13,336 ulps. Margin, not invariance, as
+across versions. Not established: another libc on Linux (musl, an
+older glibc), arm64 Linux or Windows, other problems' `g()`, larger
+budgets, other seeds. `measure/compare.py` on the branch reproduces
+the table from the run's artifacts.
 
 **A second site, found 2026-10-27 and fixed 2026-10-28: the standard
 error.** The fix above made the variates agree across versions, not
 every estimate. `Oracle` took its mean and variance from `statistics`,
 and `statistics.variance(data, xbar)` gives different last bits on
-3.10 and 3.14: in 168 of 200,000 random samples on this machine, and
+3.10 than on 3.11 and later (CI, 2026-11-16: 11 of 20,000 samples
+differ between 3.10 and 3.11, none among 3.11-3.14; `mean` and
+`variance(data)` agree on all five). Between 3.10 and 3.14: in 168 of
+200,000 random samples on this machine, and
 in 48 of 217,056 estimates across 92 whole runs (golden cases, 80
 seeded solves, and R-PE at the beta sweep's budget), by 1 or 2 ulps,
 with every solution and end seed the same. Both versions sum exactly
@@ -848,11 +895,13 @@ is the exact sum divided by n, rounded once; the variance squares each
 deviation as `d * d`, sums the squares exactly and divides by n - 1,
 rounded once. An IEEE multiply, integer arithmetic and one correctly
 rounded division, so nothing depends on the Python version or the
-platform. These are 3.14's values, by decision: 3.10's would need
-`pow`, putting the platform's C library into a step that needs only a
-multiply. So on 3.10, and any version whose `statistics` squares as
-3.10's does, about 1 standard error in 5,000 changes in its last bit
-or two; on 3.14 nothing changes; the mean changes on no version
+platform. These are 3.14's values, which are 3.11's and later's, by
+decision: 3.10's would need `pow`, putting the platform's C library
+into a step that needs only a multiply. So on 3.10, the only version
+of 3.10-3.14 whose `statistics` differs, about 1 standard error in
+5,000 changes in its last bit or two; on 3.11 and later nothing
+changes (measured on 3.14; 3.11-3.13 by CI's bisect of `statistics`
+itself); the mean changes on no version
 checked, and was replaced so that no result depends on `statistics`
 at all. Values of other number types (`Decimal`, `Fraction`) still go
 to `statistics`, so they keep their type, as before. `tests/test_exact_aggregation.py`

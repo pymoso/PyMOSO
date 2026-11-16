@@ -128,11 +128,10 @@ too; numerical results changed there.
   left to right everywhere. On 3.12 and later about 40% of normal
   variates change, to the values 3.10 and 3.11 give; nothing changes
   on 3.10 or 3.11. Standard errors were a second site: `Oracle` took
-  its variance from `statistics`, whose last bits changed after 3.10.
+  its variance from `statistics`, whose last bits changed in 3.11.
   It now computes the mean and variance itself, exactly, giving the
-  values 3.14 gives; on 3.10, and any version whose `statistics`
-  matches 3.10's, about 1 standard error in 5,000 changes in its last
-  bit or two. No result checked in the test suite moved.
+  values 3.11 and later give; on 3.10 about 1 standard error in 5,000
+  changes in its last bit or two. No result checked in the test suite moved.
 
 ### A limit that was there in 1.1.0, now documented and adjustable
 

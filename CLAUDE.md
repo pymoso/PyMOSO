@@ -279,7 +279,10 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
     the same `log`/`pow` implementation.** Never across platforms:
     macOS and Windows produce different bits (KNOWN_ISSUES.md issue
     17, the test that failed there), so this result says nothing about
-    them. (It was the open correctness question.) Three Databricks
+    them. Same *results* across platforms, not bits, is a separate
+    measurement (2026-11-16, issue 17): four platform-architecture
+    combinations, margins of 4e10 or more. (It was the open
+    correctness question.) Three Databricks
     runs, 26/27/28 of 26/27/28 checks: every float identical across
     three executor hosts, between Broadwell and Skylake drivers and
     Ice Lake executors, and against this AMD machine on a different
@@ -324,10 +327,11 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   right; every other float sum uses `moso.sum_left_to_right`. 3.10/3.11
   unchanged bit for bit; 3.12+ now give 3.10's values. No golden
   moved. **That made the variates agree, not every estimate:**
-  `statistics.variance(data, xbar)` differs between 3.10 and 3.14
-  (3.10 squares with `**`, the C library's `pow`; 3.14 multiplies).
+  `statistics.variance(data, xbar)` differs between 3.10 and 3.11 and
+  later (CI bisect, 2026-11-16; 3.10 squares with `**`, the C
+  library's `pow`; 3.14 multiplies).
   Fixed 2026-10-28: `oracle._mean`/`_variance` sum exactly and round
-  once, squaring with `d * d` -- 3.14's values, by decision, so 3.10's
+  once, squaring with `d * d` -- 3.11-and-later's values, by decision, so 3.10's
   standard errors moved (~1 in 5,000, last bit). No result comes from
   `statistics` now except for `Decimal`/`Fraction` objectives.
   `tests/test_exact_aggregation.py`. `tests/test_summation_order.py` refuses a new `sum()` over
@@ -335,9 +339,17 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
   platforms:** `bsm`'s `log`/`pow` come from the C library, and a
   test holding normals to Linux-recorded bits failed on every macOS
   and Windows cell; the test now compares against a same-platform
-  left-to-right reference. macOS/Windows goldens pass in CI; that
-  this is margin is inferred, NOT measured, and a different C library
-  is not bounded by the few ulps the version split was.
+  left-to-right reference. **Measured 2026-11-16 (`measure-platform`
+  branch, issue 17 has the table):** on Linux x86-64, Windows x86-64,
+  macOS arm64 and macOS x86-64 (Python 3.14), 93 runs up to the beta
+  sweep's budget give the same solutions, end seeds and decisions,
+  least safety factor 4.3e10 (set beforehand: 1e6 is safe). Not the
+  same bits: estimates differ by up to 13,336 ulps. Margin, not
+  invariance; not established for another libc, arm64 Linux/Windows,
+  other problems or budgets. `bsm` is not the only platform site: the
+  two Macs share `bsm` and differ only in T_C runs, through ProbTPC's
+  `sin`/`exp`/`pow` -- the architecture matters through a problem's
+  own maths.
 - **pyspark 3.5 (the declared floor) is verified in classic mode:**
   3.5.9 locally and 3.5.2 on Databricks 16.4. Not under Connect.
 - **A source install has to build under the setuptools a user already
