@@ -67,6 +67,6 @@ class ProbTPB(Oracle):
                 h = 1 - pow(g1/f2, alpha)
             else:
                 h = 0
-            obj2 = xi[0]*g1
-            obj1 = xi[0]*xi[1]*f2*h
+            obj1 = xi[0]*g1
+            obj2 = xi[0]*xi[1]*f2*h
         return isfeas, (obj1, obj2)
