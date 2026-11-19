@@ -102,6 +102,14 @@ too; numerical results changed there.
   caller as itself.** It used to be re-raised as a `RuntimeError`,
   "Unable to run accel()". A custom solver's caller that caught
   `RuntimeError` there now catches the original exception.
+- **`TPATester.soln`, `TPBTester.soln` and `TPCTester.soln` hold
+  decision points, not objective values.** Each tester computes the
+  points' images with its own `true_g` when it is made, in the new
+  attribute `soln_images`, and `metric` compares against those. Code
+  that read `soln` as images reads `soln_images`, or applies `true_g`.
+  `TPCTester.soln` is now the dissertation's 516 point sets; 1.1.0 held
+  their images, which collapse to 66 distinct sets.
+  `docs/reference/tpc-reference-sets.md` has the account.
 
 ### Numerical results
 
@@ -132,6 +140,15 @@ too; numerical results changed there.
   It now computes the mean and variance itself, exactly, giving the
   values 3.11 and later give; on 3.10 about 1 standard error in 5,000
   changes in its last bit or two. No result checked in the test suite moved.
+- **A run that finds the whole reference set now scores exactly 0,**
+  with TPATester, TPBTester and TPCTester, on any platform. In 1.1.0
+  T_A and T_C scored about 2e-15 there: their reference images came
+  from 2018 code no longer in the repository and differed from
+  `true_g` in the last bits. The references are now points, imaged by
+  each tester's own `true_g` (above), so both sides of the comparison
+  are computed the same way. Every other metric value moves at most in
+  its last bits: over about 36,000 recorded values the largest move was
+  3.6e-15, and T_B's did not move.
 
 ### A limit that was there in 1.1.0, now documented and adjustable
 

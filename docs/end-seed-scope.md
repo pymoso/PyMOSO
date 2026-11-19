@@ -494,3 +494,28 @@ and without CRN. It failed 36 of 36 before the fix.
 
 The lesson is the first instance's, moved from end seeds to draws: a
 count of how much was used says nothing about where it came from.
+
+## Known-weaker tests: written down in advance, not defects
+
+The instances above were found after the fact. This section is for a
+test written in the same shape on purpose: it holds a cheap proxy for
+the property, because checking the property itself costs too much to
+run every time. Each entry names what it does not catch, so the gap is
+not found by surprise later.
+
+- **`tests/test_reference_files_not_shipped.py`** guards "the 2018
+  reference pickles in `docs/reference/` never ship in the sdist or
+  the wheel". It builds nothing. Instead it checks three proxies: no
+  `*.pkl` under `pymoso/`, nothing under `docs/` named in
+  `MANIFEST.in`, and `include-package-data = false`. It does not catch:
+  - a pickle pulled in by a `MANIFEST.in` pattern that never mentions
+    `docs/`, such as a pickle under `tests/` or a `global-include`;
+  - a new build backend, or a plugin such as setuptools-scm that
+    puts every tracked file in the sdist;
+  - `package-data` or data-files entries;
+  - a change in what setuptools includes by default.
+
+  The property itself was checked once, on 2026-11-18, by building
+  both artifacts with the pickles present and listing them. Rebuild
+  and list them after any change to `MANIFEST.in`, the
+  `[tool.setuptools]` table or the build backend.

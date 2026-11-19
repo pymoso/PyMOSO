@@ -57,14 +57,17 @@ class TPATester(object):
     ----------
     ranorc : chnbase.Oracle class
     true_g : function
-    soln : list of set of tuple of int
-        The set of LES's which solve TPC locally
+    soln : set of tuple of int
+        The global efficient set, as decision points
+    soln_images : list of tuple of float
+        true_g of each point of soln, computed when the tester is made
     get_ranx0 : function
     """
     def __init__(self):
         self.ranorc = probtpa.ProbTPA
         self.true_g = true_g
         self.soln = soln
+        self.soln_images = [self.true_g(x) for x in soln]
         self.get_ranx0 = get_ranx0
 
     def metric(self, eles):
@@ -85,8 +88,25 @@ class TPATester(object):
         for point in eles:
             objs = self.true_g(point)
             efrontier.append(objs)
-        haus = dh(efrontier, self.soln)
+        haus = dh(efrontier, self.soln_images)
         return haus
 
 
-soln = {(10.34, 10.74), (10.58, 10.18), (13.88, 8.08), (15.0, 8.0), (13.200000000000001, 8.2), (10.45, 10.45), (11.25, 9.25), (12.05, 8.649999999999999), (10.969999999999999, 9.57), (12.450000000000001, 8.45), (10.02, 12.42), (14.61, 8.01), (10.29, 10.89), (14.05, 8.05), (10.079999999999998, 11.879999999999999), (13.370000000000001, 8.17), (11.46, 9.06), (10.73, 9.93), (10.100000000000001, 11.7), (12.89, 8.29), (10.52, 10.32), (10.01, 12.61), (11.8, 8.8), (11.69, 8.89), (10.25, 11.05), (10.170000000000002, 11.37), (12.600000000000001, 8.4), (10.8, 9.8), (12.74, 8.34), (14.24, 8.04), (10.0, 13.0), (11.57, 8.969999999999999), (14.419999999999998, 8.02), (13.7, 8.1), (11.93, 8.73), (10.2, 11.2), (10.04, 12.24), (10.89, 9.69), (10.649999999999999, 10.05), (11.36, 9.16), (13.05, 8.25), (10.399999999999999, 10.6), (13.530000000000001, 8.129999999999999), (11.16, 9.36), (10.129999999999999, 11.530000000000001), (12.180000000000001, 8.58), (11.059999999999999, 9.46), (10.05, 12.05), (12.32, 8.52)}
+# The global efficient set, as decision points. 100 * true_g is an
+# integer polynomial -- squared distances to (20, 10) and (0, 20), plus
+# constants -- so this set is checked exactly, in integer arithmetic, by
+# tests/test_tester_reference_sets.py. It is (0, 20), (20, 10), and the
+# band around the segment between the centres: x2 in {19, 20, 21} - x1/2
+# for even x1 in 2..18, x2 in {20 - (x1+1)/2, 20 - (x1-1)/2} for odd x1.
+# Before 2.0 soln held these points' images, computed by code no longer
+# in the repository; 11 of them differed from true_g in the last bit, so
+# full coverage measured about 2e-15 instead of 0.
+soln = {
+    (0, 20), (1, 19), (1, 20), (2, 18), (2, 19), (2, 20), (3, 18),
+    (3, 19), (4, 17), (4, 18), (4, 19), (5, 17), (5, 18), (6, 16),
+    (6, 17), (6, 18), (7, 16), (7, 17), (8, 15), (8, 16), (8, 17),
+    (9, 15), (9, 16), (10, 14), (10, 15), (10, 16), (11, 14), (11, 15),
+    (12, 13), (12, 14), (12, 15), (13, 13), (13, 14), (14, 12), (14, 13),
+    (14, 14), (15, 12), (15, 13), (16, 11), (16, 12), (16, 13), (17, 11),
+    (17, 12), (18, 10), (18, 11), (18, 12), (19, 10), (19, 11), (20, 10),
+}
