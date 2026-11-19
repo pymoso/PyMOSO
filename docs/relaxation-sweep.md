@@ -11,19 +11,21 @@ these tables: **`docs/beta-sweep-reference.md` has the reference
 figures for the current code** (2026-10-21, re-measured 2026-11-16), and this document is the
 record of the old code's.
 
-**Resolved, and the conclusion below is withdrawn (2026-10-19).** The
-published figures predate this repository: they were produced by
-earlier code that was never committed, which exists outside this
-repository and is out of scope. So this sweep compared the figures
-with different code, and its match tells nothing about which formula
-the experiments used. That also explains the right-hand rise the
-sweep could not reproduce. The authors decided the preprint's
-formula is the intended one, and the code was fixed to it
-(`docs/algorithm-audit.md`, finding 2). The measurements stand as
-measurements of the code as it was, and the no-CRN result stands on
-its own (`docs/phase7-plan.md`, step 8). Everything below is as
-written before the resolution; the tables were run with the old
-formula, so their "shipped beta" is the old code's β.
+**Corrected 2026-11-19: the conclusion below stands.** On 2026-10-19
+it was withdrawn, on the grounds that the published figures came from
+earlier code whose formula was unknown. That code has since been read
+(the 2018 experiment code, kept outside this repository): it computes
+the relaxation as `se/pow(m, beta)` with `se` the standard error, the
+same formula as the code swept here. So the experiments did use the
+old formula, as this sweep's match indicated (`docs/algorithm-audit.md`,
+finding 2). The 2018 code differs from the swept code in other ways,
+which may account for the right-hand rise the sweep could not
+reproduce; that is not established. The authors decided the
+preprint's formula is the intended one, and the code was fixed to it.
+The measurements stand as measurements of the code as it was, and the
+no-CRN result stands on its own (`docs/phase7-plan.md`, step 8). The
+tables were run with the old formula, so their "shipped beta" is the
+old code's β.
 
 ## The question
 

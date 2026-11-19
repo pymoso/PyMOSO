@@ -115,45 +115,50 @@ higher, 11 lower). At budget 30,000 (three seeds per problem): 13 of
 
 ### 2. The relaxation's scale: se / m^β against se · m^(1/2 - β)
 
-**Defect, decided by the authors (2026-10-19), and fixed: the
-preprint is the source of truth.** The code now computes
-`se * m**(1/2 - beta)` (`tests/test_relaxation.py`). What follows is the
-finding as written, then the measurement that came after it.
+**Defect, inherited from the 2018 experiment code; decided by the
+authors (2026-10-19) and fixed: the preprint is the source of truth.**
+The code now computes `se * m**(1/2 - beta)` (`tests/test_relaxation.py`).
 
-Read. The preprint
-defines f̂_k(x, β) := ŝe(Ḡ_k,n(x)) · n^(1/2 - β) with ŝe = σ̂/√n
-(§3.2; the same in the dissertation, `ch3.tex:292-295`, and in the
-introduction's statement of PE), so f̂ = σ̂ · n^(-β). That is both
-PE's epsilon interval (β_ε) and RLE's completeness function (β_δ).
-The code computes `se / m**beta` (`rperle.py:166-168` `fse`,
-`chnbase.py:1327-1328` `calc_delta`), and `se` is the standard error
-σ̂/√m (`oracle.py:884`). So the code's relaxation is σ̂ · m^(-1/2 - β),
-smaller than the preprint's by a factor of √m: **PyMOSO's β = 1/2 is
-the preprint's β = 1.** With the defaults, the preprint's interval is
-one standard error; the code's is a standard error divided by √m.
+The preprint defines f̂_k(x, β) := ŝe(Ḡ_k,n(x)) · n^(1/2 - β) with
+ŝe = σ̂/√n (§3.2; the same in the dissertation, `ch3.tex:292-295`, and
+in the introduction's statement of PE), so f̂ = σ̂ · n^(-β). That is
+both PE's epsilon interval (β_ε) and RLE's completeness function
+(β_δ). Until the fix, the code computed `se / m**beta` (`fse` in
+`rperle.py`, `calc_delta` in `chnbase.py`), with `se` the standard error
+σ̂/√m, so its relaxation was σ̂ · m^(-1/2 - β): smaller than the
+preprint's by a factor of √m. **Under the old formula β = 1/2 was the
+preprint's β = 1.** At the dissertation's stated defaults
+(β_ε = β_δ = 1/2, "more than one standard error away"), the code
+searched to a standard error divided by √m.
 
-Both formulas have been as they are since 2018 (`a914c3e`). If the
-preprint's experiments, including §9.3's β study ("a sweet spot for
-β_ε in (0.2, 0.4)"), were run with this code, then the published β
-values are the code's, and it is the paper's formula that misstates
-them. Convergence holds for any β in (0, ∞) under either convention,
-so this is about what the parameter means and about efficiency, not
-about correctness.
+**Where it came from.** The code that produced the published figures
+was read on 2026-11-19 (an archive of the 2018 experiment code, kept
+outside this repository and never executed). Its `rperle.py` computes
+both relaxations as `se/pow(m, beta)` (`fse` and `calc_delta`), and its
+`Oracle.hit` returns `se` as `sqrt(variance)/sqrt(m)` (`simbase.py`).
+So the defect was in the experiment code before this repository
+existed. The first commit (`a914c3e`, 2018) inherited it; it was not
+introduced when the package was assembled, as this finding's earlier
+resolution said.
 
-Measured afterwards, `docs/relaxation-sweep.md`: a sweep of the
-shipped code against §9.3's figures matches the published β study
-read as the code's β, and not read as the preprint's, except for a
-right-hand rise in the figures that neither reading reproduces.
+**What that means for the published results.** The dissertation's and
+preprint's experiments ran with the old formula. Their stated β values
+are values of the old convention: the published β = 1/2 is the
+corrected code's β = 1. That is what `docs/relaxation-sweep.md`
+measured (the published β study matched read as the old code's β), and
+that reading stands. The sweep did not reproduce the figures'
+right-hand rise. The 2018 code differs from the code it swept in more
+than the relaxation (seen in the archive: its oracle for T_C draws five
+normals a replication where this one draws three, and it filters
+candidate sets with the tie-dropping `get_biparetos` of finding 8; it
+was not compared further), so the rise is not attributed to anything
+here.
 
-**Resolved: that sweep does not bear on the question.** The
-published figures predate this repository. They were produced by
-earlier code that was never committed; it exists, outside this
-repository, and is deliberately out of scope. The first commit's
-formula is what was written when the package was assembled
-afterwards, and is where the error entered: s.e. · n^(1/2 - β)
-translated into code whose `se` already carries the 1/√n, divided by
-it again. So the sweep compared the figures with different code, which
-also explains the right-hand rise it could not reproduce.
+Convergence holds for any β in (0, ∞) under either convention, so this
+is about what the parameter means and about efficiency, not about
+correctness. The authors' decision stands: the preprint's formula is
+the intended one, and the corrected code is right. Reproducing a
+published figure with the corrected code needs β raised by 1/2.
 
 ### 3. PE's LWEP filter is applied to the wrong set, then undone
 
@@ -530,9 +535,9 @@ Findings 6, 9 (above two dimensions), 11, 12, 15 and 17.
 
 Finding 2 was settled by the authors after this was written: the
 preprint's f̂ is the intended relaxation, and the code was fixed to
-it. Two questions it raised are closed with it. How the preprint's
-figures were produced: by earlier code, never committed, which exists
-outside this repository and is out of scope; do not reopen this from
-the repository's history. And why a sweep of this code did not
-reproduce the figures' right-hand side: it is not the code that
-produced them (`docs/relaxation-sweep.md`).
+it. How the published figures were produced is now known from the 2018
+experiment code (read 2026-11-19, kept outside this repository): it
+used the old formula, which this repository inherited (finding 2).
+Why the sweep did not reproduce the figures' right-hand side remains
+open; that code differs from what was swept in more than the
+relaxation (`docs/relaxation-sweep.md`).
