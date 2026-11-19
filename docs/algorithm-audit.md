@@ -46,7 +46,9 @@ intended).
 | # | Finding | Algorithms | Class | Evidence |
 |---|---|---|---|---|
 | 1 | PE's traceback reads the epsilon intervals of the wrong objective | R-PERLE, R-PE | defect; fixed | measured |
-| 2 | The relaxation is se / m^β; the preprint's is se · m^(1/2 - β) | R-PERLE, R-PE, R-MinRLE | defect (decided); fixed | read |
+| 2 | The relaxation is se / m^β; the preprint's is se · m^(1/2 - β) | R-PERLE, R-PE, R-MinRLE | defect (decided), inherited from the 2018 code; fixed | read; the 2018 code read |
+| 2b | The published x-axis counts estimate calls × m, not simulations | R-PERLE, R-PE, R-MinRLE (not MO-COMPASS) | published axis mislabelled; PyMOSO counts simulations since 2018 | read; scale illustrated, not measured for the published runs |
+| 2c | T_C's published quantile figure, against the code | R-PERLE | plateau and upper quartile explained; overshoot frequency not | measured, 100 runs |
 | 3 | PE's LWEP filter is applied to the wrong set and then undone | R-PERLE, R-PE | defect; fixed | measured |
 | 4 | SPLI's line search floors instead of rounding to nearest | all four | defect; fixed | read; occurrences counted |
 | 5 | SPLI does not stop at an infeasible line-search point | all four | defect; fixed | read |
@@ -159,6 +161,120 @@ is about what the parameter means and about efficiency, not about
 correctness. The authors' decision stands: the preprint's formula is
 the intended one, and the corrected code is right. Reproducing a
 published figure with the corrected code needs β raised by 1/2.
+
+### 2b. The published figures' x-axis counts estimate calls, not simulations
+
+**Read, in the 2018 experiment code; PyMOSO has counted simulations
+since 2018-10-30.** The 2018 code that produced the published figures
+(the archive described in finding 2, read 2026-11-19, never executed)
+charges the budget in `RPERLE.estimate`:
+
+```python
+        if x in self.gbar:
+            ...                      # cached this iteration: no simulation
+        else:
+            isfeas, fx, vx = self.orc.hit(x, m)
+            ...
+        if isfeas:
+            self.num_calls += m
+```
+
+The charge sits after the cache branch, so every estimate of a feasible
+point costs m, whether or not it was simulated. R-PE and R-MinRLE are
+subclasses there and charge the same way. MO-COMPASS does not: its
+`update_gbar` charges the replications it actually runs. PyMOSO's first
+commit had the 2018 rule. `a914c3e` (2018-10-30, "SPLINE bug, minor
+restructuring") moved the charge into the branch that simulates, so
+`num_calls` has counted simulations since.
+
+**The finding: the axis label is wrong.** The published R-PERLE,
+R-PE and R-MinRLE curves are labelled "total simulation effort, t".
+They are plotted against estimate calls × m, which is at least the
+number of simulations. So every cost on those axes is overstated, and
+a figure comparing them with MO-COMPASS puts two counting conventions
+on one axis. By how much, for the published runs, is not known.
+
+**An illustration of scale, under this repository's implementation.**
+Measured 2026-11-19 on R-PERLE, T_C, budget 4e6, CRN, betaeps = betadel
+= 1.0 (the 2018 formula at the dissertation's β = 0.5, finding 2), 100
+paths. The run had a second counter applying the 2018 rule to 2.0's own
+estimate calls; the runs were identical to the uninstrumented ones.
+**This applies 2018's charging rule to 2.0's call pattern. The 2018
+code's own call pattern is not measured, because that code is not run.
+Where the two differ (the findings fixed since, and the tie-dropping
+`get_biparetos`), the 2018 ratio could be different. These numbers do
+not measure how far the published figures overstate cost.**
+
+| actual simulations | estimate calls × m / simulations, cumulative, median (q25-q75) | per iteration, median |
+|---|---|---|
+| 1e5 | 4.91 (4.76-5.10) | 5.10 |
+| 5e5 | 5.19 (5.00-5.74) | 5.26 |
+| 1e6 | 5.25 (5.05-5.91) | 5.16 |
+| 2e6 | 5.32 (5.11-6.04) | 5.14 |
+| 4e6 | 5.38 (5.09-6.17) | 5.15 |
+
+At each path's last iteration it ranged from 4.40 to 6.51 (median
+5.34). Under this implementation, a 2018-rule count of 4e6 is about
+0.72e6 simulations (quartiles 0.66e6-0.77e6). The scripts and data
+are in the R-PERLE 4e6 run directory, outside the repository
+(`analysis/tpc-stall/stretch*.py`, `rperle_count.py`).
+
+### 2c. Test Problem C's published quantile figure, against the code
+
+The dissertation's Figure 9 (`TPC_cq.pdf`) shows R-PERLE's 0.25, 0.5
+and 0.75 quantiles of the local weakly coverage error over 1,000 runs
+on T_C. Its values were read from the PDF's drawing commands. At 4e6
+they are 0 / 0.43038 / 0.43038, and the median and upper quartile sit at
+0.43038 from about 0.5e6 and 0.9e6. The corrected code at its defaults
+(100 runs) gives 0 / 0 / 0.6456.
+
+**What the relaxation formula explains: the plateau's state and the
+upper quartile's level.** 0.43038 is one specific state: the complete
+global image set plus one spurious point, (-3,-3,-2) or its mirror.
+The corrected code's plateau, 0.6456, is a different state: the global
+set less (-2,-2,-2). RLE's relaxation lets it certify that set while
+the relaxation exceeds the true gap to the nearest member. At the
+objectives' population variances (computed, not sampled), that lasts
+until m is about 13,600, beyond the plotted budget. The corrected code with β raised by 1/2,
+which is the 2018 formula (finding 2), reaches the published state in
+27 of 100 runs and holds the upper quartile at 0.43038 to 4e6.
+
+**What the budget accounting explains: the upper quartile's timing,
+approximately.** Re-plotted on the 2018 axis (finding 2b), the emulated
+upper quartile settles at 0.43038 from 0.62e6, against the published
+0.9e6, through the same sequence of values (1.101, 0.779, 0.646,
+0.430). The accounting does not reconcile both quantiles:
+
+- the lower quartile would need a factor of about 15.7 (0 reached at
+  0.03e6 actual, against 0.47e6 published);
+- the upper quartile would need about 7.5 (0.12e6 against 0.9e6);
+- measured across 100 paths: 4.40 to 6.51, median 5.34.
+
+No single factor reconciles both quantiles. Neither required value
+falls inside the measured range: the upper quartile is close, and the
+lower quartile is beyond it by more than a factor of two.
+
+**What is not accounted for: how often runs overshoot.** The published
+median of 0.43038 means at least half of the 1,000 runs ended in the
+spurious-point state or worse. The emulation has 27 of 100 there, and
+62 at 0. If half were the true rate, 62 or more at 0 would occur about
+1% of the time. Candidate causes, none established or claimed:
+
+1. the oracle's draws: five normals a T_C replication in 2018, three
+   here, so different variates under CRN;
+2. the tie-dropping `get_biparetos` (finding 8);
+3. the starting points: the same uniform distribution, but drawn by a
+   different mapping and stream (2018's `sample` against 2.0's
+   `choice`);
+4. the CRN realization: 2018's rewind-per-hit scheme against 2.0's
+   coordinate streams, and its oracle seeds from `orcseeds.pkl`;
+5. the defects this audit found and fixed since, so far as the 2018
+   code shares them (only finding 8 was confirmed in the archive; the
+   others were not compared).
+
+None was ablated, by decision. The run directory's
+`analysis/tpc-stall/` holds the measurements: `figure_tpc.py`,
+`reproduce.py`, `stretch_analysis.py` and their outputs.
 
 ### 3. PE's LWEP filter is applied to the wrong set, then undone
 
@@ -305,6 +421,15 @@ and no line-search step in a 1-D run). The golden `rspline_simpleso`,
 `--budget=1000`: 29 iterations and 1,023 simulation calls with b = 0,
 25 and 1,076 with b = 10, 12, 14, 17, ...; the solution `{(0,)}` both
 times. Quality is unmeasured; the re-sweep covers it.
+
+**Open, paper against code, at d > 2 (2026-11-19).** The dissertation
+states b_ν = ⌈8 × 1.2^ν⌉ for all ν ≥ 1, with no dimension (§ Algorithm
+Parameters), for experiments that include T_C (d = 3). The 2018
+experiment code (finding 2) computes `8*(self.dim - 1)`, as PyMOSO
+does. So the published T_C runs used b_ν = ⌈16 × 1.2^ν⌉, and so does
+PyMOSO. The paper and the code differ on T_C; at d = 2 they agree. This
+is common to both code bases, so it explains no difference between
+them. Left unchanged.
 
 ### 10. R-PERLE and R-PE on three or more objectives
 
