@@ -406,8 +406,8 @@ Finally, users may specify any number of options in one invocation, in any order
 | `radius` | `1` | `RMINRLE`, `RPE`, `RPERLE`, `RSPLINE` | Sets radius that determines a point's neighborhood. |
 | `bestimprove` | `0` | `RMINRLE`, `RPE`, `RPERLE`, `RSPLINE` | Set to 1 to search the whole neighborhood for its best point, rather than move to the first improving one. |
 | `quadratic` | `0` | `RMINRLE`, `RPE`, `RPERLE`, `RSPLINE` | Set to 1 to add a quadratic candidate to the neighborhood search, fitted along each axis (radius 1 only; useful with bestimprove). |
-| `betadel` | `0.5` | `RMINRLE`, `RPERLE` | Roughly, affects how likely it is for RLE to keep its given solution. |
-| `betaeps` | `0.5` | `RPE`, `RPERLE` | Roughly, affects how likely PE will perform a search from a point. |
+| `betadel` | `0.5` | `RMINRLE`, `RPERLE` | RLE's completeness relaxation, se * m^(1/2 - betadel): 0.5 is one standard error. Changed in 2.0: 1.1.0's value plus 0.5 gives 1.1.0's behaviour. |
+| `betaeps` | `0.5` | `RPE`, `RPERLE` | PE's epsilon-placement relaxation, se * m^(1/2 - betaeps): 0.5 is one standard error. Changed in 2.0: 1.1.0's value plus 0.5 gives 1.1.0's behaviour. |
 | `lb` | *(required)* | `ExampleBnBSolver`, `ExampleSearchSolver` | Lower bound each feasible point's components may take. |
 | `ub` | *(required)* | `ExampleBnBSolver`, `ExampleSearchSolver` | Upper bound each feasible point's components may take. |
 | `numsamples` | `8` | `ExampleSearchSolver` | Number of feasible points to sample per iteration. |
@@ -416,6 +416,8 @@ Finally, users may specify any number of options in one invocation, in any order
 | `delta` | `0.1` | `ExampleBnBSolver` | Sampling ratio used for subregion elimination. |
 | `R0` | `20` | `ExampleBnBSolver` | Initial number of replications taken per point. |
 
+
+**`betaeps` and `betadel` changed meaning in 2.0.** Each sets a relaxation of se · m^(1/2 − β), where se is the standard error and m the RA iteration's sample size, as the papers define it, so the default, 0.5, is one standard error. <!-- verified: tests/test_relaxation.py::test_default_beta_is_one_standard_error; tests/test_relaxation.py::test_relaxation_is_the_preprints --> Up to 1.1.0 the same value gave se / m^β, a standard error divided by √m. A run that sets either parameter therefore gives different results after upgrading, with no error or warning. To reproduce a 1.1.0 run, add 0.5 to each value it used, or use 1.0 where it relied on the default. The smaller relaxation returns larger sets. With R-PERLE at a budget of 4 × 10^6 and common random numbers, both parameters at 1.0 against the default gave a median of 50 points against 15 on Test Problem A, 51 against 41 on B, and 9 against 7 on C ([`docs/beta-sweep-reference.md`](docs/beta-sweep-reference.md), "Returned-set sizes").
 
 ### The `testsolve` Command  
 The PyMOSO `testsolve` command tests algorithms on problems using a PyMOSO tester. Users can test built-in or user-defined solvers with built-in or user-defined testers. In the examples that follow, we assume users have implemented `MyProblem` as in [The Example Oracle](#the-example-oracle) and the corresponding tester named `MyTester` in `mytester.py`, shown in [The Example Tester](#the-example-tester). See [Implementing PyMOSO Testers](#implementing-pymoso-testers) for instructions on implementing a user-defined tester, including a metric for comparing algorithms, in PyMOSO.  

@@ -18,6 +18,11 @@ the documents that record the measurements.
 - **When sending replications to a Spark cluster pays** (roughly 100 ms
   per replication or more): `docs/spark-backend.md`, three Databricks
   clusters.
+- **What `betaeps` and `betadel` at 1.0 do to the returned set**, against
+  the default: medians of 50 against 15 points (Test Problem A), 51
+  against 41 (B) and 9 against 7 (C), R-PERLE at budget 4 x 10^6 with
+  CRN. `docs/beta-sweep-reference.md`, "Returned-set sizes" (10 paired
+  runs on A and B, 100 on C).
 - **Identical results across machines.** The suite proves identity
   across process counts and start methods on one machine. Identity
   across hosts was shown on Databricks, within x86-64 and glibc
@@ -54,8 +59,8 @@ the documents that record the measurements.
 
 ## Descriptions of the algorithms
 
-What a parameter does (`betadel` "affects how likely it is for RLE to
-keep its given solution"), what `accel` and `spsolve` return, and what
+What a parameter does (`betadel` "RLE's completeness relaxation"), what
+`accel` and `spsolve` return, and what
 RLE certifies are descriptions of the published algorithms. The papers
 cited at the top of the README are their reference; the parameter
 table's defaults and solver lists are checked against the code

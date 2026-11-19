@@ -42,15 +42,23 @@ too; numerical results changed there.
   `Decimal` used to be converted and now raises `TypeError` naming the
   parameter.
 - **`betaeps` and `betadel` now mean what the papers mean, which they
-  never did before.** R-PERLE, R-PE and R-MinRLE relax their
-  comparisons by se · m^(1/2 - β), as the R-PERLE paper defines it, so
-  the default, β = 1/2, is one standard error, and a β taken from the
-  paper gives the method the paper describes. Every earlier release
-  computed se / m^β, which is smaller by a factor of √m at every β:
-  with the default, a tenth of a standard error at m = 100. To
-  reproduce the previous behaviour, add 1/2 to the value you used, or
-  set 1 where you relied on the default. Results of these three
-  solvers change (below). A β at or below 0 is still used as given,
+  never did before, and nothing tells you.** A run that sets either
+  parameter gives different results after upgrading, with no error and
+  no warning; of all the changes here, this is the one where a value
+  you chose now means something different. R-PERLE, R-PE and R-MinRLE
+  relax their comparisons by se · m^(1/2 - β), as the R-PERLE paper
+  defines it, so the default, β = 1/2, is one standard error, and a β
+  taken from the paper gives the method the paper describes. Every
+  earlier release computed se / m^β, which is smaller by a factor of
+  √m at every β: with the default, a tenth of a standard error at
+  m = 100. **2.0's β = 1 is 1.1.0's β = 1/2: to reproduce the previous
+  behaviour, add 1/2 to the value you used, or set 1 where you relied
+  on the default.** The smaller relaxation returns larger sets:
+  with R-PERLE at a budget of 4 × 10^6, both parameters at 1 gave a
+  median of 50 points against the default's 15 on Test Problem A, 51
+  against 41 on B, and 9 against 7 on C
+  (`docs/beta-sweep-reference.md`, "Returned-set sizes"). Results of
+  these three solvers change (below). A β at or below 0 is still used as given,
   now with a warning: there the relaxation does not shrink as m
   grows (below 0 it grows), and the convergence guarantee does not
   hold.

@@ -180,6 +180,34 @@ one seed and 100 runs. It is not evidence about a user's problem, and
 not a recommendation of any other value; it says where these two test
 problems put the default.
 
+## Returned-set sizes: the default against β = 1.0 (measured, 2026-11-19)
+
+The tables above are R-PE's coverage error. This section is the other
+visible effect of β: how many points R-PERLE returns. It compares the
+default (betaeps = betadel = 0.5) with both at 1.0. The 1.0 setting is
+2.0's equivalent of 1.1.0's default (`docs/algorithm-audit.md`, finding 2).
+
+R-PERLE, budget 4 x 10^6, CRN, seed `12345,...` x 6. The runs are
+paired: run i starts at the same point in both. The table gives points
+in each run's last returned set at or below 4 x 10^6.
+
+| problem | runs | default: min, quartiles, max | β = 1.0: min, quartiles, max | β = 1.0 larger / same / smaller |
+|---|---|---|---|---|
+| T_A | 10 | 13, 14 / 15 / 15, 19 | 48, 49 / 50 / 50, 57 | 10 / 0 / 0 |
+| T_B | 10 | 26, 30 / 41 / 46, 49 | 26, 50 / 51 / 51, 54 | 9 / 1 / 0 |
+| T_C | 100 | 3, 6 / 7 / 9, 10 | 3, 6 / 9 / 14, 16 | 64 / 19 / 17 |
+
+On T_A and T_B the larger sets cover the front more completely. On T_C
+some are larger because they carry a point off the front
+(`docs/algorithm-audit.md`, finding 2c).
+
+What this does not establish: one solver, three problems, one budget
+and seed. T_A and T_B have 10 runs each. The runs and the script
+(`analysis/setsizes.py`) are in the R-PERLE 4e6 run directory, outside
+the repository (`/srv/projects/pymoso-runs/rperle-4e6/`, stages
+`pilot`, `beta1` and `tpcold` of its `run.sh`), on PyMOSO 0da761c and
+52053c6, whose R-PERLE is the same as 2.0's.
+
 ## Which fixes moved the figures (measured, 2026-10-28)
 
 A sweep on the tree after each fix, run on 2026-10-28 (Python 3.10;
