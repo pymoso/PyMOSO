@@ -495,6 +495,38 @@ and without CRN. It failed 36 of 36 before the fix.
 The lesson is the first instance's, moved from end seeds to draws: a
 count of how much was used says nothing about where it came from.
 
+## A ninth instance: in measurement scripts, not tests
+
+Found in Phase 7, diagnosing T_C's apparent stall in the R-PERLE runs at
+budget 4 x 10^6 (`/srv/projects/pymoso-runs/rperle-4e6/`, outside the
+repository). The pattern is the same, but it was not in the test suite.
+It was in the scripts that produced the figures a conclusion was drawn
+from. Two cases.
+
+- **A metric compared, read as solutions compared.** `pilot_all.py`
+  counted runs whose coverage error at 4 x 10^6 equalled their coverage
+  error at 3 x 10^6: 97 of 100. The findings read that as "T_C has
+  stopped moving". In fact 77 of the 100 returned the same set at both
+  budgets: 20 changed set without changing the error. Every run
+  completed two or three iterations in between.
+- **A filtered subset reported as a count.** `probe.py` printed
+  "(-2,-2,-2) missed in 29 runs". It had first kept only the 43 runs
+  whose nearest reference set was the global set. In fact 86 of 100
+  runs lacked the point; for 57 of them the nearest set is one that
+  does not contain it, so the absence is correct.
+
+**What detects it:** reading each figure's computation against its
+label. `analysis/AUDIT.md` in that directory does this for every
+script there and lists eight more cases. Two kinds recur:
+- an exact-zero count against reference images that were themselves
+  ~1e-15 off;
+- output computed on data later replaced, with nothing in the output
+  saying so.
+
+The lesson is the end seed's, applied to analysis: a number is
+evidence only for what it computes, whatever its label or the sentence
+quoting it says.
+
 ## Known-weaker tests: written down in advance, not defects
 
 The instances above were found after the fact. This section is for a
