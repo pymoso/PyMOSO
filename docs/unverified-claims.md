@@ -49,6 +49,9 @@ the documents that record the measurements.
   `get_nbors` whole-run comparison). Nothing runs `RPE` or `RSPLINE` with
   `crn=True`. A test would solve with each under `crn=True` and check
   that two points in one iteration share replications.
+- **KNOWN_ISSUES.md's "Open in 2.0.0", the `bconst` workaround.** That
+  setting `bconst` to 8 / (d - 1) gives the papers' search limit is read
+  from `calc_b` (`bconst * max(d - 1, 1) * 1.2^nu`), not tested.
 - **The oracle contract's zero-variance hazard.** That at a standard
   error of 0 R-PE and R-PERLE step PE's constraint by an absolute 1e-6
   is read from `rperle.py`. That the step vanishes at about 3.4 x 10^10

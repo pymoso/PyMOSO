@@ -19,6 +19,8 @@ Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation o
 
 We recommend reading these papers to understand the algorithms, what they return, and the algorithm parameter options that we describe in the user manual.
 
+Upgrading from PyMOSO 1? [`CHANGELOG.md`](CHANGELOG.md) lists what changed, starting with what you may have to change. One change gives a value you set a different meaning, with no error or warning: [`betaeps` and `betadel`](#table-of-algorithm-specific-parameters) now mean what the papers mean. [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) opens with what is still open in 2.0.0, and whom it affects.
+
 Table of Contents
 =================
 
@@ -40,13 +42,19 @@ Table of Contents
             * [Table of Algorithm-Specific Parameters](#table-of-algorithm-specific-parameters)
          * [The testsolve Command](#the-testsolve-command)
             * [The Example Tester](#the-example-tester)
+      * [Configuring a run: what was measured](#configuring-a-run-what-was-measured)
+         * [Parallelism, and where the time goes](#parallelism-and-where-the-time-goes)
+         * [Common random numbers](#common-random-numbers)
+         * [Neighbourhood radius](#neighbourhood-radius)
       * [Implementing problems, testers, and algorithms in PyMOSO](#implementing-problems-testers-and-algorithms-in-pymoso)
          * [Implementing PyMOSO Oracles](#implementing-pymoso-oracles)
+            * [The oracle contract](#the-oracle-contract)
             * [Example Oracle that Wraps a C Simulation](#example-oracle-that-wraps-a-c-simulation)
             * [Example Wrapper with PyMOSO Random Numbers](#example-wrapper-with-pymoso-random-numbers)
          * [Implementing PyMOSO Testers](#implementing-pymoso-testers)
             * [Example Metric 1](#example-metric-1)
             * [Example Metric 2](#example-metric-2)
+            * [The built-in testers' reference sets](#the-built-in-testers-reference-sets)
          * [Implementing PyMOSO Algorithms](#implementing-pymoso-algorithms)
             * [Template Accelerator](#template-accelerator)
             * [Template RA Solver](#template-ra-solver)

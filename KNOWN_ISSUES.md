@@ -16,6 +16,82 @@ through 1.0.7 were development releases pushed to PyPI while the paper
 the preprint was archived, which was after 1.0.8 shipped.
 ---
 
+## Open in 2.0.0: does an issue affect you?
+
+The rest of this document is the record of what was found and fixed.
+This section lists only what is still open in 2.0.0, with who is
+affected. It covers this file's issues, the algorithm audit's open
+findings (`docs/algorithm-audit.md`) and the two example solvers.
+
+**Your `--budget` is exceeded, and does not count every simulation**
+(issue 16, below). Affects every RA solver: R-SPLINE, R-PE, R-PERLE
+and R-MinRLE. The budget is checked only between iterations, and an
+iteration runs to completion. Measured overshoot is small in two or
+three dimensions: 1,000 asked, about 1,030-1,100 run. It grows with
+dimension: 3,681 at nine dimensions, and up to 473,901 at fifty.
+Replications of a point that turns out infeasible are run but not
+counted. If simulations are expensive, read `simcalls` from a cheap
+trial run before a long one.
+
+**The search limit differs from the papers above two decision
+variables** (audit finding 9). Affects R-SPLINE, R-PE, R-PERLE and
+R-MinRLE on problems with more than two variables, which is most real
+problems. The papers set b_ν = ⌈8 × 1.2^ν⌉. PyMOSO, and the 2018 code
+that produced the published results, use ⌈8 × (d − 1) × 1.2^ν⌉ for
+d variables: twice the papers' at d = 3, four times at d = 5. It is
+left as it is, by decision. To get the papers' value, set `bconst` to
+8 / (d − 1).
+
+**An objective with zero variance, at a large magnitude** (audit
+finding 13). Affects R-PE and R-PERLE with a deterministic objective,
+or one whose replications are all equal, whose values reach about
+3.4 × 10^10. PE may repeat the same search without end. This is inferred
+from floating-point precision and was never observed. See
+[the oracle contract](README.md#the-oracle-contract).
+
+**Results across platforms are the same, but not to the last bit**
+(issue 17, below). Affects you only if you compare a run's numbers bit
+for bit across machines. Python versions 3.10-3.14 now agree. Linux,
+Windows and macOS gave the same solutions and end seeds in every run
+measured, with estimates differing in their last digits. That was
+measured for the built-in test problems at one budget; another C
+library, or your own problem, was not measured.
+
+**Three or more objectives with R-PE or R-PERLE** (audit finding 10).
+PE is defined for two objectives. With three, both solvers run without
+error, and the third objective takes the second's role. PyMOSO does
+not check how many objectives a problem has, by decision.
+
+**Where the built-in solvers' code and the papers may differ, and the
+papers do not settle it** (audit findings 6, 11, 12, 15 and 17). Each
+is read from the code. None was measured as changing a result:
+- R-PE and R-PERLE: under an epsilon constraint, the pseudo-gradient
+  uses vertices that violate the constraint (6).
+- R-PE, R-PERLE and R-MinRLE: the minimizer step returns, besides the
+  minimizers, any non-dominated point its searches visited (11).
+- R-MinRLE: a minimizer's search may start from x0 (12).
+- All four: a line search counts a full simplex against its search
+  limit, even for vertices already estimated or infeasible, so a
+  search can stop sooner than the papers' count would. It does not
+  change what `--budget` counts (15).
+- R-SPLINE: the MATLAB reference implementation adds tolerances and
+  caps that are in neither the paper nor PyMOSO (17).
+
+**Reproducing a published figure.** The published R-PERLE results ran
+with the relaxation's old form. Their β = 0.5 is 2.0's β = 1.0 (see
+`CHANGELOG.md`). Their x-axis counts estimate calls times the sample
+size, not simulations (audit finding 2b), so their costs are overstated
+by an amount not known for the published runs.
+
+**`ExampleSearchSolver` and `ExampleBnBSolver`** are ports of
+MO-COMPASS and MOPBnB. They have not been checked against their papers,
+and are named so as not to claim to implement them. Their known
+defects are listed in `docs/mocompass-mopbnb-known-issues.md`. Among
+them: MOPBnB's subregions are not regions, and MOCOMPASS builds the
+whole feasible region in memory. Both refuse `--crn`.
+
+---
+
 ## Affects released, used versions (up to 1.0.8)
 
 ### 1. Incorrect pseudo-random stream jump-ahead
