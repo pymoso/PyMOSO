@@ -18,6 +18,9 @@ the documents that record the measurements.
 - **When sending replications to a Spark cluster pays** (roughly 100 ms
   per replication or more): `docs/spark-backend.md`, three Databricks
   clusters.
+- **That CRN helps less, but still helps, when an oracle's draws are
+  desynchronized:** `docs/crn-failure.md`, the inventory twins and the
+  `randint` problem.
 - **What `betaeps` and `betadel` at 1.0 do to the returned set**, against
   the default: medians of 50 against 15 points (Test Problem A), 51
   against 41 (B) and 9 against 7 (C), R-PERLE at budget 4 x 10^6 with
@@ -36,6 +39,21 @@ the documents that record the measurements.
   `get_nbors` whole-run comparison). Nothing runs `RPE` or `RSPLINE` with
   `crn=True`. A test would solve with each under `crn=True` and check
   that two points in one iteration share replications.
+- **The oracle contract's zero-variance hazard.** That at a standard
+  error of 0 R-PE and R-PERLE step PE's constraint by an absolute 1e-6
+  is read from `rperle.py`. That the step vanishes at about 3.4 x 10^10
+  is computed from double precision. That PE then repeats its search
+  without end is inferred and was never run
+  (`docs/algorithm-audit.md`, finding 13).
+- **That an oracle drawing random numbers outside `rng` loses
+  reproducibility, CRN and independence in parallel.** True by
+  construction (PyMOSO controls only `rng`); not tested.
+- **A tester subclass that replaces `soln` or `true_g` must recompute
+  `soln_images`.** True by reading: the built-in testers compute
+  `soln_images` in `__init__` from their module's `soln`, and `metric`
+  reads only `soln_images`. A test would subclass a tester, replace
+  `soln` after `__init__`, and show `metric` still scoring against the
+  old images.
 - **The C wrapper examples.** They need a compiled library and are
   deliberately not exercised (tests/test_readme_examples.py). So is
   the note that an `mrg32k3a` seed component can exceed 2^31 and does

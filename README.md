@@ -497,6 +497,22 @@ Usually, implementing a PyMOSO oracle implies implementing a Monte Carlo simulat
    - If `x` is feasible, the tuple contains a single observation of every objective. If `x` is not feasible, each element in the tuple is `None`.
 1. At a feasible `x`, every objective's observations must have finite variance. The convergence results of the built-in algorithms assume it (Lemma 5.2 of the paper that introduces R-SPLINE; Assumption 3 of the paper that introduces R-MinRLE, R-PE and R-PERLE). PyMOSO does not check it.
 
+#### The oracle contract
+This is what `g` must guarantee, what PyMOSO assumes without checking, and what happens when either fails. The paragraphs after it give the details.
+
+**Enforced: PyMOSO raises or refuses.**
+- Without `--crn`, one replication may make at most `replication_draws` uniform draws (16,384 unless the class sets it). More raises `ReplicationDrawOverflow` rather than reaching into another replication's random numbers. <!-- verified: tests/test_replication_independence.py::test_every_generator_gives_a_replication_16384_draws -->
+- An exception raised in `g` reaches the caller as that exception, with or without `--simpar`. <!-- verified: tests/test_simpar_worker_lifecycle.py::test_an_exception_in_g_is_reported_with_or_without_simpar -->
+- A point that contains `nan`, an infinity or something that is not a number is infeasible, and `g` is not called. <!-- verified: tests/test_point_types.py::test_a_point_that_cannot_be_encoded_is_infeasible_and_is_not_simulated -->
+
+**Assumed, and not checked.**
+- **All of `g`'s randomness comes from `rng`.** Otherwise a run does not reproduce from its seed, `--crn` cannot share random numbers between points, and replications taken in parallel are not guaranteed independent. An external simulation must take its seed from `rng`, as in [the wrapper example](#example-wrapper-with-pymoso-random-numbers).
+- **Feasibility depends on `x` alone.** A point counts as feasible for an estimate only if every one of its replications is. The built-in RA solvers (R-SPLINE, R-PE, R-PERLE, R-MinRLE) do not support a `g` whose feasibility depends on its random numbers. When a point they carried from the last iteration comes back infeasible, they raise `WarmStartInfeasible`, naming the point and the iteration. <!-- verified: tests/test_warm_start.py::test_a_whole_run_with_random_feasibility_raises_it -->
+- **Every objective has finite variance at every feasible point** (the fifth requirement above).
+- **An objective that is deterministic, or whose replications are all equal, has a standard error of 0.** R-PE and R-PERLE then move PE's constraint by a fixed 1e-6 rather than by a standard error. That step is absolute. For an objective of about 3.4 × 10^10 (2^35) or more, subtracting 1e-6 does not change the value in floating point, so PE would repeat the same search without end. This is computed from floating-point precision, not observed. Rescale such an objective, or give it some noise.
+- **Under `--crn`, the same random number serves the same purpose at neighbouring points.** That holds when the number of draws `g` makes before each quantity does not depend on `x`. A loop whose length depends on `x`, or `randint`, `choice` or `randrange` over a range that depends on `x`, breaks it. CRN then helps less but still helps (measured in [`docs/crn-failure.md`](docs/crn-failure.md)).
+- **With `--simpar` or `--proc` above 1, the oracle's class can be imported by a worker process.** A class defined in a file works. One defined in a notebook cell, a REPL or a function needs the `notebook` extra ([Optional extras](#optional-extras)).
+
 To keep one stream of random numbers per purpose, `rng.advance(d)` returns a second generator `d` draws past `rng`, leaving `rng` where it was; a draw is one call to `random()`, on every generator. <!-- verified: tests/test_rng_advance.py::test_advance_d_then_drawing_is_drawing_d_then_drawing --> Draws on the second generator do not count against the replication's limit of 16,384 draws (`replication_draws`, below), so without `--crn`, a `g` that advances and draws past that limit uses the next replication's random numbers, and nothing raises. Keep `d` plus the draws after it within the limit. <!-- verified: tests/test_rng_advance.py::test_the_reserve_check_does_not_see_draws_on_an_advanced_generator -->
 
 If users already have an implemented simulation oracle, they may find it convenient to implement `g` as wrapper which calls that simulation from Python. As an example, suppose a user has implemented a simulation in C which is compiled to a C library called `mysim.so` and placed in the working directory. Suppose further that the simulation function takes the following as parameters: an array of integers representing a point and an unsigned integer representing the number of observations to take at `x`. The function output is defined as `struct Simout` with members `feas` set to 0 or 1, `obj` a double array set to the mean of the observed objective values, and `var` a double array set to the sample variance of the observed objective values. Then users can modify the template to wrap the C function `struct Simout c_func(int x, int n)` as in [the example](#example-oracle-that-wraps-a-c-simulation).  
@@ -647,6 +663,9 @@ def metric(self, singleton_set):
     dist = abs(self.true_g(point) - self.answer)
     return dist
 ```
+
+#### The built-in testers' reference sets
+Since 2.0, `TPATester`, `TPBTester` and `TPCTester` hold their reference sets in `soln` as decision points, not objective values. Each computes the points' images once, when it is made, with its own `true_g`, and keeps them in `soln_images`; `metric` compares a solution's images against `soln_images` and does not compute them again. <!-- verified: tests/test_tester_reference_sets.py::test_metric_computes_true_g_only_for_the_solution_it_is_given --> So a run that finds the whole reference set scores exactly 0. <!-- verified: tests/test_tester_reference_sets.py::test_full_coverage_measures_exactly_zero --> A subclass that replaces `soln` or `true_g` after calling the base class's `__init__` must recompute `soln_images` itself. Code that read `soln` as objective values reads `soln_images` instead. `docs/reference/tpc-reference-sets.md` describes `TPCTester`'s 516 sets.
 
 ### Implementing PyMOSO Algorithms
 Researchers can implement simulation optimization algorithms in the PyMOSO framework. PyMOSO provides support for algorithms in three categories:
