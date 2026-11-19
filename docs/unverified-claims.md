@@ -21,6 +21,16 @@ the documents that record the measurements.
 - **That CRN helps less, but still helps, when an oracle's draws are
   desynchronized:** `docs/crn-failure.md`, the inventory twins and the
   `randint` problem.
+- **"Configuring a run: what was measured", every figure in it.** Each
+  sentence names its document: `docs/hit-cost-baseline.md` (the
+  framework's cost per replication), `docs/simpar-ceiling.md`
+  (`--simpar` and `--proc` speedups, and the 35-46% sequential share),
+  `docs/spark-backend.md` (cluster break-even and path scaling),
+  `docs/crn-failure.md` (variance ratios, correlations and seed counts
+  under CRN), `docs/plateau-problems.md` (the stall under CRN, and
+  radius on plateaus) and `docs/neighbourhood-radius.md` (radius on
+  the test problems and on the barrier problem). Timings and solution
+  quality are never asserted by the suite.
 - **What `betaeps` and `betadel` at 1.0 do to the returned set**, against
   the default: medians of 50 against 15 points (Test Problem A), 51
   against 41 (B) and 9 against 7 (C), R-PERLE at budget 4 x 10^6 with
