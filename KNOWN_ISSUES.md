@@ -19,8 +19,8 @@ the preprint was archived, which was after 1.0.8 shipped.
 ## Open in 2.0.0: does an issue affect you?
 
 The rest of this document is the record of what was found and fixed.
-This section lists only what is still open in 2.0.0, with who is
-affected. It covers this file's issues, the algorithm audit's open
+This section lists what is still open in 2.0.0, and the places where
+PyMOSO differs from the papers by design, with who is affected. It covers this file's issues, the algorithm audit's open
 findings (`docs/algorithm-audit.md`) and the two example solvers.
 
 **Your `--budget` is exceeded, and does not count every simulation**
@@ -34,12 +34,16 @@ counted. If simulations are expensive, read `simcalls` from a cheap
 trial run before a long one.
 
 **The search limit differs from the papers above two decision
-variables** (audit finding 9). Affects R-SPLINE, R-PE, R-PERLE and
-R-MinRLE on problems with more than two variables, which is most real
-problems. The papers set b_ν = ⌈8 × 1.2^ν⌉. PyMOSO, and the 2018 code
-that produced the published results, use ⌈8 × (d − 1) × 1.2^ν⌉ for
-d variables: twice the papers' at d = 3, four times at d = 5. It is
-left as it is, by decision. To get the papers' value, set `bconst` to
+variables, by design** (audit finding 9). Affects R-SPLINE, R-PE,
+R-PERLE and R-MinRLE on problems with more than two variables. The
+papers state b_ν = ⌈8 × 1.2^ν⌉. PyMOSO, and the 2018 code that produced
+the published results, use ⌈8 × (d − 1) × 1.2^ν⌉ for d variables: twice
+the papers' at d = 3, four times at d = 5. The author's reason: on the
+three-variable test problem, "spline searches were stalling out too
+early with the extra dimension but no additional line search budget".
+b_ν is not needed for convergence or its rate. It keeps one unlucky
+sample path from spending the whole budget, so it changes finite-sample
+behaviour only. To match the papers' value, set `bconst` to
 8 / (d − 1).
 
 **An objective with zero variance, at a large magnitude** (audit

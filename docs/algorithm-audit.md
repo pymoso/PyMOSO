@@ -55,7 +55,7 @@ intended).
 | 6 | Under an epsilon constraint, PLI's gradient uses vertices that violate it | R-PERLE, R-PE | unknown | read |
 | 7 | PE breaks ties between objectives deterministically, not randomly | R-PERLE, R-PE | defect; fixed | measured |
 | 8 | `get_biparetos` drops exactly tied points | R-PERLE, R-PE | defect; fixed | measured |
-| 9 | The search limit has a factor (dim - 1) and is 0 in one dimension | all four | defect at d = 1, fixed; unknown above d = 2 | read; the effect measured on one golden |
+| 9 | The search limit has a factor (dim - 1) and is 0 in one dimension | all four | defect at d = 1, fixed; above d = 2 a design decision, reason recorded | read; the effect measured on one golden |
 | 10 | R-PERLE and R-PE run on three or more objectives without a word | R-PERLE, R-PE | the `sys.exit()` fixed; the objective count left to the user, by decision | measured |
 | 11 | Min adds SPLINE's trajectories to its output | R-PERLE, R-PE, R-MinRLE | unknown | read |
 | 12 | R-MinRLE may start a minimizer's search from x0 | R-MinRLE | unknown | read |
@@ -162,6 +162,53 @@ correctness. The authors' decision stands: the preprint's formula is
 the intended one, and the corrected code is right. Reproducing a
 published figure with the corrected code needs β raised by 1/2.
 
+#### Why β = 1/2: the relaxation's rate (2026-11-19)
+
+The default is a derivable value, not a best guess. The argument
+rests on Pasupathy (2010), "On choosing parameters in
+retrospective-approximation algorithms for stochastic root finding and
+simulation optimization", *Operations Research* 58(4, Part 1 of 2):
+889-901, doi:10.1287/opre.1090.0773. The maintainer checked the theorem,
+section and page references below against the paper. The analogy
+between δ and the paper's ε_k is an interpretation, and keeps its
+caveat (below). The dissertation cites the same paper for the idea of
+solving each sample-path problem only to a tolerance matched to the
+estimation error (`ch3.tex:265`).
+
+**The match.**
+- The corrected relaxation at β = 1/2 is ŝe = σ̂/√m.
+- That is the paper's §5.3 recommended error-tolerance sequence,
+  ε_k = K/√m_k with K estimated from data (p. 897).
+- The sample sizes m_ν = ⌈2 × 1.1^ν⌉ are its Table 1 linear growth,
+  with the paper's own constant. Table 1 recommends linear growth alone
+  when the inner procedure converges linearly (p. 897; Theorem 9, the
+  same page).
+
+**Pinned from both sides.**
+- **Theorem 7 (p. 896), the lower side:** if ε_k² does not converge at least as
+  fast as MSE(X*_k, x*), which goes as 1/m_k, then MSE(X_k)/MSE(X*_k)
+  diverges. That needs m_k ε_k² bounded, which is β ≥ 1/2.
+- **Theorem 8 (p. 896) and Figure 2 (p. 900), the upper side:** converging faster leaves
+  the MSE rate unchanged, so β > 1/2 buys nothing and spends work.
+- **So 1/2 is the one rate that is both sufficient and not wasteful.**
+
+**The old formula in these terms.** se/m^β at β = 1/2 is ε_k ∝ 1/m_k.
+That is Theorem 8's no-gain regime. It also breaks §5.2's own
+recommendation that 0 < limsup ε_k √m_k < ∞ (p. 896), because there the
+limsup is 0. The paper's introduction names the failure: wasted
+computational effort from oversolving the sample-path problems (p. 890).
+
+**Two caveats.**
+- **δ is not literally ε.** δ is a relaxation inside a dominance test,
+  not the distance between the retrospective and sample-path
+  solutions. The match is of functional form and role, not an identity:
+  an interpretation, not something the paper states.
+- **The theory assumes independent sample paths.** The paper's §8(ii)
+  (p. 900) notes that theory for correlated generation is "virtually
+  nonexistent" for stochastic root-finding problems. This
+  justification is therefore derived without CRN. It says nothing about
+  the right rate under `--crn`.
+
 ### 2b. The published figures' x-axis counts estimate calls, not simulations
 
 **Read, in the 2018 experiment code; PyMOSO has counted simulations
@@ -252,7 +299,11 @@ upper quartile settles at 0.43038 from 0.62e6, against the published
 
 No single factor reconciles both quantiles. Neither required value
 falls inside the measured range: the upper quartile is close, and the
-lower quartile is beyond it by more than a factor of two.
+lower quartile is beyond it by more than a factor of two. The 2018
+driver also reports each grid point with a later iteration's solution
+than the point paid for (`docs/reconstruction-spec.md`, section 2).
+That makes the published curves optimistic, and the true timing gap
+wider than these factors.
 
 **What is not accounted for: how often runs overshoot.** The published
 median of 0.43038 means at least half of the 1,000 runs ended in the
@@ -422,14 +473,34 @@ and no line-search step in a 1-D run). The golden `rspline_simpleso`,
 25 and 1,076 with b = 10, 12, 14, 17, ...; the solution `{(0,)}` both
 times. Quality is unmeasured; the re-sweep covers it.
 
-**Open, paper against code, at d > 2 (2026-11-19).** The dissertation
-states b_ν = ⌈8 × 1.2^ν⌉ for all ν ≥ 1, with no dimension (§ Algorithm
-Parameters), for experiments that include T_C (d = 3). The 2018
-experiment code (finding 2) computes `8*(self.dim - 1)`, as PyMOSO
-does. So the published T_C runs used b_ν = ⌈16 × 1.2^ν⌉, and so does
-PyMOSO. The paper and the code differ on T_C; at d = 2 they agree. This
-is common to both code bases, so it explains no difference between
-them. Left unchanged.
+**Above d = 2: a design decision, with its reason recorded
+(2026-11-19).** The dissertation states b_ν = ⌈8 × 1.2^ν⌉ for all
+ν ≥ 1, with no dimension, for experiments that include T_C (d = 3).
+The code, both PyMOSO's and the 2018 experiment code that produced the
+published results (finding 2), uses ⌈8 × (d - 1) × 1.2^ν⌉, which is
+⌈16 × 1.2^ν⌉ on T_C. The paper states 8; the code uses 8 × (d - 1).
+
+The reason, from the author (K. Cooper, 2026-11-19): "we needed the
+higher limit for T_C because spline searches were stalling out too
+early with the extra dimension but no additional line search budget.
+So we quickly came up with the formula you see in the code."
+
+What b_ν is: neither convergence nor its rate needs it. It is an
+implementation device that stops the whole budget being spent on one
+unlucky sample path, so scaling it changes finite-sample behaviour and
+nothing asymptotic. Pasupathy (2010) (the paper of finding 2's β
+rationale; references checked against it by the maintainer)
+corroborates this:
+- The paper states its convergence conditions, C.1-C.3 (p. 894), on the
+  sample-size and error-tolerance sequences only, and nothing like b_ν
+  appears in them.
+- Its count of points visited per iteration, N_k, is O_p(1) under
+  polynomial convergence (§5, equation (2), p. 895), so a cap on it
+  binds early and not asymptotically.
+
+So this is not an open divergence. A user matching the papers' search
+limit on a problem with d > 2 variables sets `bconst` to 8 / (d - 1).
+Unchanged.
 
 ### 10. R-PERLE and R-PE on three or more objectives
 
@@ -656,7 +727,8 @@ for simulations; nobody has decided it.
 
 ## What I could not settle
 
-Findings 6, 9 (above two dimensions), 11, 12, 15 and 17.
+Findings 6, 11, 12, 15 and 17. (Finding 9 above two dimensions was
+here until its reason was recorded, 2026-11-19.)
 
 Finding 2 was settled by the authors after this was written: the
 preprint's f̂ is the intended relaxation, and the code was fixed to
