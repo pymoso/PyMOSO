@@ -17,8 +17,9 @@ and are not repeated here.
 ## 1. The seed pools
 
 The 2018 driver reads two files, `orcseeds.pkl` and `solseeds.pkl`,
-from `../prnseeds/`. They are in the 2018 archive, not in this
-repository:
+from `../prnseeds/`. Copies are in [`docs/reference/`](reference/README.md),
+each with a plain-text form (`orcseeds.txt`, `solseeds.txt`) that
+needs no unpickling:
 
 | file | SHA-256 |
 |---|---|

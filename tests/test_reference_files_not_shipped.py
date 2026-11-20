@@ -1,6 +1,7 @@
 """
-The 2018 reference pickles in docs/reference/ must not ship in the sdist
-or the wheel.
+The 2018 reference pickles in docs/reference/ (T_C's lescombos.pkl and
+exples.pkl, and the seed pools orcseeds.pkl and solseeds.pkl) must not
+ship in the sdist or the wheel.
 
 Nothing in the package opens them (TPCTester reads a Python literal
 converted from lescombos.pkl), but a pickle inside an installable package
