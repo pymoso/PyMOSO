@@ -166,7 +166,7 @@ PyMOSO itself needs nothing beyond Python: it has no third-party runtime depende
 - `python -m pip install "pymoso[notebook]"` adds `cloudpickle`, and nothing else. It is needed to run, with `simpar` or `proc` above 1, a problem, tester or solver class defined in a notebook cell, a REPL or inside a function, where a worker process cannot import it. Without it, such a call raises `ValueError` naming this extra requirement. <!-- verified: tests/test_library_arguments.py::test_the_advice_for_a_class_with_no_source_leads_with_the_notebook_extra; tests/test_path_jobs.py::test_a_tester_that_cannot_be_transported_is_refused_only_when_it_would_have_to_be --> This is the extra requirement your computer needs to run PyMOSO in a notebook.
 - `python -m pip install "pymoso[spark]"` adds `pyspark` (and `cloudpickle`), for running PyMOSO with a Spark session on your machine. On Databricks or any cluster that already provides Spark, do not install it, as it would install PyPI's `pyspark` over the cluster's `pyspark`. Install `pymoso[notebook]` there instead; see [`docs/spark-backend.md`](docs/spark-backend.md).
 
-An extra works with the other two methods too: `python -m pip install "pymoso[notebook] @ git+https://github.com/pymoso/PyMOSO.git"` from the repository, or `python -m pip install ".[notebook]"` from source code.
+An extra works with the other two installation methods as well: `python -m pip install "pymoso[notebook] @ git+https://github.com/pymoso/PyMOSO.git"` from the repository, or `python -m pip install ".[notebook]"` from source code.
 
 ## Command Line Interface (CLI)
 PyMOSO users solving MOSO problems and testing MOSO algorithms may do so using the command line interface. First, we show how to access the included help file. Then, we show how to view the lists of solvers, testers, and oracles installed by default with PyMOSO. Finally, we discuss the `solve` and `testsolve` commands.
@@ -490,26 +490,21 @@ Every independent sample path has its own streams, with room for 2^31 retrospect
 The `testsolve` command creates a results file for each independent sample path. The file contains the solutions generated at every algorithm iteration, such that the solution of iteration 2 is on line 2, iteration 10 on line 10, and so forth. If `--metric` is specified, PyMOSO generates a second file for each independent sample path containing the collection of triples (iteration number, simulations used at end of iteration, metric).  
 
 ## Configuring a run: what was measured
-This section gives what PyMOSO's own measurements found for three choices: parallelism, common random numbers, and the neighbourhood radius. Each measurement was taken on particular problems, solvers and budgets, which are named, and each links to its document. None of it says what is best for your problem. The defaults were not tuned to these measurements.
+This section gives PyMOSO measurements found for three choices: parallelism, common random numbers, and the neighbourhood radius. Each measurement was taken on particular problems, solvers and budgets, which are named, and each links to its document. None of these measurements necessarily indicate what is best for a particular problem. The defaults were not tuned to these measurements.
 
 ### Parallelism, and where the time goes
-- **For any simulation that does real work, the time is the simulation's.** PyMOSO's own work per replication was about 14 µs on Python 3.14, measured with a `g` that does almost nothing ([`docs/hit-cost-baseline.md`](docs/hit-cost-baseline.md), "After the cheaper jump").
-- **`--simpar` speeds up one run by a few times, and more workers do not lift that.** On a six-core machine, R-PERLE on a two-variable problem ran 3.5 to 3.7 times faster with six workers when a replication took 4.5 to 13.5 ms, and about 2.2 times faster when it took 0.5 ms. Twelve workers did no better ([`docs/simpar-ceiling.md`](docs/simpar-ceiling.md), "Baselines at the end of Phase 4"). The limit is the solvers. Without CRN, 35% to 46% of an RA solver's replications came from searches that choose each point from the last result, so they cannot run side by side. The 0.5 ms figures were measured before a later change made each replication's setup cheaper, and have not been measured since.
-- **`--proc` scales with the number of sample paths.** With twelve paths on the same machine it gave 5.3 to 6.0 times the serial speed at twelve workers (same document).
-- **On a Spark cluster, sending one run's replications pays only when they are expensive.** On three Databricks clusters it was slower or no faster at 20 to 30 ms per replication, 1.7 to 2.9 times faster at 85 to 110 ms, 3.6 to 4.4 at 0.4 to 0.5 s, and 4 to 6 at 1.5 to 1.7 s. `testsolve`'s sample paths, which are independent, scaled to 3.4, 6.5 and 9.8 times on 8, 16 and 24 virtual CPUs ([`docs/spark-backend.md`](docs/spark-backend.md), "When replication-level dispatch pays" and "On a real cluster"). `pymoso.dispatch_cost` times your own problem on your own backend.
+- **For any simulation that does real work, the time is the simulation's.** PyMOSO's work per replication was about 14 µs on Python 3.14, measured with a `g` that does almost nothing ([`docs/hit-cost-baseline.md`](docs/hit-cost-baseline.md), "After the cheaper jump").
+- **`--simpar` speeds up one run by a few times, and more workers than cores add little.** On a six-core machine, R-PERLE on a two-variable problem ran 3.5 to 3.8 times faster with six workers when a replication took 4.5 to 13.5 ms, and 3.1 to 3.2 times faster when it took 0.5 ms; twelve workers were 3% to 12% faster than six. For R-SPLINE on a one-variable problem, twelve workers gained nothing over six once a replication took 4.5 ms or more, and at 0.5 ms they were 6% to 13% slower on Python 3.14 (11% to 20% faster on Python 3.10) ([`docs/simpar-ceiling.md`](docs/simpar-ceiling.md), "Baselines on 2026-11-23"). Part of the limit is the solvers' call pattern. Without CRN, 44% to 53% of an RA solver's replications came from searches that hand over one point at a time, choosing each from the last result. Each of those calls still splits its own replications across workers, but they cannot be combined with other points' replications.
+- **`--proc` scales with the number of sample paths.** With twelve paths on the same machine it gave 5.7 to 5.9 times the serial speed at twelve workers. When the twelve paths together took half a second, it gave 5.5 to 5.6 times on Python 3.10 and 3.8 to 4.2 times on Python 3.14 (same document).
+- **On a Spark cluster, sending one run's replications pays only when they are expensive.** On three Databricks clusters it was slower or no faster at 20 to 30 ms per replication, 1.7 to 2.9 times faster at 85 to 110 ms, 3.6 to 4.4 at 0.4 to 0.5 s, and 4 to 6 at 1.5 to 1.7 s. `testsolve`'s sample paths, which are independent, scaled to 3.4, 6.5 and 9.8 times on 8, 16 and 24 virtual CPUs ([`docs/spark-backend.md`](docs/spark-backend.md), "When replication-level dispatch pays" and "On a real cluster"). We include `pymoso.dispatch_cost` with which users may measure their problem's timing behavior for guidance on setting the parallelism parameters.
 
 ### Common random numbers
-`--crn` is off unless you set it.
-- **When the same random number does the same job at neighbouring points, CRN removes most of the noise in comparing them.** On the synchronized inventory problems of [`docs/crn-failure.md`](docs/crn-failure.md), the variance of a difference between neighbours was 0.3% to 1.5% of what independent sampling gives.
-- **When it does not, CRN loses some of that, but measured far better than expected.** With a draw count that depends on `x`, the correlation between neighbours was 0.91 to 0.94, and the difference's variance 6% to 9% of independent sampling. The worst case was built to be bad: a fixed cycle plus a rare draw that depends on `x`. There the correlation was 0.59 to 0.75, and the variance 26% to 41% of independent sampling. Even there, R-PERLE, R-PE and R-MinRLE did better with CRN than without on 17 to 20 of 20 seeds at a budget of 20,000. Drawing every variate whether or not it is needed recovered the whole loss, and turning CRN off helped on none of the four inventory problems. Synchronize where you can.
-- **One measured counterexample.** On a problem built so that CRN makes neighbouring points' noise negatively correlated, R-MinRLE did worse with CRN: a median of 2.83 against 1.93 without, and better on 9 of 20 seeds, worse on 10. R-PE and R-PERLE did better with CRN there, on 15 of 20 seeds ([`docs/crn-failure.md`](docs/crn-failure.md), "The sign of the covariance").
-- **The default relaxation is justified without CRN.** The reasoning behind `betaeps` and `betadel` at 0.5 assumes independent sampling. Under `--crn`, nothing derives the right value ([`docs/algorithm-audit.md`](docs/algorithm-audit.md), finding 2). PyMOSO's built-in problems are synchronized.
-- **On a plateau, where the objective is flat over a region, CRN stops the search.** Equal true values then give exactly equal estimates, and no move is ever accepted. On plateau problems the quality of the result was identical at 1,000, 5,000 and 20,000 simulations. Without CRN the search instead wanders on noise and makes slow progress. Neither reached the optimum across plateaus 10 or 20 points wide at radius 1 ([`docs/plateau-problems.md`](docs/plateau-problems.md)).
+`--crn` is off unless you set it. The built-in test problems benefit from `--crn`. 
+- **One measured counterexample.** On a pathologic problem built so that CRN makes neighbouring points' noise negatively correlated, R-MinRLE did worse with CRN: a median of 2.83 against 1.93 without, and better on 9 of 20 seeds, worse on 10. R-PE and R-PERLE did better with CRN there, on 15 of 20 seeds ([`docs/crn-failure.md`](docs/crn-failure.md), "The sign of the covariance").
 
 ### Neighbourhood radius
 - **On PyMOSO's test problems, a radius above 1 made no consistent difference and cost more.** Radii 2 to 5 against 1, over the built-in test problems, were better about as often as worse ([`docs/neighbourhood-radius.md`](docs/neighbourhood-radius.md), "The control").
-- **It paid only past a barrier the line search could not jump.** On a problem with a barrier two points thick, radius 3 or more beat radius 1 on 20 of 20 seeds for R-PERLE, R-PE and R-MinRLE, and 18 to 19 for R-SPLINE; radius 2 did not. A barrier one point thick was crossed at radius 1, by the line search.
-- **On a plateau, a larger radius helped without CRN and not with it.** Radius 6 reached the optimum without CRN; with CRN it did not ([`docs/plateau-problems.md`](docs/plateau-problems.md)).
+- **Larger radius works in the presence of a  barrier the line search could not jump.** On a problem with a barrier two points thick, radius 3 or more beat radius 1 on 20 of 20 seeds for R-PERLE, R-PE and R-MinRLE, and 18 to 19 for R-SPLINE; radius 2 did not. A barrier one point thick was crossed at radius 1, by the line search.
 - **What it costs is points estimated, and that grows fast.** On the two-point barrier, R-MinRLE estimated a median of 1,580 points at radius 1 and 32,734 at radius 5. A neighbourhood grows as the radius to the power of the dimension. These measurements are in one to three dimensions.
 
 ## Implementing problems, testers, and algorithms in PyMOSO
@@ -524,7 +519,6 @@ Usually, implementing a PyMOSO oracle implies implementing a Monte Carlo simulat
 1. The function `g` must return a boolean first and a tuple of length `self.num_obj` second.
    - The boolean is `True` if `x` is feasible, and `False` otherwise.
    - If `x` is feasible, the tuple contains a single observation of every objective. If `x` is not feasible, each element in the tuple is `None`.
-1. At a feasible `x`, every objective's observations must have finite variance. The convergence results of the built-in algorithms assume it (Lemma 5.2 of the paper that introduces R-SPLINE; Assumption 3 of the paper that introduces R-MinRLE, R-PE and R-PERLE). PyMOSO does not check it.
 
 #### The oracle contract
 This is what `g` must guarantee, what PyMOSO assumes without checking, and what happens when either fails. The paragraphs after it give the details.
@@ -536,10 +530,8 @@ This is what `g` must guarantee, what PyMOSO assumes without checking, and what 
 
 **Assumed, and not checked.**
 - **All of `g`'s randomness comes from `rng`.** Otherwise a run does not reproduce from its seed, `--crn` cannot share random numbers between points, and replications taken in parallel are not guaranteed independent. An external simulation must take its seed from `rng`, as in [the wrapper example](#example-wrapper-with-pymoso-random-numbers).
-- **Feasibility depends on `x` alone.** A point counts as feasible for an estimate only if every one of its replications is. The built-in RA solvers (R-SPLINE, R-PE, R-PERLE, R-MinRLE) do not support a `g` whose feasibility depends on its random numbers. When a point they carried from the last iteration comes back infeasible, they raise `WarmStartInfeasible`, naming the point and the iteration. <!-- verified: tests/test_warm_start.py::test_a_whole_run_with_random_feasibility_raises_it -->
-- **Every objective has finite variance at every feasible point** (the fifth requirement above).
+- **Feasibility depends on `x` alone.** The built-in RA solvers R-SPLINE, R-PE, R-PERLE, and R-MinRLE do not support a `g` whose feasibility depends on its random numbers. When a point they carried from the last iteration comes back infeasible, they raise `WarmStartInfeasible`, naming the point and the iteration. <!-- verified: tests/test_warm_start.py::test_a_whole_run_with_random_feasibility_raises_it -->
 - **An objective that is deterministic, or whose replications are all equal, has a standard error of 0.** R-PE and R-PERLE then move PE's constraint by a fixed 1e-6 rather than by a standard error. That step is absolute. For an objective of about 3.4 × 10^10 (2^35) or more, subtracting 1e-6 does not change the value in floating point, so PE would repeat the same search without end. This is computed from floating-point precision, not observed. Rescale such an objective, or give it some noise.
-- **Under `--crn`, the same random number serves the same purpose at neighbouring points.** That holds when the number of draws `g` makes before each quantity does not depend on `x`. A loop whose length depends on `x`, or `randint`, `choice` or `randrange` over a range that depends on `x`, breaks it. CRN then helps less but still helps (measured in [`docs/crn-failure.md`](docs/crn-failure.md)).
 - **With `--simpar` or `--proc` above 1, the oracle's class can be imported by a worker process.** A class defined in a file works. One defined in a notebook cell, a REPL or a function needs the `notebook` extra ([Optional extras](#optional-extras)).
 
 To keep one stream of random numbers per purpose, `rng.advance(d)` returns a second generator `d` draws past `rng`, leaving `rng` where it was; a draw is one call to `random()`, on every generator. <!-- verified: tests/test_rng_advance.py::test_advance_d_then_drawing_is_drawing_d_then_drawing --> Draws on the second generator do not count against the replication's limit of 16,384 draws (`replication_draws`, below), so without `--crn`, a `g` that advances and draws past that limit uses the next replication's random numbers, and nothing raises. Keep `d` plus the draws after it within the limit. <!-- verified: tests/test_rng_advance.py::test_the_reserve_check_does_not_see_draws_on_an_advanced_generator -->
@@ -930,8 +922,6 @@ The `pymoso.prng.mrg32k3a` module exposes the default pseudo-random number gener
 | ------ | ----------- |
 | `MRG32k3a` | Sub-class of `random.Random`; the class of every `rng` object when `mrg32k3a` is selected. |
 | `stream_at(seed, stream, offset)` | Return an `rng` object positioned `stream` streams of 2^127 and `offset` steps from `seed`. This is how PyMOSO computes every stream it uses. |
-| `get_next_prnstream(seed)` | Return an `rng` object seeded 2^127 steps from the input seed. Kept from earlier versions; PyMOSO itself no longer uses it.|
-| `jump_substream(rng)` | Seed the input `rng` object 2^76 steps forward. Kept from earlier versions; PyMOSO itself no longer uses it. |
 
 ### The `pymoso.chnbase` Module
 The `pymoso.chnbase` module implements the base classes for oracles and solvers. Programmers should sub-class these when creating new PyMOSO implementations.
@@ -998,11 +988,11 @@ The class provides a basic structure for implementing new MOSO algorithms in PyM
 | Member/Method | Description |
 | ------ | ----------- |
 |`orc` | The oracle object for the solver to solve. |
-|`dim` | Number of dimensions of points in the feasible set. Should match `self.orc`|
+|`dim` | Number of dimensions of points in the feasible set. Should match the dimensionality of `self.orc`.|
 |`num_obj`| Similarly, the number of objectives in `self.orc`. |
 |`num_calls` | A running count of the number of simulation replications taken of `self.orc`.|
-|`x0` | A feasible starting point. This point is additionally supplied to algorithms that don't need one.|
-|`sprn` | The solver's own stream, of the selected generator, for the solver's own random choices. |
+|`x0` | A feasible starting point.|
+|`sprn` | The solver's random number stream of the selected generator.|
 
 ### The `RASolver` Class
 
@@ -1010,7 +1000,7 @@ The class implements a common structure for all RA algorithms, including: cachin
 
 | Member/Method | Description |
 | ------ | ----------- |
-|`sprn` | The solver's own stream, of the selected generator, for the solver to use.|
+|`sprn` | The solver's stream of the selected generator.|
 |`nbor_rad` | The neighborhood radius used by solvers seeking local optimality. |
 | `gbar` | A dictionary where every key and value is a tuple. The keys are feasible points, values are their objective values. `gbar` is "wiped" every retrospective iteration. |
 |`sehat` | Exactly like `gbar` except the values are standard errors.|

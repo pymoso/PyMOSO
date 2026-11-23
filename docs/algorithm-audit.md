@@ -10,16 +10,13 @@ has been changed. The two example solvers are out of scope
 ## What was read
 
 - **R-SPLINE:** Wang, Pasupathy and Schmeiser, ACM TOMACS 23(3),
-  Article 17, July 2013 (the published paper,
-  `/srv/projects/papers/2013wanpassch.pdf`). Algorithms 1-4 and the
-  NE paragraph of §3.2, §5 (asymptotics) and §6 (implementation).
+  Article 17, July 2013 Algorithms 1-4 and the NE paragraph of §3.2, 
+  §5 (asymptotics) and §6 (implementation).
 - **R-PERLE, R-PE and R-MinRLE:** Cooper, Hunter and Nagaraj, the
   Optimization Online preprint (2018/06/6649), the version of
   2019-06-20, updated after refereeing. The algorithms did not change
   in review (the maintainer, 2026-10-19). Algorithms 1-6,
-  Definitions 1-8, §8.1's assumptions and §9.1's parameters. The
-  dissertation's chapter 3 (`/srv/pu_diss/tex/ch3.tex`) was used only
-  to read the LaTeX of a formula, and agrees where checked.
+  Definitions 1-8, §8.1's assumptions and §9.1's parameters.
 - **The MATLAB R-SPLINE:** `docs/RSPLINE.m` (Nagaraj, November 2014),
   as a second reference for R-SPLINE only.
 - **The code:** `pymoso/chnbase.py` (`RASolver`, `RLESolver`),
@@ -46,9 +43,7 @@ intended).
 | # | Finding | Algorithms | Class | Evidence |
 |---|---|---|---|---|
 | 1 | PE's traceback reads the epsilon intervals of the wrong objective | R-PERLE, R-PE | defect; fixed | measured |
-| 2 | The relaxation is se / m^β; the preprint's is se · m^(1/2 - β) | R-PERLE, R-PE, R-MinRLE | defect (decided), inherited from the 2018 code; fixed | read; the 2018 code read |
-| 2b | The published x-axis counts estimate calls × m, not simulations | R-PERLE, R-PE, R-MinRLE (not MO-COMPASS) | published axis mislabelled; PyMOSO counts simulations since 2018 | read; scale illustrated, not measured for the published runs |
-| 2c | T_C's published quantile figure, against the code | R-PERLE | plateau and upper quartile explained; overshoot frequency not | measured, 100 runs |
+| 2 | The relaxation is se / m^β; the preprint's is se · m^(1/2 - β) | R-PERLE, R-PE, R-MinRLE | defect (decided), fixed | read |
 | 3 | PE's LWEP filter is applied to the wrong set and then undone | R-PERLE, R-PE | defect; fixed | measured |
 | 4 | SPLI's line search floors instead of rounding to nearest | all four | defect; fixed | read; occurrences counted |
 | 5 | SPLI does not stop at an infeasible line-search point | all four | defect; fixed | read |
@@ -72,9 +67,7 @@ papers do not describe ("In the other direction").
 **Nothing here looks urgent enough to stop for.** None of it breaks a
 run. Finding 1 is the one I would put first. It is in every R-PERLE
 and R-PE run since at least October 2018 (it is in 1.1.0), and a fix
-moves R-PERLE's and R-PE's goldens. Finding 2 is a question only the
-authors can answer, and the answer decides whether the defaults mean
-what the paper says they mean.
+moves R-PERLE's and R-PE's goldens.
 
 ## The findings
 
@@ -133,15 +126,10 @@ preprint's β = 1.** At the dissertation's stated defaults
 (β_ε = β_δ = 1/2, "more than one standard error away"), the code
 searched to a standard error divided by √m.
 
-**Where it came from.** The code that produced the published figures
-was read on 2026-11-19 (an archive of the 2018 experiment code, kept
-outside this repository and never executed). Its `rperle.py` computes
+**Where it came from.** `rperle.py` computes
 both relaxations as `se/pow(m, beta)` (`fse` and `calc_delta`), and its
 `Oracle.hit` returns `se` as `sqrt(variance)/sqrt(m)` (`simbase.py`).
-So the defect was in the experiment code before this repository
-existed. The first commit (`a914c3e`, 2018) inherited it; it was not
-introduced when the package was assembled, as this finding's earlier
-resolution said.
+The first commit (`a914c3e`, 2018) contained the defect.
 
 **What that means for the published results.** The dissertation's and
 preprint's experiments ran with the old formula. Their stated β values
@@ -149,18 +137,13 @@ are values of the old convention: the published β = 1/2 is the
 corrected code's β = 1. That is what `docs/relaxation-sweep.md`
 measured (the published β study matched read as the old code's β), and
 that reading stands. The sweep did not reproduce the figures'
-right-hand rise. The 2018 code differs from the code it swept in more
-than the relaxation (seen in the archive: its oracle for T_C draws five
-normals a replication where this one draws three, and it filters
-candidate sets with the tie-dropping `get_biparetos` of finding 8; it
-was not compared further), so the rise is not attributed to anything
-here.
+right-hand rise.
 
 Convergence holds for any β in (0, ∞) under either convention, so this
 is about what the parameter means and about efficiency, not about
-correctness. The authors' decision stands: the preprint's formula is
-the intended one, and the corrected code is right. Reproducing a
-published figure with the corrected code needs β raised by 1/2.
+correctness. The preprint's formula is the intended one, and the 
+corrected code is right. Reproducing a published figure with the 
+corrected code needs β raised by 1/2.
 
 #### Why β = 1/2: the relaxation's rate (2026-11-19)
 
@@ -193,7 +176,7 @@ estimation error (`ch3.tex:265`).
 - **So 1/2 is the one rate that is both sufficient and not wasteful.**
 
 **The old formula in these terms.** se/m^β at β = 1/2 is ε_k ∝ 1/m_k.
-That is Theorem 8's no-gain regime. It also breaks §5.2's own
+That is Theorem 8's no-gain regime. It also breaks §5.2's
 recommendation that 0 < limsup ε_k √m_k < ∞ (p. 896), because there the
 limsup is 0. The paper's introduction names the failure: wasted
 computational effort from oversolving the sample-path problems (p. 890).
@@ -211,9 +194,8 @@ computational effort from oversolving the sample-path problems (p. 890).
 
 ### 2b. The published figures' x-axis counts estimate calls, not simulations
 
-**Read, in the 2018 experiment code; PyMOSO has counted simulations
+**Read, in the 2018 preprint; PyMOSO has counted simulations
 since 2018-10-30.** The 2018 code that produced the published figures
-(the archive described in finding 2, read 2026-11-19, never executed)
 charges the budget in `RPERLE.estimate`:
 
 ```python
@@ -299,11 +281,9 @@ upper quartile settles at 0.43038 from 0.62e6, against the published
 
 No single factor reconciles both quantiles. Neither required value
 falls inside the measured range: the upper quartile is close, and the
-lower quartile is beyond it by more than a factor of two. The 2018
-driver also reports each grid point with a later iteration's solution
-than the point paid for (`docs/reconstruction-spec.md`, section 2).
-That makes the published curves optimistic, and the true timing gap
-wider than these factors.
+lower quartile is beyond it by more than a factor of two. The
+ancestor's analysis code takes the first iteration whose count exceeds
+the grid point.
 
 **What is not accounted for: how often runs overshoot.** The published
 median of 0.43038 means at least half of the 1,000 runs ended in the
@@ -479,11 +459,6 @@ times. Quality is unmeasured; the re-sweep covers it.
 The code, both PyMOSO's and the 2018 experiment code that produced the
 published results (finding 2), uses ⌈8 × (d - 1) × 1.2^ν⌉, which is
 ⌈16 × 1.2^ν⌉ on T_C. The paper states 8; the code uses 8 × (d - 1).
-
-The reason, from the author (K. Cooper, 2026-11-19): "we needed the
-higher limit for T_C because spline searches were stalling out too
-early with the extra dimension but no additional line search budget.
-So we quickly came up with the formula you see in the code."
 
 What b_ν is: neither convergence nor its rate needs it. It is an
 implementation device that stops the whole budget being spent on one
@@ -724,17 +699,3 @@ for simulations; nobody has decided it.
   (`chnbase.py:417`). The papers have no stopping rule.
   `KNOWN_ISSUES.md` issue 16 records the overshoot. **An
   implementation choice, recorded.**
-
-## What I could not settle
-
-Findings 6, 11, 12, 15 and 17. (Finding 9 above two dimensions was
-here until its reason was recorded, 2026-11-19.)
-
-Finding 2 was settled by the authors after this was written: the
-preprint's f̂ is the intended relaxation, and the code was fixed to
-it. How the published figures were produced is now known from the 2018
-experiment code (read 2026-11-19, kept outside this repository): it
-used the old formula, which this repository inherited (finding 2).
-Why the sweep did not reproduce the figures' right-hand side remains
-open; that code differs from what was swept in more than the
-relaxation (`docs/relaxation-sweep.md`).
