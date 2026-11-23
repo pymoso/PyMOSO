@@ -470,29 +470,34 @@ tuned for the test problems.
   at most `workers` even chunks; `--proc` sends one task per path.
   What bounds `--simpar` is the solver's call pattern, not dispatch --
   `docs/simpar-ceiling.md`, which now carries two corrections to that
-  story and should be read before proposing any speedup work.
-- **Cheap simulations at high worker counts: partly real, partly
-  unestablished, and a piece cap was measured and declined.** The
-  pool cuts every call into one piece per worker and each piece pays
-  its own ~0.7 ms jump, against a 0.46 ms Light replication. At 12
-  workers (6 cores) the Light tier is slower than before the pool
-  (1.64x -> 1.27x on 3.14), consistently. At 6 workers the measured
-  drop (1.71x -> 1.53x) is most likely noise: two runs of the same
-  code on an idle machine at the end of Phase 4 gave 1.59x and 1.78x,
-  straddling both figures, and no piece cap improves on six pieces
-  there. The evidence favours noise; the interleaved before/after
-  comparison that would settle it was never run. A measurement-driven
-  cap was proposed and not built -- it cannot fix 6 workers, only
-  partly fixes 12, and makes dispatch timing-dependent. The sweep and
-  the reasons are in `docs/simpar-ceiling.md`; do not re-propose it
-  without new data. The overhead itself is the problem, so the
-  cheaper jump (rng-interface-design.md §11 entry 14) is the
-  better-motivated fix. Moderate and Heavy are unaffected.
-  **Phase 7 step 3 landed that jump** (20-70 µs on 3.14, from ~0.7-2
-  ms; `docs/hit-cost-baseline.md`). The `--simpar` sweep has not been
-  re-run, so the Light-tier figures above are the old code's, and the
-  piece cap's decline rests on the 0.7 ms per-piece figure that step
-  superseded (docs/phase7-plan.md, step 3).
+  story and should be read before proposing any speedup work. For
+  cheap simulations the ceiling is NOT understood: Light 2-D at 6
+  workers is predicted at 4.1-4.2x from the bound plus measured
+  dispatch and observed at 3.1x. That leaves 0.37-0.41 ms per executor
+  call that nothing measured accounts for (2026-11-23, "What is not
+  understood").
+- **Cheap simulations at high worker counts: re-measured after the
+  cheaper jump (2026-11-23), and a piece cap is still not supported.**
+  `docs/simpar-ceiling.md`, "After the cheaper jump (Phase 7 step 3)".
+  Before that jump the pool cut every call into one piece per worker,
+  and each piece paid its own jump (1.2-1.3 ms measured directly on
+  3.14, against a 0.46 ms Light replication). **The 6-worker Light
+  drop after the pool was real, not noise:** an interleaved
+  comparison of `c19dc9d` against `6877979` gave 8-10% slower, which
+  is less than the spread of two single runs, so Phase 4's two
+  samples straddled it. Phase 4 judged it "most likely noise" and that
+  was wrong. **The cheaper jump more than recovered it:** on one
+  unchanged workload, `30bfa68` -> `27961b8` (the jump alone, output
+  bit-identical) took Light 1-D from 1.38x to 1.60x at 6 workers and
+  from 1.16x to 1.45x at 12, and Light 2-D from 2.12x to 2.89x and
+  from 1.82x to 2.79x. Serial fell 29% too, but parallel fell 48-54%.
+  A piece now costs at most about 35 µs: a 10-21 µs jump, plus 13-16
+  µs of pipe and pickling, which did not change. The piece cap
+  therefore caps nothing, and its decline stands, answered with this
+  data in the same document. Do not re-propose it without new data.
+  **Open, not explained away:** the Light 1-D tier on 3.14 still
+  loses at 12 workers against 6, by 6-13% or 8-15 ms per run, of
+  which measured costs explain about 7 ms; 3.10 does not show this.
 - **Behaviour change to record in the CHANGELOG (Phase 6):**
   `testsolve(proc>1)` (and `simpar>1`) with a class defined in a
   notebook cell, a REPL or inside a function worked under fork, and
@@ -1035,12 +1040,16 @@ The decisions below are landed, not pending. Full reasoning in
   solver never has two points to submit, so the original RSPLINE
   benchmark cannot observe batching at all -- `ProbExpensiveBi` (2-D,
   bi-objective, not registered in `pymoso.problems`) exists for that
-  reason. Without `--crn`, 35-46% of an RA solver's replications
-  (38% for RPERLE on ProbTPA at budget 10,000) come from `ne()` and
+  reason. Without `--crn`, 44-53% of an RA solver's replications
+  (51% for RPERLE on ProbTPA at budget 10,000) come from `ne()` and
   the `spli()` line search, which choose each point from the last
-  result and cannot be batched. The one `--crn` run surveyed was 18%;
+  result and cannot be batched. Each such call's own replications
+  still split across workers. The figure was 35-46% (38%) before
+  Phase 7. The rise is untraced: the SPLI rounding and infeasible-stop
+  fixes are an untested hypothesis, not bisected
+  (`docs/simpar-ceiling.md`, "What is not understood"). The one `--crn` run surveyed was 18%;
   `--crn` was not benchmarked. That share, not dispatch and not the pool, is
-  what holds the bound. The only thing that would move it is
+  what sets the bound; the Light tiers run at 37-64% of it. The only thing that would move it is
   speculative prefetch (rng-interface-design.md §11 entry 15),
   declined for Phase 3 because it puts solver logic in the executor.
 - `estimate_many` must reproduce the one-at-a-time loop exactly,
@@ -1085,8 +1094,8 @@ Nothing here blocks the release. Recorded so it is not re-derived.
 - Deterministic black-box solvers; continuous solvers (ASTRO-DF, Kim &
   Ryu).
 - The follow-ups already recorded above: naming the task in
-  `WorkerPool.run`'s pickle error, re-running the `--simpar` sweep
-  against Phase 7 step 3's jump, and §11 entry 13.
+  `WorkerPool.run`'s pickle error, and §11 entry 13. (The `--simpar`
+  sweep against Phase 7 step 3's jump was re-run on 2026-11-23.)
 
 ## Testing
 
@@ -1121,11 +1130,15 @@ Nothing here blocks the release. Recorded so it is not re-derived.
 - Portable assertions (call counts, cross-worker-count result identity,
   job-dispatch counts) live in the suite. Absolute timings live in
   `docs/parallel-dispatch-baseline.md` as an artifact, never asserted on.
-- **Current timing baselines: refreshed at the end of Phase 4**
-  (2026-10-13, quiet machine, two runs of every figure shown).
-  `docs/simpar-ceiling.md`, "Baselines at the end of Phase 4", and
-  `docs/hit-cost-baseline.md`, "At the end of Phase 4". Compare later
-  work against those, not against the Phase 3 tables.
+- **Current timing baselines:** `docs/simpar-ceiling.md`, "Baselines
+  on 2026-11-23" (after Phase 7; two runs of every figure shown; the
+  workloads differ from Phase 4's, because Phase 7 changed the
+  solvers), and `docs/hit-cost-baseline.md`, "After the cheaper
+  jump". The Phase 4 baselines (2026-10-13) stay in place beside
+  them. Compare later work against the newest, not against the Phase
+  3 tables. **On Python 3.14 the first pool a process opens costs an
+  extra 40-120 ms** (fork-server start-up), so a timed cell that is a
+  process's first parallel run reads low.
   `docs/parallel-dispatch-baseline.md` is the pre-pool before-picture
   and stays that way. **Check `uptime` before benchmarking:** Phase
   4's first re-run was silently 10-14% slow because the machine was

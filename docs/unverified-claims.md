@@ -13,8 +13,8 @@ The suite never asserts on timing (CLAUDE.md, "Testing"). These rest on
 the documents that record the measurements.
 
 - **How much `--simpar` speeds a run up**, and that the solver's call
-  pattern bounds it: `docs/simpar-ceiling.md`, refreshed at the end of
-  Phase 4.
+  pattern bounds it: `docs/simpar-ceiling.md`, refreshed 2026-11-23,
+  after Phase 7.
 - **When sending replications to a Spark cluster pays** (roughly 100 ms
   per replication or more): `docs/spark-backend.md`, three Databricks
   clusters.
@@ -24,7 +24,7 @@ the documents that record the measurements.
 - **"Configuring a run: what was measured", every figure in it.** Each
   sentence names its document: `docs/hit-cost-baseline.md` (the
   framework's cost per replication), `docs/simpar-ceiling.md`
-  (`--simpar` and `--proc` speedups, and the 35-46% sequential share),
+  (`--simpar` and `--proc` speedups, and the 44-53% sequential share),
   `docs/spark-backend.md` (cluster break-even and path scaling),
   `docs/crn-failure.md` (variance ratios, correlations and seed counts
   under CRN), `docs/plateau-problems.md` (the stall under CRN, and
