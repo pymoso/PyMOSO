@@ -973,6 +973,105 @@ its own step (§12, step 6c) rather than left as prose only here, per
 this document's own established rule about known-necessary work with
 no place in the step list.
 
+### 3.10 `get_next_prnstream` and `jump_substream` removed (2.0.0): where they land in the layout
+
+Both were kept after step 6b as wrappers that nothing in the package
+called. They were removed before 2.0.0 because, under the coordinate
+layout, both land on streams the layout has already assigned. This
+section is the evidence. The CHANGELOG points here.
+
+**What they were, exactly.** For both MRG generators:
+
+- `get_next_prnstream(seed)` was `jump_seed_n(seed, ITER_STRIDE)`, so
+  it equalled `stream_at(seed, 1, 0)`.
+- `jump_substream(prn)`, after `prn` had drawn `k` values, reseeded
+  `prn` in place to `jump_seed_n(prn.get_seed(), REPL_STRIDE)`. A
+  stream that `stream_at(base, s, o)` returned would land on
+  `stream_at(base, s, o + k + REPL_STRIDE)`. Reseeding also reset
+  `raw_consumed()` to 0.
+
+`ITER_STRIDE` is 2^127 and `REPL_STRIDE` is 2^76, for MRG32k3a and
+MRG31k3p alike. Philox defined neither function.
+
+**The layout they land in.** An oracle's root is `stream_at(iseed, 1,
+0)`; the solver's stream is `stream_at(iseed, 0, 0)`. A replication's
+stream is `stream_at(orc_root, iteration, offset)`, where the offset
+depends on the branch:
+
+| Branch | Offset of replication `r` | Replication stride |
+|---|---|---|
+| default (no `--crn`) | point code in bits 52-126, visit in 46-51, `r` in 14-45, draws in 0-13 | 2^14 |
+| `--crn` | `r * 2^76` | 2^76 |
+| `sync=` | `(sync mod SYNC_PER_STREAM) * SYNC_STRIDE + r * 2^76` | 2^76 |
+
+(The default branch's bit positions are for the default
+`replication_draws`. The point code is the zigzag positional code of
+§3.4, `W = 75 // dim` bits per component.)
+
+**Where each lands.** Every case below was checked at `402e512`, when
+both functions still existed, by exact equality of the 6-component
+seed and, where marked, of the next draws. The script is not in the
+repository; each case is restated as a `stream_at` identity so that it
+can be re-checked without the removed functions.
+
+1. **`jump_substream` under `--crn` or `sync=`.** In replication `r`
+   after `k` draws, the position is `r * 2^76 + k`. The jump adds
+   2^76, which is `(r + 1) * 2^76 + k`: **replication `r + 1`, draw
+   `k`**. Checked with `r = 2`, `k = 3`, iteration 4: the next four
+   draws were identical. Replications then share draws, and the
+   standard error is computed over dependent samples.
+2. **`jump_substream` on the default branch.** Adding 2^76 to the
+   offset adds 2^(76 - 52) = **2^24 to the point code**. That is the
+   stream of another point, with the same replication index:
+
+   | `dim` | `W` | Replication 0 of | Lands on replication 0 of |
+   |---|---|---|---|
+   | 2 | 37 | (5, 7) | (8388613, 7): component 0 moves by 2^23 |
+   | 4 | 18 | (3, 1, 4, 1) | (3, 33, 4, 1): 24 = 18 + 6, so component 1's zigzag gains 2^6 |
+   | 9 | 8 | (1, 2, 3, 4, 5, 6, 7, 8, 9) | (1, 2, 3, -5, 5, 6, 7, 8, 9): 24 = 3 * 8, so component 3's zigzag gains 1 (8 -> 9, which is 4 -> -5) |
+
+   Each row was checked by seed equality. At nine dimensions the target
+   is a nearby point a solver may well sample.
+3. **`get_next_prnstream(rng.get_seed())` inside a replication.**
+   Adding 2^127 moves to stream `iteration + 1` at the same offset:
+   **the same point, the same replication, the next RA iteration.**
+   Checked for (5, 7), replication 1, iteration 4 against iteration 5:
+   the next three draws were identical. RA solvers re-estimate points
+   in later iterations, so that stream is used.
+4. **`get_next_prnstream` on the solver's stream.** `stream_at(iseed,
+   0, 0)` plus 2^127 is `stream_at(iseed, 1, 0)`: **the oracle's
+   root**, which is iteration 0's stream for point code 0. Checked by
+   seed equality.
+5. **The draw-limit check.** `jump_substream` reseeds the very stream
+   object the executor checks after `g()` returns, and resets its
+   `raw_consumed()` to 0. Draws made before the jump become invisible
+   to the replication-reserve overrun check.
+
+**What removal does not close.** The arithmetic above is not unique to
+these two names. `stream_at` is public, and `stream_at(rng.get_seed(),
+s, o)` reaches the same positions. `rng.seed(...)` inside `g()` resets
+the draw count on the MRG family just as case 5 does, and so does
+`rng.setstate(...)`, which calls `seed()`. Measured on the stream
+`g()` receives: repositioning in place reset the count from 15 to 0,
+and a forward `setstate()` to `rng.advance(15)`'s state put the next
+draw on the next replication's first, with nothing raised
+(`tests/test_rng_advance.py`). What removal
+eliminates is two named idioms whose documented meanings ("a new,
+independent stream" and "the next substream") are false under the 2.0
+layout. Not repositioning the stream that `g()` receives belongs in
+the README's oracle contract. The check itself was left unchanged
+before 2.0.0.
+
+**What it cost.** No golden moved, and none could: nothing on a
+`solve()` or `testsolve()` path called either function. The jump-ahead
+precision guards in `tests/test_jump_ahead.py` now reach 2^76 and
+2^127 through `stream_at(seed, 0, 2**76)` and `stream_at(seed, 1, 0)`,
+which take `jump_seed_n`'s same cached fixed-stride path. The float
+defect of KNOWN_ISSUES.md issue 1 was reintroduced into
+`mrg_common.mat333mult` to check them: they failed on exactly the
+three parameter sets the original tests failed on (seed2 and seed3
+at 2^76, seed2 at 2^127).
+
 ## 4. What replaces the CRN protocol
 
 Every method in §0's table existed to manage one shared, mutable `rng`

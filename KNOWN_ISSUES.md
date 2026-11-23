@@ -1109,6 +1109,17 @@ warm-start points, all feasible.
 
 ---
 
+### 20. `get_next_prnstream(seed)`, as the README documents it, raises `TypeError`
+
+**Affects:** 1.0.4 through 1.1.0. (The 1.0.8 wheel corresponds to no
+commit and was not checked directly.)
+
+The README documents `get_next_prnstream(seed)` with one argument, but the function requires two: `(seed, crn)` from 1.0.4, `(seed, use_cache)` by 1.0.7. **Workaround on those versions:** call `get_next_prnstream(seed, False)`, which gives the documented stream.
+
+**Status:** both functions were removed in 2.0.0 (CHANGELOG, "What breaks"); use `stream_at(seed, 1, 0)`.
+
+---
+
 ## Behavior changes introduced by this migration
 
 These aren't defects inherited from some past pymoso version — they

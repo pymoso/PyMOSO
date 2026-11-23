@@ -287,14 +287,11 @@ def get_solv_prnstreams(iseed, backend):
         the example solvers' own `self.sprn.sample(...)` calls need the
         full surface, which a raw Philox stream doesn't have.
     """
-    # §12 step 6b: stream_at(iseed, 0, 0)/stream_at(iseed, 1, 0), not
-    # backend.MRG32k3a(iseed)/backend.get_next_prnstream(iseed) --
-    # identical for the MRG family (confirmed directly: stream_at(seed,
-    # 0, 0) == the class constructed directly on that seed, and
-    # stream_at(seed, 1, 0) == get_next_prnstream(seed)), and stream_at
-    # is the one operation every backend actually has (Philox has
-    # neither a raw-seed constructor nor get_next_prnstream/jump-ahead
-    # at all).
+    # §12 step 6b: stream_at(iseed, 0, 0)/stream_at(iseed, 1, 0), the
+    # one operation every backend has (Philox has no raw-seed
+    # constructor). For the MRG family these are the class constructed
+    # on iseed and the stream 2**127 further on, the positions 1.x
+    # reached with MRG32k3a(iseed) and get_next_prnstream(iseed).
     solvstream = ensure_random_compatible(backend.stream_at(iseed, 0, 0))
     orcstream = backend.stream_at(iseed, 1, 0)
     return orcstream, solvstream

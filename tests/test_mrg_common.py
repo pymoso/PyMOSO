@@ -5,7 +5,7 @@ interface-design.md §12 step 2.
 
 tests/test_jump_ahead.py already proves the two fixed exponents
 (2**76, 2**127) land correctly, and that coverage stays meaningful (it
-still exercises jump_substream/get_next_prnstream end to end). It does
+exercises them end to end, through stream_at). It does
 NOT exercise mat_pow_mod's binary exponentiation at any other exponent,
 so a bug that only appears at some other bit pattern (an off-by-one in
 the square-and-multiply loop, an odd/even handling mistake, incorrect

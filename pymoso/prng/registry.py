@@ -8,9 +8,9 @@ needs no second pass through cli.py/chnutils.py.
 Registry-only, no user-supplied generator path (the way problems/
 solvers load a user's own .py file): a generator isn't decoupled
 enough from Oracle's own internals for a third-party module to safely
-drop in. `Oracle`'s CRN branch alone assumes a small, closed set of
-backend shapes (`get_next_prnstream`/`jump_substream`, §12
-step 6c-completion's own reclassification of that debt), and
+drop in. `Oracle` looks up a closed set of module-level coordinate
+constants on the backend (`REPL_STRIDE`, `SYNC_STRIDE`,
+`SYNC_PER_STREAM` and the rest, as `backend.CONSTANT`), and
 `_hit_via_coordinate` depends on `Stream.advance`/`raw_consumed`
 existing at all -- neither is part of the historical, permissive
 "an rng-shaped object" contract (§3.6) a custom problem/solver's own

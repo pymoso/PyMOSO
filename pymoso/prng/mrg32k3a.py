@@ -8,8 +8,6 @@ with substream support.
 Listing
 -------
 MRG323k3a
-get_next_prnstream
-jump_substream
 jump_seed_n
 stream_at
 point_width
@@ -70,7 +68,7 @@ from .mrg_common import (
 ## a1p127/a2p127/a1p76/a2p76 below are the historical pre-computed jump
 ## matrices at the two fixed exponents this module has always exposed.
 ## As of the generalized jump (_m1_step/_m2_step + mrg_common.mat_pow_mod,
-## below), get_next_prnstream/jump_substream no longer read these four
+## below), nothing in this module reads these four
 ## directly -- the same values are now computed on demand from the base
 ## recurrence instead of transcribed twice. Left in place, unchanged,
 ## and still public (unlike mat333mult/mat311mod above): KNOWN_ISSUES.md
@@ -116,9 +114,9 @@ mrga23n = 1370589.0
 # update lines (newseed = (seed[1], seed[2], p1, seed[4], seed[5], p2)),
 # not transcribed from a second, independent source, so there is exactly
 # one place these coefficients are stated. mrg_common.mat_pow_mod raises
-# each to an arbitrary power mod mrgm1i/mrgm2i; jump_substream/
-# get_next_prnstream below become thin wrappers around jump_seed_n at
-# the two fixed exponents 2**76/2**127. Verified to reproduce a1p76/
+# each to an arbitrary power mod mrgm1i/mrgm2i; jump_seed_n below
+# applies them, including at the two fixed exponents 2**76/2**127
+# (REPL_STRIDE/ITER_STRIDE). Verified to reproduce a1p76/
 # a2p76/a1p127/a2p127 below exactly, not just derived and assumed --
 # see tests/test_mrg_common.py.
 _m1_step = [[0, 1, 0], [0, 0, 1], [(-int(mrga13n)) % mrgm1i, int(mrga12) % mrgm1i, 0]]
@@ -156,8 +154,8 @@ REPL_RESERVE_STRIDE = 1 << REPL_RESERVE_BITS
 # the only ones oracle.py's coordinate mechanism ever asks for) are
 # cached here rather than run through mat_pow_mod's ~127-round binary
 # exponentiation on every single call. This is not a hypothetical
-# optimization -- get_next_prnstream runs once per RA iteration and
-# jump_substream/the offset branch's replication advance once per
+# optimization -- a jump of ITER_STRIDE runs once per RA iteration and
+# the replication advance once per
 # replication (oracle.py), so recomputing the full power on every call
 # is a real, measured regression: the full test suite went from ~60s to
 # over 4 minutes, with one CLI end-to-end test timing out, before this
@@ -185,7 +183,7 @@ _jump127_p2 = _mat_pow_mod(_m2_step, ITER_STRIDE, mrgm2i)
 #
 # MRG32k3a's period is ~2**191 (L'Ecuyer 2002, "An Object-Oriented
 # Random-Number Package with Many Long Streams and Substreams" -- the
-# same paper get_next_prnstream/jump_substream's own 2**76/2**127
+# same paper REPL_STRIDE/ITER_STRIDE's own 2**76/2**127
 # spacing comes from). Everything below must land comfortably inside
 # that, for any coordinate this codebase's own solvers can actually
 # reach.
@@ -767,10 +765,8 @@ def jump_seed_n(seed, n):
     by a matrix cached at import for the fixed strides, and otherwise
     by one cached power A**(2**k) per set bit of n (mrg_common.
     PowerTable; mrg_common.jump_n before Phase 7 step 3, with the same
-    result). jump_substream/
-    get_next_prnstream below are thin wrappers around this at the fixed
-    exponent 2**127 (get_next_prnstream) and 2**76 (jump_substream);
-    oracle.py's _hit_via_coordinate also calls this directly, at
+    result). stream_at below calls this; so does
+    oracle.py's _hit_via_coordinate, at
     arbitrary coordinates and, on its replication-advance hot path, at
     the fixed exponent REPL_RESERVE_STRIDE.
 
@@ -851,29 +847,3 @@ def stream_at(seed, stream, offset):
     """
     new_seed = jump_seed_n(seed, stream * ITER_STRIDE + offset)
     return MRG32k3a(new_seed)
-
-
-def get_next_prnstream(seed):
-    """
-    Instantiate a generator seeded 2^127 steps from the input seed.
-
-    Parameters
-    ----------
-    seed : tuple of int
-
-    Returns
-    -------
-    prn : MRG32k3a object
-    """
-    sseed = jump_seed_n(seed, ITER_STRIDE)
-    return MRG32k3a(sseed)
-
-def jump_substream(prn):
-    """
-    Advance the rng to the next substream 2^76 steps.
-
-    Parameters
-    ----------
-    prn : MRG32k3a object
-    """
-    prn.seed(jump_seed_n(prn.get_seed(), REPL_STRIDE))

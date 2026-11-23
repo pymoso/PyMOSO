@@ -3,7 +3,7 @@ Shared matrix-power jump-ahead machinery, extracted from
 pymoso/prng/mrg32k3a.py's own mat333mult/mat311mod (kept here verbatim,
 same behavior) plus a new arbitrary-exponent binary-exponentiation
 routine (mat_pow_mod/jump_n) that generalizes the two fixed jumps
-(jump_substream: 2**76, get_next_prnstream: 2**127) mrg32k3a.py's
+(2**76 and 2**127) mrg32k3a.py's
 generalized jump is built on into one arbitrary-exponent operation.
 
 Exact Python integer arithmetic throughout, for the same reason
@@ -147,8 +147,8 @@ def jump_n(seed_part, base_matrix, n, mod):
     """
     Advance a 3-component seed part `n` steps under `base_matrix`'s
     one-step recurrence, mod `mod`: the one generalized operation
-    mrg32k3a.py's jump_substream/get_next_prnstream become thin wrappers
-    around, at the two fixed exponents 2**76/2**127 -- see
+    behind mrg32k3a.py's jumps, including the two fixed exponents
+    2**76/2**127 -- see
     docs/rng-interface-design.md §3.4/§3.5 for why the public interface
     stops there (arbitrary-coordinate jumps are a later step's concern,
     not this module's).

@@ -31,9 +31,8 @@ import multiprocessing
 import pytest
 
 from pymoso.prng.mrg31k3p import (
-    MRG31k3p, jump_seed_n, mrg31m1, mrg31m2, get_next_prnstream, jump_substream,
+    MRG31k3p, jump_seed_n, mrg31m1, mrg31m2,
 )
-from pymoso.prng.mrg32k3a import REPL_STRIDE
 
 pytestmark = pytest.mark.timeout(60)
 
@@ -251,24 +250,6 @@ def test_cross_process_reproducibility_under_forkserver():
     parent_draws = [parent_stream.random() for _ in range(n_draws)]
     assert child_seed == parent_stream.get_seed()
     assert child_draws == parent_draws
-
-
-# ---------------------------------------------------------------------------
-# get_next_prnstream/jump_substream -- thin wrappers, checked against
-# jump_seed_n directly (same relationship mrg32k3a.py's own versions have).
-# ---------------------------------------------------------------------------
-
-def test_get_next_prnstream_matches_jump_seed_n_at_iter_stride():
-    seed = DEFAULT_SEED
-    prn = get_next_prnstream(seed)
-    assert prn.get_seed() == jump_seed_n(seed, 2 ** 127)
-
-
-def test_jump_substream_matches_jump_seed_n_at_repl_stride():
-    seed = DEFAULT_SEED
-    prn = MRG31k3p(seed)
-    jump_substream(prn)
-    assert prn.get_seed() == jump_seed_n(seed, REPL_STRIDE)
 
 
 # ---------------------------------------------------------------------------

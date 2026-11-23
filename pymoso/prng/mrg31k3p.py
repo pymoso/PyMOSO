@@ -54,8 +54,6 @@ Listing
 -------
 MRG31k3p
 mrg31k3p
-get_next_prnstream
-jump_substream
 jump_seed_n
 stream_at
 point_width
@@ -543,30 +541,3 @@ def stream_at(seed, stream, offset):
     """
     new_seed = jump_seed_n(seed, stream * ITER_STRIDE + offset)
     return MRG31k3p(new_seed)
-
-
-def get_next_prnstream(seed):
-    """
-    Instantiate a generator seeded 2^127 steps from the input seed.
-
-    Parameters
-    ----------
-    seed : tuple of int
-
-    Returns
-    -------
-    prn : MRG31k3p object
-    """
-    sseed = jump_seed_n(seed, ITER_STRIDE)
-    return MRG31k3p(sseed)
-
-
-def jump_substream(prn):
-    """
-    Advance the rng to the next substream 2^76 steps.
-
-    Parameters
-    ----------
-    prn : MRG31k3p object
-    """
-    prn.seed(jump_seed_n(prn.get_seed(), REPL_STRIDE))

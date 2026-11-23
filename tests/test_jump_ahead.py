@@ -1,6 +1,7 @@
 """
-Permanent regression tests: the jump-ahead (jump_substream /
-get_next_prnstream) must land exactly where a brute-force,
+Permanent regression tests: the jump-ahead at the two fixed strides
+(2**76 and 2**127, reached through stream_at; jump_substream and
+get_next_prnstream before 2.0.0) must land exactly where a brute-force,
 single-step-at-a-time advance of the same number of steps lands. This is
 the exact validation done in docs/phase2a-verification.md item 1 to
 establish the defect, kept here so the fix (exact Python integer
@@ -17,7 +18,7 @@ import random
 import pytest
 
 from pymoso.prng.mrg32k3a import (
-    MRG32k3a, get_next_prnstream, jump_substream, mrg32k3a, mrgm1, mrgm2,
+    ITER_STRIDE, REPL_STRIDE, mrg32k3a, mrgm1, mrgm2, stream_at,
 )
 
 M1 = int(mrgm1)
@@ -41,14 +42,15 @@ def brute_force_step_n(seed, n):
     (511616026, 1372175473, 2158288731, 4085985277, 2198261820, 2779695000),
     (3693674385 % M1, 4092891722 % M1, 440821893 % M1, 3797265612 % M2, 958999843 % M2, 3843167363 % M2),
 ])
-def test_jump_substream_2_76_matches_exact_matrix_power(seed):
-    """jump_substream (2^76) must match an independently-derived exact
-    matrix-power jump of 2**76 steps, computed in arbitrary-precision
-    Python ints from the same recurrence mrg32k3a() implements."""
+def test_jump_2_76_matches_exact_matrix_power(seed):
+    """stream_at at offset 2**76 (what jump_substream did before 2.0.0)
+    must match an independently-derived exact matrix-power jump of
+    2**76 steps, computed in arbitrary-precision Python ints from the
+    same recurrence mrg32k3a() implements. That offset takes
+    jump_seed_n's cached fixed-stride path, the one the wrapper took."""
+    assert REPL_STRIDE == 2**76
     exact = _exact_jump_n(seed, 2**76)
-    prn = MRG32k3a(seed)
-    jump_substream(prn)
-    assert prn.get_seed() == exact
+    assert stream_at(seed, 0, 2**76).get_seed() == exact
 
 
 @pytest.mark.parametrize("seed", [
@@ -56,12 +58,12 @@ def test_jump_substream_2_76_matches_exact_matrix_power(seed):
     (1, 1, 1, 1, 1, 1),
     (511616026, 1372175473, 2158288731, 4085985277, 2198261820, 2779695000),
 ])
-def test_get_next_prnstream_2_127_matches_exact_matrix_power(seed):
-    """get_next_prnstream (2^127) must match the same independent exact
-    reference."""
+def test_jump_2_127_matches_exact_matrix_power(seed):
+    """stream_at at stream 1 (2**127 steps; what get_next_prnstream did
+    before 2.0.0) must match the same independent exact reference."""
+    assert ITER_STRIDE == 2**127
     exact = _exact_jump_n(seed, 2**127)
-    prn = get_next_prnstream(seed)
-    assert prn.get_seed() == exact
+    assert stream_at(seed, 1, 0).get_seed() == exact
 
 
 def test_single_step_generator_matches_brute_force_over_2000_steps():

@@ -74,10 +74,9 @@ too; numerical results changed there.
   everywhere.
 - **Names no longer importable from `pymoso.chnbase`.** None was
   documented there; each was an import `chnbase` happened to make. All
-  but three still exist where they are defined:
+  but five still exist where they are defined:
   - from `pymoso.prng.mrg32k3a`: `MRG32k3a`, `bsm`, `stream_at`,
-    `jump_seed_n`, `get_next_prnstream`, `jump_substream`,
-    `ITER_STRIDE`, `REPL_STRIDE`, `REPL_RESERVE_STRIDE`,
+    `jump_seed_n`, `ITER_STRIDE`, `REPL_STRIDE`, `REPL_RESERVE_STRIDE`,
     `ISP_ITER_MARGIN`, `SYNC_STRIDE`, `SYNC_ROLE_OFFSET`,
     `SYNC_ZONE_STREAM_START`;
   - from `pymoso.prng.base`: `ReplicationDrawOverflow`,
@@ -89,21 +88,37 @@ too; numerical results changed there.
   - the standard library: `inspect`, `os`, `sys`, `types`,
     `multiprocessing.Process` and `Queue`, `statistics.mean` and
     `variance`, `math.sqrt`;
-  - removed: `mp_worker` and `mp_replicate` (below).
+  - removed: `mp_worker` and `mp_replicate`, and `get_next_prnstream`
+    and `jump_substream` (all below).
 - **Names no longer importable from `pymoso.chnutils`.** Every
   documented function is still there. Gone:
   - from `pymoso.prng.mrg32k3a`: `MRG32k3a`, `stream_at`,
-    `jump_seed_n`, `get_next_prnstream`, `ITER_STRIDE`, `ISP_STRIDE`,
-    `ISP_ITER_MARGIN`, `SYNC_ZONE_STREAM_START`;
+    `jump_seed_n`, `ITER_STRIDE`, `ISP_STRIDE`, `ISP_ITER_MARGIN`,
+    `SYNC_ZONE_STREAM_START`;
   - from `pymoso.prng.base`: `one_past`;
   - the standard library: `multiprocessing` (bound as `mp`),
     `itertools.product` and `filterfalse`, `statistics.mean` and
     `variance`, `math.ceil`, `floor` and `sqrt`;
-  - removed: `par_runs` and `do_work` (below).
+  - removed: `par_runs` and `do_work`, and `get_next_prnstream` (all
+    below).
 - **Removed with the old worker processes:** `chnbase.mp_worker`,
   `chnbase.mp_replicate`, `chnutils.par_runs`, `chnutils.do_work`, and
   `Oracle`'s `req_q`, `res_q` and `proc` attributes. `set_simpar()`
   and `mp_cleanup()` remain, and `par_diff()` keeps its signature.
+- **`get_next_prnstream` and `jump_substream` are removed,** from
+  `pymoso.prng` (`from pymoso.prng import get_next_prnstream` is the
+  import 1.1.0 offered), `pymoso.prng.mrg32k3a` and
+  `pymoso.prng.mrg31k3p`. Under 2.0's stream layout, both land on random
+  numbers PyMOSO has already given to another replication, another
+  point or the next iteration (`docs/rng-interface-design.md` §3.10).
+  For the same positions, `get_next_prnstream(seed)` is
+  `stream_at(seed, 1, 0)`, from the generator's own module, and
+  `jump_substream(rng)` is `rng = rng.advance(2**76)`, which returns a
+  new generator where `jump_substream` moved `rng` in place. 1.1.0's
+  `get_next_prnstream` took two arguments, `(seed, use_cache)`, although
+  its README documented one; the cache it switched, through
+  `MRG32k3a.set_class_cache()`, is gone too, and that method with it.
+  `KNOWN_ISSUES.md` issue 20.
 - **`pymoso.prng.mrg32k3a.ISP_MAX_MARGIN` is removed;**
   `ISP_MAX_PATHS` is the number of sample paths the layout holds.
 - **An exception raised in an `RLESolver`'s `accel()` reaches the

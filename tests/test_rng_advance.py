@@ -14,7 +14,7 @@ import pytest
 
 from pymoso.oracle import Oracle
 from pymoso.prng import registry
-from pymoso.prng.base import ensure_random_compatible
+from pymoso.prng.base import ReplicationDrawOverflow, ensure_random_compatible
 
 GENERATORS = sorted(registry.GENERATORS)
 
@@ -114,4 +114,57 @@ def test_the_reserve_check_does_not_see_draws_on_an_advanced_generator(name):
     orc.set_simpar(1)
     orc.hit((2,), 2)
     (first0, past0), (first1, _) = _PastTheReserve.seen
+    assert past0 == first1
+
+
+class _RepositionsPastTheReserve(Oracle):
+    """Draws to one short of its reserve, repositions rng where it already
+    is (by `route`: seed() or setstate()), then draws twice more: one draw
+    past the reserve. `route = None` is the control, the same draws
+    without repositioning."""
+    replication_draws = 16
+    route = None
+    seen = []
+
+    def __init__(self, rng):
+        self.num_obj = 1
+        self.dim = 1
+        super().__init__(rng)
+
+    def g(self, x, rng):
+        first = rng.random()
+        for _ in range(self.replication_draws - 2):
+            rng.random()
+        if self.route == 'seed':
+            rng.seed(rng.get_seed())
+        elif self.route == 'setstate':
+            rng.setstate(rng.getstate())
+        rng.random()
+        type(self).seen.append((first, rng.random()))
+        return True, (0.0,)
+
+
+@pytest.mark.parametrize("route", ['seed', 'setstate'])
+@pytest.mark.parametrize("name", ['mrg31k3p', 'mrg32k3a'])
+def test_repositioning_rng_inside_g_hides_its_draws_from_the_reserve_check(name, route):
+    """A gap, recorded: on the MRG family rng.seed(), and rng.setstate(),
+    which calls it, reset the draw count the reserve check reads, so a g
+    that repositions rng and then draws past its reserve raises nothing,
+    and its last draw is the next replication's first. The same draws
+    without repositioning raise."""
+    backend = registry.GENERATORS[name]
+    _RepositionsPastTheReserve.route = None
+    orc = _RepositionsPastTheReserve(backend.stream_at(backend.DEFAULT_SEED, 0, 0))
+    orc.set_crnflag(False)
+    orc.set_simpar(1)
+    with pytest.raises(ReplicationDrawOverflow):
+        orc.hit((2,), 2)
+
+    _RepositionsPastTheReserve.route = route
+    _RepositionsPastTheReserve.seen = []
+    orc = _RepositionsPastTheReserve(backend.stream_at(backend.DEFAULT_SEED, 0, 0))
+    orc.set_crnflag(False)
+    orc.set_simpar(1)
+    orc.hit((2,), 2)
+    (first0, past0), (first1, _) = _RepositionsPastTheReserve.seen
     assert past0 == first1

@@ -3,7 +3,9 @@ Step 1 of docs/rng-interface-design.md's §12 step list: the §7
 conformance suite, written and run before any real generator-interface
 code exists, against a thin `stream_at` wrapper built entirely from
 today's `MRG32k3a` and its two fixed jumps (`get_next_prnstream`:
-2**127, `jump_substream`: 2**76).
+2**127, `jump_substream`: 2**76). Both functions were removed in
+2.0.0; the helpers below inline their one-line bodies (`jump_seed_n`
+at `ITER_STRIDE` and `REPL_STRIDE`), so every position is unchanged.
 
 This file's `stream_at` is deliberately narrow, not the real §3.1
 interface: `coordinate` is a non-negative int, and
@@ -45,7 +47,7 @@ import multiprocessing
 import pytest
 
 from pymoso.prng.mrg32k3a import (
-    MRG32k3a, bsm, get_next_prnstream, jump_substream, mrgm1, mrgm2,
+    ITER_STRIDE, REPL_STRIDE, MRG32k3a, bsm, jump_seed_n, mrgm1, mrgm2,
 )
 
 # Generous backstop for the whole file (the cross-process test under
@@ -79,7 +81,7 @@ def thin_stream_at(seed, coordinate):
         raise ValueError("coordinate must be non-negative")
     prn = MRG32k3a(seed)
     for _ in range(coordinate):
-        jump_substream(prn)
+        prn.seed(jump_seed_n(prn.get_seed(), REPL_STRIDE))   # was jump_substream(prn)
     return prn
 
 
@@ -307,7 +309,7 @@ def _broken_stream_at_wrong_jump_size(seed, coordinate):
     magnitude and would."""
     prn = MRG32k3a(seed)
     for _ in range(coordinate):
-        prn = get_next_prnstream(prn.get_seed())
+        prn = MRG32k3a(jump_seed_n(prn.get_seed(), ITER_STRIDE))   # was get_next_prnstream(...)
     return prn
 
 
