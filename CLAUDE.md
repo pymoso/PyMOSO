@@ -37,14 +37,14 @@ a `betaeps`/`betadel` value a user already sets actually means** — all
 landed after `b637a3e`, none shipped in 1.1.0.
 
 The two branches differ in content, not just version. `release-1.1.0`
-excludes MOCOMPASS/MOPBnB entirely; this branch has them committed.
+excludes the two example solvers entirely; this branch has them committed.
 Don't assume a diff between them is only the commits between them.
 
 `KNOWN_ISSUES.md` numbering: Phase 0 remapped this branch's citations
 to match the file's own headings, which already used release
 numbering for issues 1-9. Numbers diverge from 13 on — this branch has
 14 = `bump()` removal, 15 = `--simpar` exception hang (deliberately out
-of sequence, do not renumber); release has 14 = MOCOMPASS/MOPBnB
+of sequence, do not renumber); release has 14 = the example solvers'
 exclusion. Nine citations to a dropped old issue 2 still dangle on both
 branches. Don't merge `KNOWN_ISSUES.md` textually between branches.
 
@@ -181,7 +181,7 @@ that follow it (docs/rng-interface-design.md §3.7's own correction
 note has the full account); this is a visible CLI syntax change,
 mirrored across the README/`EPILOG` examples. Two more bugs found
 running real Philox scenarios end to end, not hypothetical: built-in
-testers'/problems'/MOCOMPASS-MOPBnB's own `choice`/`expovariate`/
+testers'/problems'/the example solvers' own `choice`/`expovariate`/
 `sample` calls need the full `random.Random` surface Philox's own
 Stream deliberately doesn't provide (`RandomCompatAdapter`, §3.6,
 finally wired in via `pymoso.prng.base.ensure_random_compatible`, a
@@ -746,44 +746,52 @@ tuned for the test problems.
   - Not done, and not planned: splitting `Oracle`, moving the solver
     bases out of `chnbase.py` (decided: they stay), a top-level
     `pymoso.solve`.
-- MOCOMPASS and MOPBnB (real `MOSOSolver`s from prior work, written
-  against roughly the 1.0.8 API) are now in-tree,
-  `pymoso/solvers/mocompass.py`/`mopbnb.py` — role decided: shipped,
-  compatibility-only examples. **Registered as `ExampleSearchSolver`
-  and `ExampleBnBSolver` (Phase 6, by decision),** so the listing makes
-  no claim to implement the published algorithms; the one-line
-  docstring `listitems` prints says "unverified against the source
-  paper". Module filenames, the file headers' citations and
-  disclaimers, and `docs/mocompass-mopbnb-known-issues.md`'s filename
-  are kept. **Not described in the README, by decision:** no section,
-  no usage prose, no claims about what they implement. They still
-  appear in the generated `listitems` block and parameter table,
-  which stay literal output of the registered solvers -- do not
-  filter them out; one sentence in the `listitems` section says why
-  the listing has solvers the README does not describe. The golden
-  cases were renamed with them (values unchanged, proved by running
-  under the new names first). Elsewhere in this file and in the design
-  docs, "MOCOMPASS"/"MOPBnB" name the algorithms and their port. Brought in with three compatibility
-  fixes (a Python 3.11+ `random.sample()` incompatibility, a
-  library-hostile `sys.exit()` on missing params, a `--crn` refusal —
-  under `--crn` every `hit()` either solver makes replays from the
-  same baseline, confirmed empirically), and refuse `--crn` outright
-  rather than carry that corruption forward. The refusal is not
-  temporary plumbing: the `orc.crn_advance()` call both made at the end
-  of `solve()` has been deleted along with the method, and the replay
-  remains, because it comes from a `MOSOSolver` having no RA iteration
-  to advance. What `--crn` should mean for such a solver is
-  rng-interface-design.md §11 open question 11. Their
-  algorithmic correctness against the source papers has NOT been
-  reviewed — that's separate, future work. Known algorithmic issues
-  (MOCOMPASS's `product()` full-box materialization; MOPBnB's
-  `update_gbar` `sehat` recompute bug; MOCOMPASS's `self.seeds`
-  cross-point aliasing, distinct from the deliberate synchronization
-  policy it implements) are tracked in
-  `docs/mocompass-mopbnb-known-issues.md`, not this file — that
-  document's own scope note explains why (caveats in new example code,
-  not framework defects across released versions, the frame this file
-  and `KNOWN_ISSUES.md` both use).
+- **The example solvers,** `ExampleSearchSolver`
+  (`pymoso/solvers/examplesearch.py`) and `ExampleBnBSolver`
+  (`pymoso/solvers/examplebnb.py`): two `MOSOSolver`s from prior work,
+  written against roughly the 1.0.8 API, shipped as **an implementation
+  example only, not intended for serious solving or testing.** In prose
+  they are "the example search-based solver" and "the example
+  branch-based solver". **Nothing in the repository names or cites an
+  algorithm they implement (decided 2026-11-23),** reversing Phase 6's
+  decision to keep the module filenames, the file headers' citations and
+  disclaimers, and the known-issues document's filename. Two exceptions
+  by decision: the comparison curve in Cooper & Hunter's published figure
+  keeps its name where that figure is described (this file's Phase 7
+  section, `docs/algorithm-audit.md`, `docs/reconstruction-spec.md`), and
+  `CHANGELOG.md`'s 1.1.0 section is a released record and is not edited.
+  The `listitems` docstrings say "Do not use for serious solving or
+  testing at this time." **Not described in the README, by decision:** no
+  section, no usage prose, no claims about what they do. They still
+  appear in the generated `listitems` block and parameter table, which
+  stay literal output of the registered solvers -- do not filter them
+  out; one sentence in the `listitems` section says why the listing has
+  solvers the README does not describe. The golden cases were renamed
+  with the solvers (values unchanged, proved by running under the new
+  names first), and the golden README now uses the current case names
+  throughout. Brought in with three compatibility fixes (a Python 3.11+
+  `random.sample()` incompatibility, a library-hostile `sys.exit()` on
+  missing params, a `--crn` refusal — under `--crn` every `hit()` either
+  solver makes replays from the same baseline, confirmed empirically),
+  and refuse `--crn` outright rather than carry that corruption forward.
+  The refusal is not temporary plumbing: the `orc.crn_advance()` call
+  both made at the end of `solve()` has been deleted along with the
+  method, and the replay remains, because it comes from a `MOSOSolver`
+  having no RA iteration to advance. What `--crn` should mean for such a
+  solver is rng-interface-design.md §11 open question 11. Known defects
+  (the search-based solver's full-box `product()` materialization, and
+  its `self.seeds` aliasing: one checkpoint dict shared by every point,
+  so one point's write can replace the checkpoint another point later
+  resumes from; the branch-based solver's subregions
+  that are not regions, its `update_gbar` `sehat` recompute bug and its
+  unbounded replication requests) are tracked in `docs/example-solvers.md`,
+  not this file — that document's own scope note explains why (caveats
+  in example code, not framework defects across released versions, the
+  frame this file and `KNOWN_ISSUES.md` both use). **The module paths
+  cross process boundaries:** a by-reference `ClassRef` carries
+  `pymoso.solvers.examplesearch`/`examplebnb` to workers, so moving either
+  module again is a change to test under every start method and on the
+  extras venv (the 2026-11-23 rename was).
 - **Closed (Phase 6):** the README's `crn_*` table, the
   `crn_advance()` advice and the `setup.py` install line are gone.
   `bump()` and `crn_advance()` are in `CHANGELOG.md` with their
@@ -800,7 +808,7 @@ tuned for the test problems.
   output (CLI help/`listitems` blocks are, via
   `tests/test_readme_help_text.py`'s "Layer 3" treatment) — it's
   hand-maintained prose nothing diffs against solvers' actual `__init__`
-  kwargs. Bringing MOCOMPASS/MOPBnB in-tree added their params to it by
+  kwargs. Bringing the example solvers in-tree added their params to it by
   hand, which only grows the gap. Follow-up: bring it under the same
   generated-and-diffed treatment as the CLI-help/`listitems` blocks,
   rather than leave it untracked indefinitely.
@@ -855,6 +863,18 @@ The decisions below are landed, not pending. Full reasoning in
   the MRG family.) Pure Python,
   no new runtime dependencies. MRG32k3a remains the default for
   continuity with the papers; MRG31k3p and Philox-4x32 also implemented.
+  The adapter backs `random`/`getrandbits`/`normalvariate` and what is
+  built on them, not the state methods: a Philox stream cannot be
+  checkpointed or reseeded, and `getstate()`/`setstate()` raise
+  `StreamNotCheckpointable` and `seed()` raises `StreamNotReseedable`
+  (`pymoso.prng.base`; the one `seed()` let through is
+  `random.Random.__init__`'s, which unpickling runs). **This is
+  deliberate, not unimplemented:** Philox's state, `(key, counter)`, is
+  trivially saveable, but a position in this framework is reached by
+  coordinate (`stream_at`), not by saving and restoring state, so the
+  methods refuse rather than being left to write. `Oracle.rng` is never
+  wrapped (`set_crnflag()` raises for an adapter), so under Philox it has
+  no such methods at all.
 - Streams are coordinate-derived, not jump-reached.
   `stream_at(seed, stream, offset)` computes position arithmetically.
   The interface does not expose jump-ahead; mechanism is per-generator.
@@ -870,23 +890,31 @@ The decisions below are landed, not pending. Full reasoning in
   users who opt in.** Algorithm designers should not think about it. The
   solver-facing `crn_*` surface is being removed, not deprecated:
   migration for custom solvers is "delete that line."
-- Two distinct extension needs, found by tracing MOCOMPASS and MOPBnB —
-  corrected once already, worth keeping separate:
-  - **Continuation** (MOPBnB's need, the default): repeat `hit()` calls
-    for a point get fresh non-overlapping replications with no
-    solver-side state. `visit=0` means "continue," not "reset."
-  - **Solver-controlled synchronization** (MOCOMPASS's need): `sync=<int>`
-    hands the synchronization axis to the solver, excluding point
-    identity, so two points with the same `sync` compute the identical
-    stream. MOCOMPASS shares streams across points at equal cumulative
-    sample-effort — a real MO-COMPASS policy, keyed on `nx[x]`, which
-    coincides with the framework's iteration-keyed `crn=True` only
-    accidentally.
+- Two distinct extension needs, found by tracing two `MOSOSolver`s
+  written against the 1.0.8 API, before this redesign — corrected once
+  already, worth keeping separate:
+  - **Continuation** (the default): repeat `hit()` calls for a point get
+    fresh non-overlapping replications with no solver-side state.
+    `visit=0` means "continue," not "reset." Needed by any solver that
+    revisits a point within an iteration and folds the new replications
+    into a running mean and variance: a reset would average a repeated
+    sample into itself, silently.
+  - **Solver-controlled synchronization:** `sync=<int>` hands the
+    synchronization axis to the solver, excluding point identity, so two
+    points with the same `sync` compute the identical stream. Needed by a
+    search-based solver that shares streams across points at equal
+    cumulative sample effort, keyed on a per-point count of replications
+    taken, which coincides with the framework's iteration-keyed
+    `crn=True` only accidentally.
   Framework provides both mechanisms; the algorithm chooses the policy.
-  Note that `sync=` implements MOCOMPASS's intent for the first time —
-  `crn_nextobs()` never honored its `setstate()` calls beyond a
-  checkpoint's first replication, so porting it is a behavior change to
-  that solver, not a refactor.
+  Note that `sync=` would implement the example search-based solver's
+  intended policy for the first time — its `getstate`/`setstate`
+  checkpoints were honored for at most each checkpoint's first
+  replication in the 1.0.8-era framework, and have had no effect on any
+  result since step 4b's cutover on the default path (`18ab096`) and
+  step 9 on the CRN path (`390ce4e`); under Philox the solver refuses to
+  run — so porting it is a behavior change to that solver, not a
+  refactor.
 - Non-CRN mode is coordinate-computable and always was. Its contract is
   only preserved distributional properties plus determinism relative to
   the seed. The old order-dependent walk was an artifact of
@@ -1028,7 +1056,7 @@ The decisions below are landed, not pending. Full reasoning in
   every interpreter and it passed, goldens included
   (docs/end-seed-scope.md, the sixth instance). §11 entry 13 (Phase 7
   step 1b) would remove the need.
-- MOCOMPASS and MOPBnB still call `hit()` in loops and were not
+- The example solvers still call `hit()` in loops and were not
   converted to `hit_many`.
 - Deferred, with reasons, in rng-interface-design.md §11: per-point
   CRN continuation (11: not invisible to RA solvers), unifying
@@ -1042,11 +1070,10 @@ The decisions below are landed, not pending. Full reasoning in
 
 Nothing here blocks the release. Recorded so it is not re-derived.
 
-- **MOCOMPASS and MOPBnB reviewed for algorithmic correctness against
-  their source papers.** The known issues are in
-  `docs/mocompass-mopbnb-known-issues.md`. This is the first item: the
-  reconstructed experiment below wants a MO-COMPASS worth comparing
-  against.
+- **The example solvers' known defects fixed,** from
+  `docs/example-solvers.md`. This is the first item: the reconstructed
+  experiment below wants a credible comparator, and the example
+  search-based solver is the in-tree candidate.
 - **A full, reproducible reconstruction of the published experiments**
   for the Purdue-family algorithms, from `docs/reconstruction-spec.md`.
   Wants a serious cluster. Corrected plots are not themselves the
