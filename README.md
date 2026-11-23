@@ -19,8 +19,6 @@ Wang, H., Pasupathy, R., and Schmeiser, B. W. 2013. Integer-ordered simulation o
 
 We recommend reading these papers to understand the algorithms, what they return, and the algorithm parameter options that we describe in the user manual.
 
-Upgrading from PyMOSO 1? [`CHANGELOG.md`](CHANGELOG.md) lists what changed, starting with what you may have to change. One change gives a value you set a different meaning, with no error or warning: [`betaeps` and `betadel`](#table-of-algorithm-specific-parameters) now mean what the papers mean. [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) opens with what is still open in 2.0.0, and whom it affects.
-
 Table of Contents
 =================
 
@@ -165,8 +163,8 @@ To confirm any of the three methods worked, run `pymoso --version`. It prints th
 ### Optional extras
 PyMOSO itself needs nothing beyond Python: it has no third-party runtime dependencies. <!-- verified: tests/test_dependency_boundary.py::test_the_core_runs_where_the_optional_dependencies_cannot_be_imported --> Two optional extras add dependencies for specific uses. Most users need neither.
 
-- `python -m pip install "pymoso[notebook]"` adds `cloudpickle`, and nothing else. It is needed to run, with `simpar` or `proc` above 1, a problem, tester or solver class defined in a notebook cell, a REPL or inside a function, where a worker process cannot import it. Without it, such a call raises `ValueError` naming this extra. <!-- verified: tests/test_library_arguments.py::test_the_advice_for_a_class_with_no_source_leads_with_the_notebook_extra; tests/test_path_jobs.py::test_a_tester_that_cannot_be_transported_is_refused_only_when_it_would_have_to_be --> This is the extra a notebook on your own computer needs.
-- `python -m pip install "pymoso[spark]"` adds `pyspark` (and `cloudpickle`), for opening a Spark session on your own machine. On Databricks or any cluster that already provides Spark, do not install it: it would install PyPI's `pyspark` over the cluster's own. Install `pymoso[notebook]` there instead; see [`docs/spark-backend.md`](docs/spark-backend.md).
+- `python -m pip install "pymoso[notebook]"` adds `cloudpickle`, and nothing else. It is needed to run, with `simpar` or `proc` above 1, a problem, tester or solver class defined in a notebook cell, a REPL or inside a function, where a worker process cannot import it. Without it, such a call raises `ValueError` naming this extra requirement. <!-- verified: tests/test_library_arguments.py::test_the_advice_for_a_class_with_no_source_leads_with_the_notebook_extra; tests/test_path_jobs.py::test_a_tester_that_cannot_be_transported_is_refused_only_when_it_would_have_to_be --> This is the extra requirement your computer needs to run PyMOSO in a notebook.
+- `python -m pip install "pymoso[spark]"` adds `pyspark` (and `cloudpickle`), for running PyMOSO with a Spark session on your machine. On Databricks or any cluster that already provides Spark, do not install it, as it would install PyPI's `pyspark` over the cluster's `pyspark`. Install `pymoso[notebook]` there instead; see [`docs/spark-backend.md`](docs/spark-backend.md).
 
 An extra works with the other two methods too: `python -m pip install "pymoso[notebook] @ git+https://github.com/pymoso/PyMOSO.git"` from the repository, or `python -m pip install ".[notebook]"` from source code.
 
