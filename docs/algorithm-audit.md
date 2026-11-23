@@ -4,7 +4,7 @@ Phase 7, step 7 (`docs/phase7-plan.md`). The algorithms as published,
 read against the code on `dev-2.0`, for steps, safeguards, tolerances
 and orderings present in one and not the other, in both directions.
 **This is a list to work through, not a set of fixes.** Nothing here
-has been changed. MOCOMPASS and MOPBnB are out of scope
+has been changed. The two example solvers are out of scope
 (`docs/example-solvers.md`).
 
 ## What was read

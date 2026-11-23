@@ -75,7 +75,7 @@ class RandomCompatAdapter(random.Random):
     """Backward-compatibility adapter (§3.6), needed because
     Oracle.g(self, x, rng) hands `rng` directly to arbitrary third-party
     code (custom Oracles, and -- confirmed, not hypothetical, per §3.6 --
-    custom MOSOSolvers like MOCOMPASS/MOPBnB) documented only as
+    custom MOSOSolvers like the two example solvers) documented only as
     "an rng-shaped object," which today means the *entire* random.Random
     API, not just the four Stream methods.
 

@@ -285,7 +285,7 @@ SYNC_STRIDE = SYNC_REPL_MARGIN * REPL_STRIDE  # 2**108
 # SYNC_PER_STREAM sync values share one stream; for this generator the
 # pair flattens to exactly §4.3's formula above. SYNC_CAPACITY is how
 # many sync values one path's sync zone holds: 2**31 streams * 2**19 =
-# 2**50 (~1.1e15). MOCOMPASS's own `sync` (`nx[x]`, the replications
+# 2**50 (~1.1e15). The example search-based solver's own `sync` (`nx[x]`, the replications
 # taken at one point, itself bounded by --budget) is ~2**40 even at the
 # absurd budget=10**12 row above. A value at or past SYNC_CAPACITY
 # raises SyncOverflow.
@@ -485,7 +485,7 @@ class MRG32k3a(random.Random):
         overridden), but getstate() below includes super().getstate()
         in its own return, so it must stay in sync on every step, not
         just on an explicit seed() call -- a caller reading getstate()
-        right after a draw (MOCOMPASS's own end-of-hit() pattern, see
+        right after a draw (the example search-based solver's own end-of-hit() pattern, see
         docs/example-solvers.md) would otherwise see a
         stale parent-state component. The packing below is an arbitrary
         bijection, not a meaningful encoding -- nothing relies on its

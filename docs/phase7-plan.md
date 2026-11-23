@@ -843,9 +843,9 @@ example of the standard required.
 
 **A connection worth testing.** Partition-and-bound does not need
 local structure. If these problems defeat the SPLINE-family methods and
-MOPBnB handles them, that is a concrete measured answer to when to use
-the global solver, which nobody has published. (MOPBnB in-tree is
-`ExampleBnBSolver`, unverified against its paper. See
+the example branch-based solver handles them, that is a concrete measured answer to when to use
+the global solver, which nobody has published. (The in-tree branch-based
+solver is `ExampleBnBSolver`, an implementation example only. See
 `docs/example-solvers.md` before relying on it.)
 
 **Plateaus: done (2026-10-18)** (`docs/plateau-problems.md`; tables by

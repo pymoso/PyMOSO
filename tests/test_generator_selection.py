@@ -376,7 +376,7 @@ def test_solve_with_no_generator_still_uses_mrg32k3a_default():
 # module docstring) -- built-in problem/tester code documented only as
 # "an rng-shaped object" (§3.6) and calling the full surface
 # (BSProb.g()'s own expovariate(), every built-in tester's own
-# get_ranx0 calling choice(), MOCOMPASS/MOPBnB's own sprn.sample())
+# get_ranx0 calling choice(), the example solvers' own sprn.sample())
 # raises AttributeError on a raw Philox stream. RandomCompatAdapter
 # (§3.6, unused until this step) is the fix -- but RandomCompatAdapter
 # itself didn't pickle (random.Random's own inherited __reduce__

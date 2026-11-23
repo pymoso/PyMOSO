@@ -22,7 +22,7 @@ Existing coverage this file does NOT duplicate:
   (_replications_drawn), which lives in hit() itself, not in
   _hit_via_coordinate.
 
-What's actually at stake: MOPBnB's own correctness depends on repeated
+What's actually at stake: the example branch-based solver's own correctness depends on repeated
 hit() calls to the same (iteration, x) getting fresh, non-overlapping
 replications (§4.1) -- the property this file checks directly and
 operationally, not just via an integration baseline that would still
@@ -89,7 +89,7 @@ def test_default_path_m_equals_one_matches_the_formula():
 
 
 # ---------------------------------------------------------------------------
-# Continuation: the specific property MOPBnB's correctness depends on
+# Continuation: the specific property the example branch-based solver's correctness depends on
 # (§4.1). A repeated hit() call to the same x, same iteration, must get
 # the *next* contiguous block -- not restart at replication 0 (which
 # would silently correlate "new" and "old" samples) and not skip ahead

@@ -214,12 +214,12 @@ draws apart (more with `philox4x32`), as before.
   numbers without an error.
 - **`Oracle.hit_many()` and `RASolver.estimate_many()`:** several
   points' replications handed to the worker processes at once.
-- **`ExampleSearchSolver` and `ExampleBnBSolver`,** example
-  implementations of MO-COMPASS and MOPBnB, compatibility only. They
-  have not been checked against the papers they implement
-  (`docs/example-solvers.md`), they refuse `--crn`, and
-  the README deliberately does not describe them. `pymoso listitems`
-  shows them because they are installed.
+- **`ExampleSearchSolver` and `ExampleBnBSolver`,** an example
+  search-based solver and an example branch-based solver, as an
+  implementation example only: not for serious solving or testing.
+  Their known defects are in `docs/example-solvers.md`, they refuse
+  `--crn`, and the README deliberately does not describe them.
+  `pymoso listitems` shows them because they are installed.
 - **The point contract.** A point is a tuple of numbers. A whole
   number of any numeric type is that integer: `30.0` and `30` are one
   point with the same random numbers. A point containing a `nan`, an

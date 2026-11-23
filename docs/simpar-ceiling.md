@@ -587,7 +587,7 @@ pattern held on hardware it was not derived on.
   the one candidate with a measurement behind it: a piece cap was
   tried instead and declined (above), because the per-piece overhead
   is the jump and only a cheaper jump reduces it. [Landed in Phase 7 step 3 (2026-10-17): a general MRG jump is now 20-70 µs on 3.14 (`docs/hit-cost-baseline.md`, "After the cheaper jump").]
-- **Converting MOCOMPASS and MOPBnB to `hit_many`.** Both evaluate
+- **Converting the two example solvers to `hit_many`.** Both evaluate
   long unconditional lists of points and would batch far better than
   the RA solvers. Not measured.
 - **Running a solver's independent searches concurrently** -- the

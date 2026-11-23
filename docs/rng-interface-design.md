@@ -8,7 +8,7 @@ selection, `Oracle.bump()`'s removal, the `--seed` comma-token syntax
 change) onward, plus the still-open CRN-branch convergence step and the
 `crn_*` solver-facing-surface removal `release-1.1.0` never reached, is
 2.0.0 development on this branch (`pymoso-migration`, now at
-`2.0.0.dev0`). `release-1.1.0` also excludes MOCOMPASS/MOPBnB
+`2.0.0.dev0`). `release-1.1.0` also excludes the two example solvers
 entirely — see `CLAUDE.md`'s "Version boundary" section for the full
 account, including why the branches differ in content, not just
 version.
@@ -292,7 +292,7 @@ are required, the same `bsm()` works.
 
 `bsm` should also be **public, standalone API** — not only reachable
 through a `Stream` instance — confirmed by a real, not hypothetical,
-need (§4.2): a solver author (MOPBnB) wanted `Φ⁻¹` as a pure statistics
+need (§4.2): a solver author (of the example branch-based solver) wanted `Φ⁻¹` as a pure statistics
 function for a sample-size formula, entirely unrelated to drawing a
 variate from any stream, found `bsm` wasn't documented or re-exported
 from anywhere a solver author would look (`chnutils`), and reimplemented
@@ -687,7 +687,7 @@ what they expect.
 
 This was argued from what a third-party `Oracle.g()` *legally could* do —
 confirmed since, by what a real `MOSOSolver` actually *does* do. Both
-MOCOMPASS and MOPBnB (§4.2) call `.sample()` on their solver-level
+example solvers (§4.2) call `.sample()` on their solver-level
 stream, repeatedly, on `set` arguments — a method well outside the four
 the interface requires, on the solver side of the API rather than the
 oracle side this section originally argued from. The need isn't confined
@@ -1053,11 +1053,12 @@ whole mechanism: pass `visit=1`, `visit=2` for a deliberately independent
 resample, and otherwise every `hit(x, m)` call at the default `visit=0`
 would draw the *same* coordinate's replications `0..m-1` again. Checked
 against two real custom `MOSOSolver` implementations from prior work
-(MOCOMPASS and MOPBnB, analyzed in full in §4.2 — not yet in-tree, so
-this is external validation, not fixture code) rather than assumed: that
+(two `MOSOSolver`s written against the 1.0.8 API, before this redesign,
+now the two example solvers; analyzed in full in §4.2 — not in-tree at
+the time, so this is external validation, not fixture code) rather than assumed: that
 default is wrong. Neither solver wants a fresh independent resample when
 it revisits a point; both want the *next* replications appended to what
-they already have. MOPBnB is the clean case — `solve()` calls
+they already have. The example branch-based solver is the clean case — `solve()` calls
 `self.orc.hit(x, R[iterk-1])` once per point per iteration, then later in
 the *same* iteration calls `self.orc.hit(x, rdiff)` again for the same
 `x`, expecting `rdiff` genuinely new draws so its incremental mean/
@@ -1070,12 +1071,12 @@ dispatch order can vary) and precisely what step 4b replaces — `visit=0`
 itself is additive and behavior-preserving at step 4a (it reproduces
 today's forward-only walk exactly, since nothing changes what the
 default path computes until 4b switches it over). **This makes
-the dependency direct, not incidental: MOPBnB's correctness today already
+the dependency direct, not incidental: the example branch-based solver's correctness today already
 depends on the property §2 is fixing, so the fix must ship a mechanism
 that preserves that property — not one that merely happens to please a
 solver that would be equally happy with something else.** A `visit=0`
 default that resets to replication `0` on every call would silently
-corrupt MOPBnB's estimator exactly the way `--crn` already does today
+corrupt the example branch-based solver's estimator exactly the way `--crn` already does today
 (§4.2) — a different bug with the identical shape: a rewind back to a
 baseline the solver didn't ask for and has no way to detect happened.
 
@@ -1084,7 +1085,7 @@ call. The framework tracks, per `(iteration, x, visit)`, how many
 replications have already been drawn, and each `hit()` call at that
 `(x, visit)` gets the *next* contiguous block — automatically, with no
 solver-side bookkeeping, which is also a strict simplification over
-MOCOMPASS's current hand-rolled `self.seeds`/`nx` (§4.2): that whole
+the example search-based solver's current hand-rolled `self.seeds`/`nx` (§4.2): that whole
 mechanism exists only because the framework gives it no other way to get
 continuation, and disappears once continuation is what `hit()` already
 does. `visit` (nonzero) stays reserved for the case *neither* of these
@@ -1100,19 +1101,22 @@ worse time to find it, and in this case it very nearly was: the gap
 wasn't found by anticipating it, it was found by tracing what a real
 solver already does.
 
-### 4.2 External validation: MOCOMPASS and MOPBnB
+### 4.2 External validation: two `MOSOSolver`s written against the 1.0.8 API, before this redesign
 
-**Update:** both landed in-tree, compatibility-only, as
-`pymoso/solvers/examplesearch.py`/`examplebnb.py` — the role question below is
-settled (shipped examples). The compatibility fixes made to bring them
+**Update:** both landed in-tree, compatibility-only, as the example
+search-based solver and the example branch-based solver
+(`pymoso/solvers/examplesearch.py`/`examplebnb.py`) — the role question
+below is settled (shipped as an implementation example only). The compatibility fixes made to bring them
 in (the `random.sample()`/3.11+ fix, the `sys.exit()`→`TypeError` fix,
 the `--crn` refusal) are recorded in
 `docs/example-solvers.md`, which also carries the three
 known algorithmic caveats (items 1-3 below plus the aliasing bug) forward
-without re-deriving this section's narrative. Their algorithmic
-correctness against the source papers is still unreviewed — everything
-below remains live evidence for the RNG interface design, not a
-correctness sign-off.
+without re-deriving this section's narrative. Nothing about their
+algorithmic behaviour has been reviewed — everything below remains live
+evidence for the RNG interface design, not a correctness sign-off. What
+made them evidence is that they were written against the 1.0.8 API,
+before this redesign, so they show what solver code outside the RA
+family actually does with the interface.
 
 Two real custom `MOSOSolver` implementations from prior work, written
 against roughly the 1.0.8 API — `examplesearch.py`, `examplebnb.py`. Analyzed by
@@ -1130,8 +1134,8 @@ TypeError: Population must be a sequence.  For dicts or sets, use sorted(d).
 ```
 
 `random.Random.sample()` stopped accepting `set` arguments; every
-`self.sprn.sample(some_set, ...)` call in both files (MOCOMPASS:
-`sample_set`, `cssample`, `sample_mpr`; MOPBnB: `sample_region`) hits
+`self.sprn.sample(some_set, ...)` call in both files (the example search-based solver:
+`sample_set`, `cssample`, `sample_mpr`; the example branch-based solver: `sample_region`) hits
 this. Pre-existing, orthogonal to this work — a stdlib change between the
 Python version these were written against and 3.14 — not something the
 RNG redesign causes or fixes. Noted because it's a real, current-branch
@@ -1156,10 +1160,10 @@ of every call, which rewinds to `crnold_state` — set once, at
 construction, and never advanced by either solver. Under `--crn`, every
 `hit()` call in the entire run, for every point, therefore starts from
 the same frozen baseline: `fx1 == fx3` above is a direct replay, not a
-coincidence. Reproduced with MOPBnB's exact call shape (plain `hit()`
+coincidence. Reproduced with the example branch-based solver's exact call shape (plain `hit()`
 calls, no manual state management at all), so this is a property of the
 `crn_advance()`-once-at-the-end pattern itself, not specific to
-MOCOMPASS's own bookkeeping — any `MOSOSolver` that copies it inherits
+the example search-based solver's own bookkeeping — any `MOSOSolver` that copies it inherits
 the same silent corruption.
 
 **§11 open question 7, answered: remove the solver-facing `crn_*`
@@ -1185,7 +1189,7 @@ the full `random.Random` surface — except here it's a custom *solver*,
 observed actually doing it, in both files.
 
 **`bsm()` should be public, standalone API — confirmed with a concrete
-example, not a hypothetical one.** MOPBnB defines its own `bsm`/`bsma`/
+example, not a hypothetical one.** the example branch-based solver defines its own `bsm`/`bsma`/
 `bsmb`/`bsmc`, checked byte-for-byte identical to
 `pymoso/prng/mrg32k3a.py`'s, and calls it as a pure inverse-normal-CDF
 function inside a sample-size formula (`bsm(1 - alphak[iterk]/2)`),
@@ -1199,7 +1203,7 @@ ends up living per §9) into a concrete requirement: it needs a public
 import path the framework documents, independent of any `Stream`
 instance.
 
-**MOCOMPASS's `self.seeds` cross-point synchronization: confirmed
+**The example search-based solver's `self.seeds` cross-point synchronization: confirmed
 deliberate, by the author, not an artifact — corrected from an earlier
 draft of this section, which left it open.** It *intends* a real,
 different CRN policy: points sharing the same cumulative sample-effort
@@ -1219,23 +1223,23 @@ same policy is
 expressible with nothing to overwrite, because nothing is stored.
 
 **Known issues in these two files, for context — not evidence for the
-RNG design, not acted on here:** MOCOMPASS materializes the entire
+RNG design, not acted on here:** the example search-based solver materializes the entire
 feasible region via `set(product(*arglist))`, which doesn't scale to
-large boxes; MOPBnB's `update_gbar` recomputes `sehat[x]` once per
+large boxes; the example branch-based solver's `update_gbar` recomputes `sehat[x]` once per
 objective inside a loop that ignores its own index (visible in a test
 run: a sample-size formula fed by that computation produced "16221167823086
 additional replications" before the budget guard caught it); and — found
-here — MOPBnB's `except KeyError:` block calls `sys.exit()` but never
+here — the example branch-based solver's `except KeyError:` block calls `sys.exit()` but never
 `import sys`, confirmed empirically (`NameError: name 'sys' is not
 defined`, not the intended usage message) by running it without
 `--param lb`/`--param ub`.
 
 ### 4.3 CRN is a policy the framework picked, not a fact about the coordinate — `sync`
 
-MOCOMPASS forces a correction one level up from §4.1/§4.2. The framework
+The example search-based solver forces a correction one level up from §4.1/§4.2. The framework
 calls `crnflag=True` "CRN," but it implements exactly one synchronization
 policy: every point estimated during RA iteration `k` shares the stream
-at coordinate `(k, r)` (§2). MOCOMPASS needs a *different* policy —
+at coordinate `(k, r)` (§2). The example search-based solver needs a *different* policy —
 points sharing the same cumulative sample-effort level, `nx[x]`, share
 the stream, independent of which iteration either point is in. `sar()`
 doesn't hold `nx[x]` equal across points within an iteration in general
@@ -1243,7 +1247,7 @@ doesn't hold `nx[x]` equal across points within an iteration in general
 enough to look related and diverge once points' histories start to
 differ) — so passing `crn=True` at the framework level, the port §4.2
 originally proposed, is a different policy that happens to overlap with
-MOCOMPASS's intent sometimes, not an implementation of it. Recommending
+the example search-based solver's intent sometimes, not an implementation of it. Recommending
 that port was wrong, and wrong for a reason worth generalizing from: the
 framework currently offers one fixed synchronization axis (`iteration`)
 and calls it *the* CRN mechanism, when the actual, general property CRN
@@ -1279,11 +1283,11 @@ Oracle.hit(x, m, visit=0, sync=None)
   axis has taken control of it, there's no sensible way to also apply
   the default per-point escape hatch on top.
 
-MOCOMPASS's port, corrected: delete `self.seeds` and every `getstate`/
+The example search-based solver's port, corrected: delete `self.seeds` and every `getstate`/
 `setstate` call, keep `nx` (still needed for the incremental-mean
 bookkeeping `update_gbar` already does), and call
 `self.orc.hit(x, ax, sync=nx[x])`. That's the whole mechanism — the
-identical policy the paper's algorithm wants, with `nx[x]` playing
+identical policy the solver intends, with `nx[x]` playing
 exactly the role it already plays in the existing code, minus the state
 that was ever at risk of being overwritten. **The aliasing bug (§4.1,
 §4.2) cannot recur under this design**, and not by discipline or a
@@ -1299,41 +1303,41 @@ free, because "safe" was never about which policy — it was about giving
 up cached, mutable position-tracking at all.
 
 **Correction, found during §12 step 3's implementation, not anticipated
-here: "the identical policy the paper's algorithm wants" overstates what
+here: "the identical policy the solver intends" overstates what
 today's `self.seeds` mechanism actually achieves, so `sync=` is not
 purely preserving it.** Implementing step 3's replacement for `Oracle`'s
 CRN protocol required instrumenting the pre-step-3 code directly, and
 that turned up something this section didn't have in view: `Oracle.
 crn_nextobs()` — the method that decided where each replication's stream
 landed — always jumped from its own internally-tracked `crn_obsold`,
-never from `self.rng`'s live state, so MOCOMPASS's `rng.setstate(start_
+never from `self.rng`'s live state, so the example search-based solver's `rng.setstate(start_
 state)` call is honored for exactly one draw (`g()` runs before `crn_
 nextobs()` does) and ignored for every replication after the first
 within that `hit()` call, and for `end_state` itself — confirmed
 empirically, not inferred, by checking `self.crn_obsold ==
 self.rng.getstate()` at the moment `crn_nextobs()` consults it, against
-a real MOCOMPASS run (`crn_obsold` never matched). Full derivation in
+a real the example search-based solver run (`crn_obsold` never matched). Full derivation in
 `docs/example-solvers.md` item 4, alongside item 3's
 aliasing bug this is distinct from — that bug corrupts an already-
 partial mechanism, it isn't the only thing standing between today's code
-and the paper's intended synchronization.
+and its intended synchronization.
 
 Concretely, this means `self.orc.hit(x, ax, sync=nx[x])` does not
-reproduce what `self.seeds`-based MOCOMPASS actually computes today —
-it reproduces what the *paper's* policy computes, which today's
+reproduce what the `self.seeds`-based search-based solver actually
+computes today — it reproduces what its *intended* policy computes, which today's
 implementation only partially achieves (correctly for each checkpoint's
-first replication, not for the rest). **Porting MOCOMPASS onto `sync=`
+first replication, not for the rest). **Porting the example search-based solver onto `sync=`
 is therefore a behavior change to that solver, not a refactor of it** —
 this document's own working-agreement discipline (CLAUDE.md: patching
 vs. rewriting, and reporting findings before fixing them) applies to
-that port the same way it applies to any other behavior change: MOCOMPASS's
+that port the same way it applies to any other behavior change: the example search-based solver's
 own golden(s) move when `sync=` lands and it's ported, for a real reason
-(closer alignment with the cited algorithm), not an incidental one, and
-that needs the same sign-off any golden move needs, not silent
-regeneration. It also means the eventual correctness review against Li
-et al. (2015) inherits an open question from here, not an assumption:
-whether the paper's synchronization, once actually implemented via
-`sync=`, changes MOCOMPASS's empirical behavior/convergence relative to
+(closer alignment with the solver's own intended policy), not an
+incidental one, and that needs the same sign-off any golden move needs,
+not silent regeneration. It also means any future review of this solver
+inherits an open question from here, not an assumption: whether the
+intended synchronization, once actually implemented via `sync=`, changes
+the solver's empirical behavior/convergence relative to
 what this branch's `self.seeds`-based version has been producing — a
 question that review needs to check directly, since this document
 cannot settle it from the interface side alone.
@@ -1342,7 +1346,7 @@ cannot settle it from the interface side alone.
 (a third value alongside `{solver, oracle}` for `role`, §3.4), not a
 reuse of the oracle role's iteration-indexed range — so a solver that
 mixes default-mode and `sync`-mode `hit()` calls in the same run (nothing
-here needs this today; RASolver doesn't, MOCOMPASS doesn't mix, but a
+here needs this today; RASolver doesn't, the example search-based solver doesn't mix, but a
 future solver might) can't have a chosen `sync` value collide with a
 framework-computed `iteration` value that happens to numerically match.
 Cheap to reserve now, expensive to retrofit later.
@@ -1546,11 +1550,11 @@ call), not folded into it:
     override, across a battery of both, for the same `base_seed` —
     the direct check that `SYNC_ROLE_OFFSET` actually gives `sync` its
     own region rather than merely making collision unlikely. Also assert
-    the specific property MOCOMPASS's port depends on: two `hit()` calls
+    the specific property the example search-based solver's port depends on: two `hit()` calls
     for different `x`, same `sync` value, produce identical draws for
     *every* replication, independent of call order — the operational
-    demonstration that computed coordinates give MOCOMPASS's *intended*
-    cross-point sharing (the paper's policy) in full. `self.seeds` never
+    demonstration that computed coordinates give the example search-based solver's *intended*
+    cross-point sharing in full. `self.seeds` never
     actually did this beyond each checkpoint's first replication (§4.3,
     docs/example-solvers.md item 4), independent of its
     separate aliasing failure mode (§4.1) — so this item is checking that
@@ -1747,7 +1751,7 @@ updated at every call site that computes an oracle-role coordinate:
 the same, sharing the mechanism — `bump()` has since been removed
 outright, §12 step 6b, not converged, since it had no in-tree caller),
 and `_hit_via_coordinate`'s offset/sync branches alike.
-`RASolver.solve()`/`rasolve()` and MOCOMPASS/MOPBnB's own `solve()`
+`RASolver.solve()`/`rasolve()` and the example solvers' own `solve()`
 methods (all three, not just `RASolver` — fixing one and not the other
 two would be worse than fixing neither) now report `orc.get_endseed()`
 instead of `orc.rng.get_seed()`.
@@ -1769,11 +1773,11 @@ does not yet provide — recorded as a real, stated limitation, not
 "every role" as the original text above claimed before this landed.
 
 **Confirmed, not assumed, that oracle-role tracking fixes the concrete
-gap this section identified before landing:** MOCOMPASS and MOPBnB,
+gap this section identified before landing:** the two example solvers,
 which used to report *identical* `endseed`s for identical
 seed/problem/budget despite verified-different internal consumption,
 now diverge — `1146796796...` vs `3809509318...` for the
-`mocompass_tpa`/`mopbnb_tpa` golden cases, checked directly.
+`example_search_tpa`/`example_bnb_tpa` golden cases, checked directly.
 
 **A finding, surfaced and accepted, not forced to match a
 pre-registered expectation:** `rperle_tpa_crn` — the one CRN-branch
@@ -1811,7 +1815,7 @@ path everything else depends on for no behavioral gain. Noted here as
 an observation, not a to-do.
 
 **Every `crnflag=False`/CRN golden moved in this pass** — not only the
-MOCOMPASS/MOPBnB pair and `rperle_tpa_crn`: the mechanism changed for
+example-solver pair and `rperle_tpa_crn`: the mechanism changed for
 all of them, even though the step-4b/step-8-prerequisite values already
 reflected *something* real, just not the high-water mark this section
 promises. `testsolve()`'s own end seed was unaffected by this stage —
@@ -1831,7 +1835,7 @@ isn't typically chained the way a `solve` run's `endseed` is), but a
 second code path bought nothing here that the first didn't already
 provide, and a special case would only be a second thing to keep
 correct. Confirmed, not just designed: the three-way
-`testsolve_tpa`/`testsolve_mocompass`/`testsolve_mopbnb` match — bit-
+`testsolve_tpa`/`testsolve_example_search`/`testsolve_example_bnb` match — bit-
 identical before this landed, despite each running a different solver
 across the same 4 `isp` paths — now breaks, each reflecting its own
 solver's real consumption. Full account, including the `--proc` worker-
@@ -1885,7 +1889,7 @@ flag/kwarg.
   already does: **breaks**, deliberately — settled in §11 item 7 (remove,
   not deprecate), not just recommended. No longer a hypothetical
   "grep finds no in-tree caller" judgment call: two real external
-  solvers, MOCOMPASS and MOPBnB, are exactly this case — each calls
+  solvers, the two example solvers, are exactly this case — each calls
   `orc.crn_advance()` directly (§4.2) — and the finding there is that the
   call doesn't just become obsolete, it was silently defeating `--crn`
   all along. Their own migration is "delete that line," not "call this
@@ -1895,7 +1899,7 @@ flag/kwarg.
   `mrg32k3a.py` as a real module with these names), so anyone importing
   them directly keeps working, though `bsm` becomes shared, publicly
   re-exported machinery (§3.3, §4.2 — confirmed needed, not hypothetical:
-  MOPBnB reimplemented it byte-for-byte rather than finding the existing
+  the example branch-based solver reimplemented it byte-for-byte rather than finding the existing
   one).
 - Both external reference solvers fail outright on `.venv-dev` (3.14) as
   written — `random.Random.sample()` no longer accepts a `set` argument,
@@ -1907,12 +1911,12 @@ flag/kwarg.
   §4.3): additive, default-compatible. Not broken — including for a
   custom `MOSOSolver` that already calls `hit()` directly today, since
   omitting both reproduces its current single-visit-per-point behavior
-  exactly. A solver ported to use `sync` explicitly (MOCOMPASS, §4.3)
+  exactly. A solver ported to use `sync` explicitly (the example search-based solver, §4.3)
   gets to delete state (`self.seeds`, every `getstate`/`setstate` call),
   not add any — but, unlike every other bullet in this section, that
-  port is not a pure compatibility no-op for MOCOMPASS specifically: its
+  port is not a pure compatibility no-op for the example search-based solver specifically: its
   own numerical output moves, on purpose, because §4.3's correction
-  found `self.seeds` never gave it the paper's synchronization beyond
+  found `self.seeds` never gave it its intended synchronization beyond
   each checkpoint's first replication. This is the one item in this
   "what breaks" section that names a genuine behavior change, not
   reassurance that nothing does.
@@ -1986,7 +1990,7 @@ existing code, surfaced rather than guessed.
    capability.
    **Landed:** `Oracle.crn_advance()` is now the framework-internal
    `Oracle._advance_iteration()`, called only by `RASolver.rasolve()`;
-   MOCOMPASS and MOPBnB no longer call anything. Deleting their call
+   the two example solvers no longer call anything. Deleting their call
    moved none of their goldens. It did **not** make `--crn` valid for
    them -- see open question 11 below; both still refuse it, with the
    reason corrected.
@@ -2019,7 +2023,7 @@ existing code, surfaced rather than guessed.
     coordinate space `sync`-mode reserves, and how large a `sync` value
     (and how many `replication`s per value) it supports before running
     into the same period ceiling `ISP_STRIDE`/`ITER_STRIDE` are checked
-    against (open question 5). `nx[x]` in MOCOMPASS grows with total
+    against (open question 5). `nx[x]` in the example search-based solver grows with total
     replications taken, so its plausible range is the same order as
     `REPL_BITS`'s own sizing check (`calc_m`-scale, not `MAX_RI`-scale,
     since `sync` here is a solver's own running count, not an iteration
@@ -2037,7 +2041,7 @@ existing code, surfaced rather than guessed.
     point replays that point's first `m` replications instead of adding
     new ones. Confirmed directly (two `hit()` calls in one iteration
     return identical results, same point or different points). This is
-    why MOCOMPASS and MOPBnB refuse `--crn`.
+    why the two example solvers refuse `--crn`.
 
     Removing the solver-facing `crn_advance()` (open question 7) does
     not change this. The replay comes from no iteration ever advancing
@@ -2052,11 +2056,13 @@ existing code, surfaced rather than guessed.
     calls it took to get there, uses the stream at replication index
     *j*, common to every point. Arguments for it:
 
-    - It is what MOCOMPASS's own `self.seeds` bookkeeping was reaching
-      for (§4.3): keyed on `nx[x]`, the count of replications a point
-      has taken so far, so that two points at equal sample effort share
-      streams. Per-point continuation gives exactly that, with no
-      solver-side state.
+    - It is the policy a search-based solver that shares streams
+      across points at equal cumulative sample effort needs: keyed on a
+      per-point count of replications taken so far, so that two points
+      at equal sample effort share streams. Per-point continuation
+      gives exactly that, with no solver-side state. (The example
+      search-based solver's `self.seeds` bookkeeping reaches for this
+      policy and only partly achieves it, §4.3.)
     - It makes CRN the default path with the point and visit terms
       dropped from the coordinate, rather than a separate rule about
       rewinding -- one fewer concept.
@@ -2547,7 +2553,7 @@ behavior-changing (goldens move, on purpose, with sign-off).
    `2**10` ratio is the tightest number in the table, but the absolute
    remaining space (`2**185 − 2**175 ≈ 2**185`) and its own actual
    downstream usage (`2**76` sync values available, dwarfing any
-   realistic MOCOMPASS-scale need, itself checked against `--budget` in
+   realistic need at the example search-based solver's scale, itself checked against `--budget` in
    mrg32k3a.py's own comment) both remain enormous. **Conclusion: keep
    every one of these constants global, not per-generator** — nothing
    here is tight enough to need MRG31k3p-specific values, and making
@@ -2768,7 +2774,7 @@ behavior-changing (goldens move, on purpose, with sign-off).
    philox4x32 ...` with no `<x>` raised `AttributeError:
    'Philox4x32Stream' object has no attribute 'choice'`. Every built-in
    tester's own `get_ranx0` calls `rng.choice()`; `BSProb`'s own `g()`
-   calls `rng.expovariate()`; MOCOMPASS/MOPBnB call
+   calls `rng.expovariate()`; the two example solvers call
    `self.sprn.sample()` — all "an rng-shaped object" per §3.6's own
    documented contract (the *entire* `random.Random` API), which
    `Philox4x32Stream` deliberately does not provide (only §3.2's
@@ -2833,7 +2839,7 @@ behavior-changing (goldens move, on purpose, with sign-off).
    explicitly rather than baked unchecked into every `_touch_coordinate`
    call site); `chnbase.py`'s `_hit_via_coordinate`/`get_endseed`/
    `get_high_water_mark` and `chnutils.py`'s `get_testsolve_prnstreams`/
-   `testsolve` migrated to it. `RASolver.solve`/MOCOMPASS/MOPBnB needed
+   `testsolve` migrated to it. `RASolver.solve` and the two example solvers needed
    no changes — they already just forward `Oracle.get_high_water_mark()`'s
    own return value through their result dict.
 
@@ -3030,8 +3036,8 @@ behavior-changing (goldens move, on purpose, with sign-off).
    non-MRG generator at all — not a missing budget (this step's own
    fix), a missing mechanism. `--generator=philox4x32` combined with
    `--crn` has nothing to call. §12 step 6b is expected to make this
-   combination raise a clear, named error (mirroring MOCOMPASS/MOPBnB's
-   own outright `--crn` refusal) rather than silently doing something
+   combination raise a clear, named error (mirroring the example
+   solvers' own outright `--crn` refusal) rather than silently doing something
    wrong, and to document the limitation in `--generator`'s own CLI help
    and the README, not only in the error a user hits after the fact —
    CRN is the framework facility for algorithm testing (§1), so "Philox
@@ -3059,7 +3065,7 @@ behavior-changing (goldens move, on purpose, with sign-off).
      found only once step 4b actually landed — it is not a no-op the way
      generator selection is: step 4b's own `crn_advance()` reports based
      on its call count only, confirmed to lose real information (§8.2's
-     own note, e.g. MOCOMPASS/MOPBnB now reporting identical `endseed`s
+     own note, e.g. the two example solvers now reporting identical `endseed`s
      despite verified-different consumption). That wiring is its own
      step, below, not folded in here.
    - **`REPL_BITS`/`VISIT_BITS`/`ISP_STRIDE` sizing** (open question 5)
@@ -3188,7 +3194,7 @@ changed (12 → 13, golden moved) because its sample-driven upsample/
 neighbor decisions are sensitive to which raw values got drawn.
 `rperle_tpa`/`rminrle_tpa`/`rperle_tpa_seed2`/`rperle_tpa_simpar2` (and
 the library-level `rperle_tpa`-equivalent) moved on this basis;
-`rpe_tpa`/`rspline_simpleso`/`mocompass_tpa`/`mopbnb_tpa`/`testsolve_*`
+`rpe_tpa`/`rspline_simpleso`/`example_search_tpa`/`example_bnb_tpa`/`testsolve_*`
 did not, and `rperle_tpa_crn` is unaffected by construction (CRN branch
 untouched). `test_solution_sensitivity.py`'s `EXPECTED_SOLUTIONS` also
 moved — expected, and the point of that golden's existence: it is
@@ -3202,7 +3208,7 @@ exactly as `docs/end-seed-scope.md` says.
    step 4b actually landed: `endseed` used to report
    `self._iteration * ITER_STRIDE`'s position, real movement but not
    what a run actually consumed via `hit()`'s own coordinate calls —
-   confirmed concretely, since MOCOMPASS and MOPBnB, which call
+   confirmed concretely, since the two example solvers, which call
    `crn_advance()` exactly once regardless of internal replication
    count, used to report *identical* `endseed`s for identical
    seed/problem/budget despite verified-different consumption). Staged
@@ -3210,9 +3216,9 @@ exactly as `docs/end-seed-scope.md` says.
    cross-path aggregation as a separate follow-on, since the latter
    crosses the `--proc` worker boundary — where every multiprocessing
    bug in this project has lived — and the two stages have different
-   verification signatures (`solve()`: `mocompass_tpa`/`mopbnb_tpa`
+   verification signatures (`solve()`: `example_search_tpa`/`example_bnb_tpa`
    diverging; `testsolve()`: the three-way `testsolve_tpa`/
-   `testsolve_mocompass`/`testsolve_mopbnb` match breaking), so checking
+   `testsolve_example_search`/`testsolve_example_bnb` match breaking), so checking
    them independently is more informative than one combined
    regeneration, and a failure tells you which half.
 
@@ -3222,10 +3228,10 @@ exactly as `docs/end-seed-scope.md` says.
    (solver-role isn't coordinate-based yet, and would need on the order
    of `2**127` ordinary draws to reach where oracle-role begins — a
    real, stated limitation, not "every role" covered). `RASolver.solve`/
-   `rasolve`, and MOCOMPASS/MOPBnB's own `solve()` methods, all
+   `rasolve`, and the example solvers' own `solve()` methods, all
    switched from `orc.rng.get_seed()` to `orc.get_endseed()` together —
    fixing one and not the other two would be worse than fixing neither.
-   Confirmed: `mocompass_tpa`/`mopbnb_tpa` now diverge, as expected.
+   Confirmed: `example_search_tpa`/`example_bnb_tpa` now diverge, as expected.
    `rperle_tpa_crn` moved too, contrary to the pre-registered
    expectation that it wouldn't — a real finding, traced to `rasolve()`'s
    own trailing, unconditional `crn_advance()` call past the last used
@@ -3237,7 +3243,7 @@ exactly as `docs/end-seed-scope.md` says.
    position at all.
 
    **Every `crnflag=False`/CRN golden moved in stage 1's own pass** —
-   not only the MOCOMPASS/MOPBnB pair; the reporting mechanism changed
+   not only the example-solver pair; the reporting mechanism changed
    for all of them. `tests/golden/README.md` carries the full list and
    reasoning. `testsolve()`'s own end seed was unaffected by stage 1 —
    still `get_testsolve_prnstreams`'s reservation value at that point.
@@ -3247,7 +3253,7 @@ exactly as `docs/end-seed-scope.md` says.
    (stage 1's own mechanism, unchanged); stage 2 adds
    `Oracle.get_high_water_mark()` (the raw int `get_endseed()` derives
    its seed from) and a new `'oracle_high_water_mark'` key on
-   `RASolver.solve`'s and MOCOMPASS/MOPBnB's own result dicts, so it
+   `RASolver.solve`'s and the example solvers' own result dicts, so it
    survives the `--proc` worker boundary as an ordinary picklable value
    (the object itself never does — each `isp` path's `Oracle` runs in
    its own process, so the caller's own reference to it never reflects
@@ -3260,10 +3266,10 @@ exactly as `docs/end-seed-scope.md` says.
    itself any more, for callers that only need a cheap independent seed).
 
    Confirmed both pre-registered signatures before regenerating, not
-   assumed: `testsolve_tpa`/`testsolve_mocompass`/`testsolve_mopbnb`
+   assumed: `testsolve_tpa`/`testsolve_example_search`/`testsolve_example_bnb`
    (previously bit-identical to each other and to the `testsolve()`
    library case — the `testsolve()`-shaped analog of stage 1's own
-   MOCOMPASS/MOPBnB collision) now diverge, each reflecting its own
+   example-solver collision) now diverge, each reflecting its own
    solver's real consumption across all 4 `isp` paths; every `solve()`-
    path case (already on the real formula since stage 1) is untouched by
    this stage, confirmed identical to its stage-1 value, not just
@@ -3512,7 +3518,7 @@ exactly as `docs/end-seed-scope.md` says.
 
     Not in this step: Spark, a cloudpickle handle, the cheaper jump
     (entry 14), infeasible-point memory (entry 13), prefetch (entry
-    15). MOCOMPASS and MOPBnB were not converted to `hit_many`; both
+    15). The two example solvers were not converted to `hit_many`; both
     have large unconditional loops and would batch well.
 
 12. **[preserving — done] A backend seam, by-value transport, and a
@@ -3552,5 +3558,5 @@ exactly as `docs/end-seed-scope.md` says.
       entry 16 is the one candidate).
 
     Not in this step: the cheaper jump (entry 14), infeasible-point
-    memory (13), prefetch (15), converting MOCOMPASS/MOPBnB to
+    memory (13), prefetch (15), converting the two example solvers to
     `hit_many`, and anything for high-dimensional problems.

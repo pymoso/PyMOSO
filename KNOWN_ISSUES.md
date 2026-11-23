@@ -87,11 +87,10 @@ with the relaxation's old form. Their β = 0.5 is 2.0's β = 1.0 (see
 size, not simulations (audit finding 2b), so their costs are overstated
 by an amount not known for the published runs.
 
-**`ExampleSearchSolver` and `ExampleBnBSolver`** are ports of
-MO-COMPASS and MOPBnB. They have not been checked against their papers,
-and are named so as not to claim to implement them. Their known
-defects are listed in `docs/example-solvers.md`. Among
-them: MOPBnB's subregions are not regions, and MOCOMPASS builds the
+**`ExampleSearchSolver` and `ExampleBnBSolver`** are an implementation
+example only: do not use them for serious solving or testing at this
+time. Their known defects are listed in `docs/example-solvers.md`. Among
+them: the example branch-based solver's subregions are not regions, and the example search-based solver builds the
 whole feasible region in memory. Both refuse `--crn`.
 
 ---
@@ -1278,7 +1277,7 @@ expect `OverflowError`, not a timeout, and can cite this entry.
 **Affects:** this branch only, from the commit that removed it (docs/
 rng-interface-design.md §12 step 6b). **Severity:** low for this
 codebase (no in-tree caller — confirmed directly, both real
-`MOSOSolver`s, `RASolver`/`RLESolver` and MOCOMPASS/MOPBnB, use `hit()`)
+`MOSOSolver`s, `RASolver`/`RLESolver` and the two example solvers, use `hit()`)
 but a real, documented-API removal: `bump()` is part of the object
 reference the original paper (Cooper & Hunter 2018) describes, so an
 out-of-tree solver written against that documentation, or against any

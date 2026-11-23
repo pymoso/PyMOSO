@@ -143,7 +143,7 @@ class Oracle(object):
     it: each replication's `g(x, rng)` call is handed its own fresh
     stream at that replication's coordinate (docs/rng-interface-
     design.md §12 step 9). Its state between calls means nothing to the
-    framework -- MOCOMPASS, in-tree, still saves and restores it via
+    framework -- the example search-based solver, in-tree, still saves and restores it via
     getstate()/setstate() as its own attempted cross-point
     synchronization, which has no effect on what hit() draws (see
     docs/example-solvers.md and §4.2/§4.3).
@@ -210,7 +210,7 @@ class Oracle(object):
         # crnflag=False continuation tracking (§4.1) -- how many
         # replications hit() has already drawn for (x, visit) within
         # the current iteration, so a repeat call gets the next
-        # contiguous block instead of restarting at 0 (MOPBnB's own
+        # contiguous block instead of restarting at 0 (the example branch-based solver's own
         # need, see hit()). Reset whenever the iteration advances.
         self._replications_drawn = {}
         self._point_codes = {}
@@ -464,7 +464,7 @@ class Oracle(object):
         `endseed` (docs/rng-interface-design.md), replacing
         `crn_advance()`'s own call-count-only reporting (`_iteration *
         ITER_STRIDE`), which lost real information (confirmed
-        empirically: MOCOMPASS and MOPBnB used to report identical
+        empirically: the two example solvers used to report identical
         `endseed`s for verified-different consumption).
 
         **Oracle-role only** (§8.2's own explicit scoping, not "every
@@ -541,7 +541,7 @@ class Oracle(object):
         in its own process under `--proc`/`--simpar`, so only picklable
         result-dict values -- not the live `Oracle` object `get_endseed()`
         itself needs -- survive back to the caller. `RASolver.solve`
-        (and MOCOMPASS/MOPBnB's own `solve()`) return this value in
+        (and the example solvers' own `solve()`) return this value in
         their result dict for exactly that reason. Not part of any
         per-path public seed contract on its own -- `get_endseed()`
         remains the one meaningful seed for a single path; this is
@@ -581,7 +581,7 @@ class Oracle(object):
         was public as `crn_advance()` until docs/rng-interface-
         design.md §11 open question 7 was carried out -- removed
         outright, no deprecated alias, because the one way real solvers
-        used it (MOCOMPASS and MOPBnB, once, at the end of solve()) did
+        used it (the two example solvers, once, at the end of solve()) did
         nothing useful and looked like CRN support it did not provide
         (§4.2). A custom MOSOSolver that called `orc.crn_advance()`
         should delete that line; nothing replaces it.
@@ -769,7 +769,7 @@ class Oracle(object):
         `visit!=0`/`sync=<int>` arguments (`start_replication` always 0
         there -- no continuation concept for an explicitly independent
         block, or for a solver-controlled sync axis whose own caller,
-        e.g. MOCOMPASS's `nx[x]`, already encodes "which block"), and
+        e.g. the example search-based solver's `nx[x]`, already encodes "which block"), and
         hit()'s own default `crnflag=False` path (step 4b's cutover --
         `start_replication` tracked automatically by hit() itself, per
         `(x, visit)`, across calls within one iteration, §4.1).
@@ -1012,7 +1012,7 @@ class Oracle(object):
         different points visited in any order within one iteration no
         longer share a mutable walk position at all. Continuation
         across repeated calls to the same (x, visit) within one
-        iteration (§4.1, needed by MOPBnB) is tracked here, in
+        iteration (§4.1, needed by the example branch-based solver) is tracked here, in
         `_replications_drawn`, reset whenever `_iteration` advances
         (_advance_iteration()) -- not inside `_hit_via_coordinate` itself,
         since a genuinely opt-in `visit!=0`/`sync=<int>` call never

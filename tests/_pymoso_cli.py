@@ -20,10 +20,10 @@ import sys
 # Per-subprocess time limit for CLI tests that don't set their own. Passed
 # as `timeout=` to subprocess.run so a hang fails that one test with
 # TimeoutExpired, with or without pytest-timeout installed. Sized from
-# measurement on this branch, MOCOMPASS/MOPBnB cases included: the slowest
+# measurement on this branch, the example solvers' cases included: the slowest
 # CLI case is ~7s (solve --budget --odir, with two full suites running
-# concurrently); the slowest MOCOMPASS/MOPBnB case is ~1.7s (testsolve
-# --isp=4 MOCOMPASS). 30s is ~4x the slowest, matches the
+# concurrently); the slowest example-solver case is ~1.7s (testsolve
+# --isp=4 ExampleSearchSolver). 30s is ~4x the slowest, matches the
 # SUBPROCESS_TIMEOUT used elsewhere in the suite, and stays under the 60s
 # module marker, so this fires first with the specific error.
 CLI_TIMEOUT = 30

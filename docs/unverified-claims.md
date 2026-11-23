@@ -113,8 +113,8 @@ RLE certifies are descriptions of the published algorithms. The papers
 cited at the top of the README are their reference; the parameter
 table's defaults and solver lists are checked against the code
 (tests/test_readme_param_table.py), and its descriptions are not.
-`ExampleSearchSolver` and `ExampleBnBSolver` (MO-COMPASS and MOPBnB)
-have not been checked against their papers at all
+`ExampleSearchSolver` and `ExampleBnBSolver` are an implementation
+example only, and nothing about their behaviour has been checked
 (docs/example-solvers.md).
 
 The finite-variance requirement on `g()` (Phase 7) is the papers'

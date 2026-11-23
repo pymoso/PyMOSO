@@ -30,8 +30,8 @@ simulations against the control on the same seed; and what the search
 did on a plateau -- PLI calls whose pseudo-gradient was exactly zero,
 SPLI and NE moves that lowered the true value against moves that lowered
 only the estimate, NE moves to a point of the same cell (a true tie),
-and distinct cells visited. One arm of ExampleBnBSolver (the in-tree
-MOPBnB port) is included, labelled as what it is: a non-local sampler
+and distinct cells visited. One arm of ExampleBnBSolver (the example
+branch-based solver) is included, labelled as what it is: a non-local sampler
 (docs/example-solvers.md, item 0), not partition-and-bound.
 `run` appends one JSON line per run and skips runs already in the file.
 

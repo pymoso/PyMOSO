@@ -2,8 +2,7 @@
 """
 Summary
 -------
-Provide an implementation of MO-COMPASS for users needing a
-multi-objective discrete-optimization-via-simulation solver.
+Provide an example implementation of a search-based solver.
 """
 from itertools import product
 from math import ceil, floor, log
@@ -18,30 +17,14 @@ from ..moso import get_setnbors, get_nondom, enorm, edist, sum_left_to_right
 # lb = lower bound that feasible point components can take
 # ub = upper bound that feasible point components can take
 ### e.g. pymoso solve --param lb 0 --param ub 50 ProbTPA ExampleSearchSolver
-### lb and ub are required for proper MOCOMPASS operation, choose them
+### lb and ub are required for proper operation, choose them
 ### appropriately for the test problem
 
 
 class ExampleSearchSolver(MOSOSolver):
     """
-    Example implementation of MO-COMPASS, unverified against the source paper.
-
-    This is our interpretation and implementation of MO-COMPASS. It has
-    not been reviewed or validated by the algorithm's authors, and any
-    deficiency in its performance should be attributed to this
-    implementation rather than to the published method.
-
-    H. Li, L. H. Lee, E. P. Chew, and P. Lendermann. 2015. MO-COMPASS: A
-    fast convergent search algorithm for multi-objective discrete
-    optimization via simulation. IIE Transactions 47, 11 (2015),
-    1153-1169. https://doi.org/10.1080/0740817X.2015.1005778
-
-    Compatibility only: this implementation runs correctly on the
-    current branch, but its algorithmic behavior has not been validated
-    against the paper. See docs/example-solvers.md for
-    known caveats, and docs/rng-interface-design.md sections 4.1-4.3 for
-    how its stream-management approach informed the RNG interface
-    redesign.
+    Example implementation of a search-based solver. Do not use for
+    serious solving or testing at this time.
 
     Parameters
     ----------

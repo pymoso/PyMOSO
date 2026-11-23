@@ -7,7 +7,7 @@ simcalls and endseed. testsolve() also reads a fourth,
 oracle_high_water_mark, to compute the run's end seed across sample
 paths (docs/rng-interface-design.md §12 step 8). From that change until
 Phase 6, a solver returning only the documented three raised KeyError
-in testsolve() -- MOCOMPASS and MOPBnB passed only because they add the
+in testsolve() -- the two example solvers passed only because they add the
 key themselves. The framework now fills it in from the oracle it
 handed the solver.
 """
@@ -73,7 +73,7 @@ def test_the_base_sets_them_and_leaves_them_none_when_not_given():
 
 
 def test_a_value_a_subclass_set_before_calling_the_base_is_kept():
-    """How MOCOMPASS, MOPBnB, RASolver and 1.x custom solvers are
+    """How the two example solvers, RASolver and 1.x custom solvers are
     written: take x0 and sprn out of kwargs, set them, then call the
     base without them."""
     sprn = mrg32k3a.MRG32k3a((1, 2, 3, 4, 5, 6))

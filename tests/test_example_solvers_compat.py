@@ -1,9 +1,8 @@
 """
 Compatibility regression tests for the two in-tree example solvers,
-ExampleSearchSolver (MO-COMPASS) and ExampleBnBSolver (MOPBnB): this
-is *not* a check on their algorithmic correctness (not yet reviewed
-against the source papers -- see
-docs/example-solvers.md), only that they run on the
+ExampleSearchSolver and ExampleBnBSolver: this is *not* a check on
+their algorithmic correctness (they are an implementation example
+only -- see docs/example-solvers.md), only that they run on the
 current branch and fail predictably rather than crash or silently
 corrupt output.
 
@@ -78,8 +77,9 @@ def test_crn_refused_at_construction(name, cls):
 @pytest.mark.parametrize("simpar", [2, 4])
 def test_simpar_results_match_serial(name, cls, simpar):
     """Both solvers call hit() with replication counts > 1 in normal
-    operation (MOCOMPASS's ax can exceed 1 comparing against neighbors;
-    MOPBnB's R0/rdiff start at 20 and only grow), so Oracle.hit()'s
+    operation (the search-based solver's ax can exceed 1 comparing
+    against neighbors; the branch-based solver's R0/rdiff start at 20
+    and only grow), so Oracle.hit()'s
     parallel branch (simpar > 1 and m > 1) is genuinely exercised here,
     not vacuous."""
     serial = solve(ProbTPA, cls, (40, 40), **SOLVE_KWARGS)

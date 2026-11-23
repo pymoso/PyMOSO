@@ -2,8 +2,7 @@
 """
 Summary
 -------
-Provide an implementation of MOPBnB for users needing a
-multi-objective probabilistic branch-and-bound solver.
+Provide an example implementation of a branch-based solver.
 """
 from math import ceil, log, sqrt
 from itertools import islice, product
@@ -14,24 +13,8 @@ from ..moso import get_nondom
 
 class ExampleBnBSolver(MOSOSolver):
     """
-    Example implementation of MOPBnB, unverified against the source paper.
-
-    This is our interpretation and implementation of MOPBnB. It has
-    not been reviewed or validated by the algorithm's authors, and any
-    deficiency in its performance should be attributed to this
-    implementation rather than to the published method.
-
-    H. Huang and Z. B. Zabinsky. 2014. Multiple objective probabilistic
-    branch and bound for Pareto optimal approximation. In Proceedings
-    of the 2014 Winter Simulation Conference, A. Tolk, S. Y. Diallo,
-    I. O. Ryzhov, L. Yilmaz, S. Buckley, and J. A. Miller (Eds.). IEEE,
-    Piscataway, NJ, 3916-3927. https://doi.org/10.1109/WSC.2014.7020217
-
-    Compatibility only: this implementation runs correctly on the
-    current branch, but its algorithmic behavior has not been validated
-    against the paper. See docs/example-solvers.md for
-    known caveats, and docs/rng-interface-design.md sections 4.1-4.3 for
-    related RNG interface design work.
+    Example implementation of a branch-based solver. Do not use for
+    serious solving or testing at this time.
 
     Parameters
     ----------

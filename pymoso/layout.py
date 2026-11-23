@@ -113,8 +113,8 @@ def get_testsolve_prnstreams(num_trials, iseed, backend):
     # path. Built by stepping one stream at a time from the root (a
     # cached jump for the MRG family) -- the same positions
     # stream_at(root, 1 + t, 0) names, without a full jump from the root
-    # per path. Each list entry is wrapped for solver code (MOCOMPASS/
-    # MOPBnB's own sprn.sample(...) calls, §3.6); the chain itself uses
+    # per path. Each list entry is wrapped for solver code (the example
+    # solvers' own sprn.sample(...) calls, §3.6); the chain itself uses
     # the unwrapped stream's root_seed().
     solprn_lst = []
     step_seed = root
@@ -284,7 +284,7 @@ def get_solv_prnstreams(iseed, backend):
         Wrapped with ensure_random_compatible if the backend's own
         Stream isn't already one -- handed to the solver as `sprn`/
         `solvprn`, documented only as "an rng-shaped object" (§3.6);
-        MOCOMPASS/MOPBnB's own `self.sprn.sample(...)` calls need the
+        the example solvers' own `self.sprn.sample(...)` calls need the
         full surface, which a raw Philox stream doesn't have.
     """
     # §12 step 6b: stream_at(iseed, 0, 0)/stream_at(iseed, 1, 0), not

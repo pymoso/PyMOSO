@@ -112,7 +112,7 @@ the radius. The pseudo-gradient contributes almost nothing either way.
 
 ## ExampleBnBSolver: it cannot run at these budgets
 
-One arm of the in-tree MOPBnB port, labelled as a non-local sampler
+One arm of the example branch-based solver, labelled as a non-local sampler
 only: its subregions are scattered samples, not regions, so it is not
 partition-and-bound (`docs/example-solvers.md`, item 0),
 and nothing here says anything about partition-and-bound.
