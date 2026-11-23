@@ -29,7 +29,7 @@ class ExampleBnBSolver(MOSOSolver):
 
     Compatibility only: this implementation runs correctly on the
     current branch, but its algorithmic behavior has not been validated
-    against the paper. See docs/mocompass-mopbnb-known-issues.md for
+    against the paper. See docs/example-solvers.md for
     known caveats, and docs/rng-interface-design.md sections 4.1-4.3 for
     related RNG interface design work.
 
@@ -73,7 +73,7 @@ class ExampleBnBSolver(MOSOSolver):
                 'new ones. What --crn should mean for a solver like this is an '
                 'open design question (docs/rng-interface-design.md, section 11, '
                 'question 11; see also sections 4.2-4.3 and '
-                'docs/mocompass-mopbnb-known-issues.md). Run without '
+                'docs/example-solvers.md). Run without '
                 '--crn.'.format(type(self).__name__)
             )
         self.subregions = int(kwargs.pop('subregions', 2))

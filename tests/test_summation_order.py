@@ -26,7 +26,7 @@ import pytest
 from pymoso.moso import edist, enorm, sum_left_to_right
 from pymoso.prng import mrg32k3a, registry
 from pymoso.prng.base import ensure_random_compatible
-from pymoso.solvers import mopbnb
+from pymoso.solvers import examplebnb
 
 PACKAGE = pathlib.Path(__file__).resolve().parent.parent / "pymoso"
 SEED = (12345,) * 6
@@ -74,7 +74,7 @@ def test_the_reference_sees_the_central_and_tail_branches():
     assert 0 < tails < DRAWS
 
 
-@pytest.mark.parametrize("bsm", [mrg32k3a.bsm, mopbnb.bsm], ids=["prng", "mopbnb"])
+@pytest.mark.parametrize("bsm", [mrg32k3a.bsm, examplebnb.bsm], ids=["prng", "examplebnb"])
 def test_bsm_adds_left_to_right(bsm):
     rng = _stream('mrg32k3a')
     us = [rng.random() for _ in range(DRAWS)]

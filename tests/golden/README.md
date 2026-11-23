@@ -96,7 +96,7 @@ what every subsequent regeneration should do.
   Python 3.10's implicit set-iteration order. These values are captured
   fresh against the fixed, in-tree code -- there was no prior in-tree
   baseline to preserve continuity with. See
-  `docs/mocompass-mopbnb-known-issues.md` for detail.
+  `docs/example-solvers.md` for detail.
 
 ### Current values (SPLI's nearest-integer line search)
 

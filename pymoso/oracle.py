@@ -146,7 +146,7 @@ class Oracle(object):
     framework -- MOCOMPASS, in-tree, still saves and restores it via
     getstate()/setstate() as its own attempted cross-point
     synchronization, which has no effect on what hit() draws (see
-    docs/mocompass-mopbnb-known-issues.md and §4.2/§4.3).
+    docs/example-solvers.md and §4.2/§4.3).
     _iteration : int
     Count of completed _advance_iteration() calls (one per RA
     iteration). The

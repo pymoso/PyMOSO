@@ -166,7 +166,7 @@ def test_two_points_same_sync_produce_identical_draws_for_every_replication_inde
     the operational demonstration that computed coordinates give
     MOCOMPASS's intended cross-point sharing in full, which self.seeds
     never did beyond each checkpoint's first replication (§4.3,
-    docs/mocompass-mopbnb-known-issues.md item 4)."""
+    docs/example-solvers.md item 4)."""
     orc = _fresh_oracle(dim=2)
     isfeas_a, obs_a, se_a = orc.hit((1, 1), 4, sync=7)
     isfeas_b, obs_b, se_b = orc.hit((99, -3), 4, sync=7)

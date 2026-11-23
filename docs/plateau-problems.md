@@ -114,7 +114,7 @@ the radius. The pseudo-gradient contributes almost nothing either way.
 
 One arm of the in-tree MOPBnB port, labelled as a non-local sampler
 only: its subregions are scattered samples, not regions, so it is not
-partition-and-bound (`docs/mocompass-mopbnb-known-issues.md`, item 0),
+partition-and-bound (`docs/example-solvers.md`, item 0),
 and nothing here says anything about partition-and-bound.
 
 It does not finish. Its second iteration's replication count is set

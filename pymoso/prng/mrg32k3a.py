@@ -486,7 +486,7 @@ class MRG32k3a(random.Random):
         in its own return, so it must stay in sync on every step, not
         just on an explicit seed() call -- a caller reading getstate()
         right after a draw (MOCOMPASS's own end-of-hit() pattern, see
-        docs/mocompass-mopbnb-known-issues.md) would otherwise see a
+        docs/example-solvers.md) would otherwise see a
         stale parent-state component. The packing below is an arbitrary
         bijection, not a meaningful encoding -- nothing relies on its
         value or reverses it.

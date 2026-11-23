@@ -217,7 +217,7 @@ draws apart (more with `philox4x32`), as before.
 - **`ExampleSearchSolver` and `ExampleBnBSolver`,** example
   implementations of MO-COMPASS and MOPBnB, compatibility only. They
   have not been checked against the papers they implement
-  (`docs/mocompass-mopbnb-known-issues.md`), they refuse `--crn`, and
+  (`docs/example-solvers.md`), they refuse `--crn`, and
   the README deliberately does not describe them. `pymoso listitems`
   shows them because they are installed.
 - **The point contract.** A point is a tuple of numbers. A whole

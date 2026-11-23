@@ -5,7 +5,7 @@ read against the code on `dev-2.0`, for steps, safeguards, tolerances
 and orderings present in one and not the other, in both directions.
 **This is a list to work through, not a set of fixes.** Nothing here
 has been changed. MOCOMPASS and MOPBnB are out of scope
-(`docs/mocompass-mopbnb-known-issues.md`).
+(`docs/example-solvers.md`).
 
 ## What was read
 

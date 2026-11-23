@@ -3,7 +3,7 @@ Compatibility regression tests for the two in-tree example solvers,
 ExampleSearchSolver (MO-COMPASS) and ExampleBnBSolver (MOPBnB): this
 is *not* a check on their algorithmic correctness (not yet reviewed
 against the source papers -- see
-docs/mocompass-mopbnb-known-issues.md), only that they run on the
+docs/example-solvers.md), only that they run on the
 current branch and fail predictably rather than crash or silently
 corrupt output.
 
@@ -33,8 +33,8 @@ import pytest
 from _pymoso_cli import CLI_TIMEOUT, pymoso_argv
 from pymoso.chnutils import solve, testsolve
 from pymoso.problems.probtpa import ProbTPA
-from pymoso.solvers.mocompass import ExampleSearchSolver
-from pymoso.solvers.mopbnb import ExampleBnBSolver
+from pymoso.solvers.examplesearch import ExampleSearchSolver
+from pymoso.solvers.examplebnb import ExampleBnBSolver
 from pymoso.testers.tpatester import TPATester
 
 pytestmark = pytest.mark.timeout(90)
@@ -71,7 +71,7 @@ def test_crn_refused_at_construction(name, cls):
     msg = str(exc_info.value)
     assert name in msg
     assert "--crn" in msg
-    assert "docs/mocompass-mopbnb-known-issues.md" in msg
+    assert "docs/example-solvers.md" in msg
 
 
 @pytest.mark.parametrize("name,cls", SOLVERS, ids=[c[0] for c in SOLVERS])

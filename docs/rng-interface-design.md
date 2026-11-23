@@ -1103,11 +1103,11 @@ solver already does.
 ### 4.2 External validation: MOCOMPASS and MOPBnB
 
 **Update:** both landed in-tree, compatibility-only, as
-`pymoso/solvers/mocompass.py`/`mopbnb.py` — the role question below is
+`pymoso/solvers/examplesearch.py`/`examplebnb.py` — the role question below is
 settled (shipped examples). The compatibility fixes made to bring them
 in (the `random.sample()`/3.11+ fix, the `sys.exit()`→`TypeError` fix,
 the `--crn` refusal) are recorded in
-`docs/mocompass-mopbnb-known-issues.md`, which also carries the three
+`docs/example-solvers.md`, which also carries the three
 known algorithmic caveats (items 1-3 below plus the aliasing bug) forward
 without re-deriving this section's narrative. Their algorithmic
 correctness against the source papers is still unreviewed — everything
@@ -1115,7 +1115,7 @@ below remains live evidence for the RNG interface design, not a
 correctness sign-off.
 
 Two real custom `MOSOSolver` implementations from prior work, written
-against roughly the 1.0.8 API — `mocompass.py`, `mopbnb.py`. Analyzed by
+against roughly the 1.0.8 API — `examplesearch.py`, `examplebnb.py`. Analyzed by
 reading in full and by running both against `ProbTPA`
 on both environments (`pymoso solve --param lb 0 --param ub 50 ProbTPA
 <file> 25 25`), plus small standalone scripts driving `Oracle.hit`/
@@ -1313,7 +1313,7 @@ within that `hit()` call, and for `end_state` itself — confirmed
 empirically, not inferred, by checking `self.crn_obsold ==
 self.rng.getstate()` at the moment `crn_nextobs()` consults it, against
 a real MOCOMPASS run (`crn_obsold` never matched). Full derivation in
-`docs/mocompass-mopbnb-known-issues.md` item 4, alongside item 3's
+`docs/example-solvers.md` item 4, alongside item 3's
 aliasing bug this is distinct from — that bug corrupts an already-
 partial mechanism, it isn't the only thing standing between today's code
 and the paper's intended synchronization.
@@ -1552,7 +1552,7 @@ call), not folded into it:
     demonstration that computed coordinates give MOCOMPASS's *intended*
     cross-point sharing (the paper's policy) in full. `self.seeds` never
     actually did this beyond each checkpoint's first replication (§4.3,
-    docs/mocompass-mopbnb-known-issues.md item 4), independent of its
+    docs/example-solvers.md item 4), independent of its
     separate aliasing failure mode (§4.1) — so this item is checking that
     `sync=` achieves something `self.seeds` didn't, not merely that it
     reproduces `self.seeds` more safely.

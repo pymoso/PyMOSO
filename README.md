@@ -277,7 +277,7 @@ options:
 ```
 For now, PyMOSO has three commands: `listitems`, `solve`, and `testsolve`, which we explain below.
 ### The `listitems` command for viewing solvers, testers, and oracles included in PyMOSO
-The default installation of PyMOSO includes a selection of solvers, testers, and oracles. Users can view the complete lists of included solvers, testers, and oracles using the `pymoso listitems` command. We show the current listing below. Test problems A, B, and C refer to those in Cooper et al (2018). The listing includes two example solvers, `ExampleSearchSolver` and `ExampleBnBSolver`, that this README does not describe: they are installed, but their correctness has not been reviewed; see [`docs/mocompass-mopbnb-known-issues.md`](docs/mocompass-mopbnb-known-issues.md).
+The default installation of PyMOSO includes a selection of solvers, testers, and oracles. Users can view the complete lists of included solvers, testers, and oracles using the `pymoso listitems` command. We show the current listing below. Test problems A, B, and C refer to those in Cooper et al (2018). The listing includes two example solvers, `ExampleSearchSolver` and `ExampleBnBSolver`, that this README does not describe: they are installed, but their correctness has not been reviewed; see [`docs/example-solvers.md`](docs/example-solvers.md).
 
 ```
 

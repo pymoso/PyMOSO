@@ -115,7 +115,7 @@ table's defaults and solver lists are checked against the code
 (tests/test_readme_param_table.py), and its descriptions are not.
 `ExampleSearchSolver` and `ExampleBnBSolver` (MO-COMPASS and MOPBnB)
 have not been checked against their papers at all
-(docs/mocompass-mopbnb-known-issues.md).
+(docs/example-solvers.md).
 
 The finite-variance requirement on `g()` (Phase 7) is the papers'
 assumption, cited by lemma and assumption number

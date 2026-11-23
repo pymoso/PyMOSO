@@ -11,8 +11,8 @@ import pytest
 
 from pymoso.chnutils import solve, testsolve
 from pymoso.problems.probtpa import ProbTPA
-from pymoso.solvers.mocompass import ExampleSearchSolver
-from pymoso.solvers.mopbnb import ExampleBnBSolver
+from pymoso.solvers.examplesearch import ExampleSearchSolver
+from pymoso.solvers.examplebnb import ExampleBnBSolver
 from pymoso.solvers.rminrle import RMINRLE
 from pymoso.solvers.rpe import RPE
 from pymoso.solvers.rperle import RPERLE

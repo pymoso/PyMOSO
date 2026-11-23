@@ -846,7 +846,7 @@ local structure. If these problems defeat the SPLINE-family methods and
 MOPBnB handles them, that is a concrete measured answer to when to use
 the global solver, which nobody has published. (MOPBnB in-tree is
 `ExampleBnBSolver`, unverified against its paper. See
-`docs/mocompass-mopbnb-known-issues.md` before relying on it.)
+`docs/example-solvers.md` before relying on it.)
 
 **Plateaus: done (2026-10-18)** (`docs/plateau-problems.md`; tables by
 `docs/bench_plateau.py`; the problem `scratch/phase7/plateau.py`).
@@ -872,7 +872,7 @@ each caught. Measured:
   the control).
 - **ExampleBnBSolver cannot run at budget 20,000:** its second iteration
   asks for 56,450 to 91,626,291 replications per point
-  (docs/mocompass-mopbnb-known-issues.md, item 2b); 6 of 20 control runs
+  (docs/example-solvers.md, item 2b); 6 of 20 control runs
   finish, none on 10- or 20-wide plateaus. It is not partition-and-bound
   in any case (item 0, the headline finding about that port).
 - **Against the prediction:** "defeats PLI and the line search"

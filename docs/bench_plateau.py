@@ -32,7 +32,7 @@ SPLI and NE moves that lowered the true value against moves that lowered
 only the estimate, NE moves to a point of the same cell (a true tie),
 and distinct cells visited. One arm of ExampleBnBSolver (the in-tree
 MOPBnB port) is included, labelled as what it is: a non-local sampler
-(docs/mocompass-mopbnb-known-issues.md, item 0), not partition-and-bound.
+(docs/example-solvers.md, item 0), not partition-and-bound.
 `run` appends one JSON line per run and skips runs already in the file.
 
 tests/test_benchmark_scripts.py only checks that the script runs.
@@ -63,7 +63,7 @@ from pymoso import chnbase, moso  # noqa: E402
 from pymoso.layout import get_solv_prnstreams  # noqa: E402
 from pymoso.paths import isp_run  # noqa: E402
 from pymoso.prng import mrg32k3a  # noqa: E402
-from pymoso.solvers.mopbnb import ExampleBnBSolver  # noqa: E402
+from pymoso.solvers.examplebnb import ExampleBnBSolver  # noqa: E402
 from pymoso.solvers.rminrle import RMINRLE  # noqa: E402
 from pymoso.solvers.rpe import RPE  # noqa: E402
 from pymoso.solvers.rperle import RPERLE  # noqa: E402

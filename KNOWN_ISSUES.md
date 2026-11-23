@@ -90,7 +90,7 @@ by an amount not known for the published runs.
 **`ExampleSearchSolver` and `ExampleBnBSolver`** are ports of
 MO-COMPASS and MOPBnB. They have not been checked against their papers,
 and are named so as not to claim to implement them. Their known
-defects are listed in `docs/mocompass-mopbnb-known-issues.md`. Among
+defects are listed in `docs/example-solvers.md`. Among
 them: MOPBnB's subregions are not regions, and MOCOMPASS builds the
 whole feasible region in memory. Both refuse `--crn`.
 
@@ -867,7 +867,7 @@ reproducible from a seed on one side of the 3.12 boundary, and not
 across it.
 
 **Fixed (2026-10-24), as that repair.** Both copies of `bsm`
-(`prng/mrg32k3a.py`, `solvers/mopbnb.py`) write their sums out as
+(`prng/mrg32k3a.py`, `solvers/examplebnb.py`) write their sums out as
 `+` chains, left to right; every other `sum()` of floats in the
 package goes through `moso.sum_left_to_right`, which adds from 0, left
 to right, as `sum()` did before 3.12. On 3.10 and 3.11 nothing changes,
@@ -993,7 +993,7 @@ with `statistics.variance` restored, its `hit()` check fails on 3.10.
 First seen in a printed output: ExampleBnBSolver's "Taking N
 additional replications" figure differs in its last digits (3.14:
 3516989263297047, 3.10: 3516989263297037). Its own copy of `bsm`
-(`solvers/mopbnb.py`, the same code) returns the same bits on both
+(`solvers/examplebnb.py`, the same code) returns the same bits on both
 interpreters for the same input. The difference comes from ProbTPA's
 `g()`, whose normal variates differ, so the variances and spacings the
 figure is computed from differ. In the RA golden runs, 3.14 against
