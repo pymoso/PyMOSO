@@ -3,6 +3,7 @@
 Python package for multi-objective simulation optimization. Originally a
 PhD output (Cooper & Hunter 2018), now being modernized on the `dev-2.0`
 branch, checked out at `/srv/projects/PyMOSO` and pushed to `origin`.
+Phases 0-7 are complete; what remains is the 2.0.0 release itself.
 
 ## Canonical repository
 
@@ -30,8 +31,10 @@ Everything after that commit on this branch is 2.0.0 development;
 
 What makes the line major: the `--seed` CLI syntax change (one
 comma-separated token, replacing six space-separated values),
-`Oracle.bump()`'s removal, and the solver-facing `crn_*` surface's
-removal — all landed after `b637a3e`, none shipped in 1.1.0.
+`Oracle.bump()`'s removal, the solver-facing `crn_*` surface's
+removal, and (Phase 7) **the relaxation formula fix, which changes what
+a `betaeps`/`betadel` value a user already sets actually means** — all
+landed after `b637a3e`, none shipped in 1.1.0.
 
 The two branches differ in content, not just version. `release-1.1.0`
 excludes MOCOMPASS/MOPBnB entirely; this branch has them committed.
@@ -47,6 +50,20 @@ branches. Don't merge `KNOWN_ISSUES.md` textually between branches.
 
 ## Critical context
 
+- **The relaxation formula changed and it is silent: 2.0's `beta = 1.0`
+  reproduces 1.1.0's `beta = 0.5`.** See the Phase 7 section below. A
+  1.x user who sets `betaeps` or `betadel` and upgrades gets different
+  results with no error and no warning. Nothing else in the release has
+  that property — the audit fixes, `testsolve`'s stream layout and the
+  one-dimensional search limit also change results silently, but none of
+  them changes the meaning of a value the user supplies.
+- **`TPxTester.soln` holds decision points, not objective images, and
+  `soln_images` is new (Phase 7).** Images are computed at metric time
+  so that both sides of the comparison use identical arithmetic; a run
+  that finds the whole reference set now scores exactly 0 rather than
+  ~1e-15. A subclass that replaces `soln` or `true_g` must recompute
+  `soln_images`. T_C's reference is the published collection of 516
+  N_1-LWESs, committed as a Python literal — see the Phase 7 section.
 - **The end seed's scope changed in step 8 — the older "allocation
   schedule only" warning is superseded.** It now reflects the run's
   actual consumption via a computed high-water mark, so it
@@ -59,7 +76,10 @@ branches. Don't merge `KNOWN_ISSUES.md` textually between branches.
   `tests/test_rng_consumption.py` (a recording RNG) and
   `tests/test_solution_sensitivity.py`. `docs/end-seed-scope.md` has
   been corrected twice as the thing it describes changed underneath it
-  — read it rather than assuming either version.
+  — read it rather than assuming either version. **It now carries nine
+  instances, the ninth being measurement and analysis scripts rather
+  than tests:** a script's label and what it computes can diverge the
+  same way a test's name and its assertion can.
 - Golden baselines in `tests/golden/` have been deliberately
   regenerated several times: after the jump-ahead fix, after step 4b's
   non-CRN cutover, after the replication-spacing collision fix, after
@@ -78,7 +98,23 @@ branches. Don't merge `KNOWN_ISSUES.md` textually between branches.
   output.
 - Docstring style differs from `release-1.1.0`'s. Leave it alone —
   converting would collide with the byte-identity assertions.
-  
+- **`docs/reference/` holds prior-work provenance, and nothing in the
+  package loads any of it at run time.** Two 2018 pickles for T_C
+  (`lescombos.pkl`, `exples.pkl`) and the two seed pools
+  (`orcseeds.pkl`, `solseeds.pkl`, each with a plain-text form that
+  round-trips). Its `README.md` has every SHA-256, the reversed
+  (oldest-first) mrg32k3a state convention and the chain structure.
+  Read the text forms, not the pickles.
+  `tests/test_reference_files_not_shipped.py` keeps them out of the
+  sdist and wheel; its docstring names what that check does not catch.
+- **The 2018 experiment code lives at `/srv/projects/old_rperle-2018/`,
+  outside the repo, and is NEVER executed, imported, ported or fixed.**
+  It is a referent. It was hand-edited between experiments — functions
+  commented in and out, numbers changed — so its state is evidence of
+  what the algorithms did and NOT of how any published experiment was
+  configured. It is also already preserved in a private lab-org GitHub
+  repository, so it is not at risk here.
+
 ## Fixed on this branch
 
 Jump-ahead float precision loss (exact integer arithmetic, permanent
@@ -92,6 +128,24 @@ multi-file custom problems failing to load (`sys.path` never included
 the user file's directory — broken in every released version);
 source-bundle transport so `--simpar` works under forkserver; CPython
 `random.Random` internals removed, runs 3.10-3.14.
+
+**Phase 7's algorithm fixes,** all from `docs/algorithm-audit.md` and
+all changing numerical output: the relaxation formula (finding 2, the
+big one, below); PE's traceback reading the wrong objective's intervals
+(1); PE's LWEP filter applied to the wrong set (3, with the `{x0}` step
+left alone by decision); SPLI's line search flooring instead of
+rounding (4); SPLI not stopping at an infeasible point (5); PE breaking
+objective ties deterministically (7); `get_biparetos` dropping exact
+ties, now `get_nondom` (8); `b_nu`'s `(dim - 1)` factor giving 0 at
+d = 1 (9, fixed at d = 1 only — see the Phase 7 section); `sys.exit` on
+three or more objectives (10, with the objective count itself left to
+the user by decision); SPLINE stopping at `n >= b` rather than `n > b`
+(14). Also in Phase 7: `ProbTPC`'s neighbour enumeration cost, the
+cheaper MRG jump (step 3), `ProbTPB`'s objective order reversed to
+match the paper's `g1` (linear) and `g2` (front), and `pe`'s silent
+filtering of an infeasible warm start replaced by a `WarmStartInfeasible`
+invariant — a warm start cannot be infeasible for these algorithms, so
+filtering hid a bug rather than handling a case.
 
 RNG redesign, steps 1-8 of `docs/rng-interface-design.md` §12, all
 landed: conformance suite; `prng/base.py` protocol and
@@ -152,8 +206,225 @@ computed over non-independent samples), and the carry-rule proof that
 surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
 `testsolve()` were never compatible.
 
+## Phase 7 (pre-release: runtime, algorithm audit, documentation)
+
+Added as a pre-release prerequisite after Phase 6: runtime polishing,
+runtime optimization, and a thorough algorithm complexity and
+completeness check. Steps 1-8 are complete. `docs/phase7-plan.md` is
+the plan, `docs/algorithm-audit.md` the findings.
+
+### The relaxation formula
+
+**`se/pow(m, beta)` became `se*pow(m, 0.5 - beta)`,** the preprint's
+`delta = se_hat * n^(1/2 - beta)`. With `se` being `sigma_hat/sqrt(m)`,
+the old form delivered `sigma_hat * m^(-1/2-beta)` and the new one
+`sigma_hat * m^(-beta)`. **2.0's `beta = 1.0` reproduces 1.1.0's
+`beta = 0.5`,** for both `betaeps` and `betadel`.
+
+**The defect was inherited, not introduced here.** The 2018 experiment
+code that produced the published figures has the same `se/pow(m, beta)`
+in its `fse` and `calc_delta`, and its `Oracle.hit` returns
+`sqrt(variance)/sqrt(m)`. PyMOSO carried it forward. The dissertation
+states the intent that code violates: at `beta_eps = beta_delta = 0.5`
+it says the search is for points "more than one standard error away",
+which the old formula divides by a further `sqrt(m)`. Audit finding 2's
+first resolution attributed the defect to PyMOSO's assembly and has
+been rewritten; `docs/relaxation-sweep.md`'s 2026-10-19 withdrawal was
+reinstated as a consequence.
+
+**`beta = 0.5` is derivable, not a best guess.** Pasupathy (2010), "On
+Choosing Parameters in Retrospective-Approximation Algorithms for
+Stochastic Root Finding and Simulation Optimization", *Operations
+Research* 58(4, Part 1 of 2), 889-901. The corrected relaxation at
+`beta = 0.5` is `sigma_hat/sqrt(m)`, which is that paper's §5.3
+recommended `eps_k = K/sqrt(m_k)` with `K` estimated from data, and
+`m_nu = ceil(2*1.1^nu)` is its Table 1 linear growth with the paper's
+own constant (both p. 897). Theorem 7 (p. 896) puts a floor at
+`beta >= 0.5`: below it `MSE(X_k)/MSE(X*_k)` diverges. Theorem 8 and
+Figure 2 (pp. 896, 900) say a faster-converging tolerance leaves the
+MSE rate unchanged, so `beta > 0.5` is the no-gain regime the
+introduction calls oversolving (p. 890). Conditions C.1-C.3 are p. 894;
+§5.2's `0 < limsup eps_k*sqrt(m_k) < infinity` is p. 896. **Two caveats
+that must travel with this:** `delta` is a relaxation inside a
+dominance test, not literally `||X_k - X*_k||`, so the match is of
+functional form and role, not an identity; and §8(ii) (p. 900) notes
+the theory assumes i.i.d. sample paths, so none of it is derived in the
+CRN setting.
+
+**Measured consequence, and it is counter-intuitive: a tighter
+relaxation returns LARGER sets.** At both betas 1.0 against the
+default, median returned-set sizes were 50 against 15 on T_A, 51
+against 41 on T_B, 9 against 7 on T_C.
+`docs/beta-sweep-reference.md`, "Returned-set sizes". A threshold below
+the noise floor treats sub-noise differences as real and pulls spurious
+points in.
+
+### The T_C reference sets
+
+`TPxTester.soln` holds decision points; `soln_images` is new. T_C's
+reference is the published collection of **516 unique N_1-LWESs
+containing 73 distinct points**, from the 2018 `lescombos.pkl`,
+converted once with a restricted unpickler and committed as a Python
+literal. Construction images the 73 distinct points once for all 4,273
+instances. `docs/reference/tpc-reference-sets.md` is the record.
+
+What that document establishes, and what the tester's comment must keep
+saying:
+
+- The 516 image-collapse to 66 distinct image sets and 43 distinct
+  images; one image set is the image of 45 different point sets. The
+  metric depends only on the 66, which is why the choice of point
+  representation is metric-neutral (verified bit-identical over 9,709
+  solution sets).
+- The integer-to-original coordinate mapping is `0.5*k`, not
+  `-5 + 0.5*k`.
+- **The 516 are not every N_1-LWES as point sets.** 119,392 point sets
+  with the same image sets satisfy the set-level definition; the 516
+  are what the appendix's level-1-through-8 union procedure reaches.
+  Mirror pairs are never neighbours of each other, so which member a
+  set holds is nearly free, and the published collection is not closed
+  under mirroring. The appendix does not overclaim: it says "found in
+  this manner".
+- **512 N_1-LWEPs against 73 points in the sets is expected, not a
+  discrepancy.** An LWEP is weakly efficient against its own
+  neighbourhood only; an LWES must satisfy the set-level closure
+  condition, so a point can be an LWEP and belong to no LWES. Today's
+  `true_g` reproduces the appendix's 512 exactly, out of 9,261 feasible
+  points.
+- **Image-set completeness is not established and cannot be
+  established from here.** Say so.
+- Six T_C images from the 2018 work remain unreproducible. The standing
+  hypothesis is a different libm on 2014-era hardware, and that machine
+  is gone.
+
+### What the published T_C figure actually shows (findings 2b, 2c)
+
+Chased to verify algorithm correctness and to confirm 2.0 performs at
+least as well as the 2018 figures, not to produce new plots. Both
+purposes are satisfied. Closed by decision; **do not reopen the
+ablation.**
+
+- **The published x-axis counts estimate calls x m, not simulations
+  (finding 2b).** The 2018 `estimate()` charges `m` on every call,
+  cache hits included; 2.0 charges only when it simulates. Under 2.0's
+  call pattern the ratio is median 5.34, range 4.40-6.51 across 100
+  paths, drifting 4.9 to 5.4 with budget. **The true 2018 ratio is
+  unmeasured**, because that code is never run, so no document may say
+  the published figures overstate cost by 5.3x. It applies to the
+  R-PERLE family only — MO-COMPASS's `update_gbar` charges only the
+  replications it runs — so the figure puts two counting conventions on
+  one axis, and the bias runs against R-PERLE, making the paper's own
+  comparison conservative.
+- **The plateau is the relaxation (finding 2c).** Published R-PERLE
+  settles at 0.43038, which is the complete global image set plus one
+  spurious off-front point; corrected 2.0 settles at 0.64559, the
+  global set minus `(-2,-2,-2)`. Overshoot against undershoot, the
+  two directions of the formula. The old-formula emulation reproduces
+  the plateau state and the upper-quartile level, and the accounting
+  explains the upper quartile's timing.
+- **What is NOT explained:** the overshoot frequency, 27 of 100 against
+  at least half published. Five candidate causes are listed in the
+  audit and none was ablated, by decision. The lower quartile's timing
+  would need a factor of about 15.7 and the upper about 7.5, against a
+  measured range of 4.40-6.51, so no single accounting factor
+  reconciles both.
+- `(-2,-2,-2)` sitting outside a certified set is **designed
+  behaviour**, not a defect: RLE certifies the sample-path ALES through
+  the non-conforming neighbourhood, and the dissertation names `delta`
+  the completeness function precisely because it permits neighbourhood
+  points that violate the sample-path LWES definition. The point
+  conforms by (b)(iii) until `m` passes about 13,600 (population
+  variances), which a 4e6 budget never reaches.
+
+### Reconstruction
+
+`docs/reconstruction-spec.md` is everything needed to reproduce the
+2018 experiments, captured while it was in hand. Seed-pool structure
+(two dicts keyed 0..4999, one contiguous chain of 10,000 states, jump
+`A^(2^77)`, oldest-first storage, 2^77 being two of L'Ecuyer's
+substream spacings and neither canonical constant — the jump bug, and
+harmless at ~1.5e23 draws between seeds); the driver's `indepseeds`
+semantics, `x0` generation from `(12345,)*6` re-seeded per scenario,
+`inc = 10000` and `floor(n*q)` quantile indexing; the configuration
+equivalences; the budget accounting; Figure 9's extracted targets; and
+what cannot be matched.
+
+**A reconstruction rewrites the analysis rather than porting it.**
+Three defects were found in that analysis path: `gen_hddata` picking
+the first iteration whose count *exceeds* the grid point rather than
+the last at or below it (so published curves are optimistic, which
+widens the timing gap rather than closing it); `hausdict = hlst1.sort()`
+storing `None`; and the cache-hit charge above.
+
+**No run-for-run pairing with the published runs is possible.** End
+seeds moved, draws per replication differ (five in 2018, three in 2.0 —
+`z4` and `z5` were drawn and discarded), and the `x0` integer mapping
+differs between the two `MRG32k3a` classes. All comparison is
+distributional.
+
+### The measurement run directory
+
+`/srv/projects/pymoso-runs/rperle-4e6/` is **frozen at the `52053c6`
+API** and recorded as such in its own README. Its scripts read `soln`
+as images and are correct only under the pinned venv; they were not
+retrofitted, because they record what was measured then.
+`analysis/AUDIT.md` lists ten places where a script's label and what it
+computes diverge, five of which bore on conclusions.
+
+### Step 8: user-facing documentation
+
+The README gained an oracle contract (what PyMOSO enforces, what it
+assumes, and the consequence of breaking each), a "Configuring a run:
+what was measured" section covering time and parallelism, CRN and
+neighbourhood radius with every figure naming its source document, a
+testers section for `soln`/`soln_images`, and the `beta` conversion
+beside the parameter table. `KNOWN_ISSUES.md` opens with "Open in
+2.0.0: does an issue affect you?". Every claim without a test is listed
+in `docs/unverified-claims.md` with the document behind it.
+
+**Register, for anything added later:** the audience is users, not
+reviewers, and not necessarily developers. Guidance comes from a
+measurement with the measurement named; where nothing was measured, say
+nothing. Do not explain the convergence theory. Do not police what
+algorithms users try on which problems, and do not present defaults as
+tuned for the test problems.
+
 ## Known open items
 
+- **`b_nu` above two decision variables is a design decision with a
+  recorded reason, not a divergence to fix (finding 9).** The papers
+  state `ceil(8*1.2^nu)`; the 2018 code and PyMOSO both use
+  `8*(dim-1)*1.2^nu`, so they agree at d = 2 and differ above it —
+  twice at d = 3, four times at d = 5. The author's account: "we needed
+  the higher limit for T_C because spline searches were stalling out
+  too early with the extra dimension but no additional line search
+  budget. So we quickly came up with the formula you see in the code."
+  `b_nu` is not required for convergence or for the convergence rate;
+  it is an implementation artifact that keeps the whole budget from
+  being spent on one unlucky sample path, so scaling it changes
+  finite-sample behaviour and nothing asymptotic. Corroborated
+  externally: Pasupathy (2010)'s conditions involve only the
+  sample-size and error-tolerance sequences, and `N_k`, the points
+  visited per iteration, is `O_p(1)` under polynomial convergence (§5,
+  equation (2), p. 895). Users matching the papers set
+  `bconst = 8/(d-1)`; that setting is read from `calc_b` and is not
+  tested. Left unchanged.
+- **Open in the audit and not resolvable from the papers:** 6 (PLI's
+  gradient uses vertices violating the epsilon constraint), 11 (Min
+  adds SPLINE's trajectories to its output), 12 (R-MinRLE may start a
+  minimizer's search from `x0`), 15 (SPLI charges a full simplex
+  whatever it cost — note this never touches `num_calls`; the budget
+  gap is issue 16), 17 (the MATLAB's tolerances and caps). Finding 13
+  (PE's traceback step of 1e-6 when the standard error is 0, vanishing
+  at about 3.4e10) is documented as an implementation necessity with a
+  hazard, computed and never observed, and is named in the oracle
+  contract because a zero-variance oracle is what reaches it. Finding
+  16 (the listings say "with CRN" while PyMOSO defaults to no CRN) is
+  documented and deliberate.
+- **`--budget` undercounts, two ways (issue 16):** replications of a
+  point that turns out infeasible are run and never counted, and the
+  budget overshoots. This is PyMOSO's own gap and is separate from
+  finding 2b, which is about the 2018 code's axis.
 - **Closed (Phase 3):** `testsolve`'s `--proc` path shipped live,
   seeded Oracle instances and hung under forkserver. A sample path is
   now data (`chnutils.PathJob`), rebuilt in the worker; tester and
@@ -293,63 +564,6 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
     than three hosts, and any scaling curve on a cluster of fixed
     size -- the clusters autoscaled, so the sample-path numbers
     (3.4x on 8 vCPUs, 6.5x on 16, 9.8x on 24) are lower bounds.
-- **The first CI run of the `extras` job was green** (2026-10-13,
-  commit `baa7027`), with all fifteen `test` cells and `clean-clone`.
-- **The Databricks run: done, 2026-10-13; the kit is finished and
-  ARCHIVED, not maintained.** The cluster access has ended.
-  `docs/spark-backend.md`, "On a real cluster", has the three
-  verified blocks and what they establish; `docs/databricks/` has the
-  notebook, `dbx_kit.py` and the blocks under `results/`. Do not
-  update the notebook's embedded values to match a later tree: they
-  are what keeps the three blocks verifiable. Its README lists what a
-  future run would need first.
-  **Never quote the `x` column of a block's `R` lines.** It is task
-  work time over wall time and overstates speedup under contention
-  (9.55 printed where the wall time gives 6.1). It misled the
-  maintainer, who repeated it as "nearly saturates its bound"; that
-  and an overstated CPU-diversity claim are recorded as corrections
-  in `docs/spark-backend.md`. Quote that document's tables.
-- **Results depend on the Python version in the last bit:
-  KNOWN_ISSUES.md issue 17.** `prng.mrg32k3a.bsm` adds its terms with
-  the built-in `sum()`, which Python 3.12 changed. 8,153 of 20,000
-  normal variates differ between 3.11 and 3.12. No golden and no
-  whole-run hash has been seen to move across 3.10-3.14, which says
-  how little those detectors see, not that it cannot. Not fixed: the
-  fix changes results on 3.12+, and needs a decision.
-  **Measured 2026-10-24:** about half of all estimates in a ProbTPA
-  run differ between 3.10 and 3.14, by ~1e-15; the goldens agree
-  because no decision came within ~1e9 ulps of flipping (a scratch
-  shadow measuring every comparison's gap, up to the sweep's budget).
-  Margin, not invariance. `bsm` is not the only site: ProbTPC,
-  TPCTester, `moso.enorm`/`edist` and BSProb also `sum()` three or
-  more floats. The issue has the table.
-  **Fixed 2026-10-24:** both `bsm` copies add explicitly, left to
-  right; every other float sum uses `moso.sum_left_to_right`. 3.10/3.11
-  unchanged bit for bit; 3.12+ now give 3.10's values. No golden
-  moved. **That made the variates agree, not every estimate:**
-  `statistics.variance(data, xbar)` differs between 3.10 and 3.11 and
-  later (CI bisect, 2026-11-16; 3.10 squares with `**`, the C
-  library's `pow`; 3.14 multiplies).
-  Fixed 2026-10-28: `oracle._mean`/`_variance` sum exactly and round
-  once, squaring with `d * d` -- 3.11-and-later's values, by decision, so 3.10's
-  standard errors moved (~1 in 5,000, last bit). No result comes from
-  `statistics` now except for `Decimal`/`Fraction` objectives.
-  `tests/test_exact_aggregation.py`. `tests/test_summation_order.py` refuses a new `sum()` over
-  non-integers anywhere in the package. **Not the same bits across
-  platforms:** `bsm`'s `log`/`pow` come from the C library, and a
-  test holding normals to Linux-recorded bits failed on every macOS
-  and Windows cell; the test now compares against a same-platform
-  left-to-right reference. **Measured 2026-11-16 (`measure-platform`
-  branch, issue 17 has the table):** on Linux x86-64, Windows x86-64,
-  macOS arm64 and macOS x86-64 (Python 3.14), 93 runs up to the beta
-  sweep's budget give the same solutions, end seeds and decisions,
-  least safety factor 4.3e10 (set beforehand: 1e6 is safe). Not the
-  same bits: estimates differ by up to 13,336 ulps. Margin, not
-  invariance; not established for another libc, arm64 Linux/Windows,
-  other problems or budgets. `bsm` is not the only platform site: the
-  two Macs share `bsm` and differ only in T_C runs, through ProbTPC's
-  `sin`/`exp`/`pow` -- the architecture matters through a problem's
-  own maths.
 - **pyspark 3.5 (the declared floor) is verified in classic mode:**
   3.5.9 locally and 3.5.2 on Databricks 16.4. Not under Connect.
 - **A source install has to build under the setuptools a user already
@@ -413,8 +627,8 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
     Python ints up to 10^30 were checked and always worked. Integer
     points encode exactly as before; no golden moved.
     `tests/test_point_types.py`. For the CHANGELOG. The contract is
-    stated in `Oracle`'s docstring; the README should say it too
-    (Phase 6).
+    stated in `Oracle`'s docstring and, since Phase 7 step 8, in the
+    README's oracle contract.
   - A solver parameter that is not a real number raises `TypeError`
     naming the keyword. Numbers still go through `float()` exactly as
     before. **A numeric string ("2") or a `Decimal` used to be
@@ -578,7 +792,8 @@ surfaced `SYNC_ROLE_OFFSET > ISP_STRIDE`, meaning `sync=` and multi-path
 - **Closed (Phase 6): the parameter table is generated** from
   `PARAMS` (`tests/test_readme_param_table.py`); defaults and
   descriptions live in `tests/_solver_param_docs.py`, checked against
-  the solvers by construction, not by attribute names. What follows
+  the solvers by construction, not by attribute names. The `beta`
+  descriptions there carry Phase 7's semantics note. What follows
   is the history.
   The README's "Table of Algorithm-Specific Parameters" was the one
   remaining solver-facing doc that wasn't test-enforced against live
@@ -731,7 +946,9 @@ The decisions below are landed, not pending. Full reasoning in
     of names no longer importable are computed against the v1.1.0 tag,
     not from the Phase 5 notes above, which were relative to the Phase
     4 tree. `solve()` gives 1.1.0's results for the same seed; only
-    `testsolve()` moved (issue 10).
+    `testsolve()` moved (issue 10). **Phase 7 changed that:** the
+    relaxation fix and the audit fixes move `solve()`'s results too,
+    and the CHANGELOG's "what breaks" says so.
   - **The 16,384-draw per-replication limit shipped in 1.1.0,**
     undocumented. It is now `Oracle.replication_draws`, a class
     attribute (a power of two up to 2^40); the bits come out of the
@@ -745,7 +962,9 @@ The decisions below are landed, not pending. Full reasoning in
   - **README Layer 5:** factual claims carry `<!-- verified: ... -->`
     naming their tests (`tests/test_readme_claims.py` checks the tests
     exist). A new claim needs one, or an entry in
-    `docs/unverified-claims.md`.
+    `docs/unverified-claims.md`. Phase 7's measurement-based guidance
+    has no test by nature, so it all lives in that file with the
+    measurement document named.
   - **Release order, decided, in this sequence:** (1) the maintainer's
     prose pass; (2) bump to `2.0.0rc1`; (3) TestPyPI; (4) bump to
     `2.0.0`; (5) tag `v2.0.0` and push the tag; (6) switch GitHub's
@@ -760,6 +979,11 @@ The decisions below are landed, not pending. Full reasoning in
     and 1.1.0's README on PyPI gives the same command, so until (6) the
     README is wrong and after it 1.x users get 2.0 (the CHANGELOG's
     first breaking-change entry says how to stay on 1.x).
+    **Status as of 2026-11-20:** step (1) not done — Phase 7 step 8
+    wrote a large amount of user-facing prose that has had no
+    maintainer pass. Nothing after it has started. A GitHub release
+    drafted from the CHANGELOG's 2.0.0 section follows (7); that
+    heading still needs its date.
 
 ## Still in flight
 
@@ -814,6 +1038,29 @@ The decisions below are landed, not pending. Full reasoning in
   Phase 7 step 3 for the MRG family: one cached power per set bit
   (`mrg_common.PowerTable`), bit-identical, built lazily per process.
 
+## After 2.0.0
+
+Nothing here blocks the release. Recorded so it is not re-derived.
+
+- **MOCOMPASS and MOPBnB reviewed for algorithmic correctness against
+  their source papers.** The known issues are in
+  `docs/mocompass-mopbnb-known-issues.md`. This is the first item: the
+  reconstructed experiment below wants a MO-COMPASS worth comparing
+  against.
+- **A full, reproducible reconstruction of the published experiments**
+  for the Purdue-family algorithms, from `docs/reconstruction-spec.md`.
+  Wants a serious cluster. Corrected plots are not themselves the
+  goal — verification and a performance floor were, and both are met.
+- **Report the paper's own efficiency measure,** `W_k ||X_k - x*||^2`
+  (Pasupathy 2010, §6.1, p. 898), alongside the coverage curves. For
+  the test problems `x*` is known, so this is cheap and it would put
+  the plots into the framework the parameter choices are derived from.
+- Deterministic black-box solvers; continuous solvers (ASTRO-DF, Kim &
+  Ryu).
+- The follow-ups already recorded above: naming the task in
+  `WorkerPool.run`'s pickle error, re-running the `--simpar` sweep
+  against Phase 7 step 3's jump, and §11 entry 13.
+
 ## Testing
 
 - `ProbExpensive` (Light/Moderate/Heavy tiers) plus `ExpensiveTester`
@@ -836,6 +1083,14 @@ The decisions below are landed, not pending. Full reasoning in
   reported the previous mutation's failure. Set
   `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` before mutation
   checks or stage swaps. `docs/end-seed-scope.md`, "A third instance".
+- **`tests/test_reference_files_not_shipped.py` is deliberately weaker
+  than inspecting a built sdist and wheel.** It checks that no `*.pkl`
+  sits under `pymoso/`, that `MANIFEST.in` names nothing under `docs/`,
+  and that `include-package-data` stays false; its docstring lists what
+  that misses (a `global-include`, a new build backend, `package-data`
+  entries, a change in setuptools' defaults). Recorded in
+  `docs/end-seed-scope.md` as a known-weaker test written that way on
+  purpose, not as a defect.
 - Portable assertions (call counts, cross-worker-count result identity,
   job-dispatch counts) live in the suite. Absolute timings live in
   `docs/parallel-dispatch-baseline.md` as an artifact, never asserted on.
@@ -894,3 +1149,7 @@ The decisions below are landed, not pending. Full reasoning in
 - Report findings before fixing them, unless the fix was pre-approved.
 - A regression test must be observed failing before the fix lands. A
   detector never seen detecting isn't proven to work.
+- **State what a measurement means before taking it.** Phase 7 ran on
+  pre-stated predictions scored as hit or miss afterwards, which is
+  what kept several wrong mechanisms from being retrofitted onto
+  results that happened to fit.
