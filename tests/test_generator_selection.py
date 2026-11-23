@@ -399,6 +399,36 @@ def test_ensure_random_compatible_wraps_a_bare_stream():
     assert isinstance(wrapped, __import__('random').Random)
 
 
+def test_random_compat_adapter_refuses_to_checkpoint_its_stream():
+    """getstate()/setstate() used to be random.Random's, which save and
+    restore a Mersenne Twister state the adapter never reads: setstate()
+    of a saved state did not rewind the draws, and nothing said so."""
+    wrapped = ensure_random_compatible(philox_stream_at((12345, 12345), 0, 0))
+    for call in (wrapped.getstate, lambda: wrapped.setstate(None)):
+        with pytest.raises(Exception) as exc_info:
+            call()
+        from pymoso.prng.base import StreamNotCheckpointable
+        assert isinstance(exc_info.value, StreamNotCheckpointable)
+        assert "philox4x32" in str(exc_info.value)
+
+
+def test_random_compat_adapter_refuses_to_reseed_its_stream_but_still_pickles():
+    """seed() used to be random.Random's, which reseeds a Mersenne
+    Twister state the adapter never reads: the draws carried on as if it
+    had not been called. random.Random.__init__ calls seed(), and
+    unpickling calls __init__ (RandomCompatAdapter.__reduce__), so the
+    refusal must not reach construction."""
+    import pickle
+    wrapped = ensure_random_compatible(philox_stream_at((12345, 12345), 0, 0))
+    with pytest.raises(Exception) as exc_info:
+        wrapped.seed(1)
+    from pymoso.prng.base import StreamNotReseedable
+    assert isinstance(exc_info.value, StreamNotReseedable)
+    assert "philox4x32" in str(exc_info.value)
+    copy = pickle.loads(pickle.dumps(wrapped))
+    assert [copy.random() for _ in range(3)] == [wrapped.random() for _ in range(3)]
+
+
 def test_random_compat_adapter_exposes_the_full_random_surface():
     stream = philox_stream_at((12345, 12345), 0, 0)
     wrapped = ensure_random_compatible(stream)

@@ -184,7 +184,10 @@ draws apart (more with `philox4x32`), as before.
   `generator=` in `solve()` and `testsolve()`: `mrg32k3a` (the
   default), `mrg31k3p` and `philox4x32`. The two others were in the
   1.1.0 source but not selectable. A Philox seed is two integers.
-  Every generator supports `--crn`.
+  Every generator supports `--crn`. A Philox `rng` cannot be
+  checkpointed or reseeded: its `getstate()` and `setstate()` raise
+  `pymoso.prng.base.StreamNotCheckpointable`, and its `seed()` raises
+  `pymoso.prng.base.StreamNotReseedable`.
 - **`PARAMS`, for solver authors.** A solver lists the names of its
   parameters in a class attribute `PARAMS`;
   `pymoso.chnbase.accepted_params(cls)` merges them up the class

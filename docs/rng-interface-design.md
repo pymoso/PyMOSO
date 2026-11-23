@@ -707,6 +707,21 @@ third-party — that wants the full stdlib distribution surface. `Oracle.g`
 keeps receiving something that walks and quacks like `random.Random`,
 unchanged from a caller's perspective.
 
+**What the adapter does not back (2.0.0): a Philox stream cannot be
+checkpointed or reseeded.** `getstate()`, `setstate()` and `seed()` are
+not built on `random()`: `random.Random` implements them on its own
+Mersenne Twister state, so the adapter, as first landed, inherited
+methods that saved, restored and reseeded a state it never reads. A
+restored state did not rewind the draws and a new seed did not change
+them, and nothing said so (measured 2026-11-23). `RandomCompatAdapter`
+now raises `StreamNotCheckpointable` from `getstate()`/`setstate()` and
+`StreamNotReseedable` from `seed()`, naming the generator; the one
+`seed()` call let through is `random.Random.__init__`'s own, during
+construction, which unpickling also runs. On the MRG family all three
+methods are real and work, because those classes are `random.Random`
+subclasses whose state is the recurrence's own. Philox first ships in
+2.0.0, so no released version ever had the silent version.
+
 ### 3.7 `--seed` is generator-shaped, not a fixed 6-tuple — argparse validates arity generically, the generator validates content
 
 Checked directly against the code, not assumed: `cli.py:68` today is

@@ -85,9 +85,20 @@ class RandomCompatAdapter(random.Random):
     here is a purely cosmetic, opt-in convenience layer on top of that,
     not the load-bearing mechanism (the Stream/stream_at layer above is,
     and is what the conformance suite in §7 tests). A caller that wants
-    the full stdlib distribution surface (gauss, uniform, triangular,
-    shuffle, ...) gets it for free, backed by `self._stream`, exactly as
-    it does today from MRG32k3a's own random.Random subclassing.
+    the stdlib distribution surface gets it backed by `self._stream`:
+    random(), getrandbits() and normalvariate() delegate to it, and
+    every random.Random method built on those (gauss, uniform,
+    triangular, shuffle, choice, sample, expovariate, ...) follows.
+
+    Not backed: getstate(), setstate() and seed(). random.Random
+    implements them on its own Mersenne Twister state, not on random(),
+    so inherited they would save, restore or reseed a state nothing here
+    reads, silently. getstate() and setstate() raise
+    StreamNotCheckpointable and seed() raises StreamNotReseedable
+    instead: a wrapped stream's position is reached by coordinate, not
+    by saving, restoring or reseeding state. The one seed() call that
+    goes through is random.Random.__init__'s own, during construction
+    (which unpickling also runs, via __reduce__).
 
     Not used by MRG32k3a/MRG31k3p themselves -- both already subclass
     random.Random directly, so they already have the full surface
@@ -109,8 +120,14 @@ class RandomCompatAdapter(random.Random):
         # check; the parent's C-level Mersenne state it seeds is never
         # consulted, since random()/getrandbits()/normalvariate() are
         # fully overridden below -- same reasoning as MRG32k3a.seed()'s
-        # own super().seed() call.
-        super().__init__(0)
+        # own super().seed() call. random.Random.__init__ calls
+        # self.seed(), which raises once construction is over: the flag
+        # lets this one call through.
+        self._initializing = True
+        try:
+            super().__init__(0)
+        finally:
+            self._initializing = False
 
     def __reduce__(self):
         """
@@ -157,6 +174,29 @@ class RandomCompatAdapter(random.Random):
 
     def normalvariate(self, mu: float = 0, sigma: float = 1) -> float:
         return self._stream.normalvariate(mu, sigma)
+
+    def getstate(self):
+        """Refused: see StreamNotCheckpointable."""
+        raise StreamNotCheckpointable(self._generator_name())
+
+    def setstate(self, state):
+        """Refused: see StreamNotCheckpointable."""
+        raise StreamNotCheckpointable(self._generator_name())
+
+    def seed(self, *args, **kwargs):
+        """Refused after construction: see StreamNotReseedable."""
+        if self._initializing:
+            return super().seed(*args, **kwargs)
+        raise StreamNotReseedable(self._generator_name())
+
+    def _generator_name(self):
+        # Imported here: registry imports the generator modules, which
+        # import this one.
+        from . import registry
+        try:
+            return registry.GENERATOR_NAMES[registry.backend_for_stream(self._stream)]
+        except KeyError:
+            return type(self._stream).__name__
 
 
 def ensure_random_compatible(stream):
@@ -241,6 +281,36 @@ VISIT_BITS = 6          # visit < 2**6 (64) -- shrunk from the original 20 to
 POINT_BITS = 127 - REPL_RESERVE_BITS - REPL_COUNT_BITS - VISIT_BITS  # 75,
                         # unchanged -- BSProb (dim=9, the tightest built-in
                         # problem) still gets W = 75 // 9 = 8
+
+
+class StreamNotCheckpointable(NotImplementedError):
+    """getstate() or setstate() was called on a RandomCompatAdapter:
+    checkpointing a stream the adapter wraps (Philox4x32's) is not
+    supported. Raised rather than inheriting random.Random's methods,
+    which act on a Mersenne Twister state the adapter never reads, so a
+    restored state would silently not rewind the draws."""
+
+    def __init__(self, generator):
+        super().__init__(
+            'checkpointing a {0} stream is not supported: getstate() and '
+            'setstate() are not available on it. A position is reached '
+            'by coordinate (stream_at), not by saving and restoring '
+            'state.'.format(generator))
+
+
+class StreamNotReseedable(NotImplementedError):
+    """seed() was called on a RandomCompatAdapter after construction:
+    reseeding a stream the adapter wraps (Philox4x32's) is not
+    supported. The sibling of StreamNotCheckpointable, for the same
+    reason: random.Random's seed() reseeds a Mersenne Twister state the
+    adapter never reads, so the draws would carry on as if it had not
+    been called."""
+
+    def __init__(self, generator):
+        super().__init__(
+            'reseeding a {0} stream is not supported: seed() is not '
+            'available on it. A position is reached by coordinate '
+            '(stream_at), not by reseeding.'.format(generator))
 
 
 class PointNotEncodable(ValueError):
