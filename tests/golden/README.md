@@ -73,14 +73,14 @@ what every subsequent regeneration should do.
   CLI counterparts' end seeds exactly, as expected: the CLI commands
   are thin wrappers over these same functions.
 
-**New, captured separately (MOCOMPASS/MOPBnB brought in-tree):**
+**New, captured separately (the two example solvers brought in-tree):**
 
 - Environment: `.venv-baseline`, CPython 3.10.21, same source tree.
   Commit: `f884bf2` (parent of the commit bringing these solvers
   in-tree). Re-run twice each, same determinism check as above.
-- `mocompass_tpa`, `mopbnb_tpa`: `ProbTPA`, `--param lb 0 --param ub 50`,
+- `example_search_tpa`, `example_bnb_tpa`: `ProbTPA`, `--param lb 0 --param ub 50`,
   `x0=(40, 40)`, `--budget=1000`, matching the existing `ProbTPA` cases'
-  shape exactly. `testsolve_mocompass`, `testsolve_mopbnb`: same box,
+  shape exactly. `testsolve_example_search`, `testsolve_example_bnb`: same box,
   `--isp=4`, mirroring `testsolve_tpa`'s shape.
 - Both `testsolve_*` cases' end seeds are identical to `testsolve_tpa`'s
   and to each other -- expected, not a coincidence: per
@@ -450,7 +450,7 @@ The fix puts the three roles in fixed, separate zones (x0 at stream 0,
 path t's solver at stream 1 + t, path t's oracle streams in slot t + 1)
 so no two roles share a position and none depends on `--isp`. Solver
 and x0 streams did not move; every oracle root did. Consequently
-`testsolve_tpa`/`testsolve_mocompass`/`testsolve_mopbnb` and the
+`testsolve_tpa`/`testsolve_example_search`/`testsolve_example_bnb` and the
 `testsolve()` library case moved, and nothing else: every `solve()`-path
 case is identical to the previous capture below -- confirmed directly,
 not assumed (`solve()` builds its two streams separately and had
@@ -483,15 +483,11 @@ rather than path- or entry-point-specific.
 | testsolve_example_search | `2346975725, 1224100873, 2386202199, 4246821866, 1768963681, 2406381760` |
 | testsolve_example_bnb | `559300817, 691733575, 3730937374, 1133024474, 2779640938, 790303042` |
 
-The last four rows were renamed, not recaptured: the solvers MOCOMPASS
-and MOPBnB became `ExampleSearchSolver` and `ExampleBnBSolver`, so
-`mocompass_tpa`, `mopbnb_tpa`, `testsolve_mocompass` and
-`testsolve_mopbnb` became `example_search_tpa`, `example_bnb_tpa`,
-`testsolve_example_search` and `testsolve_example_bnb`. All four were
-run under the new names on both venvs before the test was edited, and
-matched these values exactly: the end seed does not depend on the
-solver's name. Everything else in this file uses the names in force
-when it was written.
+The last four rows were renamed, not recaptured. Every table in this
+file now uses the current case names, including those captured before
+the rename. All four were run under the new names on both venvs before
+the test was edited, and matched these values exactly: the end seed
+does not depend on the solver's name.
 
 `test_solution_sensitivity.py`'s `EXPECTED_SOLUTIONS`, old and new (its
 `end_seed` is `testsolve_tpa`'s, above):
@@ -526,22 +522,22 @@ Python-version dependence).
 **Captured against `docs/rng-interface-design.md` §12 step 8, stage 2:**
 `chnutils.testsolve()`'s own reported `endseed` is now the real
 aggregated high-water mark across every `isp` path -- each path's own
-`RASolver.solve()`/MOCOMPASS/MOPBnB result dict carries its local
+`RASolver.solve()` or example-solver `solve()` result dict carries its local
 `oracle_high_water_mark` (`Oracle.get_high_water_mark()`, crossing the
 `--proc` worker boundary as an ordinary picklable int), and `testsolve()`
 combines them as `max(t*ISP_STRIDE + local_max_t for t in
 range(isp))`, then reports `jump_seed_n(orc_root, that)` -- replacing
 `get_testsolve_prnstreams`'s reservation-based "next `isp` slot" value.
-Only `testsolve_tpa`/`testsolve_mocompass`/`testsolve_mopbnb` and the
+Only `testsolve_tpa`/`testsolve_example_search`/`testsolve_example_bnb` and the
 `testsolve()` library case moved in this pass; every `solve()`-path
 case (already on the real formula since stage 1) is untouched --
 confirmed directly, not assumed (`rperle_tpa`/`rminrle_tpa`/`rpe_tpa`/
 `rspline_simpleso`/`rperle_tpa_crn`/`rperle_tpa_seed2`/
-`rperle_tpa_simpar2`/`mocompass_tpa`/`mopbnb_tpa`/the `solve()` library
+`rperle_tpa_simpar2`/`example_search_tpa`/`example_bnb_tpa`/the `solve()` library
 case all identical to the stage-1 capture below). The three `testsolve_*`
 cases used to be bit-identical to each other and to the `testsolve()`
-library case -- the `testsolve()`-shaped analog of the `mocompass_tpa`/
-`mopbnb_tpa` collision stage 1 closed -- and now diverge, confirmed
+library case -- the `testsolve()`-shaped analog of the `example_search_tpa`/
+`example_bnb_tpa` collision stage 1 closed -- and now diverge, confirmed
 before regenerating: the three-way match breaks, each reflecting its
 own solver's real consumption across all 4 `isp` paths, as expected
 going in.
@@ -574,10 +570,10 @@ these again.
 | rperle_tpa_simpar2 | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
 | solve() library call | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
 | testsolve() library call | `1744404958, 3393812160, 2418775421, 509218500, 1460079748, 3249260099` |
-| mocompass_tpa | `1146796796, 3308305028, 386855827, 2694500999, 2221614380, 1025642763` |
-| mopbnb_tpa | `3809509318, 1900386143, 1103642148, 1010814338, 790187922, 3654332215` |
-| testsolve_mocompass | `2422441504, 1336929696, 2999367015, 1940896654, 3321487088, 1155700982` |
-| testsolve_mopbnb | `3460682149, 1730614318, 2650224894, 981491354, 3020985147, 1482257229` |
+| example_search_tpa | `1146796796, 3308305028, 386855827, 2694500999, 2221614380, 1025642763` |
+| example_bnb_tpa | `3809509318, 1900386143, 1103642148, 1010814338, 790187922, 3654332215` |
+| testsolve_example_search | `2422441504, 1336929696, 2999367015, 1940896654, 3321487088, 1155700982` |
+| testsolve_example_bnb | `3460682149, 1730614318, 2650224894, 981491354, 3020985147, 1482257229` |
 
 `rperle_tpa`/`rperle_tpa_simpar2` still match *each other* (`--simpar`
 doesn't enter the coordinate formula, §3.4), and continue to coincide
@@ -612,9 +608,9 @@ provenance only, not as a target to restore.
 `Oracle.get_endseed()` -- a tracked high-water mark of every oracle-role
 coordinate actually passed to a replication, oracle-role only (§8.2's
 own explicit scope) -- wired into `RASolver.solve`/`rasolve` and
-MOCOMPASS/MOPBnB's own `solve()` methods, replacing `crn_advance()`'s
+the example solvers' own `solve()` methods, replacing `crn_advance()`'s
 call-count-only reporting (`self._iteration * ITER_STRIDE`). Confirmed
-before regenerating, not assumed: `mocompass_tpa`/`mopbnb_tpa` now
+before regenerating, not assumed: `example_search_tpa`/`example_bnb_tpa` now
 diverge from each other (previously identical despite verified-
 different internal consumption -- the concrete gap this stage exists to
 close). `rperle_tpa_crn` moved too, **contrary to this document's own
@@ -626,7 +622,7 @@ note). The new value is a correct tightening (nothing beyond it was
 ever touched), not a regression -- the old value was simply more
 conservative than it needed to be for the CRN branch specifically. Every
 `crnflag=False`/CRN case moved in this pass. `testsolve_tpa`/
-`testsolve_mocompass`/`testsolve_mopbnb` and the `testsolve()` library
+`testsolve_example_search`/`testsolve_example_bnb` and the `testsolve()` library
 case did **not** move -- unaffected by this stage, deliberately: they
 still report `get_testsolve_prnstreams`'s reservation value, which
 stage 2 (aggregating each `isp` path's own high-water mark across the
@@ -651,10 +647,10 @@ conditions note above) and are not reproduced below.
 | rperle_tpa_simpar2 | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
 | solve() library call | `900181699, 3252648471, 384599192, 813079481, 747618736, 882165191` |
 | testsolve() library call | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
-| mocompass_tpa | `1146796796, 3308305028, 386855827, 2694500999, 2221614380, 1025642763` |
-| mopbnb_tpa | `3809509318, 1900386143, 1103642148, 1010814338, 790187922, 3654332215` |
-| testsolve_mocompass | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
-| testsolve_mopbnb | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| example_search_tpa | `1146796796, 3308305028, 386855827, 2694500999, 2221614380, 1025642763` |
+| example_bnb_tpa | `3809509318, 1900386143, 1103642148, 1010814338, 790187922, 3654332215` |
+| testsolve_example_search | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| testsolve_example_bnb | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
 
 `rperle_tpa`/`rperle_tpa_simpar2` still match *each other* (`--simpar`
 doesn't enter the coordinate formula, §3.4), and now coincide with
@@ -695,8 +691,8 @@ gap), not of what `hit()` actually drew, so a case only moves if the
 fix's changed draws fed back into that specific solver's own
 sample-driven control flow. `rperle_tpa`/`rminrle_tpa`/
 `rperle_tpa_seed2`/`rperle_tpa_simpar2` and the `solve()` library call
-moved; `rpe_tpa`/`rspline_simpleso`/`testsolve_tpa`/`mocompass_tpa`/
-`mopbnb_tpa`/`testsolve_mocompass`/`testsolve_mopbnb`/the `testsolve()`
+moved; `rpe_tpa`/`rspline_simpleso`/`testsolve_tpa`/`example_search_tpa`/
+`example_bnb_tpa`/`testsolve_example_search`/`testsolve_example_bnb`/the `testsolve()`
 library call did not (their own `nu`, or `testsolve()`'s reservation-
 based end seed entirely, were unaffected). `rperle_tpa_crn` is
 unchanged, deliberately -- the CRN branch is untouched by this fix, just
@@ -714,10 +710,10 @@ as it was untouched by step 4b.
 | rperle_tpa_simpar2 | `596094074, 2279636413, 3050913596, 1739649456, 2368706608, 3058697049` |
 | solve() library call | `596094074, 2279636413, 3050913596, 1739649456, 2368706608, 3058697049` |
 | testsolve() library call | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
-| mocompass_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
-| mopbnb_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
-| testsolve_mocompass | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
-| testsolve_mopbnb | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| example_search_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
+| example_bnb_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
+| testsolve_example_search | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| testsolve_example_bnb | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
 
 `rperle_tpa`/`rperle_tpa_simpar2` still match *each other*, confirmed
 explicitly, not just each against its own fresh baseline -- `--simpar`
@@ -780,10 +776,10 @@ as a target to restore.
 | rperle_tpa_simpar2 | `3003961408, 3529909391, 14538032, 3603919910, 566682685, 1235016484` |
 | solve() library call | `3003961408, 3529909391, 14538032, 3603919910, 566682685, 1235016484` |
 | testsolve() library call | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
-| mocompass_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
-| mopbnb_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
-| testsolve_mocompass | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
-| testsolve_mopbnb | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| example_search_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
+| example_bnb_tpa | `1015873554, 1310354410, 2249465273, 994084013, 2912484720, 3876682925` |
+| testsolve_example_search | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
+| testsolve_example_bnb | `756192979, 932320642, 4060792417, 2566056172, 2930731408, 2805199130` |
 
 `rperle_tpa`/`rperle_tpa_simpar2` still matched *each other*, confirmed
 explicitly, not just each against its own fresh baseline -- `--simpar`
@@ -812,10 +808,10 @@ establishes is a defect, not a specification.
 | rperle_tpa_simpar2 | `4226535370, 3918856659, 447968167, 400221883, 592996512, 2795685938` |
 | solve() library call | `4226535370, 3918856659, 447968167, 400221883, 592996512, 2795685938` |
 | testsolve() library call | `1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063` |
-| mocompass_tpa | `1613792524, 277130510, 1927400324, 3116048775, 1439906304, 2566931280` |
-| mopbnb_tpa | `1428784311, 1122505905, 2703958324, 3312341562, 3339561538, 1282989044` |
-| testsolve_mocompass | `1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063` |
-| testsolve_mopbnb | `1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063` |
+| example_search_tpa | `1613792524, 277130510, 1927400324, 3116048775, 1439906304, 2566931280` |
+| example_bnb_tpa | `1428784311, 1122505905, 2703958324, 3312341562, 3339561538, 1282989044` |
+| testsolve_example_search | `1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063` |
+| testsolve_example_bnb | `1879114232, 1005083882, 2442288136, 348713332, 254370183, 2727774063` |
 
 None of these has all six components divisible by 256 -- confirmed
 directly, not just asserted -- unlike every pre-jump-ahead-fix value

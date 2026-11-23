@@ -15,17 +15,17 @@ from pymoso.testers.tpatester import TPATester
 # replication-independence fix (§12's unnumbered prerequisite entry
 # before step 8), a fourth time for §12 step 8 stage 1
 # (Oracle.get_endseed() wired into RASolver.solve/rasolve and
-# MOCOMPASS/MOPBnB's own solve()), and a fifth time -- this capture --
+# the example solvers' own solve()), and a fifth time -- this capture --
 # for step 8 stage 2: testsolve()'s own endseed is now the real
 # aggregated high-water mark across every isp path (chnutils.testsolve,
 # after par_runs() returns each path's own oracle_high_water_mark),
 # replacing get_testsolve_prnstreams's reservation value. Only
-# testsolve_tpa/testsolve_mocompass/testsolve_mopbnb and the
+# testsolve_tpa/testsolve_example_search/testsolve_example_bnb and the
 # testsolve() library case moved this time -- solve()'s own cases
 # (already on the real formula since stage 1) are untouched.
-# testsolve_tpa/testsolve_mocompass/testsolve_mopbnb used to be
-# bit-identical (the testsolve()-shaped analog of the mocompass_tpa/
-# mopbnb_tpa collision stage 1 fixed); the three-way match now breaks,
+# testsolve_tpa/testsolve_example_search/testsolve_example_bnb used to be
+# bit-identical (the testsolve()-shaped analog of the example_search_tpa/
+# example_bnb_tpa collision stage 1 fixed); the three-way match now breaks,
 # as expected going in -- each reflects its own solver's real
 # consumption. A sixth time, for the testsolve() role-layout fix
 # (KNOWN_ISSUES.md issue 10): get_testsolve_prnstreams used to root the
@@ -43,14 +43,11 @@ from pymoso.testers.tpatester import TPATester
 # testsolve() layers, and the testsolve() role layout) was wrong in its
 # own way.
 
-# The MOCOMPASS and MOPBnB solvers were renamed ExampleSearchSolver and
-# ExampleBnBSolver, and their cases with them: mocompass_tpa ->
-# example_search_tpa, mopbnb_tpa -> example_bnb_tpa, testsolve_mocompass
-# -> testsolve_example_search, testsolve_mopbnb -> testsolve_example_bnb.
-# No value moved (the end seed does not depend on the solver's name;
+# The two example solvers' cases were renamed with the solvers. No
+# value moved (the end seed does not depend on the solver's name;
 # checked by running all four under the new names first). The comments
-# above and below, and tests/golden/README.md, use the old names for
-# what happened under them.
+# above and below, and tests/golden/README.md, use the current case
+# names throughout, including for captures made before the rename.
 
 # A seventh capture, for the relaxation fix (docs/algorithm-audit.md
 # finding 2: R-PERLE, R-PE and R-MinRLE now relax by se*m**(1/2 - beta),
@@ -129,9 +126,9 @@ CASES = {
         ["pymoso", "solve", "--budget=1000", "ProbSimpleSO", "RSPLINE", "40"],
         (1637142171, 3902145111, 18424598, 4071908608, 2396963664, 4071290962),
     ),
-    # testsolve_tpa/testsolve_mocompass/testsolve_mopbnb used to be
-    # bit-identical -- the testsolve()-shaped analog of the mocompass_tpa/
-    # mopbnb_tpa collision, and the concrete gap step 8 stage 2 (docs/
+    # testsolve_tpa/testsolve_example_search/testsolve_example_bnb used to be
+    # bit-identical -- the testsolve()-shaped analog of the example_search_tpa/
+    # example_bnb_tpa collision, and the concrete gap step 8 stage 2 (docs/
     # rng-interface-design.md §12) closes: each now reflects the real
     # aggregated oracle-role high-water mark across every isp path, so
     # the three-way match breaks, as expected going in.
@@ -161,7 +158,7 @@ CASES = {
         ["pymoso", "solve", "--budget=1000", "--simpar=2", "ProbTPA", "RPERLE", "40", "40"],
         (2517142237, 665811671, 3380533723, 2206904786, 2365409261, 2739352961),
     ),
-    # mocompass_tpa and mopbnb_tpa now diverge -- the fix step 8 exists
+    # example_search_tpa and example_bnb_tpa now diverge -- the fix step 8 exists
     # for: previously identical despite verified-different internal
     # consumption (§8.2). Confirmed before regenerating, not assumed.
     "example_search_tpa": (
