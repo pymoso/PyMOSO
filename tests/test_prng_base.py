@@ -1,10 +1,8 @@
 """
 pymoso/prng/base.py: the Stream protocol (§3.2) and the
-RandomCompatAdapter backward-compatibility adapter (§3.6). Neither is
-wired into MRG32k3a or chnbase.py yet (docs/rng-interface-design.md §12
-step 2 groups this module with mrg_common.py's generalized jump, not
-with any consumer) -- these tests check the new module on its own
-terms: the protocol matches structurally, and the adapter actually
+RandomCompatAdapter backward-compatibility adapter (§3.6). Written
+before either had a consumer (docs/rng-interface-design.md §12 step 2);
+these tests check the module on its own terms: the protocol matches structurally, and the adapter actually
 delegates rather than reimplementing anything.
 
 Warning for anyone writing another Stream double against this interface,

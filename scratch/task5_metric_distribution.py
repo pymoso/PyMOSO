@@ -22,7 +22,7 @@ golden tests' 1000 so the metric isn't dominated by "barely started".
 """
 import json
 import sys
-sys.path.insert(0, '/home/kyle/Documents/PyMOSO')
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1]))
 
 from pymoso.chnutils import solve
 from pymoso.problems.probtpa import ProbTPA

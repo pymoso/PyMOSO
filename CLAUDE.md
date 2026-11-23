@@ -338,8 +338,10 @@ ablation.**
 
 ### Reconstruction
 
-`docs/reconstruction-spec.md` is everything needed to reproduce the
-2018 experiments, captured while it was in hand. Seed-pool structure
+`docs/reconstruction-spec.md`, deleted before 2.0.0, held everything
+needed to reproduce the 2018 experiments; its seed-pool structure and
+Figure 9's extracted targets are now in `docs/reference/README.md`, and
+the rest is no longer in the tree. What it held: seed-pool structure
 (two dicts keyed 0..4999, one contiguous chain of 10,000 states, jump
 `A^(2^77)`, oldest-first storage, 2^77 being two of L'Ecuyer's
 substream spacings and neither canonical constant — the jump bug, and
@@ -763,7 +765,7 @@ tuned for the test problems.
   disclaimers, and the known-issues document's filename. Two exceptions
   by decision: the comparison curve in Cooper & Hunter's published figure
   keeps its name where that figure is described (this file's Phase 7
-  section, `docs/algorithm-audit.md`, `docs/reconstruction-spec.md`), and
+  section, `docs/algorithm-audit.md`, `docs/reference/README.md`), and
   `CHANGELOG.md`'s 1.1.0 section is a released record and is not edited.
   The `listitems` docstrings say "Do not use for serious solving or
   testing at this time." **Not described in the README, by decision:** no
@@ -1084,7 +1086,8 @@ Nothing here blocks the release. Recorded so it is not re-derived.
   experiment below wants a credible comparator, and the example
   search-based solver is the in-tree candidate.
 - **A full, reproducible reconstruction of the published experiments**
-  for the Purdue-family algorithms, from `docs/reconstruction-spec.md`.
+  for the Purdue-family algorithms, from the seed pools and Figure 9's
+  targets in `docs/reference/README.md`.
   Wants a serious cluster. Corrected plots are not themselves the
   goal — verification and a performance floor were, and both are met.
 - **Report the paper's own efficiency measure,** `W_k ||X_k - x*||^2`

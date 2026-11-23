@@ -134,9 +134,8 @@ cite `docs/phase2a-verification.md` for the original defect
 characterizations; `CLAUDE.md` cited `docs/phase3-architecture-stocktake.md`
 for "current status." Neither file existed in this branch's `docs/` at
 the time this note was first written — both were committed only on the
-earlier fork's history (`old-work`, `e273e14`, "Commit outstanding phase
-2a/3 artifacts before migrating to pymoso/master") and weren't carried
-over when this project rebased onto github.com/pymoso/PyMOSO.
+earlier fork's history, which is not in this repository, and weren't
+carried over when this project rebased onto github.com/pymoso/PyMOSO.
 
 Resolved differently for each, on the theory that porting a stale
 "current status" doc is worse than not having one, but porting a
@@ -318,7 +317,7 @@ interpreter does so with `-I`: `tests/_pymoso_cli.py`'s
 ignores PYTHONPATH and the current directory, by design (KNOWN_ISSUES
 issue 9), so the subprocess imports the *installed* pymoso. The test
 process imports whatever is first on its own `sys.path`. In a second
-worktree sharing `.venv-dev`'s editable install, or under
+worktree sharing the first's editable install, or under
 `python -m pytest` from another checkout, those are two different
 trees.
 
@@ -335,8 +334,7 @@ it. The helper was not bypassed: it does exactly what its docstring
 promises. The unchecked link is between "the installation" and "the
 tree under test".
 
-The finding is in `.git/manyobj/finding-subprocess-tree.md` (local to
-this machine; the durable summary is in `docs/phase7-plan.md`).
+The summary is in `docs/phase7-plan.md`.
 
 **The guard is built** (commit `518cad2`, `tests/conftest.py`, Phase 7's
 first task). At session start it compares the in-process
@@ -498,8 +496,7 @@ count of how much was used says nothing about where it came from.
 ## A ninth instance: in measurement scripts, not tests
 
 Found in Phase 7, diagnosing T_C's apparent stall in the R-PERLE runs at
-budget 4 x 10^6 (`/srv/projects/pymoso-runs/rperle-4e6/`, outside the
-repository). The pattern is the same, but it was not in the test suite.
+budget 4 x 10^6 (a run directory outside the repository). The pattern is the same, but it was not in the test suite.
 It was in the scripts that produced the figures a conclusion was drawn
 from. Two cases.
 
@@ -516,8 +513,8 @@ from. Two cases.
   does not contain it, so the absence is correct.
 
 **What detects it:** reading each figure's computation against its
-label. `analysis/AUDIT.md` in that directory does this for every
-script there and lists eight more cases. Two kinds recur:
+label. An audit of every script in that directory, not in this
+repository, found eight more cases. Two kinds recur:
 - an exact-zero count against reference images that were themselves
   ~1e-15 off;
 - output computed on data later replaced, with nothing in the output
@@ -535,11 +532,12 @@ the property, because checking the property itself costs too much to
 run every time. Each entry names what it does not catch, so the gap is
 not found by surprise later.
 
-- **`tests/test_reference_files_not_shipped.py`** guards "the 2018
-  reference pickles in `docs/reference/` never ship in the sdist or
-  the wheel". It builds nothing. Instead it checks three proxies: no
-  `*.pkl` under `pymoso/`, nothing under `docs/` named in
-  `MANIFEST.in`, and `include-package-data = false`. It does not catch:
+- **`tests/test_reference_files_not_shipped.py`** guards "the
+  reference pickles in `docs/reference/`, and `docs/RSPLINE.m`, never
+  ship in the sdist or the wheel". It builds nothing. Instead it checks
+  four proxies: no `*.pkl` and no `*.m` under `pymoso/`, nothing under
+  `docs/` named in `MANIFEST.in`, and `include-package-data = false`.
+  It does not catch:
   - a pickle pulled in by a `MANIFEST.in` pattern that never mentions
     `docs/`, such as a pickle under `tests/` or a `global-include`;
   - a new build backend, or a plugin such as setuptools-scm that
@@ -547,7 +545,8 @@ not found by surprise later.
   - `package-data` or data-files entries;
   - a change in what setuptools includes by default.
 
-  The property itself was checked once, on 2026-11-18, by building
-  both artifacts with the pickles present and listing them. Rebuild
+  The property itself was checked by building both artifacts and
+  listing them: on 2026-11-18 with the pickles present, and on
+  2026-11-23 with `RSPLINE.m` present as well. Rebuild
   and list them after any change to `MANIFEST.in`, the
   `[tool.setuptools]` table or the build backend.

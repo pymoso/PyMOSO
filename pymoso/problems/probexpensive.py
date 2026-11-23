@@ -135,7 +135,7 @@ class ProbExpensiveLight(ProbExpensive):
     Measured locally (CPython 3.10/3.14, single core, AMD Ryzen 5
     5600X3D) at ~1.3ms/replication -- roughly 15-20x the ~60-100us
     --simpar Queue round-trip dispatch overhead measured on the same
-    machine. Cheap enough for tests that just need "not dispatch-
+    machine, before the worker pool replaced that Queue (Phase 3). Cheap enough for tests that just need "not dispatch-
     overhead-dominated" without much added runtime.
     """
     burn_units = 2_000

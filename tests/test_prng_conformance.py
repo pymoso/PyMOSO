@@ -31,9 +31,8 @@ skipped:
   `_advance_iteration` walk, which requires `chnbase.py`'s real coordinate
   wiring (step 3) to exist on both sides of the comparison.
 
-Per the working agreement ("a detector never seen detecting isn't proven
-to work"), the checks below that meaningfully *can* be fooled by a wrong
-implementation (determinism, distinctness, exact-jump matching) are
+Because a detector never seen detecting isn't proven to work, the
+checks below that meaningfully *can* be fooled by a wrong implementation (determinism, distinctness, exact-jump matching) are
 written as reusable functions taking a `stream_at`-shaped callable, so
 each can be run both against the real thin wrapper (expected to pass,
 the tests in the main body of this file) and against a deliberately
@@ -264,7 +263,7 @@ def test_getrandbits_unbiasedness_smoke_test(k, n_draws):
 
 # ---------------------------------------------------------------------------
 # Item 6: cross-process reproducibility, explicitly under forkserver
-# (matching .venv-dev's default -- see docs/forkserver-hang.md for why
+# (matching Python 3.14's default on Linux -- see docs/forkserver-hang.md for why
 # fork's copy-on-write would paper over a real gap here).
 # ---------------------------------------------------------------------------
 
@@ -295,8 +294,8 @@ def test_cross_process_reproducibility_under_forkserver():
 # ---------------------------------------------------------------------------
 # Proof the checks above have teeth: run them against a deliberately
 # broken fake backend and confirm they fail. Never used as a real
-# backend -- exists only to satisfy the working agreement's "a detector
-# never seen detecting isn't proven to work."
+# backend -- exists only because a detector never seen detecting isn't
+# proven to work.
 # ---------------------------------------------------------------------------
 
 def _broken_stream_at_wrong_jump_size(seed, coordinate):
@@ -323,9 +322,8 @@ def _broken_stream_at_ignores_coordinate(seed, coordinate):
 def test_conformance_checks_detect_a_broken_backend():
     """Proves the checks above have teeth by running them against
     deliberately broken backends and confirming they fail -- two
-    different bugs, each caught by the check it specifically targets, per
-    the working agreement's "a detector never seen detecting isn't proven
-    to work." check_determinism isn't exercised here: tripping it needs a
+    different bugs, each caught by the check it specifically targets: a
+    detector never seen detecting isn't proven to work. check_determinism isn't exercised here: tripping it needs a
     backend that is genuinely non-deterministic given identical inputs,
     which isn't a natural "wrong coordinate math" bug the way the two
     below are -- a deliberate scope choice, not an oversight."""

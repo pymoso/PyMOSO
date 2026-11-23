@@ -81,8 +81,8 @@ class SparkBackend(RemoteBackend):
     not on `sparkContext.parallelize`. A Spark Connect session has no
     `sparkContext` at all -- no RDDs, no broadcast variables -- and
     Spark Connect is what Databricks serverless and shared-access
-    clusters provide (that last from memory, not checked against a
-    Databricks runtime; the absence of `sparkContext` under Connect is
+    clusters provide (that last not checked against a Databricks
+    runtime; the absence of `sparkContext` under Connect is
     verified in tests/test_spark_backend.py). The DataFrame route is
     the one that exists on both. `range` with as many partitions as
     rows puts exactly one task's index in each partition.

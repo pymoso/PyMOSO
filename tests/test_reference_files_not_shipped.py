@@ -1,6 +1,8 @@
 """
-The 2018 reference pickles in docs/reference/ (T_C's lescombos.pkl and
-exples.pkl, and the seed pools orcseeds.pkl and solseeds.pkl) must not
+The reference pickles in docs/reference/ (T_C's lescombos.pkl and
+exples.pkl, and the seed pools orcseeds.pkl and solseeds.pkl, which came
+from a PyMOSO ancestor), and docs/RSPLINE.m, a third-party MATLAB
+reference implementation not covered by this project's licence, must not
 ship in the sdist or the wheel.
 
 Nothing in the package opens them (TPCTester reads a Python literal
@@ -10,10 +12,11 @@ names. Today neither artifact can include them. The wheel takes only the
 packages listed in pyproject.toml, with include-package-data = false, and
 MANIFEST.in adds only pytest.ini, tests/ and pymoso/examples/ to the
 sdist. That was checked on 2026-11-18 by building both with the pickles
-present.
+present, and on 2026-11-23 with RSPLINE.m present.
 
 This test does not build anything. It holds the invariant directly:
 - no *.pkl anywhere under the pymoso/ package tree;
+- no *.m (MATLAB) file anywhere under it either;
 - MANIFEST.in names nothing under docs/;
 - include-package-data stays false.
 
@@ -39,6 +42,10 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 def test_no_pickle_inside_the_package_tree():
     assert sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "pymoso").rglob("*.pkl")) == []
+
+
+def test_no_matlab_file_inside_the_package_tree():
+    assert sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "pymoso").rglob("*.m")) == []
 
 
 def test_manifest_names_nothing_under_docs():

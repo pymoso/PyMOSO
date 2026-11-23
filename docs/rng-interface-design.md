@@ -396,7 +396,7 @@ to this audience is that the `2**76`/`2**127` spacings guarantee
 non-overlap *by construction*, not "with negligible probability," and a
 reviewer who has internalized that standard (correctly) would not accept
 a quietly weaker one smuggled into one branch of the same document. Ruled
-out first, per instruction, rather than accepted and then defended:
+out first, rather than accepted and then defended:
 
 - **Enumerating points in visitation order** and assigning slots
   1, 2, 3, ... — rejected; this is exactly §2's defect, relocated rather
@@ -501,8 +501,7 @@ it differently, or use `crn=True`, which never needs `x` in the
 coordinate at all) rather than degrading silently.
 
 **If a probabilistic fallback is ever wanted later** (this design doesn't
-propose one — flagged for completeness, since the question was asked
-directly): a hash-based `point_slot` the way the earlier draft described
+propose one — flagged for completeness): a hash-based `point_slot` the way the earlier draft described
 is the shape it would take, and the honest way to disclose it would be
 (a) the birthday-bound collision probability at the chosen slot count for
 a stated realistic points-per-iteration figure, and (b) what a collision
@@ -614,8 +613,8 @@ cause, and are left as written so the correction can be read against
 them.** They say the limit is structural -- "it is what
 'neighbourhood' means in these algorithms" -- and that serving high
 dimension needs a solver that does not enumerate neighbourhoods. That
-was asserted, repeated in `CLAUDE.md` and in Phase 4's own brief as a
-settled scoping fact, and never measured. It was one helper's
+was asserted, repeated in this repository's design notes and in Phase
+4's plan as a settled scoping fact, and never measured. It was one helper's
 implementation. At the default radius 1 a neighbourhood *is* `2*dim`
 points; `chnutils.get_nbors` generated the whole `3**dim` box and
 filtered it by distance to find them. The time was indeed "in
@@ -657,7 +656,7 @@ Whether a backend gets there by a generalized matrix-power jump
 (MRG32k3a, MRG31k3p) or by packing bits directly into a counter
 (Philox-4x32) is invisible outside the backend module.
 
-MRG31k3p is the actual test of this, per the brief, and it passes: it is
+MRG31k3p is the actual test of this, and it passes: it is
 also a matrix linear recurrence mod two primes (different order,
 different coefficients, per L'Ecuyer & Touzin 2000), so it needs the same
 generalized-jump machinery MRG32k3a needs — meaning that machinery
@@ -669,8 +668,8 @@ counter-packing) both satisfy it identically.
 
 ### 3.6 Backward-compatibility adapter — needed, not hypothetical
 
-CLAUDE.md's instruction is composition over inheritance "with a backward-
-compatibility adapter only if you can show it's needed." It's needed:
+The decision was composition over inheritance, with a backward-
+compatibility adapter only if one is shown to be needed. It's needed:
 `Oracle.g(self, x, rng)` hands `rng` directly to arbitrary third-party
 code (`pymoso/examples/myproblem.py`, and every real custom Oracle this
 package's users write), documented only as "`prng.MRG32k3a` object" — an
@@ -1240,8 +1239,8 @@ on both environments (`pymoso solve --param lb 0 --param ub 50 ProbTPA
 `getstate`/`setstate` directly to check specific claims empirically
 rather than by inspection alone.
 
-**Run status.** Both run correctly on `.venv-baseline` (3.10). Both fail
-immediately on `.venv-dev` (3.14):
+**Run status.** Both run correctly on Python 3.10. Both fail
+immediately on Python 3.14:
 
 ```
 TypeError: Population must be a sequence.  For dicts or sets, use sorted(d).
@@ -1317,8 +1316,8 @@ ends up living per §9) into a concrete requirement: it needs a public
 import path the framework documents, independent of any `Stream`
 instance.
 
-**The example search-based solver's `self.seeds` cross-point synchronization: confirmed
-deliberate, by the author, not an artifact — corrected from an earlier
+**The example search-based solver's `self.seeds` cross-point synchronization:
+deliberate, not an artifact — corrected from an earlier
 draft of this section, which left it open.** It *intends* a real,
 different CRN policy: points sharing the same cumulative sample-effort
 level (`nx[x]`) share underlying draws, regardless of iteration or point
@@ -1377,7 +1376,7 @@ offset + isp*ISP_STRIDE + <synchronization component> + replication*
 REPL_STRIDE` (§3.4) — RASolver's default `<synchronization component>`
 is `self._iteration * ITER_STRIDE`, computed and advanced by the
 framework. Nothing about `stream_at` cares what that component actually
-*means*; it's cheap, in the sense §12's instructions asked for, to let a
+*means*; it's cheap to let a
 solver supply it directly instead of accepting the framework's default:
 
 ```
@@ -1456,8 +1455,8 @@ which today's implementation does not achieve at all (and which the
 1.0.8-era framework achieved only for each checkpoint's first
 replication). **Porting the example search-based solver onto `sync=`
 is therefore a behavior change to that solver, not a refactor of it** —
-this document's own working-agreement discipline (CLAUDE.md: patching
-vs. rewriting, and reporting findings before fixing them) applies to
+this project's discipline (patching rather than rewriting, and
+reporting findings before fixing them) applies to
 that port the same way it applies to any other behavior change: the example search-based solver's
 own golden(s) move when `sync=` lands and it's ported, for a real reason
 (closer alignment with the solver's own intended policy), not an
@@ -1562,7 +1561,7 @@ Written before any generator implementation, run against every backend
 (MRG32k3a, MRG31k3p, Philox-4x32) via parametrization — a defect
 detector is only proven by being seen to detect, so each test here needs
 at least one backend-shaped counterexample considered while writing it,
-the same discipline the working agreement already applies to fixes.
+the same discipline this project already applies to fixes.
 
 1. **Determinism.** `stream_at(seed, idx)` called twice, independently,
    produces identical draw sequences.
@@ -1601,8 +1600,8 @@ the same discipline the working agreement already applies to fixes.
    a spawned worker process (only `seed`/`idx` crossing the process
    boundary, not a live generator object) reproduces the same draws as
    the same call in the parent. This is the direct test of §5's claim
-   and should use `forkserver` explicitly (matching `.venv-dev`'s
-   default and where the current design's blind spots have actually
+   and should use `forkserver` explicitly (matching Python 3.14's
+   default on Linux, and where the current design's blind spots have actually
    been found before), not rely on `fork`'s copy-on-write to paper over
    a real gap.
 7. **Bit-identical migration proof** (MRG32k3a only, one-time, tied to
@@ -1751,7 +1750,7 @@ deliberate, reviewed regeneration at step 4b, in one pass, not two.
 
 ### 8.1 What actually verifies step 4b, given the golden suite mostly can't
 
-Asked directly, so answered directly rather than assumed: with 9 of 10
+With 9 of 10
 `test_golden.py` cases moving and `test_solution_sensitivity.py`
 regenerated as part of the same step, neither provides a continuity
 check *across* step 4b — both encode step 4b's output, they don't verify
@@ -1808,8 +1807,8 @@ failing through 4a — see §7.1 item 10), the same discipline
 `test_max_ri.py` already applied to demonstrating `MAX_RI` overlap before
 that guard existed. Until all of §7.1 has landed and item 10 has been
 seen to fail-then-pass, step 4b would be landing on "the golden suite
-went quiet" rather than "the change was verified" — not acceptable per
-the working agreement, and not what this document is proposing.
+went quiet" rather than "the change was verified" — not acceptable,
+and not what this document is proposing.
 
 ### 8.2 What `endseed` becomes — settled (open question 8), superseding the "next unused `isp`" sketch above
 
@@ -2029,7 +2028,7 @@ flag/kwarg.
   re-exported machinery (§3.3, §4.2 — confirmed needed, not hypothetical:
   the example branch-based solver reimplemented it byte-for-byte rather than finding the existing
   one).
-- Both external reference solvers fail outright on `.venv-dev` (3.14) as
+- Both external reference solvers fail outright on Python 3.14 as
   written — `random.Random.sample()` no longer accepts a `set` argument,
   and both call `self.sprn.sample()` on sets throughout. Pre-existing,
   orthogonal to this redesign (a stdlib change, not a `pymoso` one), but
@@ -2051,16 +2050,16 @@ flag/kwarg.
 
 ## 11. Open questions
 
-Answering these was explicitly asked for in some cases (marked); the
-rest are genuine forks not resolved by anything in CLAUDE.md or the
-existing code, surfaced rather than guessed.
+Items 1-3 were questions the design had to answer (marked [design]);
+the rest are genuine forks not resolved by anything in the project's
+notes or the existing code, surfaced rather than guessed.
 
-1. **[asked] Does the interface expose jump-ahead?** No — answered in
+1. **[design] Does the interface expose jump-ahead?** No — answered in
    §3.5. `stream_at(base_seed, coordinate)` only.
-2. **[asked] Is monotonicity an interface or implementation requirement?**
+2. **[design] Is monotonicity an interface or implementation requirement?**
    Interface — answered in §3.3, with the getrandbits exemption stated
    explicitly.
-3. **[asked] Bit-identical preservation?** Yes for the generator
+3. **[design] Bit-identical preservation?** Yes for the generator
    primitives, permanently; yes for the CRN branch, permanently (§2); yes
    for the non-CRN branch, through steps 3 and 4a, via a temporary
    compatibility encoding that 4a's additive `visit=`/`sync=` opt-ins
@@ -2296,15 +2295,17 @@ existing code, surfaced rather than guessed.
     cached power A^(2^k) per set bit, applied to the seed vector
     (`mrg_common.PowerTable`); bit-identical, no golden moved. A general
     jump is now 20-70 µs on 3.14 (`docs/hit-cost-baseline.md`, "After
-    the cheaper jump"). The `--simpar` sweep this paragraph says to
-    re-run has not been re-run.
+    the cheaper jump"). [2026-11-23: the `--simpar` sweep was re-run;
+    `docs/simpar-ceiling.md`, "After the cheaper jump (Phase 7 step
+    3)".]
 
 15. **[candidate — declined for Phase 3, recorded so it is not lost]
     Speculative prefetch for the sequential part of an RA solver.**
     Phase 3's measurement (`docs/simpar-ceiling.md`, the per-routine
     table) is that 35-46% of a bi-objective RA run's replications
-    (without `--crn`; 18% in the one `--crn` run surveyed) are
-    requested one point at a time *by necessity*: `ne()` stops at the
+    (without `--crn`; 18% in the one `--crn` run surveyed; 44-53%
+    after Phase 7's algorithm fixes, `docs/simpar-ceiling.md`,
+    2026-11-23) are requested one point at a time *by necessity*: `ne()` stops at the
     first improving neighbour, and `spli()`'s line search chooses each
     step from the last result. `estimate_many` cannot touch them, and
     they are what holds the batched bound where it is. Prefetching is
@@ -2403,9 +2404,8 @@ behavior-changing (goldens move, on purpose, with sign-off).
    step's own code and confirmed still failing** — step 3 deliberately
    keeps the old order-dependent behavior for `crnflag=False`, so item 10
    failing at this point is expected and is itself the checkpoint that
-   the harness actually detects the defect it's meant to detect, per the
-   working agreement's "a detector never seen detecting isn't proven to
-   work." Run §7 item 7 (the bit-identical migration proof) and
+   the harness actually detects the defect it's meant to detect: "a
+   detector never seen detecting isn't proven to work." Run §7 item 7 (the bit-identical migration proof) and
    `tests/test_golden.py`, `tests/test_solution_sensitivity.py`,
    `tests/test_rng_consumption.py` unchanged; all must stay green — every
    case, `crnflag=False` ones included, not just `rperle_tpa_crn`.
@@ -2452,9 +2452,8 @@ behavior-changing (goldens move, on purpose, with sign-off).
    **Convergence item, found during implementation, not designed in
    advance: `_hit_opt_in` (the method backing `visit`/`sync`) is a
    second replication loop, structurally parallel to `hit()`'s own —
-   same shape CLAUDE.md's own working agreement already flags for
-   `bump()` ("duplicates `hit()`'s replication loop," the stated reason
-   `bump()` is being removed).** It already drifted once before landing:
+   the same shape already flagged for `bump()` ("duplicates `hit()`'s
+   replication loop," the stated reason `bump()` is being removed).** It already drifted once before landing:
    an early version omitted `hit()`'s `m==1` special case (avoiding
    `statistics.variance()`'s two-point minimum), caught only because a
    test happened to call it at `m==1` (§7.1's own tests, not any
@@ -2529,8 +2528,8 @@ behavior-changing (goldens move, on purpose, with sign-off).
      `MAX_RI` after 201 iterations; after, it raises `OverflowError`
      from `calc_b` after ~3882 iterations, naming neither `MyRAAlg` nor
      the actual cause. Not written before this step lands — the
-     condition it describes isn't true until then (working agreement:
-     state things accurately, not in advance of being true, and not
+     condition it describes isn't true until then (state things
+     accurately, not in advance of being true, and not
      predicted instead of checked).
    - Update README's "Template RA Solver" prose (currently: "this
      template never terminates when run via `solve()`, at any budget...
@@ -2641,7 +2640,7 @@ behavior-changing (goldens move, on purpose, with sign-off).
    **Period does not transfer from MRG32k3a, and needed its own check.**
    SSJ's own javadoc states `ρ ≈ 2**185`, citing the same paper. A
    separate summary described "period near 2^186, with 2 cycles near
-   2^185" — not chased down further (per instruction: the two readings
+   2^185" — not chased down further (the two readings
    may both be true simultaneously, since total state space and
    individual cycle length are different quantities, and either way
    `2**185` is the more conservative figure and changes no downstream
@@ -2670,7 +2669,7 @@ behavior-changing (goldens move, on purpose, with sign-off).
    "one safely-isolated replication"), our margin (`2**109`) is in the
    same range as his (`2**113`), not wildly different. At the next tier
    (`ITER_STRIDE` vs his stream `Z`), ours is *more* generous
-   (`2**58` vs `2**51`, ~128×) — flagged per instruction rather than
+   (`2**58` vs `2**51`, ~128×) — flagged rather than
    assumed benign, but assessed as expected, not miscalibrated: our
    `ITER_STRIDE` governs a far finer-grained, far more frequently-
    incremented unit (one RA iteration within one run) than his "stream"
@@ -2751,7 +2750,7 @@ behavior-changing (goldens move, on purpose, with sign-off).
 
    **The capacity question (carried from §8.2), resolved into §3.9's
    finding, not a Philox-only fix.** Sized against budget-anchored
-   ceilings, not period-anchored ones, per instruction, since RASolver's
+   ceilings, not period-anchored ones, since RASolver's
    own `calc_m`/`calc_b` are that solver's schedule only — nothing in
    the framework bounds replications-per-iteration or iterations-per-run
    for an arbitrary `MOSOSolver`, only `--budget` does, loosely (each
@@ -2836,8 +2835,8 @@ behavior-changing (goldens move, on purpose, with sign-off).
    doesn't touch the default's own — confirmed directly, full suite
    green on both venvs throughout.
 
-   **Landed as:** the real work turned out to be finding #2 from this
-   step's own preparatory report, not the CLI/kwarg wiring itself —
+   **Landed as:** the real work turned out to be in `Oracle`'s
+   internals, not the CLI/kwarg wiring itself —
    `chnbase.py::Oracle` had hardcoded `.prng.mrg32k3a` imports
    throughout its own internals (`_hit_via_coordinate`, `crn_advance`,
    `_advance_replication`, `get_endseed`, `_touch_coordinate`), so
@@ -3094,7 +3093,7 @@ behavior-changing (goldens move, on purpose, with sign-off).
    place in the step list.
 
    **Correction, found preparing 6b, recorded here rather than quietly
-   folded into 6b's own scope: this step's own report overclaimed.**
+   folded into 6b's own scope: this step's own record overclaimed.**
    "This step is a prerequisite for Philox specifically becoming
    selectable for real solving" is true, but incomplete — what actually
    landed rebuilt only the Oracle-role *bookkeeping* (`_touch_coordinate`/
@@ -3263,8 +3262,8 @@ on top.
   `_hit_via_coordinate` counts each replication's actual raw draws
   (wrapping the stream's `generate` hook) and raises
   `ReplicationDrawOverflow` — not a silent overlap — if a `g()` exceeds
-  it. This was the user's explicit choice over a "generous enough that
-  nothing realistic exceeds it, and hope" posture: exceeding a finite
+  it. That was chosen over a "generous enough that nothing realistic
+  exceeds it, and hope" posture: exceeding a finite
   reserve must fail loudly (the same posture `point_code`'s own
   overflow check already established), because a reserve sized against
   today's built-in problems cannot bound an arbitrary custom `g()`.
@@ -3643,7 +3642,8 @@ exactly as `docs/end-seed-scope.md` says.
       one-dimensional benchmark cannot observe batching at all; on a
       two-dimensional bi-objective problem batching lifts the bound
       modestly at 6 workers; and 35-46% of replications are sequential
-      by necessity (entry 15).
+      by necessity (entry 15; 44-53% after Phase 7's algorithm fixes,
+      `docs/simpar-ceiling.md`, 2026-11-23).
 
     Not in this step: Spark, a cloudpickle handle, the cheaper jump
     (entry 14), infeasible-point memory (entry 13), prefetch (entry

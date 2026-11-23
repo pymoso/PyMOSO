@@ -1,5 +1,5 @@
 """
-Candidate A from the RNG-consumption-blind-spot investigation
+From the end seed's blind spot to RNG consumption
 (docs/end-seed-scope.md): golden the actual returned solution set, not
 just the end seed. Confirmed sensitive to the getrandbits() change before
 being added here -- with ranx0=True (get_ranx0 picks x0 via choice()),
@@ -127,8 +127,8 @@ def test_testsolve_ranx0_solution_sets_match_baseline():
 # cases) and rperle_tpa's three times before that (docs/end-seed-scope.md,
 # the seventh instance). Each call here is its golden case's computation
 # through the library; every end seed was checked against the case's
-# golden when these were captured (twice on each of .venv-baseline and
-# .venv-dev, identical). The same caveat as the module docstring's: a
+# golden when these were captured (twice on each of CPython 3.10 and
+# CPython 3.14, identical). The same caveat as the module docstring's: a
 # solver change can move these legitimately. rperle_tpa stands for the
 # solve() library call too, which is the same call.
 # ---------------------------------------------------------------------------

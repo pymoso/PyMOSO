@@ -1,7 +1,7 @@
 # Phase 7 scratch: two measurements made after step 1
 
 Not part of the package or the suite. Run from the repository root with
-`.venv-dev/bin/python scratch/phase7/<script>`. The write-up is in
+`python scratch/phase7/<script>` (Python 3.14). The write-up is in
 `docs/phase7-plan.md` (step 1, "At three or more objectives", and step
 1b).
 

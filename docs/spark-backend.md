@@ -1,9 +1,7 @@
 # Running PyMOSO on Spark, and from a notebook
 
-Phase 4 of the 2.0.0 work. This document is both the record of what
-was measured and decided, and — until the README is rewritten — the
-only user-facing description of the Spark backend and the `notebook`
-extra.
+Phase 4 of the 2.0.0 work. This document is the record of what was
+measured and decided about the Spark backend and the `notebook` extra.
 
 Local measurements: 2026-10-12, AMD Ryzen 5 5600X3D (6 cores, 12
 threads), Python 3.14 unless noted, pyspark 4.2.0, MRG32k3a. Mostly
@@ -90,7 +88,8 @@ The ceiling is not Spark's. An RA solver asks for a handful of
 replications and waits for the answer; with *infinite* workers the
 batched bounds in `docs/simpar-ceiling.md` are 5.5x to 11.5x, and
 35-46% of an RA run's replications are requested one point at a time
-by necessity. Two hundred cores buy at most that.
+by necessity (44-53% after Phase 7's algorithm fixes;
+`docs/simpar-ceiling.md`, 2026-11-23). Two hundred cores buy at most that.
 
 Two things say this to a user who did not read this page: the
 `pymoso.backends.spark` module docstring, and the error `solve()`
@@ -190,13 +189,13 @@ They are recorded because both were natural readings, and the next
 reader will be tempted by the same ones.
 
 1. **"A 1.7 s replication nearly saturates its bound: 9.55x against
-   10.04."** This was the maintainer's summary of run 3's last row,
-   given as an instruction for what this document should say. It took
+   10.04."** This reading of run 3's last row was first written into
+   this document. It took
    the block's `x` at face value. The wall time gives 6.1x. The fault
    is the measure, not the reader: the notebook printed a column
    labelled `x` next to one labelled `bound` without saying that `x`
-   was work over wall time, and the person who commissioned the
-   measurement was misled by it within a day. The kit's design is
+   was work over wall time, and it was misread that way within a
+   day. The kit's design is
    what should have prevented that, and did not.
 2. **"Bit-identity across two CPU generations, hosts=3."** True, but
    not of the executors, which is how it was first put. Within every
@@ -370,7 +369,7 @@ as they were typed.)
   were classic sessions with a `sparkContext`. That the backend's
   `range()`-and-UDF route works under Connect is established only
   against a local Connect server; that Databricks serverless and
-  shared-access clusters are Connect is still from memory.
+  shared-access clusters are Connect is not checked.
 - **More than three executor hosts,** and any scaling curve on a
   cluster of known, fixed size.
 - **Executors that are not x86-64,** a libc other than glibc, or
@@ -517,7 +516,7 @@ SUM 9a965c9e lines=38
 ## High dimension: what a cluster does and does not change
 
 **Corrected during Phase 4.** This section first recorded, as the
-phase's brief did, that the built-in RA solvers are limited to about
+phase's plan did, that the built-in RA solvers are limited to about
 nine dimensions by something structural -- they enumerate a `3**dim`
 neighbourhood -- and that serving high-dimensional users would need a
 new solver. That was wrong. It was one helper's implementation, it is
@@ -667,8 +666,8 @@ This was not a matter of taste. **A Spark Connect session has no
 `sparkContext`**: no `parallelize`, no RDDs, no broadcast variables.
 Verified locally (`JVM_ATTRIBUTE_NOT_SUPPORTED`) and pinned by
 `tests/test_spark_backend.py`. Spark Connect is what Databricks
-serverless and shared-access clusters provide — **that part is from
-memory and has not been checked against a Databricks runtime.** If it
+serverless and shared-access clusters provide — **that part has not
+been checked against a Databricks runtime.** If it
 is right, an RDD-based backend would not have run where most notebook
 users are; the DataFrame route exists on both kinds of session.
 
@@ -692,7 +691,7 @@ Three forms of `executor.ClassRef`:
 Two things found by measurement rather than assumed:
 
 **The source bundle does not need a shared filesystem.** Phase 4's
-brief said it did. `_build_source_bundle` reads the files in the
+plan assumed it did. `_build_source_bundle` reads the files in the
 parent and ships their text; a handle was built, its directory
 deleted, and the handle loaded in a fresh process in another
 directory, where it simulated correctly. What a bundle does assume:

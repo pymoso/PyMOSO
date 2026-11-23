@@ -45,7 +45,7 @@ DRAWS_PER_OFFSET = 1
 # scratch/task1_mechanism.py, checked directly (grepped the whole repo,
 # tracked and untracked) rather than assumed -- a one-off diagnostic
 # script from the original float-precision-defect investigation
-# (KNOWN_ISSUES.md issue 1), hardcoding an absolute personal path, whose
+# (KNOWN_ISSUES.md issue 1), whose
 # findings are already captured in docs/phase2a-verification.md; nothing
 # else imports either name from this module. Not carrying a compatibility
 # re-export for a script that won't run again.
@@ -413,8 +413,9 @@ def validate_seed(tokens):
     §3.2/§3.7: validate raw --seed tokens (strings, from the CLI, or
     already-int values from the library path) against MRG32k3a's own
     shape -- exactly 6 integers. Division of responsibility: argparse
-    parses --seed generically (nargs='+', no type= coercion); this is
-    the generator-specific check that runs once selection resolves.
+    takes --seed as one comma-separated token, with no type= coercion;
+    this is the generator-specific check that runs once selection
+    resolves.
 
     Parameters
     ----------

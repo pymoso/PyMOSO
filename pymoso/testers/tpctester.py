@@ -108,9 +108,9 @@ class TPCTester(object):
 
 # The 516 N_1-local weakly efficient sets (LWESs) of the dissertation's
 # Online Appendix E, as decision points; the metric is the local weakly
-# coverage error. These are the published object, converted once from the
-# 2018 work's lescombos.pkl (docs/reference/, with its provenance and the
-# full account in docs/reference/tpc-reference-sets.md); nothing here
+# coverage error. These are the published object, converted once from
+# lescombos.pkl, from a PyMOSO ancestor (docs/reference/, with the details
+# in docs/reference/tpc-reference-sets.md); nothing here
 # loads the pickle. Before 2.0 soln held their images, under which the
 # 516 collapse to 66 distinct sets, because ProbTPC's objectives are
 # symmetric under (x1, x2, x3) -> (x3, x2, x1).

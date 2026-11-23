@@ -20,7 +20,8 @@ numbers must not be quoted.
 
 1. **Fix the `x` column of the `R` lines.** It is task work time over
    wall time, and under contention it overstates the speedup (9.55
-   printed for 6.1). It misled the person the measurement was for.
+   printed for 6.1), and it was misread that way
+   (docs/spark-backend.md).
    Print the wall time, and a speedup against an uncontended cost per
    replication -- for instance one measured by running a few blocks
    alone first.
@@ -64,7 +65,7 @@ What follows is the run sheet as it was used.
 2. If `pymoso/` changed since the known-good values were generated,
    regenerate them and push again:
 
-       .venv-extras/bin/python docs/databricks/dbx_kit.py gen /path/to/a/python3.11
+       python docs/databricks/dbx_kit.py gen /path/to/a/python3.11
 
    The second interpreter is any Python older than 3.12 with pymoso
    installed; one value differs across that boundary (below). The

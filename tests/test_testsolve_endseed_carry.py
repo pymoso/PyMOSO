@@ -11,7 +11,7 @@ those other two files.
 
 run_paths is monkeypatched to return controlled per-path
 oracle_high_water_mark values directly -- MRG32k3a's own
-ISP_ITER_MARGIN=2**32 makes the raise unreachable through real solving,
+ISP_ITER_MARGIN=2**31 makes the raise unreachable through real solving,
 the same reason tests/test_oracle_endseed.py's own boundary tests use
 white-box state instead of millions of real iterations.
 """

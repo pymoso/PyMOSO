@@ -2,10 +2,11 @@
 
 `TPCTester.soln` is the 516 N_1-local weakly efficient sets (LWESs) of the
 dissertation's Online Appendix E, as decision points. They were converted
-once from the 2018 work's own point sets, `lescombos.pkl`, which sits beside
-this file. This document records what the two 2018 files are, how they
-relate to what PyMOSO shipped, and what they do and do not establish.
-Measured 2026-11-18. The scripts are outside the repository (see the end).
+once from `lescombos.pkl`, which sits beside this file and, like
+`exples.pkl`, came from a PyMOSO ancestor. This document records what the
+two files are, how they relate to what PyMOSO shipped, and what they do and
+do not establish. Measured 2026-11-18; the scripts are not in the
+repository.
 
 ## The two files
 
@@ -18,7 +19,7 @@ The provenance and hashes are in [README.md](README.md).
 - The appendix's numbers are "516 unique N_1-LWES's" containing "just 73 points".
 
 **`exples.pkl`**
-- A list of 516 sets of float pairs: the images of those point sets under the 2018 deterministic oracle.
+- A list of 516 sets of float pairs: the images of those point sets under the ancestor's deterministic oracle.
 - They are 66 distinct sets, holding 43 distinct images.
 - This is the shape `TPCTester.soln` shipped in until 2.0.
 
@@ -58,7 +59,7 @@ Point sets per image set:
 
 ## The definitions, and the predicate tested here
 
-The dissertation's definitions, verbatim from `ch3.tex` (defn:LWEP and defn:LWES):
+The dissertation's definitions of an LWEP and an LWES, verbatim from Chapter 3:
 
 > A point $\mathbf{x}^\mathrm{w}\in\mathcal{X}$ is an *$\mathcal{N}_a$-local weakly efficient point* (LWEP) if
 > 1. $\nexists\mathbf{x}\in \mathcal{N}_a(\mathbf{x}^\mathrm{w})\cap\mathcal{X}$ such that $\mathbf{g}(\mathbf{x}) < \mathbf{g}(\mathbf{x}^\mathrm{w})$; or equivalently, if
@@ -71,9 +72,9 @@ The dissertation's definitions, verbatim from `ch3.tex` (defn:LWEP and defn:LWES
 
 **The notation, from the same chapters:**
 - $\mathcal{N}_a(\mathbf{x})$ is the lattice points within distance $a$ of $\mathbf{x}$. The neighbourhood of a set is the union of its points' neighbourhoods.
-- $\mathcal{N}'_a(\mathcal{A}) = \mathcal{N}_a(\mathcal{A})\setminus\mathcal{A}$ is the deleted neighbourhood (ch3.tex:104-105).
+- $\mathcal{N}'_a(\mathcal{A}) = \mathcal{N}_a(\mathcal{A})\setminus\mathcal{A}$ is the deleted neighbourhood (Chapter 3).
 - $<$ is strict dominance: smaller in every objective.
-- $\leqq$ is weak dominance: no larger in any objective (ch1.tex, Definition "natural").
+- $\leqq$ is weak dominance: no larger in any objective (Chapter 1).
 
 **The predicate tested** for every count in this document (the 516 checked, the 119,392 and the 118,876) is the set-level definition, all three parts (a), (b) and (c), as quoted:
 - **(a)** no feasible N_1-neighbour of any member strictly dominates it;
@@ -85,12 +86,12 @@ Values within 1e-12 are treated as equal. Part (a) alone, the pointwise conditio
 **512 LWEPs against 73 members is expected, not a discrepancy.**
 - Being an LWEP is pointwise: a point is compared only with its own neighbours.
 - Membership of an LWES adds the set-level conditions (b) and (c) over everything the set's neighbourhood reaches. An LWEP can fail them in every set that contains it.
-- The dissertation says so itself, in ch3.tex near its definitions: "under our definitions, there may exist $\mathcal{N}_a$-LWEP's that do not belong to an $\mathcal{N}_a$-LWES". The appendix closes the same way: "Recall that there are 512 $\mathcal{N}_1$-LWEP's, so not all $\mathcal{N}_1$-LWEP's are members of an $\mathcal{N}_1$-LWES."
+- The dissertation says so itself, in Chapter 3 near its definitions: "under our definitions, there may exist $\mathcal{N}_a$-LWEP's that do not belong to an $\mathcal{N}_a$-LWES". The appendix closes the same way: "Recall that there are 512 $\mathcal{N}_1$-LWEP's, so not all $\mathcal{N}_1$-LWEP's are members of an $\mathcal{N}_1$-LWES."
 - **Measured:** 512 of the 9,261 feasible points are N_1-LWEPs under today's `true_g`, which is the appendix's count. 73 of them are members of the published sets.
 
 ## What the appendix says, and what the procedure finds
 
-The appendix (dissertation `ch3.tex`, Online Appendix E) opens with its aim and closes its count procedurally:
+The appendix (the dissertation's Online Appendix E) opens with its aim and closes its count procedurally:
 
 > To calculate the collection of all possible $\mathcal{N}_1$-LWES's in Problem $T_C$, we first locate all $\mathcal{N}_1$-LWEP's; we find 512. ... The total number of unique $\mathcal{N}_1$-LWES's found in this manner, up to level-8, was 516.
 
@@ -122,7 +123,7 @@ An example of an LWES that is not in the 516 is {(0, 0, 0), (0, 9, 9), (9, 0, 0)
 Before the 516 were available, `TPCTester.soln` was rebuilt from the shipped images. Each image set was stored as every feasible point whose image is in it, which is the mirror-closed preimage. That version was never committed. It differs from the published sets as follows:
 
 - **63 of the 66 are themselves among the 516.**
-- **3 are neither one of the 516 nor the union of their group.** Each is a valid LWES that the 2018 code never produced.
+- **3 are neither one of the 516 nor the union of their group.** Each is a valid LWES that the published collection does not contain.
   - Each contains every published set with its images, plus (9, -3, -3), (9, -2, -3) and (9, -2, -2).
   - Those points are the mirrors of points in those groups' published sets, but no published set of those groups holds them.
   - The three have 11, 9 and 11 points. Their groups have 3, 1 and 3 published sets, of at most 8, 6 and 8 points.
@@ -134,7 +135,7 @@ Before the 516 were available, `TPCTester.soln` was rebuilt from the shipped ima
 **Measured:** over the 9,709 T_C solution sets in the R-PERLE runs at budget 4 × 10^6, the 516 and the 66 representatives gave bit-identical metric values.
 
 **What changed against 1.1.0:**
-- The reference images used to be the 2018 floats. Now they are today's `true_g` on the points, computed when the tester is made.
+- The reference images used to be the ancestor's floats, from `exples.pkl`. Now they are today's `true_g` on the points, computed when the tester is made.
 - So full coverage measures exactly 0. Before, a run covering a set that holds one of the 7 images that differ from `true_g` scored about 1e-15.
 - Over those runs, 38 values moved, by at most 8.9e-16, and 16 became exactly 0.
 
@@ -145,19 +146,10 @@ Before the 516 were available, `TPCTester.soln` was rebuilt from the shipped ima
 - An LWES with a different image set would need a search over point sets built from all 512 LWEPs. None was attempted: done naively it means subsets of 512 points, and a search that uses the problem's structure has not been designed.
 - Neither the appendix's procedure nor anything here shows that no such set exists.
 
-**T_C's reference is therefore the published object, verified point set by point set against the definition, but its completeness rests on that 2018 procedure.**
+**T_C's reference is therefore the published object, verified point set by point set against the definition, but its completeness rests on the appendix's procedure.**
 
 **T_A's and T_B's references are in a different position:**
 - T_A's is proved exactly. It is the global efficient set, checked in integer arithmetic.
 - T_B's is proved by hand.
 - Both are in `tests/test_tester_reference_sets.py`.
 
-## Where the measurements came from
-
-These are in `/srv/projects/pymoso-runs/rperle-4e6/analysis/soln-points/` on the maintainer's machine, which is not version-controlled:
-- `lescombos.py` and `lescombos_detail.py`: items 1–3 above and the mirror analysis.
-- `mapping.py`: the 0.5·k mapping.
-- `convert_lescombos.py`: the one-time conversion, with its round-trip check.
-- `investigate.py`, `weak.py` and `ties.py`: the earlier analysis of the shipped images.
-
-Each has a `.out` beside it.

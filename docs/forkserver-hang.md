@@ -94,7 +94,7 @@ def call_compute(cls, x):
 
 def main(start_method):
     mod_name = 'pymoso.problems.customprob'
-    spec = importlib.util.spec_from_file_location(mod_name, '/tmp/repro2/customprob.py')
+    spec = importlib.util.spec_from_file_location(mod_name, 'customprob.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     sys.modules[mod_name] = module
@@ -209,7 +209,7 @@ that a worker loads -- and `cloudpickle` stays an optional dependency
 of whichever backend wants it (docs/rng-interface-design.md, §11).
 
 **Correction (Phase 4 of the 2.0.0 work).** Three statements in this
-section, and one in the brief that Phase 4 started from, turned out
+section, and one in the plan that Phase 4 started from, turned out
 wrong when the remote case was actually built and measured. They are
 left in place above; this is what replaced them. Details and
 measurements: docs/spark-backend.md.
@@ -217,7 +217,7 @@ measurements: docs/spark-backend.md.
 1. *"No shared filesystem access to `probarg`'s original path" is not
    a problem the source bundle has.* The section above lists "a file
    path (if shared storage can be assumed)" among the options, and
-   Phase 4's brief stated that Phase 3's transport "assumes a shared
+   Phase 4's plan stated that Phase 3's transport "assumes a shared
    filesystem for source-bundle handles". It does not. The bundle
    that was built reads the user's files in the parent and ships
    their **text**; the worker never opens a path. Checked directly: a
@@ -270,7 +270,7 @@ across `chnbase.py`/`chnutils.py`, each with its own lifecycle and
 error-handling story) rather than about any one instance. Belongs in
 the case for an executor rework, not as four separate point fixes.
 
-No fix proposed or written here, per instruction — diagnosis only.
+No fix was proposed or written here: this is diagnosis only.
 
 ## Resolution (Phase 3)
 

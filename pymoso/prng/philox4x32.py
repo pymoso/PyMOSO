@@ -85,7 +85,7 @@ KEY_BITS = 64        # Philox4x32's own native key width
 # §3.7/§12 step 6b: this generator's own default seed -- 2 integers,
 # this module's own base-key shape (§3.7's "MRG31k3p's and Philox-4x32's
 # own defaults are undetermined here -- folded into their onboarding
-# steps"). Proposed and approved as (12345, 12345): same reasoning as
+# steps"). (12345, 12345), for the same reasoning as
 # MRG31k3p's own default -- consistency/memorability across every
 # registered generator's default, and avoids (0, 0) reading like an
 # uninitialized/null seed if copied as a real example.
@@ -167,19 +167,10 @@ def validate_seed(tokens):
 # scoped PointCodeOverflow/VisitOverflow/ReplicationOverflow, at
 # assembly time, before stream_at ever sees it.
 #
-# NOT YET WIRED IN: oracle.py's own coordinate assembly (Oracle.
-# _hit_via_coordinate) still calls pymoso.prng.base.point_width/
-# offset_within_iteration unconditionally, with no generator-selection
-# argument at all -- nothing anywhere in the framework calls this
-# module's point_width/offset_within_iteration below yet. This step
-# only builds the mechanism and proves it correct in isolation, the
-# same posture step 5/6 already established for onboarding a generator
-# ahead of its own CLI reachability. §12 step 6b (not yet landed) is
-# what threads a selected generator through Oracle's own internals so
-# this budget is actually honored on a real solve()/testsolve() run --
-# until then, Philox remains not usable for real solving through this
-# codebase's own coordinate path, only through direct, standalone
-# stream_at calls, exactly as before this step.
+# §12 step 6b threaded the selected generator through Oracle's own
+# coordinate assembly (oracle.py, _hit_via_coordinate, which reads
+# these figures from the selected backend), so this budget is what a
+# real solve()/testsolve() run under Philox packs against.
 OFFSET_CAPACITY = 1 << 118
 
 # Counter-space arithmetic (Phase 7, written out when the counter order

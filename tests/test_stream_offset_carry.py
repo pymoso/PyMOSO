@@ -16,7 +16,7 @@ boundary (must not raise) and one past it (must raise), the same
 this project uses throughout. This is now practically exercisable with
 small numbers precisely because Philox's own strides are budget-
 anchored rather than absurd (docs/rng-interface-design.md §12 step 6) --
-MRG32k3a's own ISP_ITER_MARGIN=2**32 makes the same boundary real but
+MRG32k3a's own ISP_ITER_MARGIN=2**31 makes the same boundary real but
 impractical to reach in a test with real generator machinery.
 """
 import pytest

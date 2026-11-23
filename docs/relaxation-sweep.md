@@ -1,4 +1,4 @@
-# Which relaxation arithmetic produced the preprint's beta study
+# The preprint's beta study against PyMOSO's old relaxation arithmetic
 
 Phase 7, after step 7 (2026-10-19). A follow-up to
 `docs/algorithm-audit.md` finding 2. Regenerate with
@@ -11,21 +11,16 @@ these tables: **`docs/beta-sweep-reference.md` has the reference
 figures for the current code** (2026-10-21, re-measured 2026-11-16), and this document is the
 record of the old code's.
 
-**Corrected 2026-11-19: the conclusion below stands.** On 2026-10-19
-it was withdrawn, on the grounds that the published figures came from
-earlier code whose formula was unknown. That code has since been read
-(the 2018 experiment code, kept outside this repository): it computes
-the relaxation as `se/pow(m, beta)` with `se` the standard error, the
-same formula as the code swept here. So the experiments did use the
-old formula, as this sweep's match indicated (`docs/algorithm-audit.md`,
-finding 2). The 2018 code differs from the swept code in other ways,
-which may account for the right-hand rise the sweep could not
-reproduce; that is not established. The authors decided the
-preprint's formula is the intended one, and the code was fixed to it.
-The measurements stand as measurements of the code as it was, and the
-no-CRN result stands on its own (`docs/phase7-plan.md`, step 8). The
-tables were run with the old formula, so their "shipped beta" is the
-old code's β.
+**The conclusion is consistent with the published figures, not
+established.** The sweep below finds the published β study matching
+PyMOSO's old relaxation arithmetic, se / m^β, and not the preprint's
+formula. A match shows consistency; it does not establish which code
+produced the published figures, and nothing in this repository can.
+The preprint's formula is taken as the intended one, and the code was
+fixed to it (`docs/algorithm-audit.md`, finding 2). The measurements
+stand as measurements of PyMOSO's code as it was, and the no-CRN result
+stands on its own (`docs/phase7-plan.md`, step 8). The tables were run
+with the old formula, so their "shipped beta" is the old code's β.
 
 ## The question
 
@@ -118,33 +113,33 @@ left panels), so good to about 0.1:
 
 **Read as shipped β (the old arithmetic), the left side and the
 minimum match:**
-- T_A: our median is 0.99 at 0.1, 0.63 at 0.2, and least at 0.3-0.4
+- T_A: these runs' median is 0.99 at 0.1, 0.63 at 0.2, and least at 0.3-0.4
   (0.44); the published curve falls from about 1.15 at 0.1 to its
   minimum in (0.2, 0.4).
-- T_C: the published plateau, 0.65, is the value our runs settle on
+- T_C: the published plateau, 0.65, is the value these runs settle on
   (0.646), from shipped 0.1 up. The published left edge (median about
-  1.05, q0.75 about 2.3 at 0.1) resembles our shipped 0.0 (1.04, 1.82),
+  1.05, q0.75 about 2.3 at 0.1) resembles shipped 0.0 here (1.04, 1.82),
   one grid step to the left.
 
 **Read as preprint β, nothing matches:**
 - T_A: the published sweet spot, preprint 0.2-0.4, is shipped -0.3 to
-  -0.1, where our medians are 1.64-1.67, on a flat plateau, more than
-  twice the published minimum. Our minimum would sit at preprint
+  -0.1, where these runs' medians are 1.64-1.67, on a flat plateau, more
+  than twice the published minimum. Their minimum would sit at preprint
   0.8-0.9, where the published curve is already rising.
 - T_C: preprint 0.1-0.3 is shipped -0.4 to -0.2, medians 3.3, 2.7 and
   1.8 against the published 1.05, 0.65 and 0.65.
 
 **Not matched under either reading: T_A's right side.** The published
 median rises steadily above 0.4, to about 1.25 at 1.0 and 1.6 at 1.5;
-ours stays at 0.44-0.55 up to shipped 1.0 (preprint 1.5). The same is
+here it stays at 0.44-0.55 up to shipped 1.0 (preprint 1.5). The same is
 true of T_C's upper quartile, which rises in the figure and stays at
-0.646 in ours. This is a difference between our runs and the
+0.646 here. This is a difference between these runs and the
 published ones that neither arithmetic explains. Unknown: candidates
-are differences between the 2018 code and today's that are not
-supposed to change behaviour, the 1,000 runs against 100, and how the
-figures define Â(t); none was tested.
+are differences between the code swept here and whatever produced the
+figures, the 1,000 runs against 100, and how the figures define Â(t);
+none was tested.
 
-**Conclusion (withdrawn; see the note at the top):** the published
+**Conclusion (consistent with, not established; see the note at the top):** the published
 β study is consistent with the shipped arithmetic, se / m^β, and
 inconsistent with the preprint's formula. If so, the published β
 values, including the defaults and the (0.2, 0.4) sweet spot, are in

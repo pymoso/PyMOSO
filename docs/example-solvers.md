@@ -98,8 +98,8 @@ m`. Not fixed.
 
 The cross-point stream sharing `update_gbar` implements — points at the
 same cumulative sample-effort level (`nx[x]`) drawing the same underlying
-random numbers — is the solver's intended policy, confirmed
-**deliberate** by the code's author, not an accident. The
+random numbers — is the solver's intended policy, **deliberate**,
+not an accident. The
 *implementation* has a real bug: `self.seeds` is a single dict keyed by cumulative replication count,
 shared across every point, and when two points reach the same count in
 the same pass (common — `sar()` often returns identical `ax` for many

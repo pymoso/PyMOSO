@@ -120,8 +120,8 @@ def test_dh_matches_standard_definition_on_a_hand_worked_example():
 # sets as trivially identical (distance 0), but under this codebase's
 # literal sup(empty)=-inf/inf(empty)=+inf conventions, dAB(empty,empty)
 # is -inf regardless of the other argument, so dh(empty,empty) = -inf.
-# Flagging this as a question rather than asserting either -inf or 0 is
-# "the" right answer -- see the phase 4 report.
+# Flagged as a question rather than asserting either -inf or 0 is
+# "the" right answer.
 # ---------------------------------------------------------------------------
 
 def test_dh_nonempty_vs_empty_is_positive_infinity():

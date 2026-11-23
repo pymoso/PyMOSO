@@ -15,8 +15,8 @@ against a copied docstring, and needing no such dependency.
 `tests/test_cli.py` is the live, ongoing contract against the real CLI.
 
 This redoes the earlier fork's own phase 2c against
-github.com/pymoso/PyMOSO's actual `cli.py`, per Step 0's instruction not
-to assume the earlier report still applies. It mostly does: `cli.py`'s
+github.com/pymoso/PyMOSO's actual `cli.py`, without assuming the
+earlier fork's findings still applied. It mostly does: `cli.py`'s
 docopt usage string is byte-identical between what was characterized on
 the earlier fork and this branch (confirmed by diffing the full file,
 not just the usage block — none of the 13 commits between the shared
@@ -84,7 +84,7 @@ convention (`parser.error()`), where docopt exited **1** (a bare
 exit 0 in both versions). Any script currently checking `$? == 1` to
 detect a pymoso CLI usage error needs updating to check for `2`.
 
-## 4. Positive-integer validation: moved to argparse's native `type=`, as instructed
+## 4. Positive-integer validation: moved to argparse's native `type=`
 
 `--budget`/`--simpar`/`--isp`/`--proc` validation moved from
 `basecomm.validate_positive_int` (commit `82c177b`: print to
@@ -92,10 +92,10 @@ detect a pymoso CLI usage error needs updating to check for `2`.
 (argparse's `parser.error()`: message to **stderr**, exit **2**). Same
 protection, deliberately different presentation — `tests/test_cli_validation.py`
 updated accordingly (that test predates this migration; updating its
-assertions to match an instructed, reported change is not silently
+assertions to match a deliberate, recorded change is not silently
 breaking a test).
 
-**Bonus, unrequested but free**: a non-integer value (`--budget=abc`)
+**A side benefit**: a non-integer value (`--budget=abc`)
 used to be accepted by docopt as a bare string and only fail downstream
 in `commands/solve.py`'s own `int(...)` call, producing a raw,
 user-facing Python traceback (exit 1). It's now rejected at parse time

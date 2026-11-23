@@ -6,7 +6,7 @@ KeyError-vs-ValueError analysis from docs/phase1-review.md risk #5.
 """
 import sys
 import traceback
-sys.path.insert(0, '/home/kyle/Documents/PyMOSO')
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1]))
 
 from pymoso import chnutils
 from pymoso.problems.probtpa import ProbTPA

@@ -213,7 +213,7 @@ def test_negative_visit_raises():
 # ---------------------------------------------------------------------------
 # visit=: basic exactness (not named in items 11-12, but landed alongside
 # sync in this step and deserves the same discipline as any other new,
-# explicitly-invoked path -- CLAUDE.md's "no half-finished implementations").
+# explicitly-invoked path).
 # ---------------------------------------------------------------------------
 
 def test_visit_matches_the_offset_within_iteration_formula():

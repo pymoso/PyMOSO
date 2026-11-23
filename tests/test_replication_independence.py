@@ -125,7 +125,7 @@ def test_replications_do_not_share_raw_draws_heavier_problem():
 # ---------------------------------------------------------------------------
 # The reserve is finite (2**REPL_RESERVE_BITS raw draws/replication) --
 # exceeding it must raise, not silently overlap the next replication's
-# block (the user's explicit choice: "I'd want the raise").
+# block (by decision: exceeding it raises).
 # ---------------------------------------------------------------------------
 
 class OverflowOracle(Oracle):

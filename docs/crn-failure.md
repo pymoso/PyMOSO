@@ -71,8 +71,8 @@ replication pairs, and the correlation is 0.91. Even on `CycRare`,
 built to be the bad case, it falls to 0.59, not to zero; at T = 300,
 0.52.
 
-**My own prediction, refuted too.** I predicted the correlation would
-fall roughly in proportion to the share of a replication completed
+**A second prediction, stated in advance, refuted too:** that the
+correlation would fall roughly in proportion to the share of a replication completed
 before the counts part. The T sweep says otherwise. With T = 300
 periods, the two points' cumulative draw counts are equal for only 7%
 of a replication on average, yet the correlation is 0.87 (holding) and
@@ -247,12 +247,12 @@ were held to those values pair by pair.
   The correlation is lowest where the step moves customers across a
   capacity (overflow 0.51 at x1 = 8 to 9 with capacity 9) or sends the
   first customers to A (idle + transfer 0.20 at x1 = 0), **not near a
-  balanced allocation, as I predicted.**
+  balanced allocation, as predicted.**
 - **`Split`, the conservation case.** A fixed total demand of 20 split
   between two substitutes by one shared preference draw. Exact only:
   the enumeration is the answer and a simulation would add only noise.
   No axis pair is negative (smallest 0.69); 2 of 400 swap pairs are, at
-  -0.05. **My prediction, that it would go negative near the balanced
+  -0.05. **The prediction, stated in advance, that it would go negative near the balanced
   stocking point, is refuted, and was refuted before anything was
   built.** The split makes the two products respond in opposite
   directions at the same point; CRN compares one objective at two
@@ -286,8 +286,8 @@ reproduce the earlier ones exactly):
   and R-PERLE: better on 15 of 20 seeds at 20,000 (median 0.21 against
   2.7-3.0), and slightly better at 5,000 (11-13 better, 5-7 worse;
   medians 3.4-3.5 against 3.7-3.8).
-  R-MinRLE: even (9 better, 10 worse; median 2.83 against 1.93). My
-  reasoning, not measured: a solver compares neighbours with each
+  R-MinRLE: even (9 better, 10 worse; median 2.83 against 1.93).
+  Reasoning, not measured: a solver compares neighbours with each
   other as well as with x, and those comparisons (x + e1 against
   x + e2) share a parity and keep a correlation of about 0.99.
 - **`Route`:** CRN better than default in 10-12 of 20 seeds at 20,000,
@@ -411,22 +411,22 @@ problems exercises this failure.
   every solver. The mechanism stated, "everything after the divergence
   is effectively independent", is right for a fixed cycle shifted for
   good, and only partly right otherwise.
-- **Mine, "correlation falls in proportion to the synchronized share":
+- **The second prediction, "correlation falls in proportion to the synchronized share":
   refuted.** Equal draw counts are the wrong measure of
   synchronization; draws used in the same role, at any offset, are the
   right one.
 - **"Threshold structure gives a genuinely negative covariance":
   refuted, by the Chebyshev argument in advance and by `Route` after.**
-  Positive at every pair. Mine, that it dips near the balanced
+  Positive at every pair. A further prediction, that it dips near the balanced
   allocation: wrong about where; it dips at capacity boundaries.
-- **Mine, "a split between substitutes goes negative near the balanced
+- **The prediction "a split between substitutes goes negative near the balanced
   stocking point": refuted by exact enumeration, before building.**
 - **The rates' race, inferred in part 2:** confirmed by measuring the
   two rates; the in-role share they predict is within 2 points.
 
 ## How often the apparatus was wrong
 
-Six times in this step, plus one prediction of mine, each caught by a
+Six times in this step, plus one prediction stated in advance, each caught by a
 check or by a contradiction between two measurements before any
 conclusion rested on it. That is the reason to trust what survived.
 Counted are errors that would have produced a wrong number or a false

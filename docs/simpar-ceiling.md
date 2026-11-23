@@ -20,7 +20,9 @@ proposing any work on `--simpar`'s speed.**
      35-38% of all replications are requested one point at a time by
      necessity** (`ne()`'s first-improvement search and `spli()`'s
      line search), and no batching can reach them. (RPERLE; up to 46%
-     for the other RA solvers.)
+     for the other RA solvers.) [2026-11-23: 44-53%, 51% for RPERLE,
+     after Phase 7's algorithm fixes; "After the cheaper jump (Phase 7
+     step 3)" below.]
    - **that figure is a non-CRN number. Do not quote it for `--crn`.**
      The one `--crn` run surveyed had a sequential share of 18%
      against 35-46% without. That is one run, and `--crn` was not
@@ -608,9 +610,8 @@ pickling costs are small (below). H3 does not describe the Light
 tiers, which sit at 37-64% of their bound. It does describe Moderate
 and Heavy in one dimension, at 85-94%, and those did not change.
 
-Written predictions and the raw output of every run are kept outside
-the repository, with the rest of the session's scratch material. They
-are not needed to read this section.
+Written predictions and the raw output of every run are not in this
+repository; they are not needed to read this section.
 
 ### The workloads changed between Phase 4 and here
 

@@ -30,8 +30,7 @@ def test_empty_input_disagrees_with_the_definition():
     cardP > 1: ...` with no branch for cardP == 0, so it falls through
     and implicitly returns None; get_nondom then does
     `Mpts, Mobjs = front(...)`, which raises TypeError on that None.
-    Asserting the actual (buggy) behavior here, not the correct one --
-    see the phase 4 report.
+    Asserting the actual (buggy) behavior here, not the correct one.
     """
     with pytest.raises(TypeError):
         get_nondom({})
@@ -130,7 +129,7 @@ def test_duplicate_values_one_objective():
 
 
 def test_identical_objective_vector_is_the_same_as_duplicate_values():
-    """Same case, stated the way the task frames it: points with
+    """Same case, stated as points with
     identical objective vectors. Confirms get_nondom doesn't collapse
     them or arbitrarily drop one."""
     edict = {(10,): (7,), (20,): (7,), (30,): (7,)}

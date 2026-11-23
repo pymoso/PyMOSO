@@ -1,12 +1,12 @@
 """
 Regression test for the --simpar worker-leak hang.
 
-chnutils.solve() spawns self.simpar worker Process objects
-(Oracle.set_simpar) before running the RA loop, and only tears them
-down (Oracle.mp_cleanup) if that loop returns normally. An infeasible
+chnutils.solve() used to spawn self.simpar worker Process objects
+(Oracle.set_simpar) before running the RA loop, and only tear them
+down (Oracle.mp_cleanup) if that loop returned normally. An infeasible
 x0 raises a ValueError from RASolver.get_min partway through, skipping
-teardown: the workers are non-daemon and block forever on
-input.get() (chnbase.py's mp_worker), so Python's multiprocessing
+teardown: the workers were non-daemon and blocked forever on
+input.get() (the since-removed chnbase.mp_worker), so Python's multiprocessing
 atexit machinery hangs the whole CLI process trying to join them at
 exit, instead of exiting after printing the error. Confirmed directly
 by hand before this test existed: `pymoso solve --simpar=4
@@ -16,17 +16,17 @@ before being killed.
 
 The property under test is *that the process exits at all* within a
 generous timeout -- not any particular exit code. Do not tighten this
-to assert a specific returncode later: today it's whatever
-sys.exit(1)/the OS produces on an unhandled hang-then-kill, and once
-the fix below lands it becomes a clean 1, but a future refactor to the
+to assert a specific returncode later: before the fix it was whatever
+the OS produced on a hang-then-kill, and after it a clean 1, but a
+future refactor to the
 error-handling path could legitimately change that number without
 reintroducing the hang this test exists to catch. The only thing that
 must never regress is "the process exits."
 
 Confirmed failing (times out) before the fix: Oracle.set_simpar/
 mp_cleanup wrapped in a context manager so teardown runs on every exit
-path, not just the successful one (see chnbase.py, Oracle.__enter__/
-__exit__, and chnutils.solve()'s `with orc.set_simpar(simpar):`).
+path, not just the successful one (see oracle.py, Oracle.__enter__/
+__exit__, and chnutils.solve()'s `with orc.set_simpar(...)`).
 """
 import subprocess
 

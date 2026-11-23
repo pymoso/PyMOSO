@@ -8,7 +8,7 @@ with the post-fix version, diff the two JSON outputs.
 """
 import json
 import sys
-sys.path.insert(0, '/home/kyle/Documents/PyMOSO')
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1]))
 
 from pymoso.chnutils import solve, testsolve
 from pymoso.problems.probtpa import ProbTPA

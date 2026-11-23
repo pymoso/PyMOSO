@@ -65,7 +65,7 @@ class RecordingMRG32k3a(MRG32k3a):
 
 
 # ---------------------------------------------------------------------------
-# Candidate D, part 1: confirm the two hook points really do see everything
+# Confirm the two hook points really do see everything
 # -- normalvariate (ProbTPA.g) and expovariate (BSProb.g), called through
 # the real Oracle.g() path, not a standalone call to the distribution
 # method in isolation.
@@ -94,7 +94,7 @@ def test_normalvariate_and_expovariate_route_through_random():
 
 
 # ---------------------------------------------------------------------------
-# Candidate D, part 2: the actual consumption-sensitive regression. This is
+# The actual consumption-sensitive regression. This is
 # the getrandbits() path (choice(), via TPATester.get_ranx0), captured
 # through testsolve()'s real, unmodified call sequence -- patching
 # prng.mrg32k3a.MRG32k3a is enough on its own (§12 step 6b:
@@ -140,7 +140,7 @@ def test_getrandbits_draw_sequence_matches_baseline(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Candidate C: a narrow, cheap pin directly on the mechanism this bug
+# A narrow, cheap pin directly on the mechanism this bug
 # touches -- no solver, no budget, one deterministic function call.
 # ---------------------------------------------------------------------------
 

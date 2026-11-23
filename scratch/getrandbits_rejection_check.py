@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, '/home/kyle/Documents/PyMOSO')
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1]))
 from pymoso.prng.mrg32k3a import MRG32k3a, mrgm1i
 
 # --- Exact theoretical rejection probability, per k -------------------------

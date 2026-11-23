@@ -6,7 +6,7 @@ solver settings (mconst=2, bconst=8), to find how large a budget is needed
 to reach 200 RA iterations.
 """
 import sys
-sys.path.insert(0, '/home/kyle/Documents/PyMOSO')
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1]))
 
 from pymoso.chnutils import get_solv_prnstreams
 from pymoso.problems.probtpa import ProbTPA

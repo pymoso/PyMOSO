@@ -9,7 +9,7 @@ recommendation to change it.
 
 ## What problem it replaces
 
-The version we forked from (and every version before `917bf06`)
+The version this work forked from (and every version before `917bf06`)
 implemented `--simpar` by spinning up a fresh `multiprocessing.Pool`
 inside every single `Oracle.hit()` call, and derived each worker's
 stream by calling `get_next_prnstream(start_seed)` — missing the
@@ -176,7 +176,7 @@ Not part of the `--simpar` fix directly, but relevant to reading it
 correctly: `crn_advance` no longer loops `self.simpar` times:
 
 ```python
-# what we forked from:
+# the version this work forked from:
 def crn_advance(self):
     numjumps = self.simpar
     self.crn_reset()
@@ -227,7 +227,7 @@ function should know it's there and not mistake it for something load
 loop. This section is kept as the verification snapshot it was at the
 time this rework was done, not a claim about current code.
 
-`Oracle.bump(x, m)` is byte-for-byte the same as what we verified in
+`Oracle.bump(x, m)` is byte-for-byte the same as what was verified in
 phase 2a: still purely serial (loops `self.g(x, self.rng)` directly, no
 `self.simpar` branch, no queue, no worker dispatch at all), still calls
 `crn_nextobs()` once per replication and `crn_check()` at the end,

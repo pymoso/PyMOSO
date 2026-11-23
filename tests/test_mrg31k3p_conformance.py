@@ -254,8 +254,8 @@ def test_cross_process_reproducibility_under_forkserver():
 
 # ---------------------------------------------------------------------------
 # Proof the checks above have teeth against THIS generator specifically
-# -- the working agreement's "a detector never seen detecting isn't
-# proven to work," re-verified here rather than assumed to carry over
+# -- "a detector never seen detecting isn't proven to work,"
+# re-verified here rather than assumed to carry over
 # from tests/test_prng_conformance.py's own MRG32k3a-specific proof.
 # ---------------------------------------------------------------------------
 

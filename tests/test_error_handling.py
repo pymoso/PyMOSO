@@ -4,11 +4,9 @@ chained exceptions instead of calling sys.exit(), and a bare except: must
 not re-swallow the exception one level up (chnbase.py's former
 estimate()/RLESolver.spsolve bare excepts).
 
-Adapted for the pymoso/master base (post-917bf06): chnutils.solve/testsolve
-no longer default budget/seed/simpar/crn (see the phase-7 kwarg-defaults
-fix, not yet applied when this file was written), so every call here
-supplies them explicitly. MRG32k3a's cache switch is now an instance
-method (post-dfd2a30), not a classmethod -- calls updated accordingly.
+Every call here passes budget/seed/simpar/crn explicitly: the file was
+written while chnutils.solve/testsolve had no defaults for them
+(KNOWN_ISSUES.md issue 6).
 """
 import pytest
 
@@ -83,15 +81,15 @@ def test_missing_sprn_or_x0_raises_typeerror():
 
 
 def test_hit_m_less_than_one_raises_assertionerror():
-    """FINDING, not part of our fix: upstream's own 917bf06 rewrite
+    """FINDING: upstream's own 917bf06 rewrite
     replaced hit()'s sys.exit() on m<1 with `assert(m >= 1)` -- a real
     raise, unlike the old sys.exit(), but AssertionError rather than a
     ValueError, which is what every other precondition check in this
     module raises. Noting the inconsistency here rather than silently
-    reconciling it -- see the migration report. (Previously compared
+    reconciling it. (Previously compared
     against Oracle.bump()'s own equivalent ValueError check on the same
-    precondition; bump() has since been removed -- see CLAUDE.md's
-    "Fixed on this branch" -- so the comparison is dropped, not the
+    precondition; bump() has since been removed -- see KNOWN_ISSUES.md
+    issue 14 -- so the comparison is dropped, not the
     finding about hit()'s own exception type.)"""
     rng = MRG32k3a((12345,) * 6)
 

@@ -26,14 +26,10 @@ all), it now confirms the identical oversized point is rejected by
 Philox's own, correctly-scoped PointCodeOverflow, at assembly time,
 before stream_at ever sees it.
 
-NOT covered here, and not this step's own scope (see philox4x32.py's
-own module comment above POINT_BITS): nothing in chnbase.py calls
-philox4x32.point_width/offset_within_iteration yet -- Oracle's own
-coordinate assembly still calls pymoso.prng.base's unconditionally,
-with no generator-selection argument at all. This step proves the
-mechanism is correct in isolation; §12 step 6b is what wires a selected
-generator through Oracle's own internals so this budget is actually
-honored on a real solve()/testsolve() run.
+This file proves the mechanism in isolation. §12 step 6b later wired
+the selected generator through Oracle's own coordinate assembly, which
+reads these budget figures from the selected backend
+(tests/test_generator_selection.py covers real runs).
 """
 import pytest
 

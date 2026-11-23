@@ -11,8 +11,9 @@ oracle's mean and variance computed exactly). These are the reference
 figures for that code. They replace the tables of 2026-10-21, which
 were computed after step 7 and before the later fixes; "Which fixes
 moved the figures", below, connects the two. `docs/relaxation-sweep.md`
-is the earlier study on the old code, whose conclusion is withdrawn;
-it is kept as a record.
+is the earlier study on the old code; its conclusion, that the
+published β study matches the old arithmetic, is consistent with the
+published figures, not established. It is kept as a record.
 
 Regenerate with `python docs/bench_beta_sweep.py 100 6 1` (with CRN)
 and `python docs/bench_beta_sweep.py 100 6 0` (without).
@@ -203,18 +204,15 @@ some are larger because they carry a point off the front
 
 What this does not establish: one solver, three problems, one budget
 and seed. T_A and T_B have 10 runs each. The runs and the script
-(`analysis/setsizes.py`) are in the R-PERLE 4e6 run directory, outside
-the repository (`/srv/projects/pymoso-runs/rperle-4e6/`, stages
-`pilot`, `beta1` and `tpcold` of its `run.sh`), on PyMOSO 0da761c and
-52053c6, whose R-PERLE is the same as 2.0's.
+are not in the repository. They ran on PyMOSO 0da761c and 52053c6,
+whose R-PERLE is the same as 2.0's.
 
 ## Which fixes moved the figures (measured, 2026-10-28)
 
 A sweep on the tree after each fix, run on 2026-10-28 (Python 3.10;
 the last tree also on 3.14, identical in all 6,000 metrics). Its
-output files were lost to a reboot; the record of its analysis, as
-printed, is kept outside the repository with the Phase 7 working
-notes, and the last tree's tables are the ones above. Findings 8, 9 and 10 changed
+output files were not kept, and the record of its analysis is not in
+this repository; the last tree's tables are the ones above. Findings 8, 9 and 10 changed
 nothing: the tree after finding 9 reproduced the 2026-10-21 tables,
 all 60 rows to three decimals.
 
@@ -250,11 +248,11 @@ The published curves, read from Figures 10 and 12 to about 0.1
 (`docs/relaxation-sweep.md` has the table), have T_A least, at a
 median of about 0.7, for β in (0.2, 0.4), rising to about 1.25 at 1.0
 and 1.6 at 1.5. On the current code with CRN, T_A is at its worst
-over 0.1 to 0.3 (medians 2.73 to 2.78) and least at 0.9 and 1.0. The
-figures came from earlier code that is outside this repository and
-out of scope (`docs/algorithm-audit.md`, finding 2), so this is a
-difference between that code and this one, recorded and not
-explained. It is not evidence about the formula, which is decided.
+over 0.1 to 0.3 (medians 2.73 to 2.78) and least at 0.9 and 1.0.
+Which code produced the figures cannot be established from this
+repository, so this is a difference between the published runs and
+these, recorded and not explained. It is not evidence about the
+formula, which is decided.
 
 ## What this leaves open
 

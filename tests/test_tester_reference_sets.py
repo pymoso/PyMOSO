@@ -31,7 +31,7 @@ What each tester stores, and how sure we are:
   other N_1-LES is not shown.
 - T_C: the dissertation's 516 N_1-LWESs (Online Appendix E), as its
   metric for T_C uses (the local weakly coverage error), converted from
-  the 2018 work's own point sets (docs/reference/tpc-reference-sets.md).
+  a PyMOSO ancestor's point sets (docs/reference/tpc-reference-sets.md).
   Checked in floats with a tolerance of 1e-12: some of these sets rest on
   ties in objective 2 between coordinate permutations, which sum the same
   three terms in a different order -- equal on this machine, but not

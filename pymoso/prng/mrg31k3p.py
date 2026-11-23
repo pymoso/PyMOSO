@@ -160,9 +160,8 @@ def mrg31k3p(seed):
     return newseed, u
 
 
-# §3.7/§12 step 6b: this generator's own default seed -- proposed and
-# approved as (12345,)*6, the same value/shape as MRG32k3a's own
-# default: nothing about MRG31k3p calls for a different one, and this
+# §3.7/§12 step 6b: this generator's own default seed, (12345,)*6,
+# the same value/shape as MRG32k3a's own default: nothing about MRG31k3p calls for a different one, and this
 # keeps every registered generator's default recognizable from the
 # same example number.
 DEFAULT_SEED = (12345, 12345, 12345, 12345, 12345, 12345)

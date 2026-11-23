@@ -14,11 +14,9 @@ see KNOWN_ISSUES.md issue 1, the defect this exactness fixes.
 Generic to a 3x3 recurrence matrix and its own modulus, not hardcoded to
 MRG32k3a's specific coefficients -- those (mrga12/mrga13n/mrga21/mrga23n,
 mrgm1/mrgm2) stay in mrg32k3a.py, which is the only module that knows
-what recurrence it's advancing. docs/rng-interface-design.md §9 proposes
-MRG31k3p (a different-order recurrence, different coefficients, per
-L'Ecuyer & Touzin 2000) reuse this same technique once it's onboarded;
-this module is kept parameterized for that, not because a second caller
-exists yet.
+what recurrence it's advancing. MRG31k3p (a different-order
+recurrence, different coefficients, per L'Ecuyer & Touzin 2000) reuses
+this same technique (pymoso/prng/mrg31k3p.py).
 """
 import operator
 

@@ -33,7 +33,7 @@ the point of this baseline being here.
 
 **Capture conditions (current, post jump-ahead fix):**
 
-- Environment: `.venv-baseline`, CPython 3.10.21, this repo installed
+- Environment: CPython 3.10.21, this repo installed
   editable (`uv pip install -e .`), captured from the source tree
   directly.
 - Commit: `e095287` on the `pymoso-migration` branch (the jump-ahead
@@ -75,7 +75,7 @@ what every subsequent regeneration should do.
 
 **New, captured separately (the two example solvers brought in-tree):**
 
-- Environment: `.venv-baseline`, CPython 3.10.21, same source tree.
+- Environment: CPython 3.10.21, same source tree.
   Commit: `f884bf2` (parent of the commit bringing these solvers
   in-tree). Re-run twice each, same determinism check as above.
 - `example_search_tpa`, `example_bnb_tpa`: `ProbTPA`, `--param lb 0 --param ub 50`,
@@ -100,8 +100,8 @@ what every subsequent regeneration should do.
 
 ### Current values (SPLI's nearest-integer line search)
 
-**Capture conditions:** twice on each of `.venv-baseline` and
-`.venv-dev`, identical. "Before" is the values after SPLI's return at
+**Capture conditions:** twice on each of CPython 3.10 and
+CPython 3.14, identical. "Before" is the values after SPLI's return at
 an infeasible point, below.
 
 **Why they moved, deliberately.** SPLI's line search now goes to the
@@ -134,7 +134,7 @@ did not move; nor did the example solvers.
 **No end seed moved; five solutions did.** SPLI now returns at an
 infeasible line-search point (`docs/algorithm-audit.md`, finding 5;
 `tests/test_spli_infeasible.py`). Every case was run before and after,
-twice on each of `.venv-baseline` and `.venv-dev`, identical. Only
+twice on each of CPython 3.10 and CPython 3.14, identical. Only
 `tests/test_solution_sensitivity.py` failed, and it is the one file
 regenerated.
 
@@ -151,8 +151,8 @@ next section (`docs/end-seed-scope.md`, the seventh instance).
 
 ### Values set by PE's LWEP filter
 
-**Capture conditions:** twice on each of `.venv-baseline` and
-`.venv-dev`, identical. "Before" is the SPLINE stop fix's values,
+**Capture conditions:** twice on each of CPython 3.10 and
+CPython 3.14, identical. "Before" is the SPLINE stop fix's values,
 below. ν is the final RA iteration's number.
 
 **Why they moved, deliberately.** PE places its epsilon values from the
@@ -189,8 +189,8 @@ library call's, is what it was. `tests/test_solution_sensitivity.py`
 
 ### Historical: the SPLINE stop fix, pre PE's LWEP filter
 
-**Capture conditions:** twice on each of `.venv-baseline` and
-`.venv-dev`, identical. "Before" is the search-limit fix's values,
+**Capture conditions:** twice on each of CPython 3.10 and
+CPython 3.14, identical. "Before" is the search-limit fix's values,
 below. ν is the final RA iteration's number.
 
 **Why they moved, deliberately.** SPLINE now stops when its calls
@@ -217,8 +217,8 @@ computation and moved with it, paths 0 and 3.
 
 ### Historical: the search-limit fix, pre the SPLINE stop fix
 
-**Capture conditions:** twice on each of `.venv-baseline` and
-`.venv-dev`, identical. "Before" is the tie-break fix's values, below.
+**Capture conditions:** twice on each of CPython 3.10 and
+CPython 3.14, identical. "Before" is the tie-break fix's values, below.
 
 **Why it moved, deliberately.** The search limit b was 0 in one
 dimension, in every iteration, and is now ceil(8 x 1.2^nu) there
@@ -239,8 +239,8 @@ did not move either.
 
 ### Historical: the tie-break fix, pre the search-limit fix
 
-**Capture conditions:** twice on each of `.venv-baseline` and
-`.venv-dev`, identical. "Before" is the traceback fix's values, below.
+**Capture conditions:** twice on each of CPython 3.10 and
+CPython 3.14, identical. "Before" is the traceback fix's values, below.
 
 **Why they moved, deliberately.** PE now breaks a tie between the two
 objectives' epsilon counts with one draw from the solver's stream,
@@ -285,7 +285,7 @@ iterations in all three captures, the most of any path, and is likely
 ### Historical: the traceback fix, pre the tie-break fix
 
 **Capture conditions:** as for the relaxation fix, below: twice on
-each of `.venv-baseline` and `.venv-dev`, identical; "before" from the
+each of CPython 3.10 and CPython 3.14, identical; "before" from the
 relaxation fix's tree in a scratch install.
 
 **One case moved, the `testsolve()` library call** (`ranx0=False`,
@@ -313,8 +313,8 @@ did not reach a solution or a simulation count.
 
 ### Historical: the relaxation fix, pre the traceback fix
 
-**Capture conditions:** `.venv-baseline` (CPython 3.10) and
-`.venv-dev` (CPython 3.14), this repo installed editable, captured
+**Capture conditions:** CPython 3.10 and
+CPython 3.14, this repo installed editable, captured
 from the source tree, twice on each: identical values. The "before"
 column was taken from the commit before the fix (`4b01e2b`), in a
 scratch install, and reproduces the previous goldens exactly.
@@ -381,7 +381,7 @@ fix, pre R-SPLINE x0 re-estimation", below, again: end seed
 `2327071160, 589288757, 3791179983, 1866895284, 2094692759, 3256882931`,
 1,023 simcalls, 29 iterations, solution `{(0,)}`. Before restoring it,
 the reverted code was run under the golden's command, twice on each of
-`.venv-baseline` and `.venv-dev`, and gave that end seed every time; and a stand-in for the reverted `spsolve`, used for the
+CPython 3.10 and CPython 3.14, and gave that end seed every time; and a stand-in for the reverted `spsolve`, used for the
 measurement, reproduces it too. Every other case is as it has been
 since the role-layout fix.
 
@@ -391,8 +391,8 @@ Superseded: R-SPLINE's x0 re-estimation was reverted (above). Kept as
 the record of the move and the reasons for it.
 
 
-**Capture conditions:** `.venv-baseline` (CPython 3.10.22) and
-`.venv-dev` (CPython 3.14.8), this repo installed editable, captured
+**Capture conditions:** CPython 3.10.22 and
+CPython 3.14.8, this repo installed editable, captured
 from the source tree directly, twice on each: identical values.
 Command: `pymoso solve --budget=1000 ProbSimpleSO RSPLINE 40`.
 
@@ -425,12 +425,12 @@ other row of the table below is unchanged.
 All of this section's values are current, `rspline_simpleso`'s included
 since the reversion (above).
 
-**Capture conditions:** `.venv-baseline`, CPython 3.10.22, this repo
+**Capture conditions:** CPython 3.10.22, this repo
 installed editable, captured from the source tree directly, at the
 testsolve() role-layout fix itself (the commit immediately prior to
 this regeneration). Command: `pytest tests/test_golden.py
 tests/test_solution_sensitivity.py -v`; cross-checked against an
-independent capture under `.venv-dev` (CPython 3.14.8) -- identical
+independent capture under CPython 3.14.8 -- identical
 values.
 
 **Captured against the fix for KNOWN_ISSUES.md issue 10**, which was
@@ -510,13 +510,13 @@ oracle stream sharing a seed with a solver stream, and with every
 path's streams depending on `--isp`.
 
 
-**Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
+**Capture conditions:** CPython 3.10.21, this repo
 installed editable, captured from the source tree directly. Commit:
 `9155674` on the `pymoso-migration` branch (step 8 stage 2 itself, the
 commit immediately prior to this regeneration). Command: `pytest
 tests/test_golden.py tests/test_solution_sensitivity.py -v`; also
-cross-checked against an independent capture under `.venv-dev` (CPython
-3.14) -- identical values, as expected (this arithmetic has no
+cross-checked against an independent capture under CPython
+3.14 -- identical values, as expected (this arithmetic has no
 Python-version dependence).
 
 **Captured against `docs/rng-interface-design.md` §12 step 8, stage 2:**
@@ -589,13 +589,13 @@ of `test_golden.py`'s own `CASES`.
 
 ## Historical: post §12 step 8 stage 1 (Oracle.get_endseed()), pre-stage-2
 
-**Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
+**Capture conditions:** CPython 3.10.21, this repo
 installed editable, captured from the source tree directly. Commit:
 `adfc156` on the `pymoso-migration` branch (step 8 stage 1 itself, the
 commit immediately prior to that regeneration). Command: `pytest
 tests/test_golden.py tests/test_solution_sensitivity.py -v`; also
-cross-checked against an independent capture under `.venv-dev` (CPython
-3.14) -- identical values.
+cross-checked against an independent capture under CPython
+3.14 -- identical values.
 
 **Superseded by §12 step 8 stage 2** (`testsolve()`'s own aggregation,
 see the "Current values" section above) for the four `testsolve_*`/
@@ -663,13 +663,12 @@ solver; `rperle_tpa`/`rpe_tpa` both ended this run at `nu=13`.
 
 ## Historical: post replication-independence fix, pre-step-8-stage-1
 
-**Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
+**Capture conditions:** CPython 3.10.21, this repo
 installed editable, captured from the source tree directly. Commit:
 `1eca229` on the `pymoso-migration` branch (the replication-independence
 fix itself, the commit immediately prior to that regeneration). Command:
 `pytest tests/test_golden.py tests/test_solution_sensitivity.py -v`;
-also cross-checked against an independent capture under `.venv-dev`
-(CPython 3.14) -- identical values.
+also cross-checked against an independent capture under CPython 3.14 -- identical values.
 
 **Superseded by §12 step 8 stage 1** (`Oracle.get_endseed()`, see the
 "Current values" section above) -- these values still reported
@@ -731,13 +730,13 @@ alone cannot see (`docs/end-seed-scope.md`).
 
 ## Historical: post step 4b coordinate cutover, pre-replication-reserve-fix
 
-**Capture conditions:** `.venv-baseline`, CPython 3.10.21, this repo
+**Capture conditions:** CPython 3.10.21, this repo
 installed editable, captured from the source tree directly. Commit:
 `18ab096` on the `pymoso-migration` branch (the step 4b cutover itself,
 the commit immediately prior to that regeneration). Command: `pytest
 tests/test_golden.py tests/test_solution_sensitivity.py -v`; also
-cross-checked against an independent capture under `.venv-dev` (CPython
-3.14) -- identical values, as expected (this arithmetic has no
+cross-checked against an independent capture under CPython
+3.14 -- identical values, as expected (this arithmetic has no
 Python-version dependence).
 
 **Captured against `docs/rng-interface-design.md` §12 step 4b:**
@@ -848,10 +847,10 @@ not a wheel, unlike the 1.0.4 baseline further below.
 
 The values below were captured from the genuine PyPI `pymoso==1.0.4`
 wheel on CPython 3.10.21, against the fork this project started from
-before moving to github.com/pymoso/PyMOSO (see that fork's own
-`tests/golden/` artifacts, preserved on the `old-work` branch, for the
-full historical record including the post-jump-ahead-fix values that
-existed on that base). They are kept here only as a record of what
+before moving to github.com/pymoso/PyMOSO (that fork's own
+`tests/golden/` artifacts, with the full historical record including
+the post-jump-ahead-fix values that existed on that base, are not in
+this repository). They are kept here only as a record of what
 1.0.4 produced -- **not** as a fallback or a value to regenerate
 against: every one of these seven end seeds has all six components
 divisible by 256, the exact signature of the float64 precision loss
@@ -872,5 +871,5 @@ This project's earlier fork also captured a 40-independent-seed solution
 its own jump-ahead fix, finding no statistically significant difference
 (Welch's t=1.62, p≈0.10) -- consistent with the defect corrupting only
 the *independence guarantee* between stream positions, not the validity
-of individual draws. That comparison is not repeated here; see the
-`old-work` branch for the full writeup if it's needed again on this base.
+of individual draws. That comparison is not repeated here, and its full
+writeup is not in this repository.

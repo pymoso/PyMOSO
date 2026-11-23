@@ -16,7 +16,7 @@ Strategy:
      get_next_prnstream (claimed 2^127) against the exact jump-by-N.
 """
 import sys
-sys.path.insert(0, '/home/kyle/Documents/PyMOSO')
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1]))
 
 from pymoso.prng.mrg32k3a import (
     mrg32k3a, MRG32k3a, get_next_prnstream, jump_substream,

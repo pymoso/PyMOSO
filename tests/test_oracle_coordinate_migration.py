@@ -33,8 +33,8 @@ replacement (§4). Two checks the golden suite doesn't directly provide
   step 4b, the moment the cutover to offset_within_iteration/point_code
   made it start passing (observed directly as an XPASS under the old
   strict marker, not assumed) -- the test itself, and the discipline of
-  observing it fail before relying on it, are the working agreement's
-  own proof that the cutover fixed what it claims to, not just that
+  observing it fail before relying on it, are the
+  proof that the cutover fixed what it claims to, not just that
   goldens moved.
 """
 import pytest

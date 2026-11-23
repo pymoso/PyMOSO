@@ -7,7 +7,7 @@
 % AUTHOR
 %        Kalyani Nagaraj
 %        Purdue University 
-%        kalyanin AT purdue DOT edu
+%        (contact address removed from this copy)
 %
 % REFERENCE
 %        H. Wang, B. Schmeiser, and R. Pasupathy. ACM TOMACS. 2013
@@ -619,3 +619,15 @@ function [fn, FnVar, FnGrad, FnGradCov, constraint, ConstraintCov, ...
     ConstraintGrad, ConstraintGradCov] = orchandle(x, m, iseed, param);
 fn=-minmax*fn;
 end
+%==========================================================================
+% Third-party code, kept in this repository as a reference implementation.
+%
+% This is Kalyani Nagaraj's 2014 MATLAB implementation of R-SPLINE, from
+% https://web.ics.purdue.edu/~pasupath/RSPLINE.m
+% Apart from this trailer and the removal of the author's contact address,
+% this repository has not modified it, so line numbers cited elsewhere in
+% the repository are the original file's. It is not part of PyMOSO, is not
+% covered by this project's licence, and is not included in PyMOSO's
+% source distribution or wheel. PyMOSO's own R-SPLINE is
+% pymoso/solvers/rspline.py.
+%==========================================================================

@@ -5,7 +5,7 @@ mat333mult / mat311mod (prng/mrg32k3a.py:273-316), for a realistic
 (non-toy) seed, and explain the "divisible by 256" pattern.
 """
 import sys
-sys.path.insert(0, '/home/kyle/Documents/PyMOSO')
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1]))
 from pymoso.prng.mrg32k3a import a1p127, mrgm1, mat333mult, mat311mod
 
 seed_float = (511616026.0, 1372175473.0, 2158288731.0)  # a realistic post-jump seed component

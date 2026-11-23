@@ -16,7 +16,7 @@ crn_advance(), coincide with ISP 1's starting orcprn seed for some N <= 200
 (or bigger)? We check empirically instead of just deriving it on paper.
 """
 import sys
-sys.path.insert(0, '/home/kyle/Documents/PyMOSO')
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1]))
 
 from pymoso.chnutils import get_testsolve_prnstreams
 from pymoso.chnbase import Oracle

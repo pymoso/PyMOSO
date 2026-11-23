@@ -21,16 +21,15 @@ figures instead of silently reusing a budget sized for a different
 generator. See pymoso.prng.philox4x32's own point_width/
 offset_within_iteration.
 
-Stream/RandomCompatAdapter are not yet wired into any backend or into
-chnbase.py/chnutils.py -- scaffolding, built ahead of its first real
-caller because the step list (§12 step 2) groups it with mrg_common.py's
-generalized jump, not because anything consumes it yet. MRG32k3a keeps
-subclassing random.Random directly and unchanged; nothing here changes
-its behavior.
+RandomCompatAdapter wraps a Stream that is not a random.Random
+subclass (Philox4x32's) before it is handed to a g() or a tester
+(ensure_random_compatible, called in layout.py and executor.py);
+MRG32k3a and MRG31k3p
+subclass random.Random directly and are passed through unchanged.
 
-point_code/offset_within_iteration are landed here in step 3 (ahead of
-step 4a/4b, which actually wire them into oracle.py's coordinate
-computation) for the same reason: they have no dependency on `crnflag`
+point_code/offset_within_iteration landed here in step 3 (ahead of
+step 4a/4b, which wired them into oracle.py's coordinate
+computation) because they have no dependency on `crnflag`
 or how oracle.py uses them, so there is no reason to wait -- see §7.1
 items 8-9 and docs/rng-interface-design.md §12 step 3's own note to
 that effect.
@@ -109,8 +108,8 @@ class RandomCompatAdapter(random.Random):
     `get_ranx0`) on a raw Philox stream raises AttributeError -- confirmed
     directly, not hypothetical, running `pymoso testsolve --generator
     philox4x32 ...` with no `<x>` (which exercises `get_ranx0`).
-    `ensure_random_compatible` below is what oracle.py now calls before
-    handing any generator's stream to such code.
+    `ensure_random_compatible` below is what executor.py and layout.py
+    call before handing any generator's stream to such code.
     """
 
     def __init__(self, stream: Stream):
@@ -206,8 +205,8 @@ def ensure_random_compatible(stream):
     `RandomCompatAdapter(stream)` (Philox4x32Stream, or any future
     backend that similarly implements only the minimal §3.2 protocol).
 
-    Callers: oracle.py wraps with this immediately before handing a
-    stream to `g(x, rng)`/`get_ranx0(rng)` -- code documented only as
+    Callers: executor.py and layout.py wrap with this immediately before
+    handing a stream to `g(x, rng)`/`get_ranx0(rng)` -- code documented only as
     "an rng-shaped object" (§3.6) that may call `expovariate`/`choice`/
     `sample`/... -- never before its own internal coordinate machinery
     (`advance`/`raw_consumed`/`root_seed`/`backend_for_stream`'s own

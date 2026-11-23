@@ -143,7 +143,7 @@ def test_proc_dispatches_one_task_per_independent_sample_path(proc, pool_runs):
 
 def test_proc_1_starts_no_worker_process(pool_runs):
     """The serial path is serial: no pool, so none of a pool's failure
-    modes (CLAUDE.md: --proc used a Pool even at --proc=1)."""
+    modes (--proc used a Pool even at --proc=1 before Phase 3)."""
     testsolve(ExpensiveTester, RSPLINE, X0, budget=BUDGET, seed=SEED, isp=3, proc=1, crn=False)
     assert pool_runs == {'runs': [], 'opened': []}
 

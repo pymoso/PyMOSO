@@ -36,12 +36,11 @@ trial run before a long one.
 **The search limit differs from the papers above two decision
 variables, by design** (audit finding 9). Affects R-SPLINE, R-PE,
 R-PERLE and R-MinRLE on problems with more than two variables. The
-papers state b_ν = ⌈8 × 1.2^ν⌉. PyMOSO, and the 2018 code that produced
-the published results, use ⌈8 × (d − 1) × 1.2^ν⌉ for d variables: twice
-the papers' at d = 3, four times at d = 5. The author's reason: on the
-three-variable test problem, "spline searches were stalling out too
-early with the extra dimension but no additional line search budget".
-b_ν is not needed for convergence or its rate. It keeps one unlucky
+papers state b_ν = ⌈8 × 1.2^ν⌉. PyMOSO uses ⌈8 × (d − 1) × 1.2^ν⌉ for
+d variables: twice the papers' at d = 3, four times at d = 5. The
+(d − 1) factor exists because on the three-variable test problem the
+spline searches stalled too early: the extra dimension came with no
+additional line-search budget. b_ν is not needed for convergence or its rate. It keeps one unlucky
 sample path from spending the whole budget, so it changes finite-sample
 behaviour only. To match the papers' value, set `bconst` to
 8 / (d − 1).
@@ -81,11 +80,8 @@ is read from the code. None was measured as changing a result:
 - R-SPLINE: the MATLAB reference implementation adds tolerances and
   caps that are in neither the paper nor PyMOSO (17).
 
-**Reproducing a published figure.** The published R-PERLE results ran
-with the relaxation's old form. Their β = 0.5 is 2.0's β = 1.0 (see
-`CHANGELOG.md`). Their x-axis counts estimate calls times the sample
-size, not simulations (audit finding 2b), so their costs are overstated
-by an amount not known for the published runs.
+**Comparing with 1.1.0.** 1.1.0's β = 0.5 is 2.0's β = 1.0 (see
+`CHANGELOG.md`).
 
 **`ExampleSearchSolver` and `ExampleBnBSolver`** are an implementation
 example only: do not use them for serious solving or testing at this
@@ -802,8 +798,8 @@ cheap trial run before committing an expensive one.
 
 **A related correction, recorded here so that it is found.** For most
 of this branch's life the built-in solvers' limit of about nine
-dimensions was described -- by the maintainer, repeatedly, in
-`CLAUDE.md`, in docs/rng-interface-design.md §3.4 and in the brief for
+dimensions was described -- repeatedly, in this repository's design
+notes, in docs/rng-interface-design.md §3.4 and in the plan for
 Phase 4 -- as structural: the solvers enumerate neighbourhoods, so
 high dimension would need a new solver. That was wrong, and had not
 been measured. It was one helper's implementation: `chnutils.get_nbors`
@@ -898,8 +894,9 @@ the platform's C library, and those differ between glibc, macOS and
 Windows on some inputs (inferred from that pattern at the time;
 measured 2026-11-16, below). So a seed reproduces bit for bit across
 Python versions on one platform, which is this issue, and not across
-platforms, which it never did and which CLAUDE.md's multi-host result
-scopes to Linux on x86-64 with glibc. The goldens pass on every macOS
+platforms, which it never did and which the multi-host result
+(`docs/spark-backend.md`, "On a real cluster") scopes to Linux on
+x86-64 with glibc. The goldens pass on every macOS
 and Windows cell. That this was margin was inferred, not measured,
 until 2026-11-16: the version split moved values by a few ulps, and
 nothing bounded a different C library's differences to that.
@@ -1301,7 +1298,7 @@ released version, may call it directly.
 values — unaggregated, unlike `hit()`'s `(isfeas, obmean, obse)`. It
 duplicated `hit()`'s own replication loop (a second, independently
 maintained implementation of the same "replicate and aggregate" logic,
-flagged as drift-risk in CLAUDE.md's working agreement well before this
+flagged as drift risk well before this
 removal), was never migrated to the coordinate-based mechanism `hit()`'s
 `crnflag=False` path moved to at §12 step 4b (so a `crnflag=False`
 caller would have kept observing the pre-4b order-dependent walk,

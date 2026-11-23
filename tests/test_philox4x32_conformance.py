@@ -222,7 +222,7 @@ def test_negative_offset_raises():
 # one_past's carry, exercised with THIS module's own real constants --
 # reachable in a test precisely because Philox's own strides are
 # budget-anchored rather than absurd (docs/rng-interface-design.md §12
-# step 6), unlike MRG32k3a's own ISP_ITER_MARGIN=2**32. The generic
+# step 6), unlike MRG32k3a's own ISP_ITER_MARGIN=2**31. The generic
 # mechanics are proven in tests/test_stream_offset_carry.py; this
 # confirms the real, shipped OFFSET_CAPACITY/ISP_ITER_MARGIN values
 # behave the same way, and that stream_at accepts the carry's own

@@ -195,9 +195,10 @@ def test_repeated_param_still_works(tmp_path):
     queue.get(). Python's multiprocessing atexit machinery then blocks
     the whole CLI process trying to join them, hanging indefinitely
     instead of exiting -- confirmed directly: this exact command with
-    (97, 97) hung for 57 minutes before being killed. Not fixed here
-    (chnbase.py/chnutils.py are out of scope for this migration); see
-    docs/phase2c-cli-migration.md for the writeup. Using a feasible x0
+    (97, 97) hung for 57 minutes before being killed. Not fixed by the
+    CLI migration (docs/phase2c-cli-migration.md has the writeup); fixed
+    since by making the Oracle a context manager
+    (tests/test_simpar_worker_lifecycle.py). Using a feasible x0
     avoids the exception entirely, exercising --param without
     triggering the hang."""
     proc = run([
@@ -249,8 +250,8 @@ def test_testsolve_x_may_still_be_given(tmp_path):
 # ---------------------------------------------------------------------------
 # --help / --version: still exit 0, stdout only. Content is materially
 # different in format from docopt's hand-written text (argparse splits
-# help across subcommands rather than one combined screen) -- see the
-# migration report.
+# help across subcommands rather than one combined screen) -- see
+# docs/phase2c-cli-migration.md.
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("flag", ["--help", "-h"])
@@ -312,8 +313,8 @@ def test_non_integer_budget_is_now_rejected_cleanly_at_parse_time(tmp_path):
 
 def test_negative_budget_is_rejected_by_argparse_native_validation(tmp_path):
     """Same protection as commit 82c177b's basecomm.validate_positive_int,
-    now expressed as argparse's type=positive_int per this migration's
-    instructions -- exit code and stream differ (2/stderr vs. 1/stdout),
+    now expressed as argparse's type=positive_int
+    (docs/phase2c-cli-migration.md) -- exit code and stream differ (2/stderr vs. 1/stdout),
     message content is materially the same."""
     proc = run(["solve", "--budget=-5", "ProbTPA", "RPERLE", "4", "14"], tmp_path)
     assert proc.returncode == 2

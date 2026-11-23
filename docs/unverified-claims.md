@@ -56,16 +56,18 @@ the documents that record the measurements.
   (Table 1, p. 897), that its convergence conditions do not involve a
   search limit like b_ν (C.1-C.3, p. 894; N_k = O_p(1), §5 equation
   (2), p. 895), and that it assumes independent sample paths (§8(ii),
-  p. 900). Checked against the paper by the maintainer, who has it; the
-  paper is not in the repository, and no test can check a citation.
+  p. 900). Checked against the paper, which is not in the repository;
+  no test can check a citation.
   **Still an interpretation:** that RLE's δ plays the role of the
   paper's ε_k. The match is of functional form and role, not something
   the paper states (`docs/algorithm-audit.md`, findings 2 and 9).
 - **The CRN counterexample:** R-MinRLE's median of 2.83 against 1.93
   without CRN, 9 seeds better and 10 worse, and R-PE's and R-PERLE's
   15 of 20, on the `Antithetic` problem (`docs/crn-failure.md`).
-- **The author's reason for b_ν's (d - 1) factor** is his account
-  (2026-11-19), recorded in `docs/algorithm-audit.md`, finding 9.
+- **The reason for b_ν's (d - 1) factor:** that without it the spline
+  searches stalled too early on the three-variable test problem. A
+  design rationale, not measured here (`docs/algorithm-audit.md`,
+  finding 9).
 - **KNOWN_ISSUES.md's "Open in 2.0.0", the `bconst` workaround.** That
   setting `bconst` to 8 / (d - 1) gives the papers' search limit is read
   from `calc_b` (`bconst * max(d - 1, 1) * 1.2^nu`), not tested.

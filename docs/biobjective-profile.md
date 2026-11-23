@@ -62,7 +62,8 @@ Light-tier run and 0.01% at Moderate; `get_nondom` is at most 0.01%.
 The 94%-in-`get_ncn` figure is a many-objective result and does not
 transfer. Note that these are the bi-objective algorithms'
 `get_ncn`: in RMINRLE at M = 2 it was already 2.9% on a cheap
-problem (the many-objective baseline), and with any simulation cost
+problem (the many-objective measurements, not in this repository),
+and with any simulation cost
 it vanishes.
 
 **3. The jump matters only for cheap simulations on the MRG family.**
@@ -120,8 +121,8 @@ sizes these runs produce (mean |S| 2.3-2.6).
 
 ## Not measured here
 
-- More than two dimensions, radius above 1, many objectives (see the
-  many-objective baseline), `--crn`, `--simpar`, other Pythons.
+- More than two dimensions, radius above 1, many objectives (the
+  many-objective measurements, not in this repository), `--crn`, `--simpar`, other Pythons.
 - What the early exit in point 6 saves at M >= 3.
 - Whether the end seed moves if infeasible points were remembered
   (point 4). By the reasoning above it should, which is why point 4 is

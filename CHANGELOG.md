@@ -132,7 +132,7 @@ too; numerical results changed there.
   that read `soln` as images reads `soln_images`, or applies `true_g`.
   `TPCTester.soln` is now the dissertation's 516 point sets; 1.1.0 held
   their images, which collapse to 66 distinct sets.
-  `docs/reference/tpc-reference-sets.md` has the account.
+  `docs/reference/tpc-reference-sets.md` has the details.
 
 ### Numerical results
 
@@ -166,7 +166,7 @@ too; numerical results changed there.
 - **A run that finds the whole reference set now scores exactly 0,**
   with TPATester, TPBTester and TPCTester, on any platform. In 1.1.0
   T_A and T_C scored about 2e-15 there: their reference images came
-  from 2018 code no longer in the repository and differed from
+  from a PyMOSO ancestor's computation and differed from
   `true_g` in the last bits. The references are now points, imaged by
   each tester's own `true_g` (above), so both sides of the comparison
   are computed the same way. Every other metric value moves at most in

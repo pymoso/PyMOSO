@@ -7,7 +7,7 @@ defect claim directly.
 """
 import random
 import sys
-sys.path.insert(0, '/home/kyle/Documents/PyMOSO')
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1]))
 
 from pymoso.prng.mrg32k3a import MRG32k3a, get_next_prnstream, jump_substream
 from task1_jumpahead import exact_jump_n, M1, M2

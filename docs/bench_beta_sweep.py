@@ -2,7 +2,8 @@
 """
 Where R-PE's coverage error is smallest as betaeps varies
 (docs/beta-sweep-reference.md, the reference figures for the current
-code; docs/relaxation-sweep.md is the earlier, withdrawn study).
+code; docs/relaxation-sweep.md is the earlier study, whose conclusion
+is consistent with the published figures, not established).
 
 Written when the relaxation was se/m**beta, to compare that arithmetic
 with the preprint's (Cooper, Hunter and Nagaraj, Optimization Online

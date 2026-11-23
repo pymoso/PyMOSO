@@ -1,16 +1,17 @@
 <!--
 Provenance note (added when this file was ported onto pymoso-migration;
 it did not exist on this branch before, only on old-work, this
-project's earlier fork -- see "Commit outstanding phase 2a/3 artifacts
-before migrating to pymoso/master", e273e14):
+project's earlier fork, whose history is not in this repository):
 
 This describes work done against old-work's codebase, before this
 project moved onto the canonical repository (github.com/pymoso/PyMOSO).
 File paths and line numbers below (e.g. `mrg32k3a.py:319-365`) refer to
 that fork's layout, not necessarily this branch's current files. The
-scratch/ scripts it cites were throwaway and gitignored even there
-(see its own item 5's closing note) -- they were never committed and
-are not recoverable.
+scratch/ scripts it cites were later committed to this repository
+(scratch/task1_*.py through scratch/task5_*.py), although the body
+below still calls them gitignored. `docs/phase1-review.md`, which the
+body's first line cites, was not ported and is not in this
+repository.
 
 Ported rather than left as a dangling citation because
 test_jump_ahead.py, test_max_ri.py, and test_infeasible_x0.py all cite
@@ -126,7 +127,7 @@ Unable to run accel()" instead of a real traceback.
   positional argument: 'crn'`.
 - Confirmed **pre-existing in the genuine PyPI 1.0.4 wheel** — downloaded
   fresh via `uv pip install pymoso==1.0.4 --no-cache` into an isolated
-  venv (not this repo's editable install; see caveat below) and
+  venv (not this repo's editable install) and
   reproduced the identical crash and message. Not a modernization
   regression — `--simpar>1` has apparently never worked in any published
   version.
@@ -260,22 +261,3 @@ derived from direct exercise):
 
 **Confidence:** High — direct, repeated, byte-level comparison against
 `hit()`'s own aggregation, not just code reading.
-
----
-
-## Side finding: baseline venvs are currently editable installs, not real 1.0.4
-
-Not one of the five questions, but relevant to trusting future
-verification work: `.venv-baseline` and `.venv-wheel` are currently
-**editable installs of this dev repo**
-(`direct_url.json: {"editable": true, "url":
-"file:///home/kyle/Documents/PyMOSO"}`), not immutable copies of the real
-PyPI 1.0.4 wheel — most likely because `uv pip install pymoso==1.0.4`
-reused a stale cache entry from an earlier editable install under the
-same version number. Network access works (verified), and a fresh
-`--no-cache` install correctly pulls the genuine wheel from
-`files.pythonhosted.org`. This doesn't call the existing
-`tests/golden/` values into question — they're frozen text, presumably
-captured correctly at the time — but re-capturing or re-diffing against
-true 1.0.4 semantics won't work with these two venvs as they stand;
-rebuild with `--no-cache` first.

@@ -4,8 +4,8 @@ become real-solving-capable for non-CRN runs through Oracle's own
 internals, not just standalone conformance testing. Also covers the
 library-level `generator=` kwarg on chnutils.solve()/testsolve()
 end to end -- tests/test_cli.py covers the CLI flag itself
-(--generator, argparse choices=, --seed's own nargs='+'/validate_seed
-wiring), a distinct layer this file doesn't touch.
+(--generator, argparse choices=, --seed's one comma-separated token and
+validate_seed wiring), a distinct layer this file doesn't touch.
 
 Structured to mirror tests/test_oracle_noncrn_default.py's own rigor
 (formula checks, not just "it runs") for each non-default backend, plus
@@ -161,7 +161,7 @@ def test_philox_continuation_across_repeated_hit_calls():
 def test_philox_multiple_iterations_via_crn_advance_do_not_collide():
     """crnflag=False still calls _advance_iteration() every RA iteration (via
     RASolver.rasolve()'s own loop) -- confirms it doesn't crash for a
-    backend with no get_next_prnstream (§12 step 6b's own _advance_iteration()
+    backend with no jump-ahead (§12 step 6b's own _advance_iteration()
     fix), and that successive iterations' draws don't collide."""
     orc = _fresh_philox_oracle()
     orc.hit((5,), 2)

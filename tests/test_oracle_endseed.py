@@ -205,7 +205,7 @@ def test_endseed_reset_by_set_crnflag():
 # Oracle method, not just the standalone pymoso.prng.base.one_past
 # (tests/test_stream_offset_carry.py) or Philox's own real constants
 # (tests/test_philox4x32_conformance.py). MRG32k3a's own
-# ISP_ITER_MARGIN=2**32 makes the raise practically unreachable through
+# ISP_ITER_MARGIN=2**31 makes the raise practically unreachable through
 # millions of real hit()/_advance_iteration() calls, so these set
 # _high_water_mark directly (white-box) to the exact boundary a real
 # run would eventually reach, rather than actually running that many

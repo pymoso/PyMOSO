@@ -1,7 +1,12 @@
 # NE's quadratic candidate and best-improvement scan
 
 Phase 7, steps 4 and 5 (`docs/phase7-plan.md`). Two solver parameters,
-both default 0, added for comparison against the reference:
+both default 0, added for comparison against the reference.
+`docs/RSPLINE.m` is Kalyani Nagaraj's 2014 MATLAB implementation of
+R-SPLINE, third-party code from
+https://web.ics.purdue.edu/~pasupath/RSPLINE.m, included as the
+reference implementation NE's quadratic candidate was checked against;
+it is not covered by this project's licence.
 
 - `bestimprove`: NE scans every neighbour and moves to the best,
   as the MATLAB R-SPLINE does (`docs/RSPLINE.m`, NE, lines 239-291),
