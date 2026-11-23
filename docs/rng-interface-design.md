@@ -1208,10 +1208,12 @@ deliberate, by the author, not an artifact — corrected from an earlier
 draft of this section, which left it open.** It *intends* a real,
 different CRN policy: points sharing the same cumulative sample-effort
 level (`nx[x]`) share underlying draws, regardless of iteration or point
-identity. (§4.3 has a further correction to this paragraph, found later,
-during implementation: today's mechanism only partially achieves that
-intent, independent of the aliasing bug below — read §4.3 before taking
-"implements" at face value.) That is a real requirement, and §4.3
+identity. (§4.3 has two further corrections to this paragraph, found
+later: under the 1.0.8-era framework the mechanism only partially
+achieved that intent, and in this framework it achieves none of it,
+because `setstate()` no longer affects anything `hit()` returns
+(`docs/example-solvers.md` item 4) — both independent of the aliasing
+bug below. Read §4.3 before taking "implements" at face value.) That is a real requirement, and §4.3
 addresses it directly — the earlier draft's proposed port ("just pass
 `crn=True`") was wrong, and wrong in an instructive way (§4.3). The
 *aliasing bug* — a later revisit landing on a checkpoint some other
@@ -1303,30 +1305,42 @@ free, because "safe" was never about which policy — it was about giving
 up cached, mutable position-tracking at all.
 
 **Correction, found during §12 step 3's implementation, not anticipated
-here: "the identical policy the solver intends" overstates what
-today's `self.seeds` mechanism actually achieves, so `sync=` is not
-purely preserving it.** Implementing step 3's replacement for `Oracle`'s
+here: "the identical policy the solver intends" overstated what the
+`self.seeds` mechanism achieved, so `sync=` is not purely preserving it.
+This paragraph describes the 1.0.8-era framework that step 3 replaced;
+the next one describes this one.** Implementing step 3's replacement for `Oracle`'s
 CRN protocol required instrumenting the pre-step-3 code directly, and
 that turned up something this section didn't have in view: `Oracle.
 crn_nextobs()` — the method that decided where each replication's stream
 landed — always jumped from its own internally-tracked `crn_obsold`,
-never from `self.rng`'s live state, so the example search-based solver's `rng.setstate(start_
-state)` call is honored for exactly one draw (`g()` runs before `crn_
-nextobs()` does) and ignored for every replication after the first
-within that `hit()` call, and for `end_state` itself — confirmed
-empirically, not inferred, by checking `self.crn_obsold ==
-self.rng.getstate()` at the moment `crn_nextobs()` consults it, against
-a real the example search-based solver run (`crn_obsold` never matched). Full derivation in
-`docs/example-solvers.md` item 4, alongside item 3's
-aliasing bug this is distinct from — that bug corrupts an already-
-partial mechanism, it isn't the only thing standing between today's code
-and its intended synchronization.
+never from `self.rng`'s live state, so the example search-based
+solver's `rng.setstate(start_state)` call was honored for exactly one
+draw (`g()` ran before `crn_nextobs()` did) and ignored for every
+replication after the first within that `hit()` call, and for
+`end_state` itself — confirmed empirically, not inferred, by checking
+`self.crn_obsold == self.rng.getstate()` at the moment `crn_nextobs()`
+consulted it, against a real run of that solver (`crn_obsold` never
+matched). Full derivation in `docs/example-solvers.md` item 4, alongside
+item 3's aliasing bug this is distinct from — that bug corrupted an
+already-partial mechanism; it was not the only thing standing between
+that code and its intended synchronization.
+
+**A second correction (2026-11-23): in this framework the mechanism
+achieves nothing.** Since §12 step 4b's cutover on the default path
+(commit `18ab096`) and §12 step 9 on the CRN path (commit `390ce4e`),
+`hit()` computes every stream from `_orc_root`, read once in
+`set_crnflag()` before any solver is constructed, and never reads
+`Oracle.rng`. The solver's `setstate()` calls therefore change no result
+— measured, both `crnflag` values, MRG32k3a and MRG31k3p — and under
+Philox, whose stream has no `getstate()`/`setstate()`, the solver refuses
+to run. `docs/example-solvers.md` item 4 has the measurement.
 
 Concretely, this means `self.orc.hit(x, ax, sync=nx[x])` does not
 reproduce what the `self.seeds`-based search-based solver actually
-computes today — it reproduces what its *intended* policy computes, which today's
-implementation only partially achieves (correctly for each checkpoint's
-first replication, not for the rest). **Porting the example search-based solver onto `sync=`
+computes today — it reproduces what its *intended* policy computes,
+which today's implementation does not achieve at all (and which the
+1.0.8-era framework achieved only for each checkpoint's first
+replication). **Porting the example search-based solver onto `sync=`
 is therefore a behavior change to that solver, not a refactor of it** —
 this document's own working-agreement discipline (CLAUDE.md: patching
 vs. rewriting, and reporting findings before fixing them) applies to
@@ -2062,7 +2076,8 @@ existing code, surfaced rather than guessed.
       at equal sample effort share streams. Per-point continuation
       gives exactly that, with no solver-side state. (The example
       search-based solver's `self.seeds` bookkeeping reaches for this
-      policy and only partly achieves it, §4.3.)
+      policy and, in this framework, achieves none of it: §4.3 and
+      `docs/example-solvers.md` item 4.)
     - It makes CRN the default path with the point and visit terms
       dropped from the coordinate, rather than a separate rule about
       rewinding -- one fewer concept.

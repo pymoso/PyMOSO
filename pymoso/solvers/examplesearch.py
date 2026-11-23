@@ -8,6 +8,7 @@ from itertools import product
 from math import ceil, floor, log
 
 from ..chnbase import MOSOSolver, reject_unknown_params
+from ..prng import registry
 from ..moso import get_setnbors, get_nondom, enorm, edist, sum_left_to_right
 
 #*************************
@@ -62,6 +63,24 @@ class ExampleSearchSolver(MOSOSolver):
                 'question 11; see also sections 4.2-4.3 and '
                 'docs/example-solvers.md). Run without '
                 '--crn.'.format(type(self).__name__)
+            )
+        # update_gbar checkpoints the oracle's own stream with
+        # getstate()/setstate(). hasattr is a sufficient probe here, and
+        # stays one even though RandomCompatAdapter defines both methods
+        # (to raise): orc.rng is never an adapter. set_crnflag(), which
+        # solve() and testsolve() call before constructing any solver,
+        # raises for an Oracle over a wrapped stream, because the
+        # coordinate machinery needs the backend's own Stream class.
+        if not (hasattr(orc.rng, 'getstate') and hasattr(orc.rng, 'setstate')):
+            raise RuntimeError(
+                '{0} does not support --generator={1}: it checkpoints the '
+                'oracle\'s stream with getstate()/setstate(), which a {1} '
+                'stream does not provide. The checkpointing has no effect on '
+                'any result with the generators that do provide it '
+                '(docs/example-solvers.md, item 4). Run with --generator='
+                'mrg32k3a or mrg31k3p.'.format(
+                    type(self).__name__,
+                    registry.GENERATOR_NAMES[registry.backend_for_stream(orc.rng)])
             )
         self.num_samples = int(kwargs.pop('numsamples', 8))
         try:

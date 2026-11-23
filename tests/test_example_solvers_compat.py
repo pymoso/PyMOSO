@@ -50,6 +50,28 @@ def test_solver_runs_to_completion(name, cls):
     assert len(end_seed) == 6
 
 
+PHILOX_KWARGS = {k: v for k, v in SOLVE_KWARGS.items() if k != "seed"}
+PHILOX_KWARGS["generator"] = "philox4x32"
+
+
+def test_search_solver_refuses_an_oracle_stream_that_cannot_checkpoint():
+    """ExampleSearchSolver calls getstate()/setstate() on the oracle's own
+    stream. Philox's has neither, so this used to fail inside solve()
+    with an AttributeError; it is refused at construction instead, the
+    way --crn is."""
+    with pytest.raises(RuntimeError) as exc_info:
+        solve(ProbTPA, ExampleSearchSolver, (40, 40), **PHILOX_KWARGS)
+    msg = str(exc_info.value)
+    assert "ExampleSearchSolver" in msg
+    assert "philox4x32" in msg
+    assert "docs/example-solvers.md" in msg
+
+
+def test_bnb_solver_runs_under_philox():
+    res, end_seed = solve(ProbTPA, ExampleBnBSolver, (40, 40), **PHILOX_KWARGS)
+    assert res is not None
+
+
 @pytest.mark.parametrize("name,cls", SOLVERS, ids=[c[0] for c in SOLVERS])
 def test_missing_lb_ub_raises_chained_typeerror(name, cls):
     kwargs = dict(SOLVE_KWARGS)

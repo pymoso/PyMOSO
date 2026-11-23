@@ -139,14 +139,17 @@ class Oracle(object):
     The stream the Oracle was constructed over. It identifies the
     selected generator (`type(self.rng)`, set_crnflag()) and supplies
     the root every coordinate is computed from (`rng.root_seed()`,
-    stored as `_orc_root`). hit() never draws from it and never moves
-    it: each replication's `g(x, rng)` call is handed its own fresh
-    stream at that replication's coordinate (docs/rng-interface-
-    design.md §12 step 9). Its state between calls means nothing to the
-    framework -- the example search-based solver, in-tree, still saves and restores it via
-    getstate()/setstate() as its own attempted cross-point
-    synchronization, which has no effect on what hit() draws (see
-    docs/example-solvers.md and §4.2/§4.3).
+    stored as `_orc_root`, read once in set_crnflag()). hit() never
+    draws from it and never moves it: each replication's `g(x, rng)`
+    call is handed its own fresh stream at that replication's
+    coordinate. True of the default branch since docs/rng-interface-
+    design.md §12 step 4b's cutover, and of every branch since §12
+    step 9. Its state after set_crnflag() means nothing to the
+    framework -- the example search-based solver still saves and
+    restores it via getstate()/setstate() as its own attempted
+    cross-point synchronization, which changes no result (measured:
+    docs/example-solvers.md item 4), and refuses a generator whose
+    stream has neither method.
     _iteration : int
     Count of completed _advance_iteration() calls (one per RA
     iteration). The

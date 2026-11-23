@@ -115,19 +115,15 @@ value compute the identical stream independently, with nothing written
 and therefore nothing to overwrite. Porting the solver onto that interface
 is the actual fix; patching the dict now would be thrown away.
 
-**Related but distinct — see item 4 below, found afterward:** even
-before the aliasing bug can corrupt a checkpoint, the checkpoint values
-`self.seeds` records are not what this section assumes they are.
+**Harmless today, and only because of item 4:** the checkpoints the
+aliasing corrupts are passed to `setstate()`, which has no effect on any
+result in this framework, so a clobbered checkpoint changes nothing. The
+aliasing becomes live again the moment the checkpointing is made to take
+effect by any route that keeps `self.seeds`; the `sync=` port above is
+the route that removes it. That is a reason to keep this item, not to
+drop it.
 
-## 4. The search-based solver's `rng.setstate()` calls are not actually honored by the framework's jump computation, beyond each call's first replication
-
-Found while implementing `docs/rng-interface-design.md` §12 step 3
-(replacing `Oracle`'s CRN protocol), not while reviewing the solver
-itself — but it changes what item 3 above is describing, so it belongs
-here too, not only in the RNG design doc. Distinct from item 3's
-aliasing bug and more fundamental: even a version of `self.seeds` that
-never aliased would not give the solver the synchronization §4.2/item 3
-describe as "confirmed deliberate."
+## 4. The search-based solver's checkpointing is dead code: inert on the MRG family, refused on Philox
 
 `update_gbar`'s mechanism:
 
@@ -139,43 +135,82 @@ end_state = self.orc.rng.getstate()
 self.seeds[end_num] = end_state
 ```
 
-This assumes `setstate(start_state)` puts `hit()`'s entire replication
-sequence — and therefore `end_state` — under the caller's control.
-Checked directly against the pre-step-3 framework code, not assumed:
-`Oracle.crn_nextobs()`, the method that decided where each replication's
-stream landed, always jumped from `self.crn_obsold` — a value the
-`Oracle` tracks internally across *every* `hit()`/`bump()` call
-regardless of which point called it — never from `self.rng`'s actual,
-live state. Instrumenting `crn_nextobs()` directly against a real
-run of this solver confirmed `self.crn_obsold` never equals
-`self.rng.getstate()` at the moment it's consulted.
+This assumes `setstate(start_state)` puts `hit()`'s replications, and
+therefore `end_state`, under the caller's control. **In this framework
+it controls nothing, and nothing warns.** `Oracle.hit()` computes every
+replication's stream from `_orc_root`, which `set_crnflag()` reads from
+`orc.rng` once; `chnutils.solve()` and `paths.run_path()` call
+`set_crnflag()` before the solver is constructed. Each `g()` call is
+handed a fresh stream at its replication's coordinate, never `orc.rng`,
+and nothing in `hit()` reads `orc.rng` again. So `setstate()` changes no
+result and `getstate()` records a position nothing uses.
 
-`setstate(start_state)` is honored for exactly one draw: `g()` runs
-before `crn_nextobs()` does, so the *first* replication of a given
-`hit()` call genuinely draws from `start_state`. Every replication after
-the first (whenever `ax > 1`), and `end_state` itself, come from the
-framework's own `crn_obsold` sequence instead — one counter shared
-across every point's `hit()` calls, order-dependent, unrelated to
-`start_state` except by coincidence. So `self.seeds[end_num]` does not
-record "`start_state` advanced by `ax` replications"; it records
-wherever the shared global walk happened to be when this call returned.
+When it went dead, by branch:
 
-The result: the solver's cross-point synchronization has only ever been
-partially real, independent of item 3's aliasing bug. A checkpoint's
-first replication reflects the intended shared position; nothing else
-recorded for later reuse does, and a later revisit to that checkpoint
-replays the same partial effect, not a full re-synchronization.
+- **Default path (`crnflag=False`)**, the only one this solver runs,
+  since it refuses `--crn`: at `docs/rng-interface-design.md` §12 step
+  4b's cutover, commit `18ab096`, which routed it through
+  `_hit_via_coordinate` and the fixed `_orc_root`.
+- **`--crn` path:** at §12 step 9, commit `390ce4e`, which converged the
+  CRN branch onto `_hit_via_coordinate`; from then `hit()` "no longer
+  draws from or reseeds `Oracle.rng` on any branch".
+
+**Measured (2026-11-23, Python 3.10 and 3.14, MRG32k3a and MRG31k3p,
+both `crnflag` values).** Calling `setstate()` to an unrelated state
+before every `hit()`, and the solver's own `setstate`/`hit`/`getstate`
+pattern, each left every `hit()` result, the end seed and the
+high-water mark unchanged. A `setstate()` *before* `set_crnflag()` did
+change them, because that is where the root is read. `g()` was handed
+`orc.rng` in 0 of 96 calls. A whole `ExampleSearchSolver` run
+(`ProbTPA`, budget 1,000) gave the identical solution and end seed with
+`setstate()` replaced by a no-op (200 calls swallowed) and with it
+jumping to an unrelated state on every call.
+
+**One defect, two symptoms.**
+
+- **MRG family:** the calls run and do nothing.
+- **Philox:** `Oracle.rng` is a raw `Philox4x32Stream`, which has
+  neither method, so the first `getstate()` raised `AttributeError` from
+  inside `solve()`. The solver now refuses Philox at construction, beside
+  its `--crn` refusal, with an error naming the generator
+  (`tests/test_example_solvers_compat.py`). The refusal tests for the
+  methods, not for the generator's name.
+
+The checkpointing is kept, not deleted: it is the case
+`docs/rng-interface-design.md` §4.2-4.3 gives as the motivation for
+`sync=`.
+
+**The fix is a port, after 2.0.0, not a wording change.** `sync=`
+provides what the checkpointing reaches for:
+`self.orc.hit(x, ax, sync=nx[x])` gives every point at the same
+cumulative sample effort the same streams, computed rather than stored.
+That changes what the solver computes and moves its goldens, so it
+needs the sign-off any behaviour change does (§4.3).
+
+**Historical: the framework before the redesign.** Found while
+implementing §12 step 3 (replacing `Oracle`'s CRN protocol). In the
+1.0.8-era framework, `Oracle.crn_nextobs()`, which decided where each
+replication's stream landed, always jumped from `self.crn_obsold`, a
+value the `Oracle` tracked across *every* `hit()`/`bump()` call
+regardless of which point called it, never from `self.rng`'s live
+state. Instrumenting `crn_nextobs()` against a real run of this solver
+confirmed `self.crn_obsold` never equalled `self.rng.getstate()` when it
+was consulted. `setstate(start_state)` was honored for exactly one draw:
+`g()` ran before `crn_nextobs()` did, so the *first* replication of a
+`hit()` call drew from `start_state`, and every later replication, and
+`end_state` itself, came from the shared `crn_obsold` walk. Under that
+framework the synchronization was partly real: correct for each
+checkpoint's first replication, not for the rest. Between step 3 and
+step 4b the default path drew from `Oracle.rng` directly; what
+`setstate()` did in that window was not measured.
 
 **This changes the scope of any future review of this solver, not
-just its findings.** "Does the synchronization mechanism actually take
-effect" is now a question that review needs to check directly, not an
-assumption it can carry in from this file's own prior framing (including
-item 3 above, as originally written) or from the implementation's own
-comments. See also `docs/rng-interface-design.md` §4.3: porting the
-solver onto `sync=` may
-not be *preserving* this behavior so much as *implementing the
-synchronization's intent for the first time* — a distinction with
-consequences for what "porting" means, spelled out there.
+just its findings.** Whether the synchronization takes effect has to
+be checked directly, not carried in from the code's comments or from
+earlier versions of this file: under the 1.0.8-era framework it partly
+did, and under this one it does not at all. Porting the solver onto
+`sync=` would implement the synchronization's intent for the first
+time, which is why that port is a behaviour change (§4.3).
 
 ## Other notes
 
