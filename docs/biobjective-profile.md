@@ -90,11 +90,10 @@ by simulating would pay the full replication cost.
 This is `docs/rng-interface-design.md` §11 entry 13, deferred because
 it is not result-preserving: the repeat draws further replications,
 which can change a randomly-feasible point's outcome and moves the
-high-water mark, and so the end seed. It is not a step-2 fix.
+high-water mark, and so the end seed.
 
 *Correction, the same day, after measuring it* (`docs/phase7-plan.md`,
-step 1b). The end-seed part was reasoning, not measurement, and is
-wrong as a general statement. A repeat moves the high-water mark only
+step 1b). A repeat moves the high-water mark only
 when the repeated point has the largest point code touched in the
 final iteration. A shadow cache left the solution, every iteration's
 set and the end seed identical in all 42 runs tried, and in the full

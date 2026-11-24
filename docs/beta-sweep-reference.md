@@ -254,9 +254,3 @@ repository, so this is a difference between the published runs and
 these, recorded and not explained. It is not evidence about the
 formula, which is decided.
 
-## What this leaves open
-
-Whether the README's description of `betaeps`, or the guidance step 8
-writes, should say where these problems put the default is a decision,
-not something this sweep settles. The sweep covers one solver, two
-problems, one budget and 100 runs.
