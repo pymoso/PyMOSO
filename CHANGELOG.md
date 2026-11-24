@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0
+## 2.0.0 2026-11-23
 
 **Upgrading from 1.1.0? The changes you may have to make are in the
 first section below.** Upgrading from 1.0.x: read the 1.1.0 section
